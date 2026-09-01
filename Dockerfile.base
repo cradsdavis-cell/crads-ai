@@ -1,0 +1,82 @@
+# ============================================================================
+# ai-os-base — shared runtime for the member + rock variants.
+# A runtime, not a runnable box: no WORKDIR/app content, no COPY, no entrypoint.
+# The slow steps (code-server download + the 3-plugin bake) live here so both
+# variants reuse the layer. Split from the single Dockerfile 2026-07-16.
+# ============================================================================
+FROM node:24-slim
+
+# openssh-client is the one net-new package vs the old single image: the member's
+# ic-sync ssh:// pull needs `ssh`, the rock's stamp-pebble needs `ssh-keygen`.
+# openssh-sftp-server (2026-07-23): the Claude Code desktop app opens an SFTP
+# subsystem to bootstrap its remote agent. The host sshd force-commands every
+# login into THIS container (enter-aios), so the sftp branch of enter-aios hands
+# off to /usr/lib/openssh/sftp-server IN HERE, which must therefore exist. Without
+# it the app fails at connect time with "Couldn't open an SFTP session".
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git ca-certificates curl tini python3 python3-venv cron gnupg openssh-client openssh-sftp-server \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- workspace-mcp (PINNED): serves a member's BYO-Google connection ---
+# Baked, not fetched on demand: the box has no uv, and a first tool call that
+# waits on a pip download is indistinguishable from broken. The version is
+# pinned because engine/comms/mcp-token.mjs writes this exact package's
+# credential-file schema (docs/design-google-byo-connect.md § serving server);
+# bump the two together. mcp-connect.mjs add-google points at this path (GWS_BIN).
+ARG WORKSPACE_MCP_VERSION=1.24.1
+RUN python3 -m venv /opt/gws \
+    && /opt/gws/bin/pip install --no-cache-dir "workspace-mcp==${WORKSPACE_MCP_VERSION}" \
+    && /opt/gws/bin/workspace-mcp --help >/dev/null
+
+# GitHub CLI (device-flow backup auth). cron drives the optional per-box cadence.
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+      > /etc/apt/sources.list.d/github-cli.list \
+    && apt-get update && apt-get install -y --no-install-recommends gh \
+    && rm -rf /var/lib/apt/lists/*
+
+# git: trust the mounted repo regardless of owner uid; force HTTPS for any SSH refs.
+RUN git config --system --add safe.directory '*' \
+    && git config --system url."https://github.com/".insteadOf "git@github.com:"
+
+# --- Claude Code CLI (PINNED — the plugin-bake contract depends on a fixed CLI) ---
+ARG CLAUDE_CLI_VERSION=2.1.187
+RUN npm install -g "@anthropic-ai/claude-code@${CLAUDE_CLI_VERSION}"
+
+# --- Browser VS Code: code-server (MIT), server bundled, no runtime download ---
+ARG CS_VERSION=4.125.0
+ARG TARGETARCH
+RUN set -eux; \
+    case "${TARGETARCH:-amd64}" in arm64) A=arm64 ;; *) A=amd64 ;; esac; \
+    curl -fL "https://github.com/coder/code-server/releases/download/v${CS_VERSION}/code-server-${CS_VERSION}-linux-${A}.tar.gz" \
+      | tar -C /opt -xz; \
+    ln -sf "/opt/code-server-${CS_VERSION}-linux-${A}/bin/code-server" /usr/local/bin/code-server; \
+    code-server --version
+
+# --- Claude Code VS Code extension (baked outside /state; world-readable) ---
+ENV CODE_SERVER_EXTENSIONS_DIR=/opt/vscode-extensions
+RUN code-server --extensions-dir "$CODE_SERVER_EXTENSIONS_DIR" --install-extension anthropic.claude-code \
+    && code-server --extensions-dir "$CODE_SERVER_EXTENSIONS_DIR" --list-extensions \
+    && chmod -R a+rX "$CODE_SERVER_EXTENSIONS_DIR"
+
+# --- Pre-bake the 3 Claude Code plugins (no login; clone public repos) ---
+RUN set -eux; \
+    export CLAUDE_CONFIG_DIR=/state/.claude-auth; \
+    mkdir -p "$CLAUDE_CONFIG_DIR"; \
+    claude plugin marketplace add anthropics/claude-plugins-official; \
+    claude plugin marketplace add obra/superpowers-marketplace; \
+    claude plugin marketplace add jnuyens/gsd-plugin; \
+    claude plugin install superpowers@superpowers-marketplace; \
+    claude plugin install gsd@gsd-plugin; \
+    claude plugin install skill-creator@claude-plugins-official; \
+    claude plugin list; \
+    cp -a /state/.claude-auth /opt/claude-plugins-template; \
+    rm -rf /state
+
+ENV STATE_DIR=/state \
+    CLAUDE_CONFIG_DIR=/state/.claude-auth \
+    CLAUDE_PLUGIN_TEMPLATE=/opt/claude-plugins-template
+VOLUME ["/state"]
+# Variants add WORKDIR /app, COPYs, and the entrypoint. Deliberately no jq (rock-only).

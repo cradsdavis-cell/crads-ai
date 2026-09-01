@@ -1,0 +1,88 @@
+# ============================================================================
+# ai-os-parent: the factory / rock control brain, for ANY deployment. Base + jq + the factory.
+# `base` is provided by docker-bake.hcl (contexts = { base = "target:base" }).
+# Standalone build: docker build --build-context base=docker-image://ghcr.io/cradsdavis-cell/ai-os-base:v1 -f Dockerfile.rock .
+# Provisioning is BAKED here (bake model, RESOLVED D10): AIOS_DIR=/app. The .dockerignore
+# keeps provisioning/managed/.env.local + state/ OUT of the build context, so no token bakes.
+#
+# STAGED, NOT BAKED: this image carries nothing org-specific. The deployment (name, domain,
+# operators, brain root) is read at container start from /state/deployment.yaml by boot-rock.sh.
+# One image, N deployments; IC is deployment #1.
+# ============================================================================
+FROM base
+
+# jq: factory-critical (provision-pebble.sh:21, lib.sh). The member never gets it.
+RUN apt-get update && apt-get install -y --no-install-recommends jq \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+# engine/: only ops/box-account.mjs (guard) + ops/delete-box.mjs are used by the rock.
+COPY engine/ ./engine/
+# provisioning/: the factory.
+COPY provisioning/ ./provisioning/
+# rock-machinery/: the fleet control-plane, an authored generic ai-os module (clean by
+# construction, never generated from an operator's personal brain). boot-rock.sh links it
+# to $BRAIN_ROOT/cockpit at start.
+COPY rock-machinery/ ./rock-machinery/
+# brain-control/: the rock brain's reconcile machinery (control/, orchestrator/,
+# plus the registry/ and factory/ modules they import), vendored from
+# brain-template and COMMITTED here. boot-rock.sh overlays it onto $BRAIN_ROOT at
+# start, so "Update and restart" updates it.
+#
+# Committed rather than cloned at bake time, for two reasons. brain-template is
+# private and the workflow's GITHUB_TOKEN is scoped to this repo, so a bake-time
+# clone cannot authenticate without a new secret. And it would be wrong even if
+# it could: cloning main at bake time makes the same ai-os commit produce
+# DIFFERENT images at different times, which is exactly what D30's immutable
+# per-commit tags promise it does not. Vendored-and-committed makes the image a
+# pure function of this commit.
+#
+# brain-template stays the source of truth and keeps the tests. To pick up a
+# machinery change: run scripts/vendor-brain-control.sh and commit the result.
+COPY brain-control/ ./brain-control/
+# D55 host-update channel: same fixed path as the member image (/app/host-updates)
+# so ONE host-side applier serves both editions; the provisioning/ COPY above also
+# carries it, but the applier must never care which edition it is talking to.
+COPY provisioning/host-updates/dist/ ./host-updates/
+COPY provisioning/rock/boot-rock.sh /usr/local/bin/boot-rock.sh
+# connect-github: the ONLY way a box-born org brain gets an offsite copy
+# (ownership ruling 2026-08-09 — the repo is the org's own, never the
+# platform's), so it must be on PATH here exactly as on the member image.
+RUN chmod +x /app/engine/connect-github.sh \
+    && ln -sf /app/engine/connect-github.sh /usr/local/bin/connect-github
+RUN chmod +x /usr/local/bin/boot-rock.sh \
+    # factory tokens: lib.sh sources .env.local from its own dir (baked, read-only at run
+    # time), so bake a symlink onto the staged /state secret now. Dangling until the box
+    # stages the target; [ -f ] through a dangling link is false, so unstaged stays a no-op.
+    && ln -s /state/secrets/provisioning.env.local /app/provisioning/managed/.env.local
+# NB: no `COPY config/`: the rock runs boot-rock.sh, not box-up.sh, so it never
+# seeds profile.yaml from config/profile.schema.yaml (its identity is hand-written).
+
+# BRAIN_ROOT is the generic default only; boot-rock.sh overrides it from deployment.yaml
+# (brain_root). No org-named env var exists in this image.
+ENV STATE_DIR=/state \
+    CLAUDE_CONFIG_DIR=/state/.claude-auth \
+    BRAIN_ROOT=/state/brain \
+    AIOS_STATE_DIR=/state/.factory \
+    AIOS_DIR=/app
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD curl -fsS http://localhost:7781/healthz >/dev/null || exit 1
+
+# ---- build stamp (D55 fleet-version visibility, 2026-08-23) ---------------------
+# WHY THIS EXISTS: heartbeat.mjs has reported `app_commit` since the three-layer
+# work, and it was ALWAYS null. It shelled `git -C /app rev-parse HEAD`, but
+# `.git` is the first line of .dockerignore, so /app/.git has never existed in
+# any image we shipped. The field that was supposed to answer "did the update
+# land on that box" answered nothing, silently, on every box in the fleet.
+#
+# The sha therefore has to be baked at BUILD time. It is written last so the
+# layer is cheap and always reflects THIS build rather than a cached base.
+ARG BUILD_SHA=unknown
+ARG BUILD_TAG=unknown
+RUN printf '{"sha":"%s","tag":"%s","built_at":"%s"}\n' \
+      "$BUILD_SHA" "$BUILD_TAG" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /etc/aios-build \
+    && chmod 0444 /etc/aios-build
+ENV AIOS_IMAGE_TAG=$BUILD_TAG
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/boot-rock.sh"]

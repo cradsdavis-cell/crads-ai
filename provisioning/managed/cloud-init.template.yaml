@@ -1,0 +1,371 @@
+#cloud-config
+# AI OS — managed pebble box, first-boot config.
+# Rendered per pebble by provision-pebble.sh (the __TOKENS__ are substituted at
+# provision time). The rendered copy carries the pebble password + tunnel token,
+# so it is written to a temp file and deleted after the create call — never committed.
+#
+# Security model: NO inbound ports. The pebble reaches browser VS Code only through
+# an OUTBOUND cloudflared tunnel; code-server (7781) + cockpit (7780) are published
+# to 127.0.0.1 on the host, so they are never internet-reachable. UFW denies inbound
+# as defence-in-depth. Break-glass = the Hetzner web console.
+
+users:
+  - default
+  - name: aios
+    # Dedicated service account that owns /state and runs docker. No shell/login.
+    # CAVEAT: on rootful Docker, docker-group membership is root-equivalent. This is
+    # acceptable for one-pebble-per-VM (blast radius = one pebble) — NOT a sandbox.
+    shell: /usr/sbin/nologin
+    groups: [docker]
+    lock_passwd: true
+  # D32/D44: the member's SSH front door (Claude Code app + member companion app).
+  # Created on EVERY box but INERT unless a real key was stamped in: the sentinel
+  # below can never authenticate, and the firewall only opens port 22 when a key
+  # was supplied (see __SSH_FIREWALL_RULE__). Docker-group caveat as above: host
+  # root on their OWN one-member VM, which the member owns anyway.
+  - name: member
+    groups: [docker]
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - __MEMBER_PUBKEY__
+
+timezone: Australia/Sydney
+
+package_update: true
+package_upgrade: false        # keep first boot fast + deterministic
+packages:
+  - curl
+  - ca-certificates
+  - ufw
+  - fail2ban        # idle while inbound is denied; brute-force guard once member SSH opens 22
+
+write_files:
+  # Container env (--env-file). No `owner: root:aios` here: write_files runs BEFORE
+  # the users module creates `aios`, and referencing it aborts the whole block.
+  # Chowned in runcmd instead.
+  - path: /etc/ai-os/env
+    permissions: '0640'
+    content: |
+      PASSWORD=__PEBBLE_PASSWORD__
+      # App-first (2026-08-05): no code-server, PASSWORD inert, kept because the
+      # renderer needs the key. Prose here costs budget (cloud-init-size.test).
+      BROWSER_IDE=off
+      AIOS_OWNER_EMAIL=__OWNER_EMAIL__
+      # -> secrets/box_reg_host (engine/box/mineral-arm.mjs). Not derivable in
+      # the container: os.hostname() there is the docker id.
+      AIOS_BOX_HOST=__BOX_HOST__
+      AIOS_ANCHOR_ORG=__ANCHOR_ORG__
+      # member|org, fail-closed to member (engine/appshell/seed-pages.mjs).
+      AIOS_OWNER=__OWNER__
+      AIOS_BOX_NAME=__BOX_NAME__
+      TZ=Australia/Sydney
+
+  # D32/D44: the member SSH landing: interactive shells, the Claude Code app's
+  # remote-exec channel, AND its SFTP subsystem (D52) all end up INSIDE the
+  # container at the member's brain root (/state), never on a bare host. Same
+  # wrapper shape as the rock's aios-op. The sftp branch execs sftp-server
+  # directly (not via `bash -lc`, whose login-shell rc output would corrupt the
+  # SFTP stream); sftp-server ships in the image (Dockerfile.base). Without it the
+  # app fails at connect with "Couldn't open an SFTP session". Verified 2026-07-23.
+  #
+  # AND IT LOGS THE SIGHTING (2026-08-20). This script was `exec cat` and nothing
+  # else, invoked with %u and no %f. The ROCK template has carried the appender
+  # and the %f since 2026-08-13; the pebble never got it, and the two files are
+  # not generated from one source, so nothing noticed.
+  #
+  # What that cost, on the member's own page. The roster has had a last_seen
+  # column since 2026-08-04, and enrol-sync drains sightings from exactly one
+  # place: /state/devices/seen.log. No hook, no log, no drain, so no automated
+  # path ever wrote last_seen on a pebble and every machine rendered "no record
+  # yet" forever. A member with two laptops, one of them lost, opens Devices to
+  # decide which row to revoke and is shown two rows that look identical. The
+  # same page on a rock shows them which one has been used.
+  #
+  # enrol-sync's own comment said the gap was "older boxes", which was wrong in
+  # scope and is why this sat: it read as historical debt behind a disarmed
+  # host-update channel, when the template being stamped onto cohort-one boxes
+  # this week was missing the hook outright.
+  #
+  # A DUMB APPENDER, DELIBERATELY. It writes a line and nothing more: the roster
+  # YAML is roster.mjs's to own, inside the container, and this runs as root on
+  # the host. Guarded on the directory EXISTING rather than creating it, because
+  # creating it here would leave a root-owned /state/devices that the container
+  # then cannot write; the directory appears when the first roster row is
+  # written, which is also the first moment a sighting could mean anything.
+  # Self-truncating at 64 KiB so a box nobody drains cannot fill its own disk,
+  # and `|| true` throughout because a failed log line must never cost somebody
+  # their SSH login. An OFFER is not a proven login (sshd calls this before the
+  # signature check); enrol-sync.mjs carries that caveat in full.
+  #
+  # The rock's copy of this script carries five of these lines INSIDE its block
+  # scalar. They are not copied here on purpose: a comment inside `content: |`
+  # is file content, so it rides to every box against Hetzner's 32 KiB cap, and
+  # the exception the stripper makes for block scalars is for files a HUMAN reads
+  # on the box (the allowed_signers instructions an operator copies). Nobody
+  # opens /usr/local/bin/aios-state-keys on a pebble. The reviewable copy is
+  # here, in git, where it costs nothing and can be as long as it needs to be.
+  - path: /usr/local/bin/aios-state-keys
+    permissions: '0755'
+    content: |
+      #!/bin/sh
+      # Door for $1; log that key $2 knocked. Why: engine/devices/enrol-sync.mjs.
+      SEEN=/state/devices/seen.log
+      if [ -n "$2" ] && [ -d /state/devices ]; then
+        [ "$(wc -c < "$SEEN" 2>/dev/null || echo 0)" -gt 65536 ] && : > "$SEEN"
+        printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$2" >> "$SEEN" 2>/dev/null || true
+      fi
+      exec cat "/state/ssh/$1/authorized_keys" 2>/dev/null
+  - path: /etc/ssh/sshd_config.d/60-aios-member.conf
+    permissions: '0644'
+    content: |
+      PasswordAuthentication no
+      Match User member
+        ForceCommand /usr/local/bin/enter-aios
+        # %f = the offered key's fingerprint, which is what stampLastSeen matches
+        # on. Without it the hook cannot say WHICH machine knocked.
+        AuthorizedKeysCommand /usr/local/bin/aios-state-keys %u %f
+        AuthorizedKeysCommandUser root
+
+  # D55 host-update channel: signed host-script bundles ride the container image
+  # (/app/host-updates); this ROOT timer copies them out, verifies them against
+  # the pinned signer file below (ssh-keygen -Y), and applies monotonically-
+  # versioned fixes to host-side files cloud-init froze at provision time.
+  # DISARMED until a real signer line is committed below: the container and
+  # /state stay untrusted input — they can stage bytes but can never make root
+  # run them. Canonical applier + tooling: provisioning/host-updates/ (the
+  # embedded copy below is drift-tested against it).
+  - path: /etc/ai-os/host-update-signers
+    permissions: '0644'
+    content: |
+      # allowed_signers for aios-host-update (ssh-keygen -Y verify).
+      # One non-comment line arms the channel, e.g.:
+      #   updates@ai-os namespaces="aios-host-update" ssh-ed25519 AAAA...
+      # See provisioning/host-updates/README.md. No signer line = no-op.
+  #__HOST_SCRIPTS__
+  - path: /etc/systemd/system/ai-os-host-update.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=AI OS host-update applier (signed bundles from the box image)
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/bin/aios-host-update
+  - path: /etc/systemd/system/ai-os-host-update.timer
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=AI OS host-update timer (D55)
+
+      [Timer]
+      OnBootSec=5min
+      OnUnitActiveSec=30min
+      RandomizedDelaySec=5min
+
+      [Install]
+      WantedBy=timers.target
+  # Optional pre-seeded brain (profile.yaml + wiki/) — a base64 gzip tarball injected by
+  # provision-pebble.sh when SEED_DIR is set. Unpacked into /state in runcmd BEFORE the
+  # service starts, so box-up.sh sees a populated brain instead of an empty box. The
+  # __SEED_WRITE_FILES__ marker is a harmless YAML comment when no seed is supplied.
+  #__SEED_WRITE_FILES__
+
+  # systemd unit: runs the image's `up` mode, mounts /state, publishes loopback-only
+  - path: /etc/systemd/system/ai-os.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=AI OS (browser VS Code) for pebble
+      Requires=docker.service
+      After=docker.service network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      User=aios
+      Group=aios
+      SupplementaryGroups=docker
+      Restart=always
+      RestartSec=5
+      KillMode=none
+      TimeoutStartSec=600
+      ExecStartPre=-/usr/bin/docker pull __IMAGE__
+      ExecStartPre=-/usr/bin/docker rm -f ai-os
+      # Run the container as the non-root `aios` uid (the image is built for an arbitrary
+      # uid — see provisioning/run.sh + engine/box-up.sh). This keeps Claude Code out of
+      # in-container root, so it never holds the "master key" and --dangerously-skip-permissions
+      # works without faking a sandbox. `$$` escapes the `$` so systemd passes `$(...)` through
+      # for bash to expand at start time; aios already owns /state, so the mount stays writable.
+      ExecStart=/bin/bash -c 'exec /usr/bin/docker run --rm --name ai-os \
+        --user "$$(id -u):$$(id -g)" \
+        --env-file /etc/ai-os/env \
+        -v /state:/state \
+        -p 127.0.0.1:7781:7781 \
+        -p 127.0.0.1:7780:7780 \
+        __IMAGE__ up'
+      ExecStop=/usr/bin/docker stop ai-os
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  # --- Docker Engine (official apt repo, deb822, arch-aware → arm64 on CAX) ---
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - |
+    cat > /etc/apt/sources.list.d/docker.sources <<EOF
+    Types: deb
+    URIs: https://download.docker.com/linux/ubuntu
+    Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+    Components: stable
+    Architectures: $(dpkg --print-architecture)
+    Signed-By: /etc/apt/keyrings/docker.asc
+    EOF
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+  # --- /state owned by the service account ---
+  - mkdir -p /state /state/ssh/member
+  - chown -R aios:aios /state
+  - chmod 0750 /state
+
+  # --- seed the member's provisioning key INTO the device roster -------------
+  # Until now the stamped member key lived ONLY in the host's
+  # /home/member/.ssh/authorized_keys, which sshd reads via AuthorizedKeysFile,
+  # entirely separately from the AuthorizedKeysCommand roster. Two consequences,
+  # both bad and both proven on a live box: the member's own laptop never appeared
+  # in the app's Devices list, and "Revoke" could not revoke it, because
+  # device-sync.mjs owns the roster file and has no reach into the host one.
+  #
+  # It cannot be fixed from inside the box either: the container cannot see
+  # /home/member. So the roster is seeded HERE, at the one moment the key is known.
+  # `roster-cli adopt` then keeps working for the pre-roster boxes it was written for.
+  #
+  # WHOSE key it is has to be decided here too (finding 147, live QA 2026-08-16).
+  # The seed used to call whatever it found "This computer" unconditionally. On a
+  # pebble stamped BY A ROCK the member has no key yet, so fulfil-arrivals boots
+  # the box on the PLATFORM's enrolment key instead, and every rock-stamped pebble
+  # shipped with Crads-AI's own live shell access sitting on the member's Access
+  # page as their own laptop, Remove button and all, alongside a welcome email
+  # promising "nobody can see inside it". Verified byte-for-byte on qa-member-four
+  # and qa-member-five. The rock template has guarded exactly this confusion since
+  # finding 98 (the platform key must never be written into people/ as a person),
+  # and `roster-cli adopt` learned the same lesson on 2026-08-12 ("Adopted key",
+  # not "This computer"): do not claim to know which machine holds a key.
+  #
+  # The row is still WRITTEN, deliberately: it is named for what it is instead.
+  # Dropping it would leave the roster empty, the only-door switch below unarmed,
+  # and the platform key reachable through the host file where nothing in the
+  # product can revoke it. Named, it lands under the exact slug the handover
+  # already revokes (enrol-arrivals runs `roster-cli revoke crads-enrol`), which
+  # until now died on "no device crads-enrol" and reported the key still on the box.
+  #
+  # THE SEED ALSO WRITES THE DOOR THE ROSTER DERIVES.
+  # device-sync.mjs is the single writer of /state/ssh/member/authorized_keys,
+  # but it lives in the container, which is not up yet, and the roster-only Match
+  # block below is about to make that file the ONLY authority for member SSH.
+  # Same reason cloud-init has always seeded a rock's aios-op door: at birth the
+  # durable record has to come first.
+  #
+  # Before the self-host strip something always got there before anyone knocked
+  # (enrol-sync, or the device-sync call inside org-sync.sh). enrol-sync was
+  # deleted 2026-09-01 and org-sync exits at "not an org-managed box" long before
+  # that call, so an org-less box wrote the file NEVER: test-mineral-4 booted
+  # healthy, container running, image pulled, with member SSH shut and no root
+  # SSH to fix it from. device-sync re-derives it on first boot and owns it from
+  # then on, so the single-writer rule holds everywhere but birth.
+  #
+  # The chown moved to LAST on purpose. root writes both files, device-sync runs
+  # as the container's aios uid, and writeFileSync on a root-owned file is EACCES
+  # for it: chown before the write leaves a correct door that can never be
+  # updated again, so add and revoke would silently stop working.
+  #
+  # Two lines, and the chown folded into the existing one: this block ships
+  # inside a 31000 B payload, and only YAML-level comments like this one are
+  # stripped before it does. Prose belongs here, never inside the block.
+  - |
+    KEY="$(head -n1 /home/member/.ssh/authorized_keys 2>/dev/null | sed 's/[[:space:]]*$//')"
+    # Live-cert 2026-08-03: this used `case "$KEY" in ssh-ed25519\ *)`, a glob that
+    # also matched the SENTINEL provision-pebble writes when a box is stamped
+    # invite-pending ("ssh-ed25519 AAAA-no-member-key-staged disabled"), which is
+    # the NORMAL flow. So every invited box was born with a PHANTOM active device.
+    # Once the member's real device was approved the roster held two "active"
+    # rows, the lockout guard in roster-cli counted two, and the member could
+    # revoke their ONLY working key in one click. Reproduced on a real pebble:
+    # the revoke succeeded and SSH went to "Permission denied". These boxes have
+    # no root SSH, so that is a self-inflicted, effectively unrecoverable
+    # lockout. Match the real key SHAPE instead of any line that starts the same:
+    # the sentinel's blob carries hyphens and fails base64.
+    if printf '%s' "$KEY" | grep -Eq '^ssh-ed25519 [A-Za-z0-9+/]+={0,3}( [A-Za-z0-9@._-]{1,64})?$'; then
+        # Finding 147: the platform's own enrolment key boots every rock-stamped
+        # pebble, so name the row for whoever's key it is. "This computer" here is
+        # a claim about a machine, and on that path it was false and shipped.
+        SEED_SLUG=this-computer
+        SEED_LABEL="This computer"
+        case "$KEY" in
+          *\ crads-enrolment) SEED_SLUG=crads-enrol; SEED_LABEL="Crads-AI setup access (not your computer)" ;;
+        esac
+        mkdir -p /state/devices
+        # Byte-for-byte the shape roster.mjs render() emits: quoted scalars, no slug
+        # line (the slug IS the filename), vaultkey empty until the app mints one.
+        # Anything else and listDevices reads a device with no label or no key.
+        printf 'label: "%s"\nstatus: "active"\nadded: "%s"\nrevoked: ""\nlast_seen: ""\nvaultkey: ""\npubkeys:\n  - %s\n' \
+          "$SEED_LABEL" "$(date -u +%Y-%m-%d)" "$KEY" > "/state/devices/$SEED_SLUG.yaml"
+        # Birth-seed the door the roster derives (see the note above the block).
+        mkdir -p /state/ssh/member
+        printf '%s\n' "$KEY" > /state/ssh/member/authorized_keys
+        chown -R aios:aios /state/devices /state/ssh
+    fi
+
+  # --- make the roster the ONLY door, but ONLY once it demonstrably holds a key --
+  # Order is everything here. `AuthorizedKeysFile none` inside the member Match
+  # block is what finally makes Revoke true, because sshd then consults nothing but
+  # the roster. Written the wrong way round it is a total lockout: these boxes have
+  # NO root SSH at all (the Hetzner project holds zero keys), so the only way back
+  # in would be rescue mode. So it is applied conditionally, after the seed above,
+  # and never on a box whose roster came out empty. A box that keeps reading the
+  # host file is a box with one stale key too many; a box that reads neither is a
+  # brick.
+  #
+  # TWO FILENAMES since finding 147 (2026-08-16): the seed above names the row for
+  # whoever's key it is, so a rock-stamped pebble writes crads-enrol.yaml and
+  # nothing else. Testing only for this-computer.yaml would leave every such box
+  # reading the host file forever, which is the unrevokable-key half of the bug
+  # this switch exists to close.
+  - |
+    if [ -s /state/devices/this-computer.yaml ] || [ -s /state/devices/crads-enrol.yaml ]; then
+      printf 'Match User member\n    AuthorizedKeysFile none\n' > /etc/ssh/sshd_config.d/61-aios-roster-only.conf
+      chmod 0644 /etc/ssh/sshd_config.d/61-aios-roster-only.conf
+      sshd -t && systemctl reload ssh 2>/dev/null || rm -f /etc/ssh/sshd_config.d/61-aios-roster-only.conf
+    fi
+
+  # --- seed the brain into /state (no-op unless provision-pebble.sh injected a tarball) ---
+  #__SEED_RUNCMD__
+
+  # --- Firewall: deny inbound, allow egress (cloudflared dials out on 7844) ---
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow out 7844/tcp
+  - ufw allow out 7844/udp
+  # opt-in break-glass SSH (key-only): the script substitutes "ufw allow 22/tcp" when
+  # OPERATOR_SSH_KEY_NAME is set, else a no-op (fully locked, web-console break-glass).
+  - __SSH_FIREWALL_RULE__
+  - ufw --force enable
+
+  # --- cloudflared (token-based, remotely-managed tunnel) ---
+  - mkdir -p --mode=0755 /usr/share/keyrings
+  - curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+  - echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared noble main' > /etc/apt/sources.list.d/cloudflared.list
+  - apt-get update
+  - apt-get install -y cloudflared
+  - cloudflared service install __TUNNEL_TOKEN__
+
+  # --- Start the OS (chown the env file now that the aios user exists) ---
+  - chown root:aios /etc/ai-os/env
+  - systemctl daemon-reload
+  - systemctl enable --now ai-os-host-update.timer
+  - systemctl enable --now ai-os.service
+
+final_message: "AI OS cloud-init finished after $UPTIME seconds"

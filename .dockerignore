@@ -1,0 +1,17 @@
+.git
+node_modules
+harness/rounds
+harness/personas
+pebbles
+clients
+docs
+notes
+*.log
+.claude
+ai-os-image*.tar.gz
+
+# Secrets + per-pebble state must NEVER enter a docker build context (they are
+# git-ignored, so CI is safe, but a local `docker build .` would bake them in).
+**/.env.local
+.env
+provisioning/**/state/

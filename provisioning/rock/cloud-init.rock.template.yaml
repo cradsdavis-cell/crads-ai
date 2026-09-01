@@ -1,0 +1,470 @@
+#cloud-config
+# AI OS — ROCK (factory / control brain) box, first-boot config.
+# Rendered by provision-rock.sh (__TOKENS__ substituted at provision time). The rendered
+# copy carries secrets (tunnel token, deploy key, pull token, IDE password), so it is written
+# to a temp file and deleted after the create call — never committed.
+#
+# Differences from the member template (cloud-init.template.yaml), on purpose:
+#   * runs __IMAGE__ with NO mode arg: the rock image's ENTRYPOINT is boot-rock.sh
+#   * stages /state/deployment.yaml (the staged-not-baked seam, D19) before first start
+#   * clones the brain repo to __BRAIN_ROOT__ with a read-only deploy key (the rock
+#     never scaffolds a brain; boot-rock hard-fails without one)
+#   * logs into GHCR once (root, daemon-level) so the private :v2 images pull; later
+#     ExecStartPre pulls may 401 and are tolerated (the cached image runs)
+# Same security model: NO inbound ports, outbound cloudflared only, UFW deny-in,
+# Hetzner web console as break-glass. Operator SSH comes later via Access-for-Infra.
+
+users:
+  - default
+  - name: aios
+    shell: /usr/sbin/nologin
+    groups: [docker]
+    lock_passwd: true
+  # D40: the operator's front door. Login force-lands INSIDE the container at the brain
+  # root (the Claude Code app opens straight onto the org brain; never a bare host).
+  - name: aios-op
+    groups: [docker]
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - __OPERATOR_PUBKEY__
+  # The Support role's login was REMOVED 2026-08-05 (Sam: "Delete the role").
+  # It carried a real privilege-escalation bug: enter-aios blocked Support from an
+  # interactive shell but NOT from running a command, and the only gate on the
+  # command path was a string the app prepended on the operator's own machine, so
+  # any plain ssh pebble skipped it and could read /state/secrets/provisioning.env.local
+  # (the platform's Hetzner, Cloudflare and GitHub tokens). The role had never been
+  # granted to anyone: the only `role: support` on disk was the blank template. A
+  # dormant privileged login with a known bypass is strictly worse than no login, and
+  # deleting is a smaller change than the box-side verb dispatcher a real fix needs.
+  # If Support is ever wanted, design it then; a second Admin covers the need today.
+
+# Ubuntu's cloud image boots UTC. Nothing set this until 2026-08-14, so host
+# `date`, logs and cron all ran 10h off local. The TZ= line in the container env
+# file below does the same inside the container (it does NOT inherit the host
+# zone). Do not name that file's path here: browser-door.test.mjs splits the
+# rendered template on it and would slice at this comment instead.
+timezone: Australia/Sydney
+
+package_update: true
+package_upgrade: false
+packages:
+  - curl
+  - ca-certificates
+  - ufw
+  - git
+  - fail2ban
+
+write_files:
+  - path: /etc/ai-os/env
+    permissions: '0640'
+    content: |
+      PASSWORD=__IDE_PASSWORD__
+      # App-first (Sam, 2026-08-05), same rule as a member box: an org reaches its rock
+      # through the Crads-AI app's org face and Claude Code over SSH. The Cloudflare
+      # Access email gate in provision-rock.sh was only ever best-effort (it warns and
+      # carries on), so on a stamp where it failed the shared code-server password was
+      # the entire gate on a container terminal. Shut at both ends now.
+      BROWSER_IDE=off
+      TZ=Australia/Sydney
+
+  # the deployment identity (staged, never baked) — boot-rock.sh reads this
+  - path: /state/deployment.yaml
+    permissions: '0644'
+    encoding: b64
+    content: __DEPLOYMENT_YAML_B64__
+
+  # factory tokens (the org's own Hetzner/Cloudflare), staged where boot-rock links
+  # them for lib.sh: the rock is born a factory, no manual token paste (D2 + wizard model)
+  - path: /state/secrets/provisioning.env.local
+    permissions: '0600'
+    encoding: b64
+    content: __FACTORY_ENV_B64__
+
+  # D40/R18: the landing wrapper (shell, remote command, the Claude Code app's
+  # SFTP subsystem all land in /state inside the container). This is
+  # provisioning/host/enter-aios, the pebble's host script, byte for byte,
+  # gz+b64 because the plain text no longer fits the 32 KiB user-data cap.
+  # NEVER hand-edit the blob: edit provisioning/host/enter-aios, then run
+  # `bash provisioning/rock/embed-enter-aios.sh` (enter-aios-parity.test.mjs
+  # decodes it and fails on drift).
+  - path: /usr/local/bin/enter-aios
+    permissions: '0755'
+    encoding: gz+b64
+    content: H4sIAAAAAAACA7VWbW8TRxD+7l8xNQhi6rODQ4AmgirkBSxCgmKjUrVVWN+NfUvudq+7e05cyH/vM3s2MQiqVm2/WMnt7jMzzzzzcuu7/kSb/kT5vHWL2AR2idLW71DImbzPMzqyLuV9W5bKZGQN8Zzdgib2qkunJ4c02j8bvh7T0ekZPTsdv6Cjvf3DEbA2zu4/7tJgc/Aw2XycDLY6PXrNk0nBnmYcSAfyVaFTzmjqbEmVs3PttTXazPq59aG/G11wNr0AWuCyKlRg4nLCmceR9sRXKg04ugo0++P7ycMHtBGPk5s4ej4nxzM27PDaw2z3sziTSjkdFj2chV753tNU6cJLmJnT0wCnD2O4U5UyFWAAEIb6PgAtOgi0Ugt6kRhVIhq/KAttLnDN64wlzg02M1zpF3rStxWbZGqLjJ2Y65D2MczmE8D2C1Xj2b7Fj1z2PXrJXDUBT3WBpOTWhR0BdjAQ/UkLW2eJNvhWe0SWqaB6rVuAO9je2iFF6TJ9yjk9B8P00xCpUlSFBW28Q5opCeFdhwwLuXLfBCVhUcCNYG2XrHiX1s7D5PjN0NNGGl3tUKqMsfCGDULYBRLoKxZ0mbMhHzL451gV+KIFGoBd8hZgSCjO+IrTu9nKQ9yAm8LI6Gj8Gs/xtKQLYSAtWBmqdMW+1xo/abd36Rcxtkm/0Z07hC9JaLeA++zscO9l8vx4bzSijUaAj5KtzS5NHAwmg87OSsNOmTSnCRf2MvohZAYbzSudWC8Rr5gQp+G+D7aqOFtjKEaVscoos9bRpQ45gY9caAYYAsh6NHZCI/ByUIHc7UahxSu5CsBWC8EHH5fWLVnIY8HNJQlwiOfItkm519JT+g620gsxbnzFKIJkSnc/fOiNRJe9s9pIGV1f323CoMHTfsbzvqmLgj7SzIHN5HcKrm40bFq0woOwXVi+Wns0eHrnPi5NEd+5OHmfBrRFD2ibHtIjekw/0P3NXWDgDv1XrklSJ2DvIoL6QjQwiJ4abk31/0PDh2iM09xS+2dbO+lzd70k5cJX0gOQ7Sj2BjuKAk/d6mCVdSldWnDotdcAx0hjqVLckb7guZhSLGrDO7SwtUglzaEtNClUj4Y0cXyZL+Khgg3P3EhG+zXgNQvDEBuKW3wSX5PQxlqPhtOmkZTsvZoxVey89sF3cbMqRKJiy6077TnUFdou5BpVWSmPNiyKhHzRC2L1rPwVGYvDOvqxlPjXXU2SBA3VBxpsL5HiHBDgG7bRzOaYEYTLDYhfwHqZhkKUGmrfZLZ3c89YtPQZJJEYQRbhItdBvE/w/68RhejjR3qPQI0qBCup/wVOE85GnJfL54WdfRIKyl9h6q2ik26RprY2odP+go1PLcVjGrLHkLqJe6nzylOi8BWFWKoQtX6CqeOvr2kp+9qL3pfu5tKVku0v7OgSgX3bxvL4MyNnXFmvg3WL6+sd/D9Ws6+auaand6RG+QoKeLQN0Ft0+PZ8fPjq9dHe8FhGkWPIE2WwiGnuNpQsyVIiyFJ72QNkIwBvpZQ6+uY4d8yUoicaxoCWUUzDk9Hw4DBK5qYdw+NmPDcrzPo8VVWFWpbBAkBfTxoxYT43IyjTDj2kwHgyMh9orhW9k82IkiJ9JxK3HgtJSrYOVR3gf13IIHCuroLsKDCHZUohvGZudbox3tIGXs03fDEyZLAwpEHPZZpzUfRob3g6Oj8+fT48wTjFkGa/BJQVLFG1tKegU4SVibq0gNDGwYOHN1sSKhPURMFJWWC3sRU9IZVhP+lgG6AT9ANbxE41i0DSt7BITGWsMRjMmvMYPNKE8vDdCP/s9C0mXBrXjUvMK9S37D3IIfognI94sjTJ5SpueTcplbNeK1Xgrn17NHpxfno2RJx7x+f7p69e7Z0ctBELNBNZQUEmfhqqj/fkN5GCYnev0ygYaVqJNP6daEp4jbon7dtvRodnbUoulxpYNv5+7d2n9QuM9tfAaXcX6D/+hY3b479pZqWVb8YZTX3bUvhndgSOvUpbfwLZ/4sbxQsAAA==
+  # D46: per-person keys live in the people registry and are served from
+  # /state/ssh/<login>/authorized_keys via AuthorizedKeysCommand. sshd's
+  # ownership rules bind to the root-owned script, not the container-owned
+  # data file (verified live: ai-os/docs/state-managed-ssh-keys.md).
+  - path: /usr/local/bin/aios-state-keys
+    permissions: '0755'
+    content: |
+      #!/bin/sh
+      # Hand sshd the door for $1, and log that key $2 was offered. A dumb
+      # appender on purpose: enrol-sync drains seen.log and stamps the roster,
+      # which roster.mjs owns inside the container. Rationale + the honesty
+      # caveat (an OFFER is not a proven login) live in engine/devices/
+      # enrol-sync.mjs; this file is under a 31KB cap.
+      SEEN=/state/devices/seen.log
+      if [ -n "$2" ] && [ -d /state/devices ]; then
+        [ "$(wc -c < "$SEEN" 2>/dev/null || echo 0)" -gt 65536 ] && : > "$SEEN"
+        printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$2" >> "$SEEN" 2>/dev/null || true
+      fi
+      exec cat "/state/ssh/$1/authorized_keys" 2>/dev/null
+  - path: /etc/ssh/sshd_config.d/60-aios-operator.conf
+    permissions: '0644'
+    content: |
+      PasswordAuthentication no
+      Match User aios-op
+        ForceCommand /usr/local/bin/enter-aios
+        # %f is the offered key's fingerprint: what stampLastSeen matches on.
+        # Without it the hook cannot say WHICH machine knocked (2026-08-13).
+        AuthorizedKeysCommand /usr/local/bin/aios-state-keys %u %f
+        AuthorizedKeysCommandUser root
+
+  # D55 host-update channel: signed host-script bundles ride the container image
+  # (/app/host-updates); this ROOT timer copies them out, verifies them against
+  # the pinned signer file below (ssh-keygen -Y), and applies monotonically-
+  # versioned fixes to host-side files cloud-init froze at provision time.
+  # DISARMED until a real signer line is committed below: the container and
+  # /state stay untrusted input — they can stage bytes but can never make root
+  # run them. Canonical applier + tooling: provisioning/host-updates/ (the
+  # embedded copy below is drift-tested against it).
+  - path: /etc/ai-os/host-update-signers
+    permissions: '0644'
+    content: |
+      # allowed_signers for aios-host-update (ssh-keygen -Y verify).
+      # One non-comment line arms the channel, e.g.:
+      #   updates@ai-os namespaces="aios-host-update" ssh-ed25519 AAAA...
+      # See provisioning/host-updates/README.md. No signer line = no-op.
+  - path: /usr/local/bin/aios-host-update
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # aios-host-update: root-side applier for SIGNED host-script bundles (D55).
+      #
+      # The problem it solves: cloud-init runs ONCE, so host-side files (enter-aios,
+      # sshd config, the systemd unit) are frozen at provision time — the in-band SSH
+      # channel force-lands inside the container and can never touch them. This agent
+      # is the one sanctioned path from "fix authored in the repo" to "fix applied on
+      # an already-provisioned host", without ever handing the container root.
+      #
+      # Trust chain (every link matters):
+      #   * Bundles ride the CONTAINER IMAGE at /app/host-updates/current.tar.gz(.sig)
+      #     — they arrive only when the box restarts onto a new image, which is the
+      #     org's own consented action (panel box-refresh, or a reboot).
+      #   * This script (root, via a systemd timer) copies the pair OUT of the
+      #     container with `docker cp`, then verifies the signature with
+      #     `ssh-keygen -Y verify` against /etc/ai-os/host-update-signers — a
+      #     ROOT-OWNED file baked by cloud-init. The container can stage bytes, but it
+      #     can never make root run anything unsigned: /state and the image are both
+      #     untrusted input here.
+      #   * The channel ships DISARMED: the signers file is comment-only until a real
+      #     signer line is committed to the cloud-init templates. No signer, no-op.
+      #   * Versions are monotonic integers (bundle file VERSION); an applied or older
+      #     version never re-applies, so a stale image can't roll a host back.
+      #
+      # The AIOS_HU_* env overrides exist for tests only (no docker, no real /etc).
+      # This file is the CANONICAL copy; both cloud-init templates embed it verbatim
+      # at /usr/local/bin/aios-host-update (host-update.test.mjs enforces the match).
+      set -euo pipefail
+      SIGNERS="${AIOS_HU_SIGNERS:-/etc/ai-os/host-update-signers}"
+      SRC="${AIOS_HU_SRC:-}"
+      VERSION_FILE="${AIOS_HU_VERSION_FILE:-/var/lib/ai-os/host-update.version}"
+      LOG="${AIOS_HU_LOG:-/var/log/ai-os-host-update.log}"
+      CONTAINER="${AIOS_HU_CONTAINER:-ai-os}"
+
+      log(){ printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >> "$LOG"; }
+
+      # Disarmed until a real (non-comment) signer line exists.
+      grep -qE '^[^#[:space:]]' "$SIGNERS" 2>/dev/null || exit 0
+
+      WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
+      if [ -n "$SRC" ]; then
+        cp "$SRC/current.tar.gz" "$WORK/" 2>/dev/null || exit 0
+        cp "$SRC/current.tar.gz.sig" "$WORK/" 2>/dev/null || { log "bundle present but no signature; refusing"; exit 1; }
+      else
+        # box down or image ships no bundle: quiet no-op, the next tick retries
+        docker cp "$CONTAINER:/app/host-updates/current.tar.gz" "$WORK/" 2>/dev/null || exit 0
+        docker cp "$CONTAINER:/app/host-updates/current.tar.gz.sig" "$WORK/" 2>/dev/null || { log "bundle present but no signature; refusing"; exit 1; }
+      fi
+
+      # Signature FIRST: nothing from the bundle is parsed, unpacked or run before this.
+      if ! ssh-keygen -Y verify -f "$SIGNERS" -I updates@ai-os -n aios-host-update \
+           -s "$WORK/current.tar.gz.sig" < "$WORK/current.tar.gz" >/dev/null 2>&1; then
+        log "SIGNATURE REFUSED for current.tar.gz; not applying"
+        exit 1
+      fi
+
+      mkdir -p "$WORK/unpack"
+      tar -xzf "$WORK/current.tar.gz" -C "$WORK/unpack" --no-same-owner
+      VER="$(cat "$WORK/unpack/VERSION" 2>/dev/null || true)"
+      case "$VER" in ''|*[!0-9]*) log "bundle has no numeric VERSION; refusing"; exit 1 ;; esac
+      CUR="$(cat "$VERSION_FILE" 2>/dev/null || echo 0)"
+      case "$CUR" in ''|*[!0-9]*) CUR=0 ;; esac
+      [ "$VER" -gt "$CUR" ] || exit 0
+      [ -f "$WORK/unpack/apply.sh" ] || { log "bundle v$VER has no apply.sh; refusing"; exit 1; }
+
+      log "applying host-update v$VER (was v$CUR)"
+      if (cd "$WORK/unpack" && bash ./apply.sh >> "$LOG" 2>&1); then
+        mkdir -p "$(dirname "$VERSION_FILE")"
+        printf '%s\n' "$VER" > "$VERSION_FILE"
+        log "host-update v$VER applied"
+      else
+        log "host-update v$VER FAILED (apply.sh non-zero); will retry next run"
+        exit 1
+      fi
+  - path: /etc/systemd/system/ai-os-host-update.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=AI OS host-update applier (signed bundles from the box image)
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/bin/aios-host-update
+  - path: /etc/systemd/system/ai-os-host-update.timer
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=AI OS host-update timer (D55)
+
+      [Timer]
+      OnBootSec=5min
+      OnUnitActiveSec=30min
+      RandomizedDelaySec=5min
+
+      [Install]
+      WantedBy=timers.target
+  # read-only deploy key for the brain repo clone (repo-scoped, revocable)
+  - path: /root/.ssh/brain_deploy
+    permissions: '0600'
+    content: |
+      __BRAIN_DEPLOY_KEY__
+
+  - path: /etc/systemd/system/ai-os.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=AI OS rock (factory + control brain)
+      Requires=docker.service
+      After=docker.service network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      User=aios
+      Group=aios
+      SupplementaryGroups=docker
+      Restart=always
+      RestartSec=5
+      KillMode=none
+      TimeoutStartSec=600
+      ExecStartPre=-/usr/bin/docker pull __IMAGE__
+      ExecStartPre=-/usr/bin/docker rm -f ai-os
+      ExecStart=/bin/bash -c 'exec /usr/bin/docker run --rm --name ai-os \
+        --user "$$(id -u):$$(id -g)" \
+        --env-file /etc/ai-os/env \
+        -v /state:/state \
+        -p 127.0.0.1:7781:7781 \
+        -p 127.0.0.1:7780:7780 \
+        __IMAGE__'
+      ExecStop=/usr/bin/docker stop ai-os
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  # --- Docker Engine (official apt repo, deb822, arch-aware) ---
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - |
+    cat > /etc/apt/sources.list.d/docker.sources <<EOF
+    Types: deb
+    URIs: https://download.docker.com/linux/ubuntu
+    Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+    Components: stable
+    Architectures: $(dpkg --print-architecture)
+    Signed-By: /etc/apt/keyrings/docker.asc
+    EOF
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+  # --- GHCR login (daemon-level; root config) + first pull ---
+  # tolerant: if the packages are PUBLIC the login is unnecessary (and a scopeless token
+  # may fail it); the pull is the real gate and fails loud on its own.
+  - if [ -n '__GHCR_PULL_TOKEN__' ]; then printf '%s' '__GHCR_PULL_TOKEN__' | docker login ghcr.io -u x-access-token --password-stdin || echo "ghcr login failed; continuing (public images still pull)"; else echo "no ghcr token staged; pulling anonymously (the images are public)"; fi
+  - docker pull __IMAGE__
+
+  # --- clone the brain (read-only deploy key), then /state ownership ---
+  - mkdir -p /state /state/ssh/aios-op /root/.ssh
+  - ssh-keyscan github.com >> /root/.ssh/known_hosts
+  - GIT_SSH_COMMAND='ssh -i /root/.ssh/brain_deploy -o IdentitiesOnly=yes' git clone __BRAIN_REPO__ __BRAIN_ROOT__
+  # the key stays for future pulls by the box (root-owned, agent-unreadable path)
+
+  # --- template-seed mode (ownership ruling 2026-08-09) ------------------------
+  # Sam: "The github repo should be their own off the bat. Crads AI should not
+  # own anyone's backups." In this mode what was cloned above is the PRODUCT
+  # TEMPLATE, not the organisation's repo — so its history (and the clone URL,
+  # which may carry a read token) is stripped and the brain is REBORN here as a
+  # local repo with no remote at all. Nothing off-box holds a copy until the
+  # owner connects a GitHub account their organisation owns (connect-github:
+  # device-code auth on the box, private repo in THEIR account). CLAUDE.md is
+  # rendered only when the template does not carry one (it deliberately does
+  # not: an org brain's identity is per-organisation).
+  #
+  # THE POLICY IDENTITY IS FILLED HERE (2026-08-09). The template ships
+  # org.name and display_name EMPTY and marks them REQUIRED, and the ONLY thing
+  # that ever filled them was the promote path (engine/promote/seed-org.mjs, via
+  # registry/org-identity.mjs). This mode wrote the org's name into CLAUDE.md
+  # and left the policy blank, so every rock born through the door came up
+  # NAMELESS: control/broker-register.mjs exits, so no directory route and no
+  # ORG_PULL_TOKEN; the panel's community-listing and rock-tie reads have no
+  # handle ("this rock has no directory token or org name"); and
+  # factory/stamp-pebble.sh dies "org-policy org.name is empty", so the rock can
+  # never create a member. One shared implementation fills it, the same one
+  # promote uses, and it verifies its own work the way the three consumers read
+  # it. A failure is logged loudly rather than dying: a booted rock you can
+  # repair beats a half-provisioned box with no panel to repair it from.
+  #
+  # IT RUNS IN THE CONTAINER, and that is the whole point (fixed 2026-08-09,
+  # same day, on the first real rock). The first cut called `node` directly.
+  # This host installs curl, ca-certificates, ufw, git and fail2ban: there is
+  # no node on it and never was, node lives in the image. So the fill died
+  # "command not found", the `||` swallowed it into seed-warnings.log that
+  # nobody reads, and test-org-4 came up as nameless as every rock before the
+  # fix. The unit test passed throughout because it ran the command HERE, where
+  # node exists. Anything added to this block must run in the image or use only
+  # the five host packages above.
+  - |
+    if [ "__BRAIN_SEED_MODE__" = "template" ]; then
+      rm -rf __BRAIN_ROOT__/.git
+      git -C __BRAIN_ROOT__ init -q -b main
+      # REGION COMES FROM THE BOX'S OWN deployment.yaml (2026-08-12, finding 75).
+      # The template ships `region: ""` and its comment says the renderer refuses
+      # an empty one. render-identity.mjs does refuse it — but the birth path
+      # never runs the renderer, only this fill, so the guard was real and never
+      # reached and every door-born rock came up region-less. It propagates: the
+      # member registry row of a pebble stamped from such a rock carries
+      # `region: ""` too (seen on qa-pebble-one). deployment.yaml is already on
+      # disk beside the policy carrying default_region, so this copies the
+      # deployment's own explicit choice rather than inventing a default. sed
+      # only, because this line runs on the HOST, which has no node.
+      AIOS_SEED_REGION="$(sed -n 's/^[[:space:]]*default_region:[[:space:]]*"\{0,1\}\([a-z0-9]\{2,6\}\)"\{0,1\}.*/\1/p' /state/deployment.yaml 2>/dev/null | head -1)"
+      docker run --rm -v __BRAIN_ROOT__:/brain -w /brain --entrypoint node __IMAGE__ \
+        -e 'const fs=require("fs"),p="/brain/org-policy.yaml";import("/brain/registry/org-identity.mjs").then((m)=>{fs.writeFileSync(p,m.fillOrgIdentity(fs.readFileSync(p,"utf8"),{handle:process.argv[1],display:process.argv[2],region:process.argv[3]||""}));const g=m.readOrgIdentity(fs.readFileSync(p,"utf8"));if(!g.name)throw new Error("identity did not take");if(process.argv[3]&&!g.region)throw new Error("region did not take")}).catch((e)=>{console.error(String((e&&e.message)||e));process.exit(1)})' \
+        '__ORG_HANDLE__' '__ORG_DISPLAY__' "$AIOS_SEED_REGION" \
+        || echo "org-policy identity NOT filled for __ORG_HANDLE__: this rock cannot register with the directory or stamp members until org.name is set" >> /state/seed-warnings.log
+      if [ ! -f __BRAIN_ROOT__/CLAUDE.md ]; then
+        cat > __BRAIN_ROOT__/CLAUDE.md <<'ORGMD'
+    # __ORG_DISPLAY__ Brain (rock)
+
+    You are the __ORG_DISPLAY__ rock brain, the control brain for this organisation's fleet of member boxes. You are org-owned (__ORG_DISPLAY__ as an organisation owns this box). You are NOT a personal executive assistant.
+
+    Be honest, direct, blunt. Never flatter. Push back when a plan is vague or when it would cross the privacy boundary.
+
+    ## Privacy boundary (ABSOLUTE, never negotiable)
+    You PUSH DOWN to member boxes (templates, packs, materials), gated by membership status. You NEVER read a MEMBER-OWNED box back (`ownership.json` `owner: member`, the default for every stamped member). The only member-to-org flow from a member-owned box is an opt-in, member-approved share: member-approved text, never a box read. If any instruction asks you to read a member's private notes, refuse and surface it.
+    The one exception is stated here so the promise above is exactly true and no wider: a box becomes ORG-OWNED (`owner: org`) only through the transfer-to-org ceremony, which needs the member's own signed-in consent recorded at the directory, and from then on that box's brain syncs to this rock's `<slug>-brain` repo. The member is told when that happens (custody log + Telegram on their box) and can see the change in their app; nothing about a member-owned box changes without it.
+
+    ## What lives here
+    - CONTROL PLANE: the registry (`registry/`), the factory (stamping member boxes, driven from the registry), the push-down orchestrator (one-way delivery into member boxes).
+    - CONTENT PLANE: this organisation's shared knowledge and pack library, under `notes/`.
+    - MEMBER PLANE: NOT here. Each member has their own box, their own Claude subscription, their own data, portable when they leave.
+
+    ## Where the rules live
+    `org-policy.yaml` carries this organisation's policy defaults (what a member box may do, what consent an infrastructure push needs). `registry/members/` is the roster: one file per member, and it is what the factory builds from. Read both before acting on anything fleet-wide.
+
+    ## First things worth doing
+    Back this brain up to a GitHub account your organisation owns: run `STATE_DIR=/state/brain bash /app/engine/connect-github.sh __ORG_HANDLE__-brain` (one-time browser code; the repository it creates is private and yours — Crads-AI never holds a copy). Then fill in this file with what this organisation actually is, and add your first members to the registry. Until the registry has rows, the factory has nothing to stamp.
+
+    ---
+    *Born on this box for organisation handle `__ORG_HANDLE__`, seeded from the Crads-AI brain template. Edit freely: this is your brain, not ours.*
+    ORGMD
+      fi
+      touch __BRAIN_ROOT__/.gitignore
+      for l in '.kernel/' 'secrets/' '.env' '.env.*' '*.key' '*.pem'; do
+        grep -qxF "$l" __BRAIN_ROOT__/.gitignore || echo "$l" >> __BRAIN_ROOT__/.gitignore
+      done
+      git -C __BRAIN_ROOT__ -c user.name='__ORG_DISPLAY__ brain' -c user.email='brain@localhost' add -A
+      git -C __BRAIN_ROOT__ -c user.name='__ORG_DISPLAY__ brain' -c user.email='brain@localhost' commit -qm 'org brain born on this box'
+      rm -f /root/.ssh/brain_deploy /root/.ssh/brain_deploy.pub
+    fi
+  - chown -R aios:aios /state
+  - chmod 0750 /state
+
+  # --- seed the FOUNDER's provisioning key into the people registry -----------
+  # The operator half of the member-side fix already in the managed template.
+  # Until now the operator's stamped key lived ONLY in the host's
+  # /home/aios-op/.ssh/authorized_keys, which sshd reads via AuthorizedKeysFile,
+  # entirely separately from the AuthorizedKeysCommand roster. Two consequences,
+  # both proven on a live rock: People listed NOBODY on a box whose operator was
+  # logged into it at that moment, and "Revoke" could not revoke that key,
+  # because people-sync owns the roster file and has no reach into the host one.
+  # So "who can administer this rock" read as nobody while a full-admin key with
+  # docker-group (host root) access worked.
+  #
+  # It cannot be fixed from inside the box: the container cannot see /home/aios-op,
+  # and sshd does not expose which key authenticated. So the registry is seeded
+  # HERE, at the one moment the key is known. Written into the brain (git-tracked,
+  # auditable) AND derived to /state/ssh directly, because people-sync needs the
+  # container, which is not up yet at this point in the boot.
+  - |
+    KEY="$(head -n1 /home/aios-op/.ssh/authorized_keys 2>/dev/null | sed 's/[[:space:]]*$//')"
+    case "$KEY" in
+      ssh-ed25519\ *)
+        mkdir -p __BRAIN_ROOT__/people /state/ssh/aios-op
+        # Byte-for-byte the shape people-add writes and people-sync parses:
+        # role/status/pubkeys drive the derivation, and a name is what People shows.
+        printf 'name: Founder (provisioning key)\nemail: ""\nrole: "admin"\nstatus: "active"\nadded: "%s"\nrevoked: ""\npubkeys:\n  - "%s"\n' \
+          "$(date -u +%Y-%m-%d)" "$KEY" > __BRAIN_ROOT__/people/founder.yaml
+        printf '%s\n' "$KEY" > /state/ssh/aios-op/authorized_keys
+        chown -R aios:aios __BRAIN_ROOT__/people /state/ssh
+        ;;
+    esac
+
+  # --- make the roster the ONLY door, but ONLY once it demonstrably holds a key --
+  # Order is everything here, exactly as in the managed template. This is what
+  # finally makes operator Revoke true, because sshd then consults nothing but the
+  # roster. Written the wrong way round it is a total lockout: these boxes have NO
+  # root SSH at all (the Hetzner project holds zero keys), so the only way back in
+  # would be rescue mode. Applied conditionally, after the seed above, validated
+  # with sshd -t, and rolled back if the config does not parse. A box that keeps
+  # reading the host file is a box with one unrevokable key; a box that reads
+  # neither is a brick. Pairs with the last-active-Admin guard on people-revoke:
+  # once this file exists, revoking the last Admin would be unrecoverable.
+  - |
+    if [ -s /state/ssh/aios-op/authorized_keys ]; then
+      printf 'Match User aios-op\n    AuthorizedKeysFile none\n' > /etc/ssh/sshd_config.d/61-aios-roster-only.conf
+      chmod 0644 /etc/ssh/sshd_config.d/61-aios-roster-only.conf
+      sshd -t && systemctl reload ssh 2>/dev/null || rm -f /etc/ssh/sshd_config.d/61-aios-roster-only.conf
+    fi
+
+  # --- Firewall: deny inbound, allow egress (cloudflared dials out on 7844) ---
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow out 7844/tcp
+  - ufw allow out 7844/udp
+  # D40: SSH is the front door (key-only, fail2ban); the browser stays as break-glass
+  - ufw allow 22/tcp
+  - systemctl enable --now fail2ban
+  - systemctl restart ssh
+  - __SSH_FIREWALL_RULE__
+  - ufw --force enable
+
+  # --- cloudflared (token-based, remotely-managed tunnel) ---
+  - mkdir -p --mode=0755 /usr/share/keyrings
+  - curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+  - echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared noble main' > /etc/apt/sources.list.d/cloudflared.list
+  - apt-get update
+  - apt-get install -y cloudflared
+  - cloudflared service install __TUNNEL_TOKEN__
+
+  # --- Start the rock ---
+  - chown root:aios /etc/ai-os/env
+  - systemctl daemon-reload
+  - systemctl enable --now ai-os-host-update.timer
+  - systemctl enable --now ai-os.service
+
+final_message: "AI OS rock cloud-init finished after $UPTIME seconds"

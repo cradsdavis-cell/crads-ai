@@ -1,0 +1,122 @@
+# ============================================================================
+# AI OS :: ROCK (factory) deployment config   THE SCHEMA + EXAMPLE
+# ============================================================================
+# This is the personalisation seam for a ROCK / org control brain. It is what
+# turns one generic rock image into the deployment's own factory. The values
+# below are a FICTIONAL example (acme-collective). Deployment #1 is Impact
+# Collab, whose real file lives ONLY staged on its own box; deployment #2 is
+# Sam's own pebble base. The image is identical across all of them, only this
+# file differs, and because this example ships inside the image it must never
+# carry a real deployment's values.
+#
+# STAGED, NEVER BAKED
+# -------------------
+# The real file lives on the box at /state/deployment.yaml, on the persistent
+# /state volume, staged there BEFORE the container starts. Nothing here is
+# compiled into any image: the Dockerfile bakes only a generic default
+# (BRAIN_ROOT=/state/brain) and reads the values below at runtime. This example
+# file is documentation only. Copy it to /state/deployment.yaml and fill it in
+# for a new deployment; do not add it to the build context.
+#
+# WHO READS IT
+# ------------
+# provisioning/rock/boot-rock.sh reads /state/deployment.yaml at container
+# start, turns these keys into environment variables, verifies the box is on the
+# deployment's OWN Claude account (not an operator's personal login), then hands
+# off to the base boot (code-server on :7781 plus the optional org cron). It
+# fails loud and clear if the file is missing.
+#
+# KEY to ENV MAPPING (what boot-rock.sh exports)
+# ------------------------------------------------
+#   deployment_name  ->  DEPLOYMENT_NAME     (required; names the deployment)
+#   operator_emails  ->  OPERATOR_EMAILS (csv) + AIOS_OPERATOR_EMAIL (first one,
+#                        the account guard single-email check)
+#   domain           ->  DEPLOYMENT_DOMAIN
+#   brain_repo       ->  BRAIN_REPO
+#   content_repo     ->  CONTENT_REPO
+#   brain_root       ->  BRAIN_ROOT (also becomes WIKI_DIR, the fleet root)
+#   persona_name     ->  PERSONA_NAME
+#   default_region   ->  DEFAULT_REGION
+#
+# PARSER CONTRACT (keep this file FLAT)
+# -------------------------------------
+# There is no real YAML parser on the rock box: jq is JSON-only, and there is
+# no yq, no PyYAML, no js-yaml. boot-rock.sh reads this with a tiny
+# dependency-free node reader (same regex shape as registry/build-index.mjs).
+# So keep it flat:
+#   * top-level key: value scalars only,
+#   * one operator_emails block list with indented - item lines,
+#   * comments on their own line, never between the list items (a comment line
+#     ends the list block),
+#   * no deep nesting, anchors, or multi-line strings.
+# The reader anchors on each key:, so values may contain colons (git SSH URLs
+# like git@github.com:org/repo.git parse fine). A value must not contain a hash
+# character (it starts a comment) or a double quote.
+# ============================================================================
+
+# deployment_name (REQUIRED)
+# Short lowercase hyphenated slug that names this deployment. Drives repo names,
+# box naming, and the fleet registry. Boot refuses to start if this is empty.
+deployment_name: acme-collective
+
+# operator_emails (REQUIRED, list)
+# The humans allowed to reach this box browser IDE + cockpit. These addresses
+# are pushed into the Cloudflare Access policy on the tunnel, so only these
+# Google identities can authenticate. The FIRST entry is also exported as
+# AIOS_OPERATOR_EMAIL for the account guard (engine/ops/box-account.mjs), and
+# boot-rock.sh additionally refuses to boot if the box is signed into ANY of
+# these personal accounts (the rock must use the deployment's own Claude
+# account, never an operator's). Multi-operator is supported: one entry each.
+operator_emails:
+  - architect@acme-collective.example
+  - ops@acme-collective.example
+
+# domain (REQUIRED)
+# The Cloudflare tunnel root domain for this deployment. Pebble (member) boxes
+# get stamped as <slug>.<domain>; the rock code-server (7781) and cockpit
+# (7780) are published only through this hostname behind Cloudflare Access,
+# never on a public port.
+domain: acme-collective.example
+
+# brain_repo (REQUIRED)
+# Git remote for this deployment ROCK brain: the hand-written org control
+# brain the rock box runs from. It is cloned or mounted to brain_root before
+# boot; the rock never scaffolds one (a missing brain_root is a hard error).
+# The SSH form matches the base image git config (git@github.com: is rewritten
+# to https). Named <deployment_name>-brain by convention for new deployments.
+brain_repo: git@github.com:acme-collective/acme-brain.git
+
+# content_repo (REQUIRED)
+# Git remote for this deployment shared, read-only content channel (the pillar
+# knowledge base members subscribe to). Members read this channel; they never
+# read the rock brain. Named <deployment_name>-content by convention.
+content_repo: git@github.com:acme-collective/acme-content.git
+
+# brain_root (OPTIONAL; default /state/brain)
+# In-container path where brain_repo is staged and which becomes the code-server
+# workspace root plus the fleet WIKI_DIR. Overrides the generic BRAIN_ROOT baked
+# into the rock image. A deployment with a historical brain path pins it
+# here in its real staged file; a fresh deployment can omit
+# this key and inherit /state/brain.
+brain_root: /state/acme-brain
+
+# persona_name (OPTIONAL)
+# The name the rock brain assistant answers to for this deployment. Purely
+# per-deployment identity; each deployment picks its own (Sam's second brain
+# calls its assistant Idris). Shown in the boot banner.
+persona_name: Ada
+
+# default_region (OPTIONAL; default hel1)
+# Default provisioning region for pebble (member) boxes this rock stamps. Pick
+# one close to the operators (hel1 = Helsinki for EU, sin = Singapore for APAC).
+# A member can override this per row in the fleet registry
+# (registry/members/<slug>.yaml, key: region), so this is only the
+# fallback when a member row does not specify one.
+default_region: hel1
+
+# allow_operator_account (OPTIONAL; STAGING ONLY, default absent)
+# When "true", the operator-account guard downgrades from a hard refusal to a loud
+# warning, so a staging rock can run on the operator's own Claude account before the
+# deployment has one. NEVER set this on a production deployment: it disables the control
+# that keeps an operator's personal account out of the fleet's control plane.
+# allow_operator_account: "true"

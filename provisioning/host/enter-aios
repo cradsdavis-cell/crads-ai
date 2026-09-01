@@ -1,0 +1,57 @@
+#!/bin/bash
+# enter-aios: the sshd ForceCommand on every box, ONE SCRIPT FOR BOTH FACES
+# (R18, 2026-08-23). Pebbles get it spliced from provisioning/host/; the rock
+# template embeds this exact text gz+b64 (embed-enter-aios.sh regenerates it,
+# enter-aios-parity.test.mjs fails on drift). Every face lands in /state; the
+# mineral-named symlink inside it (engine/lib/open-folder.mjs) is the folder
+# Claude Code opens. Keep this file short: it rides in cloud-init user-data.
+#
+# D53: a command arriving WITH a pty (`ssh -tt`) needs a container tty too, or
+# curses TUIs (claude) cannot render; -t only when stdin really is a tty, so
+# plain exec'd commands and the SFTP stream keep clean pipes.
+T=""; [ -t 0 ] && T="-t"
+
+# BREAK-GLASS (2026-07-30, brain-2): every branch below execs into the ai-os
+# container, so a stopped container is a dead door with nothing to read. Try to
+# heal it; failing that, say so in words and hand over the evidence.
+if ! docker inspect -f '{{.State.Running}}' ai-os 2>/dev/null | grep -q true; then
+  docker start ai-os >/dev/null 2>&1
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    docker inspect -f '{{.State.Running}}' ai-os 2>/dev/null | grep -q true && break
+    sleep 2
+  done
+fi
+if ! docker inspect -f '{{.State.Running}}' ai-os 2>/dev/null | grep -q true; then
+  {
+    echo "Your box's workspace is not running, so there is nothing to open yet."
+    echo "The machine itself is fine: you reached it, which is why you are seeing this."
+    echo
+    echo "It is trying to restart itself. If this message persists, reply to your"
+    echo "setup email and paste the lines below, which say why it is failing."
+    echo
+    echo "--- last 25 lines from the workspace service ---"
+    systemctl status ai-os.service --no-pager -n 25 2>&1 | tail -25 \
+      || journalctl -u ai-os.service --no-pager -n 25 2>&1 | tail -25 \
+      || echo "(the service log is not readable from this account)"
+    echo "--- containers present ---"
+    docker ps -a --format '{{.Names}} {{.Status}}' 2>&1 | head -5
+    echo "--- images present ---"
+    docker images --format '{{.Repository}}:{{.Tag}}' 2>&1 | head -5
+  } >&2
+  exit 75   # EX_TEMPFAIL: a retry may work, this is not a permission problem
+fi
+
+# Three channels land INSIDE the container at /state: the Claude Code app's SFTP
+# subsystem (exec'd directly, never via `bash -lc`, whose rc output would corrupt
+# the binary stream), a remote command, an interactive shell. AIOS_LOGIN carries
+# the sshd-authenticated login in (D46; the rock panel reads aios-op = admin).
+# No role is gated here: if a second role ever returns, the BOX decides what it
+# may run. A gate on the pebble is not a gate.
+case "$SSH_ORIGINAL_COMMAND" in
+  internal-sftp|*sftp-server*)
+    exec docker exec -i -e AIOS_LOGIN="$USER" -w /state ai-os /usr/lib/openssh/sftp-server ;;
+  ?*)
+    exec docker exec -i $T -e AIOS_LOGIN="$USER" -w /state ai-os bash -lc "$SSH_ORIGINAL_COMMAND" ;;
+  *)
+    exec docker exec -it -e AIOS_LOGIN="$USER" -w /state ai-os bash -l ;;
+esac

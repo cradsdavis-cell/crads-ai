@@ -1,0 +1,47 @@
+# ============================================================================
+# ai-os-member — the member/pebble box. Today's image, MINUS the factory.
+# `base` is provided by docker-bake.hcl (contexts = { base = "target:base" }).
+# Standalone build: docker build --build-context base=docker-image://ghcr.io/cradsdavis-cell/ai-os-base:v1 -f Dockerfile.member .
+# ============================================================================
+FROM base
+
+WORKDIR /app
+COPY engine/ ./engine/
+COPY config/ ./config/
+# NO `COPY provisioning/` — this omission IS the member/factory boundary (was Dockerfile:74).
+# D55 host-update channel: signed host-script bundles ride the image; the host's
+# root timer (baked by cloud-init) docker-cp's them out, verifies the signature
+# and applies. NOT the factory — the boundary above (no /app/provisioning) holds.
+COPY provisioning/host-updates/dist/ ./host-updates/
+
+RUN chmod +x /app/engine/connect-github.sh /app/engine/connect-telegram.sh /app/engine/start-comms.sh \
+    && ln -sf /app/engine/connect-github.sh   /usr/local/bin/connect-github \
+    && ln -sf /app/engine/connect-telegram.sh /usr/local/bin/connect-telegram
+
+COPY engine/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# CI guard: fail the build if the factory ever sneaks back into the member image.
+RUN test ! -e /app/provisioning && ! command -v jq >/dev/null
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
+  CMD curl -fsS http://localhost:7781/healthz >/dev/null || exit 1
+
+# ---- build stamp (D55 fleet-version visibility, 2026-08-23) ---------------------
+# WHY THIS EXISTS: heartbeat.mjs has reported `app_commit` since the three-layer
+# work, and it was ALWAYS null. It shelled `git -C /app rev-parse HEAD`, but
+# `.git` is the first line of .dockerignore, so /app/.git has never existed in
+# any image we shipped. The field that was supposed to answer "did the update
+# land on that box" answered nothing, silently, on every box in the fleet.
+#
+# The sha therefore has to be baked at BUILD time. It is written last so the
+# layer is cheap and always reflects THIS build rather than a cached base.
+ARG BUILD_SHA=unknown
+ARG BUILD_TAG=unknown
+RUN printf '{"sha":"%s","tag":"%s","built_at":"%s"}\n' \
+      "$BUILD_SHA" "$BUILD_TAG" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /etc/aios-build \
+    && chmod 0444 /etc/aios-build
+ENV AIOS_IMAGE_TAG=$BUILD_TAG
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
+CMD ["help"]

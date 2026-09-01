@@ -1,0 +1,35 @@
+Hi {{NAME}},
+
+Your AI OS is ready — a private workspace where your assistant lives. Nothing to install. Just open the link below in your browser (Chrome, Safari, Edge, any of them).
+
+  Open:     {{URL}}
+  Password: {{PASSWORD}}
+
+First time — about two minutes:
+
+  1. Open the link and type in the password. You'll land in your workspace.
+
+  2. On the far-left strip of icons, click the Claude one (it looks like an asterisk *).
+     A "Welcome to Claude Code" panel opens.
+
+  3. Click "Claude.ai Subscription" and sign in with your Claude account.
+     (No Claude account yet? Grab Claude Pro at claude.ai first — that's the engine
+     your assistant runs on. Then come back and sign in.)
+
+  4. Open a terminal inside the workspace: top menu → Terminal → New Terminal.
+     Type  /onboard  and hit enter. Your assistant will ask you a few questions to
+     learn your world — your work, your people, what matters right now.
+
+That's the whole setup. Everything you do saves itself, and you come back to the
+same link whenever you want.
+
+One extra, whenever you're curious: a live map of your assistant's "brain" —
+the people, projects and notes it's holding for you, drawn as a graph:
+
+  Your brain map:  {{URL}}/proxy/7780/
+
+(Same login. It fills in as you and your assistant build things up.)
+
+Anything feels off, just reply to me here and I'll sort it.
+
+— Sam
