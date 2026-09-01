@@ -177,6 +177,7 @@ test('the real record has exactly ONE writer, and no default destination', () =>
   const outside = [];
   for (const dir of [join(root, 'wizard', 'panel'), join(root, 'wizard', 'dev-harness'),
     join(root, '.superpowers', 'qa'), join(root, 'harness')]) {
+    if (!existsSync(dir)) continue;   // optional QA roots; absent in the extraction repo
     for (const f of readdirSync(dir)) {
       if (!f.endsWith('.mjs') || f.endsWith('.test.mjs') || f === 'panel-server.mjs') continue;
       const src = readFileSync(join(dir, f), 'utf8');
