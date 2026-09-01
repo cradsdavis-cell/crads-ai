@@ -1,0 +1,129 @@
+# ============================================================================
+# EXAMPLE filled profile — proves the schema generalises beyond Sam.
+# Maya Chen, a wedding & elopement photographer in Melbourne. Nothing here is
+# real; it exists so we can test the engine against a NON-Sam life.
+# ============================================================================
+
+schema_version: 0.1
+
+identity:
+  user_name: "Maya Chen"
+  user_short: "Maya"
+  assistant_name: "Nova"
+  timezone: "Australia/Melbourne"
+  locale: "en-AU"
+  location: "Melbourne"
+  voice_note: "Warm, plain-spoken, never corporate. She runs a one-person studio and is always behind on emails."
+
+business:
+  type: "wedding & elopement photographer"
+  one_liner: "I shoot relaxed, documentary-style weddings and elopements across Victoria."
+  customers: "Engaged couples, mostly 28–38, booking 8–18 months ahead."
+  offerings:
+    - { name: "Elopement collection", price: "$2,400" }
+    - { name: "Full-day wedding collection", price: "$5,800" }
+    - { name: "Engagement / pre-wedding shoot", price: "$650" }
+  busy_seasons: ["Oct–Apr (wedding season)", "enquiry spike Jan–Feb (post-proposal)"]
+  quarter_goal: "Book 6 weddings for next season + clear the editing backlog from this one."
+
+accounts:
+  calendar:
+    enabled: true
+    provider: "google"
+    calendar_id: "maya@mayachenphoto.com"
+  email:
+    enabled: true
+    provider: "google"
+    send_as: "maya@mayachenphoto.com"
+  inbox_triage:
+    enabled: true
+    mode: "forwarding"
+    forwarding_mailbox: "maya-inbox@os.operator-domain.com"
+  tasks:
+    enabled: true
+    provider: "todoist"
+  messaging:
+    whatsapp: true
+    slack: false
+
+comms:
+  primary_channel: "telegram"
+  telegram:
+    bot_token_ref: "secrets/telegram_bot_token"
+    chat_id_ref: "secrets/telegram_chat_id"
+  outbound_policy: "propose-confirm"
+  ai_disclosure: true
+
+models:
+  watcher:  "claude-haiku-4-5"
+  brief:    "claude-sonnet-4-6"
+  chat:     "claude-sonnet-4-6"
+  strategy: "claude-opus-4-8"
+  prompt_caching: true
+
+cadence:
+  morning_brief: "07:30"
+  evening_review: "18:30"
+  inbox_watcher_interval_min: 30
+  weekly_review: "Sun 16:00"
+  quiet_hours: "20:00-06:30"
+
+priorities:
+  source: "wiki/priorities.md"
+
+classifications:
+  - match: ["enquiry", "wedding date", "available", "quote", "pricing", "instagram"]
+    category: "enquiry"
+    badge: "💍 Enquiry"
+    action: "Reply within 24h — hot leads go cold fast. Draft via /followup."
+    route: "wiki/people"
+  - match: ["booked couples (see wiki/people, tier: booked)"]
+    category: "booked_client"
+    badge: "📸 Booked couple"
+    action: "Check their timeline + what's owed (deposit, questionnaire, gallery)."
+    route: "wiki/people"
+  - match: ["@venue", "florist", "celebrant", "planner", "second shooter"]
+    category: "supplier"
+    badge: "🤝 Supplier"
+    action: "Usually FYI — flag only if it blocks a shoot."
+    route: "wiki/people"
+  - match: ["gallery", "edit", "deliver", "sneak peek", "Pic-Time"]
+    category: "delivery"
+    badge: "🖼️ Delivery"
+    action: "Check the contracted turnaround date — late delivery = bad reviews."
+    route: "wiki/projects/deliveries"
+  - match: ["invoice", "deposit", "final payment", "overdue"]
+    category: "money"
+    badge: "💰 Payment"
+    action: "Chase if overdue; confirm if paid."
+    route: "wiki/business.md"
+
+inbox:
+  cap: 100
+  buckets:
+    - { id: open-loop, write: none,             rule: "enquiry / booked_client / supplier, task or decision overlap, or a direct ask" }
+    - { id: mark-read, write: "-UNREAD",        rule: "receipts, confirmations, low-priority FYI" }
+    - { id: archive,   write: "-UNREAD -INBOX", rule: "List-Unsubscribe + unknown sender; marketing / auto-reply" }
+    - { id: hold,      write: none,             rule: "ambiguous — surface for Maya" }
+
+capture:
+  brain_path: "wiki"
+  sources:
+    - { name: "meetings", provider: "otter", captures: "recorded client calls + venue walkthroughs", route: "wiki/people" }
+    - { name: "whatsapp", provider: "whatsapp", captures: "couple DMs that accumulate between sessions", route: "wiki/people" }
+  task_filter: {}
+
+skills:
+  enabled:
+    - daily
+    - inbox
+    - followup
+    - capture
+    - weekly
+  bespoke:
+    - chase-deposits       # generated at onboarding: her specific payment-chase flow
+    - gallery-delivery     # tracks contracted turnaround per booked couple
+
+compliance:
+  high_risk_domains: []
+  data_processing_agreement: false

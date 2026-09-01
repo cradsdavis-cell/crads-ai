@@ -1,0 +1,27 @@
+<!-- welcome.html — template page seeded by Crads AI / your rock.
+     This page belongs to YOU now: edit it, or ask your assistant to change it
+     or build you new pages ("build me a page that shows my week at a glance").
+     Contract (three-layer v2): an HTML fragment rendered in a SANDBOXED frame —
+     no network access, no reach into the app. Optional <script> runs inside the
+     sandbox with window.pageApi = { data(), esc(s), refresh(),
+     run(verb,args) -> Promise } where run() accepts read-only brain verbs only
+     ('brain-list', 'brain-read'). -->
+<h2>Your pages</h2>
+<p class="hint">This tab is served from your own box (<code>/state/dashboard/pages/welcome.html</code>), not baked into the app. That means it is yours to change.</p>
+<div class="guidecard">
+  <p class="hint" style="margin:0 0 2px;color:var(--ink)"><b>Live from your brain right now</b></p>
+  <p class="hint" style="margin:6px 0 10px" id="welcomeStats">loading…</p>
+  <p class="hint" style="margin:0"><b>Want more pages here?</b> Ask your assistant, in its own words: <i>"build me a dashboard page that shows X"</i>. It knows the page contract and writes straight into this folder. New pages appear in the sidebar on your next refresh.</p>
+</div>
+<script>
+  (function(){
+    var d = pageApi.data() || {};
+    var b = d.brain || {};
+    // "1 pages" is the tell that nobody read the copy (finding 118, 2026-08-13).
+    // The Overview card next to this one already pluralises; this did not.
+    var plural = function(n, one, many){ return n + ' ' + (n === 1 ? one : many); };
+    document.getElementById('welcomeStats').textContent =
+      plural(b.pages || 0, 'page', 'pages') + ' in your brain · '
+      + plural(b.people || 0, 'person', 'people') + ' · stage: ' + (d.stage || 'starting');
+  })();
+</script>

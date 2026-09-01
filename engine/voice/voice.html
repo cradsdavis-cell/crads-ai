@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Talk to your assistant</title>
+<style>
+  :root {
+    --bg: #0b0f14; --panel: #121822; --ink: #e8eef6; --dim: #8aa0b8;
+    --accent: #4ea1ff; --accent-soft: rgba(78,161,255,.16);
+    --user: #1c2a3a; --assistant: #16202c; --ok: #35c48a;
+    --warn: #eab04e; --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(1200px 800px at 50% -10%, #16202e 0%, var(--bg) 60%);
+    color: var(--ink); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex; flex-direction: column; min-height: 100vh; -webkit-font-smoothing: antialiased;
+  }
+  header { padding: 18px 20px 6px; text-align: center; }
+  header h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: .2px; }
+  header p { margin: 2px 0 0; color: var(--dim); font-size: 12.5px; }
+
+  main { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 8px 16px 20px; width: 100%; max-width: 720px; margin: 0 auto; }
+
+  /* the orb */
+  .orb-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 6px; }
+  .orb {
+    width: 128px; height: 128px; border-radius: 50%; border: none; cursor: pointer; position: relative;
+    background: radial-gradient(circle at 38% 32%, #6fb4ff, #2b6fd6 62%, #1b4e9e);
+    box-shadow: 0 0 0 0 var(--accent-soft), 0 10px 40px rgba(20,80,180,.35);
+    transition: transform .15s ease, box-shadow .3s ease; outline: none;
+  }
+  .orb:active { transform: scale(.97); }
+  .orb.idle { background: radial-gradient(circle at 38% 32%, #3a4658, #232c3a 62%, #1a212c); }
+  .orb.listening { animation: pulse 1.6s ease-out infinite; }
+  .orb.thinking { animation: spin 1.1s linear infinite; background: radial-gradient(circle at 38% 32%, #7a6fff, #4b3fd6 62%, #2f2a7a); }
+  .orb.speaking { animation: breathe 1.2s ease-in-out infinite; background: radial-gradient(circle at 38% 32%, #4fe0b0, #1f9e77 62%, #14795c); }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--accent-soft), 0 10px 40px rgba(20,80,180,.35);} 70% { box-shadow: 0 0 0 26px rgba(78,161,255,0), 0 10px 40px rgba(20,80,180,.35);} 100% { box-shadow: 0 0 0 0 rgba(78,161,255,0), 0 10px 40px rgba(20,80,180,.35);} }
+  @keyframes breathe { 0%,100% { transform: scale(1);} 50% { transform: scale(1.06);} }
+  @keyframes spin { to { transform: rotate(360deg);} }
+  .orb-label { font-size: 13px; color: var(--dim); min-height: 18px; }
+  .orb-hint { font-size: 12px; color: var(--dim); opacity:.8; }
+
+  /* transcript */
+  #log { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+  .msg { padding: 10px 13px; border-radius: var(--radius); max-width: 88%; white-space: pre-wrap; word-wrap: break-word; }
+  .msg.user { align-self: flex-end; background: var(--user); border-bottom-right-radius: 5px; }
+  .msg.assistant { align-self: flex-start; background: var(--assistant); border-bottom-left-radius: 5px; }
+  .msg.assistant.propose { border: 1px solid rgba(234,176,78,.5); }
+  .msg .who { font-size: 11px; color: var(--dim); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .5px; }
+  .msg .propose-tag { display:inline-block; margin-top:6px; font-size:11px; color:#eab04e; }
+
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .btn { background: var(--panel); color: var(--ink); border: 1px solid #223044; border-radius: 999px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
+  .btn:hover { border-color: #34506f; }
+  .btn.primary { background: var(--accent); color: #04121f; border-color: transparent; font-weight: 600; }
+  .row { width:100%; display:flex; gap:8px; }
+  #textin { flex:1; background: var(--panel); border:1px solid #223044; color: var(--ink); border-radius: 999px; padding: 9px 14px; font-size: 14px; }
+  #textin:focus { outline: none; border-color: var(--accent); }
+  .unsupported { background: #2a1c1c; border: 1px solid #5a2b2b; color: #ffd9d9; padding: 10px 13px; border-radius: 12px; font-size: 13px; }
+  footer { text-align:center; color: var(--dim); font-size: 11px; padding: 6px 0 14px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1 id="title">Your assistant</h1>
+    <p id="sub">Tap the circle and start talking. It listens, thinks with your brain, and speaks back.</p>
+  </header>
+  <main>
+    <div class="orb-wrap">
+      <button id="orb" class="orb idle" aria-label="Start or stop the call"></button>
+      <div class="orb-label" id="state">Tap to start</div>
+      <div class="orb-hint" id="hint"></div>
+    </div>
+    <div id="log"></div>
+    <div class="row"><input id="textin" type="text" placeholder="…or type instead, then Enter" autocomplete="off" /></div>
+    <div class="controls">
+      <button class="btn" id="mute">Speaker: on</button>
+      <button class="btn" id="clear">Clear</button>
+    </div>
+  </main>
+  <footer>Powered by your own AI OS · voice runs through the same brain, nothing is sent without your OK.</footer>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const orb = $('orb'), stateEl = $('state'), hintEl = $('hint'), logEl = $('log'), textin = $('textin');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  let serverTts = false, speakerOn = true;
+  let mode = 'idle';            // idle | listening | thinking | speaking
+  let rec = null, recWantOn = false;
+  let curAudio = null, curUtter = null;
+
+  fetch('/api/config').then(r => r.json()).then(c => { serverTts = !!c.serverTts; }).catch(()=>{});
+
+  function setMode(m, label) {
+    mode = m;
+    orb.className = 'orb ' + (m === 'idle' ? 'idle' : m);
+    const labels = { idle: 'Tap to start', listening: 'Listening…', thinking: 'Thinking…', speaking: 'Speaking…' };
+    stateEl.textContent = label || labels[m] || '';
+    hintEl.textContent = m === 'listening' ? 'Just talk — pause when you’re done.' : (m === 'speaking' ? 'Tap the circle to interrupt.' : '');
+  }
+
+  function addMsg(who, text, propose) {
+    const d = document.createElement('div');
+    d.className = 'msg ' + who + (propose ? ' propose' : '');
+    const w = document.createElement('div'); w.className = 'who'; w.textContent = who === 'user' ? 'you' : 'assistant';
+    const b = document.createElement('div'); b.textContent = text;
+    d.appendChild(w); d.appendChild(b);
+    if (propose) { const t = document.createElement('div'); t.className = 'propose-tag'; t.textContent = '⚠ wants to send something on your behalf — approve in Telegram / VS Code'; d.appendChild(t); }
+    logEl.appendChild(d); window.scrollTo(0, document.body.scrollHeight);
+    return d;
+  }
+
+  // ---- speech recognition (STT) ----
+  function buildRec() {
+    if (!SR) return null;
+    const r = new SR();
+    r.lang = 'en-AU'; r.interimResults = true; r.continuous = true; r.maxAlternatives = 1;
+    r.onresult = (e) => {
+      const res = e.results[e.results.length - 1];
+      if (res.isFinal) {
+        const t = res[0].transcript.trim();
+        if (t) handleUserTurn(t);
+      }
+    };
+    r.onend = () => { if (recWantOn && mode === 'listening') { try { r.start(); } catch {} } };
+    r.onerror = (ev) => { if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') { recWantOn = false; setMode('idle', 'Mic blocked — allow it and retry'); } };
+    return r;
+  }
+  function startListening() {
+    if (!rec) rec = buildRec();
+    if (!rec) return;
+    recWantOn = true; setMode('listening');
+    try { rec.start(); } catch {}
+  }
+  function pauseListening() { recWantOn = false; if (rec) { try { rec.stop(); } catch {} } }
+  function stopAll() { recWantOn = false; if (rec) { try { rec.abort(); } catch {} } stopSpeaking(); setMode('idle'); }
+
+  // ---- a turn: send -> poll reply -> speak ----
+  async function handleUserTurn(text) {
+    pauseListening();
+    addMsg('user', text);
+    setMode('thinking');
+    let name;
+    try {
+      const r = await fetch('/api/turn', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) });
+      const j = await r.json(); name = j.name;
+      if (!name) throw new Error('no job');
+    } catch { addMsg('assistant', 'Something went wrong reaching your box. Try again in a moment.'); return resumeAfterTurn(); }
+
+    const deadline = Date.now() + 180000;
+    const poll = async () => {
+      if (Date.now() > deadline) { addMsg('assistant', 'That one is taking too long — it may still be working. Try again.'); return resumeAfterTurn(); }
+      try {
+        const r = await fetch('/api/reply?name=' + encodeURIComponent(name));
+        const j = await r.json();
+        if (j.pending) return setTimeout(poll, 700);
+        const propose = /(^|\n)PROPOSE-SEND:/.test(j.text || '');
+        const spoken = (j.text || '(no reply)').replace(/\n?PROPOSE-SEND:.*/s, '').trim() || 'Done.';
+        addMsg('assistant', j.text || '(no reply)', propose);
+        speak(spoken, resumeAfterTurn);
+      } catch { setTimeout(poll, 900); }
+    };
+    poll();
+  }
+  function resumeAfterTurn() { if (mode !== 'idle') startListening(); }
+
+  // ---- text to speech (TTS) ----
+  function stopSpeaking() {
+    if (curAudio) { try { curAudio.pause(); } catch {} curAudio = null; }
+    if (curUtter) { try { window.speechSynthesis.cancel(); } catch {} curUtter = null; }
+  }
+  async function speak(text, done) {
+    if (!speakerOn) { setMode('listening'); return done && done(); }
+    setMode('speaking');
+    if (serverTts) {
+      try {
+        const r = await fetch('/api/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) });
+        if (r.ok && r.status === 200) {
+          const url = URL.createObjectURL(await r.blob());
+          const a = new Audio(url); curAudio = a;
+          a.onended = () => { URL.revokeObjectURL(url); curAudio = null; done && done(); };
+          a.onerror = () => { URL.revokeObjectURL(url); curAudio = null; browserSpeak(text, done); };
+          return a.play().catch(() => browserSpeak(text, done));
+        }
+      } catch {}
+    }
+    browserSpeak(text, done);
+  }
+  function browserSpeak(text, done) {
+    if (!('speechSynthesis' in window)) { done && done(); return; }
+    const u = new SpeechSynthesisUtterance(text); u.rate = 1.02; u.lang = 'en-AU'; curUtter = u;
+    u.onend = () => { curUtter = null; done && done(); };
+    u.onerror = () => { curUtter = null; done && done(); };
+    window.speechSynthesis.speak(u);
+  }
+
+  // ---- controls ----
+  orb.addEventListener('click', () => {
+    if (mode === 'idle') { if (!SR) return; startListening(); }
+    else if (mode === 'speaking') { stopSpeaking(); startListening(); }   // barge-in
+    else stopAll();
+  });
+  $('mute').addEventListener('click', (e) => { speakerOn = !speakerOn; e.target.textContent = 'Speaker: ' + (speakerOn ? 'on' : 'off'); if (!speakerOn) stopSpeaking(); });
+  $('clear').addEventListener('click', () => { logEl.innerHTML = ''; });
+  textin.addEventListener('keydown', (e) => { if (e.key === 'Enter' && textin.value.trim()) { const t = textin.value.trim(); textin.value = ''; handleUserTurn(t); } });
+
+  if (!SR) {
+    const u = document.createElement('div'); u.className = 'unsupported';
+    u.textContent = 'Live voice input needs Chrome or Edge. You can still type below and the assistant will speak its replies.';
+    logEl.appendChild(u);
+    orb.classList.add('idle'); stateEl.textContent = 'Type below to talk';
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Brain Cockpit</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--line:#26303d;--ink:#e6edf3;--mut:#8b949e;--ok:#3fb950;--cfg:#58a6ff;--pend:#d29922;--core:#58a6ff;--people:#bc8cff;--skel:#3d4754}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  header h1{font-size:18px;margin:0;font-weight:650}
+  header .sub{color:var(--mut)}
+  header .stage{margin-left:auto;background:var(--panel);border:1px solid var(--line);padding:5px 12px;border-radius:20px;font-size:12px}
+  .wrap{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:16px 24px;height:calc(100vh - 62px)}
+  .col{display:flex;flex-direction:column;gap:16px;min-height:0;overflow:auto}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card h2{margin:0 0 12px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600}
+  .bar{height:8px;border-radius:6px;background:#21262d;overflow:hidden;margin:8px 0 4px}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,#1f6feb,#388bfd);transition:width .5s}
+  .mods{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .mod{font-size:11px;padding:3px 9px;border-radius:14px;border:1px solid var(--line);color:var(--mut)}
+  .mod.covered{background:#13301c;border-color:#1d4a2a;color:var(--ok)}
+  .mod.in-progress{background:#1c2740;border-color:#2a4670;color:var(--cfg)}
+  .row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+  .row:first-of-type{border-top:0}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .ok .dot{background:var(--ok)} .configured .dot{background:var(--cfg)} .pending .dot{background:var(--pend)}
+  .row .nm{flex:1} .row .st{color:var(--mut);font-size:12px}
+  .big{font-size:28px;font-weight:680;line-height:1.1} .lbl{color:var(--mut);font-size:12px}
+  .stats{display:flex;gap:22px;margin-top:4px}
+  .graph{background:var(--panel);border:1px solid var(--line);border-radius:12px;position:relative;overflow:hidden;min-height:0}
+  .graph canvas{display:block;width:100%;height:100%}
+  .legend{position:absolute;bottom:12px;left:14px;display:flex;gap:14px;font-size:11px;color:var(--mut)}
+  .legend b{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+  .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--mut);text-align:center;padding:30px}
+  footer{position:absolute;top:10px;right:14px;font-size:11px;color:var(--mut)}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Brain Cockpit</h1>
+  <span class="sub" id="biz"></span>
+  <span class="stage" id="stage">…</span>
+</header>
+<div class="wrap">
+  <div class="col">
+    <div class="card"><h2>Onboarding</h2>
+      <div class="big"><span id="ocov">0</span>/<span id="otot">11</span> <span class="lbl">modules covered</span></div>
+      <div class="bar"><i id="obar" style="width:0"></i></div>
+      <div class="mods" id="mods"></div>
+    </div>
+    <div class="card"><h2>Brain</h2>
+      <div class="stats">
+        <div><div class="big" id="bpages">0</div><div class="lbl">pages</div></div>
+        <div><div class="big" id="bppl">0</div><div class="lbl">people</div></div>
+        <div><div class="big" id="blinks">0</div><div class="lbl">links</div></div>
+      </div>
+    </div>
+    <div class="card"><h2>Connections</h2><div id="conns"></div></div>
+  </div>
+  <div class="graph">
+    <canvas id="c"></canvas>
+    <div class="empty" id="empty">Your brain graph appears here<br>and grows as you answer the interview.</div>
+    <div class="legend"><span><b style="background:#58a6ff"></b>life &amp; work</span><span><b style="background:#bc8cff"></b>people</span><span><b style="background:#3d4754"></b>scaffold</span></div>
+    <footer id="ts"></footer>
+  </div>
+</div>
+<script>
+const C=document.getElementById('c'),X=C.getContext('2d');let G={nodes:[],links:[]},P=new Map();
+function fit(){const r=C.parentElement.getBoundingClientRect();C.width=r.width*devicePixelRatio;C.height=r.height*devicePixelRatio;X.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);}
+addEventListener('resize',fit);
+const col={core:'#58a6ff',people:'#bc8cff',skeleton:'#3d4754'};
+function sync(g){G=g;const seen=new Set();for(const n of g.nodes){seen.add(n.id);if(!P.has(n.id)){const w=C.clientWidth||600,h=C.clientHeight||400;P.set(n.id,{x:w/2+(Math.random()-.5)*120,y:h/2+(Math.random()-.5)*120,vx:0,vy:0});}P.get(n.id).g=n.group;P.get(n.id).label=n.label;}for(const k of[...P.keys()])if(!seen.has(k))P.delete(k);}
+function step(){const w=C.clientWidth||600,h=C.clientHeight||400,ids=[...P.keys()];
+  for(const a of ids){const A=P.get(a);for(const b of ids){if(a>=b)continue;const B=P.get(b);let dx=A.x-B.x,dy=A.y-B.y,d=Math.hypot(dx,dy)||1;const f=2600/(d*d);A.vx+=dx/d*f;A.vy+=dy/d*f;B.vx-=dx/d*f;B.vy-=dy/d*f;}}
+  for(const l of G.links){const A=P.get(l.source),B=P.get(l.target);if(!A||!B)continue;let dx=B.x-A.x,dy=B.y-A.y,d=Math.hypot(dx,dy)||1,f=(d-90)*.01;A.vx+=dx/d*f;A.vy+=dy/d*f;B.vx-=dx/d*f;B.vy-=dy/d*f;}
+  for(const id of ids){const n=P.get(id);n.vx+=(w/2-n.x)*.002;n.vy+=(h/2-n.y)*.002;n.vx*=.85;n.vy*=.85;n.x+=n.vx;n.y+=n.vy;n.x=Math.max(24,Math.min(w-24,n.x));n.y=Math.max(24,Math.min(h-24,n.y));}}
+function draw(){X.clearRect(0,0,C.clientWidth,C.clientHeight);X.lineWidth=1;X.strokeStyle='#2b3543';
+  for(const l of G.links){const A=P.get(l.source),B=P.get(l.target);if(!A||!B)continue;X.beginPath();X.moveTo(A.x,A.y);X.lineTo(B.x,B.y);X.stroke();}
+  for(const[id,n]of P){const r=n.g==='skeleton'?5:8;X.beginPath();X.arc(n.x,n.y,r,0,7);X.fillStyle=col[n.g]||'#58a6ff';X.globalAlpha=n.g==='skeleton'?.5:1;X.fill();X.globalAlpha=1;X.fillStyle='#c9d4e0';X.font='11px sans-serif';if(n.g!=='skeleton')X.fillText(n.label,n.x+11,n.y+4);}}
+function loop(){step();draw();requestAnimationFrame(loop);}
+function cards(d){
+  document.getElementById('title').textContent=(d.assistant&&d.assistant!=='your assistant'?d.assistant:'Brain Cockpit')+(d.pebble?' · '+d.pebble:'');
+  document.getElementById('biz').textContent=d.business||'';
+  document.getElementById('stage').textContent=d.stage||'';
+  document.getElementById('ocov').textContent=d.onboarding.covered;document.getElementById('otot').textContent=d.onboarding.total;
+  document.getElementById('obar').style.width=(100*d.onboarding.covered/Math.max(1,d.onboarding.total))+'%';
+  document.getElementById('mods').innerHTML=d.onboarding.modules.map(m=>`<span class="mod ${m.status}">${m.name}</span>`).join('');
+  document.getElementById('bpages').textContent=d.brain.pages;document.getElementById('bppl').textContent=d.brain.people;document.getElementById('blinks').textContent=d.graph.links.length;
+  document.getElementById('conns').innerHTML=d.connections.map(c=>`<div class="row ${c.state}"><span class="dot"></span><span class="nm">${c.name}</span><span class="st">${c.status}</span></div>`).join('');
+  document.getElementById('empty').style.display=d.graph.nodes.filter(n=>n.group!=='skeleton').length?'none':'flex';
+  document.getElementById('ts').textContent='updated '+new Date(d.generated_at).toLocaleTimeString();
+}
+async function poll(){try{const d=await(await fetch('data.json?_='+Date.now())).json();cards(d);sync(d.graph);}catch(e){}}
+fit();loop();poll();setInterval(poll,3000);
+</script>
+</body>
+</html>

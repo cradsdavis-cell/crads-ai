@@ -1,0 +1,7 @@
+# Crads AI fleet support public key (three-layer model, L1 repair channel).
+# Installed onto a member box ONLY by an explicit member-side grant
+# (support-access.mjs grant), always with an sshd expiry-time option, and
+# removable at any moment with revoke. The matching private key lives on the
+# Crads AI operator box and never leaves it. Comment-only file = channel
+# disarmed (grant reports "not configured").
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBoNfArO9g+CvPJXf3CPySSnbGyhl5EDwq8tcdm21WQK crads-support

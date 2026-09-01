@@ -1,0 +1,47 @@
+# brain-ignore.txt: THE never-commit set for a brain repo. One truth, two readers.
+#
+# Every path that wires or pushes a brain repo used to carry its own copy of this
+# list, and on 2026-08-20 the four copies did not agree:
+#
+#   engine/box-up.sh            3 entries   .claude-auth/ secrets/ .kernel/
+#   engine/kernel/kernel.mjs    7 entries   + .claude-auth* .claude/ .mcp.json cockpit/ org/
+#   wizard/panel/own-brain.mjs 14 entries   + .env .env.* *.key *.pem .ssh/ ssh/ node_modules/
+#   engine/box/org-brain-wire  15 entries   + .heartbeat-out/
+#
+# The two that run on EVERY box (box-up at boot, the kernel on every commit) are
+# the two that omit .env and *.key, and <brainRoot>/.env is where ORG_PULL_TOKEN
+# lives. So the kernel's blind `git add -A` could and did track it, and
+# connect-github shipped that history to GitHub. Same failure as
+# engine/lib/brain-root.mjs: a chain hand-copied into ten call sites, five of
+# which were wrong. Copies drift. This file does not.
+#
+# FORMAT: one gitignore glob per line. '#' starts a comment, blank lines skipped.
+# The UNTRACK set is DERIVED, never listed twice: take each entry, strip a
+# trailing '/', and it is a valid `git rm -r --cached --ignore-unmatch` pathspec.
+#
+# The REQUIRED block is the refusal floor: engine/brain-push.sh will not push a
+# tree missing any of them. Keep it credential-shaped only. Widening it turns off
+# nightly backups on every box whose ignore file predates the widening, so a new
+# entry belongs below the second header unless it is genuinely a secret.
+
+# --- required: brain-push.sh REFUSES to push a tree missing any of these ---
+.env
+.env.*
+secrets/
+*.key
+*.pem
+.ssh/
+ssh/
+.claude-auth/
+.kernel/
+.mcp.json
+
+# --- repaired everywhere, never a refusal reason ---
+.claude-auth*
+.claude/
+cockpit/
+org/
+node_modules/
+.heartbeat-out/
+.git-credentials
+.netrc

@@ -1,0 +1,30 @@
+<!-- my-people.html — template page seeded by Crads AI / your rock.
+     Yours to edit like any page here. Also a working example of the sandboxed
+     page contract: script + pageApi.data() + onPageData refresh, no network,
+     read-only. It never assumes a brain structure — it shows whatever people
+     your brain actually holds, or says so honestly when there are none. -->
+<h2>People</h2>
+<p class="hint">Everyone your brain holds a page for, most-connected first. This reads live from your box; add people by telling your assistant about them.</p>
+<div id="peopleList" class="guidecard"><span class="hint">loading…</span></div>
+<script>
+  function renderPeople(d){
+    var box = document.getElementById('peopleList');
+    var nodes = ((d || {}).graph || {}).nodes || [];
+    var people = nodes.filter(function(n){ return n.type === 'person'; })
+      .sort(function(a, b){ return (b.deg || 0) - (a.deg || 0); });
+    if (!people.length){
+      box.innerHTML = '<span class="hint">No people pages yet. Try telling your assistant: "Here\'s who matters in my world: …" and they\'ll appear here.</span>';
+      return;
+    }
+    var esc = pageApi.esc;
+    box.innerHTML = people.map(function(p){
+      return '<div style="padding:7px 0;border-bottom:1px dashed var(--line)">'
+        + '<b>' + esc(p.title || p.label) + '</b>'
+        + (p.deg ? ' <span class="hint">· ' + p.deg + ' connection' + (p.deg === 1 ? '' : 's') + '</span>' : '')
+        + (p.desc ? '<div class="hint">' + esc(p.desc) + '</div>' : '')
+        + '</div>';
+    }).join('');
+  }
+  renderPeople(pageApi.data());
+  window.onPageData = renderPeople;   // stays current when the app refreshes
+</script>

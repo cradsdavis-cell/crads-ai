@@ -1,0 +1,113 @@
+# ============================================================================
+# Onboarding interview spec — the coverage map for /onboard.   (schema_version 0.1)
+# ============================================================================
+# Adaptive, not a form: the orchestrator probes each module with follow-ups
+# until the coverage checklist is satisfied, then synthesises answers into wiki
+# pages. "Extensive" by design — mirrors Sam's 8 canonical layers + more.
+# Extend freely: add modules / cover items as the product learns.
+# ============================================================================
+
+schema_version: 0.1
+
+behaviour:
+  style: "warm, curious, one question at a time; follow the thread like a good coach"
+  adaptive: true              # generate follow-ups from answers; never read a fixed script
+  resumable: true             # persist progress; spread across sessions
+  channels: ["telegram-voice", "live-session"]   # voice-friendly for non-technical clients
+  depth_target: "keep probing a module until its `cover` checklist is satisfied"
+  two_pass: true              # 1) capture raw  2) synthesise -> wiki pages -> client review
+  state_file: "/state/onboarding-state.json"
+
+modules:
+  - id: self
+    layer: "L3 Self"
+    produces: ["wiki/self.md"]
+    cover:
+      - personal story / where they're from / what shaped them
+      - personality; what energises vs drains them
+      - how they handle stress and pressure
+      - health, family, life context that affects work
+      - what they're proud of; what they struggle with
+
+  - id: philosophy
+    layer: "L2 Philosophy"
+    produces: ["wiki/philosophy.md"]
+    cover:
+      - core values and principles
+      - what they optimise for; what they refuse to compromise
+      - how they make decisions
+      - anti-values (what they won't do)
+
+  - id: north-star
+    layer: "L1 North Star"
+    produces: ["wiki/north-star.md"]
+    cover:
+      - the long-term vision; why they do this
+      - what "winning" looks like in 5-10 years
+
+  - id: goals
+    layer: "L6 Goals"
+    produces: ["wiki/goals.md", "wiki/priorities.md"]
+    cover:
+      - goals this quarter and this year, with success criteria
+      - current top priorities
+      - anti-goals / what to say no to
+
+  - id: past
+    layer: "L5 Past"
+    produces: ["wiki/past.md"]
+    cover:
+      - career / business history and milestones
+      - what they've built; war stories; lessons learned
+
+  - id: network
+    layer: "L4 Network"
+    produces: ["wiki/people/*.md"]
+    cover:
+      - per-person depth across customers, suppliers, team, mentors, family, friends
+      - for each: who they are, the relationship, what they need, a tier
+      - who owes whom; what's live; what's going cold
+
+  - id: business
+    layer: "Business"
+    produces: ["wiki/business.md", "profile.business.*"]
+    cover:
+      - what they do; offerings + pricing; who they serve
+      - how the business runs day-to-day; the key numbers
+      - seasons / cycles; current bottlenecks
+
+  - id: how-they-work
+    layer: "L8 Workflow"
+    produces: ["wiki/workflow.md", "profile.cadence.*"]
+    cover:
+      - daily / weekly rhythm; when they do what
+      - how they like to be reminded / nudged
+      - what they want the assistant to handle vs never touch
+
+  - id: tools
+    layer: "L8 Workflow"
+    produces: ["wiki/tools.md", "profile.accounts.*"]
+    cover:
+      - what tools they use today and how
+      - what's connected vs manual
+      - what they wish was automated; biggest time-sinks
+
+  - id: voice
+    layer: "Voice"
+    produces: ["wiki/voice.md"]
+    cover:
+      - how they write and speak (collect real samples)
+      - tone; phrases they use / avoid
+      - so the assistant can draft AS them (D4 AI-disclosure still applies)
+
+  - id: constraints
+    layer: "Context"
+    produces: ["wiki/constraints.md"]
+    cover:
+      - time / money / energy constraints
+      - what's off-limits; sensitivities; hard boundaries
+
+# state_file shape (per module):
+#   { "<module-id>": { "status": "not-started|in-progress|covered",
+#                      "raw": ["..."], "synthesized": false } }
+# Brain is "seeded" only when every module is covered + synthesized + client-reviewed.

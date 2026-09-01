@@ -1,0 +1,124 @@
+# ============================================================================
+# EXAMPLE filled profile #2 — MICROSOFT provider + a different business type.
+# Tom Boyd, a plumbing & gasfitting business owner in Brisbane, on Office 365.
+# Proves the harness generalises across BOTH provider (vs Maya=google) AND trade.
+# Fictional; a connect-mechanism regression fixture for the microsoft path.
+# ============================================================================
+
+schema_version: 0.1
+
+identity:
+  user_name: "Tom Boyd"
+  user_short: "Tom"
+  assistant_name: "Macca"
+  timezone: "Australia/Brisbane"     # no DST — good tz edge-case vs Maya/Melbourne
+  locale: "en-AU"
+  location: "Brisbane"
+  voice_note: "Blunt, no-nonsense tradie. Hates admin and long emails. Short and plain."
+
+business:
+  type: "plumbing & gasfitting"
+  one_liner: "Domestic + small-commercial plumbing — callouts, hot water, bathroom rough-ins."
+  customers: "Homeowners (urgent callouts) + a few repeat builders (B2B reno work)."
+  offerings:
+    - { name: "Emergency callout", price: "$180 callout + hourly" }
+    - { name: "Hot water system replace", price: "$1,400–2,600" }
+    - { name: "Bathroom reno rough-in", price: "quoted per job" }
+  busy_seasons: ["Winter (hot-water failures spike)", "builder reno work steady Mar–Nov"]
+  quarter_goal: "Cut quote turnaround to <48h and free up enough admin time to take on a 2nd plumber."
+
+accounts:
+  calendar:
+    enabled: true
+    provider: "microsoft"
+    calendar_id: "tom@boydplumbing.com.au"
+  email:
+    enabled: true
+    provider: "microsoft"
+    send_as: "tom@boydplumbing.com.au"
+  inbox_triage:
+    enabled: true
+    mode: "api"                       # microsoft → direct Graph Mail.Read (no forwarding, no CASA)
+    forwarding_mailbox: ""            # not needed for the microsoft path
+  tasks:
+    enabled: true
+    provider: "todoist"
+  messaging:
+    whatsapp: true                    # tradies live on WhatsApp
+    slack: false
+
+comms:
+  primary_channel: "telegram"
+  telegram:
+    bot_token_ref: "secrets/telegram_bot_token"
+    chat_id_ref: "secrets/telegram_chat_id"
+  outbound_policy: "propose-confirm"
+  ai_disclosure: true
+
+models:
+  watcher:  "claude-haiku-4-5"
+  brief:    "claude-sonnet-4-6"
+  chat:     "claude-sonnet-4-6"
+  strategy: "claude-opus-4-8"
+  prompt_caching: true
+
+cadence:
+  morning_brief: "06:30"              # tradies start early
+  evening_review: "17:30"
+  inbox_watcher_interval_min: 30
+  weekly_review: "Sun 18:00"
+  quiet_hours: "19:30-05:30"
+
+priorities:
+  source: "wiki/priorities.md"
+
+classifications:
+  - match: ["quote", "how much", "callout", "emergency", "no hot water", "leak", "burst"]
+    category: "enquiry"
+    badge: "🔧 Job enquiry"
+    action: "Urgent ones reply ASAP; turn quotes around <48h (the quarter goal)."
+    route: "wiki/people"
+  - match: ["builders / repeat B2B (see wiki/people, tier: builder)"]
+    category: "builder"
+    badge: "🏗️ Builder"
+    action: "Repeat revenue — protect the relationship; confirm scope + dates."
+    route: "wiki/people"
+  - match: ["Reece", "supplier", "parts", "order", "delivery"]
+    category: "supplier"
+    badge: "📦 Supplier"
+    action: "FYI unless it blocks a booked job."
+    route: "wiki/people"
+  - match: ["invoice", "overdue", "payment", "deposit"]
+    category: "money"
+    badge: "💰 Payment"
+    action: "Chase overdue; tradies' cash flow lives or dies here."
+    route: "wiki/business.md"
+
+inbox:
+  cap: 100
+  buckets:
+    - { id: open-loop, write: none,             rule: "enquiry / builder / money, or a direct question" }
+    - { id: mark-read, write: "-UNREAD",        rule: "supplier confirmations, receipts, FYI" }
+    - { id: archive,   write: "-UNREAD -INBOX", rule: "marketing / unsubscribe / unknown senders" }
+    - { id: hold,      write: none,             rule: "ambiguous — surface for Tom" }
+
+capture:
+  brain_path: "wiki"
+  sources:
+    - { name: "whatsapp", provider: "whatsapp", captures: "customer + builder job chatter", route: "wiki/people" }
+  task_filter: {}
+
+skills:
+  enabled:
+    - daily
+    - inbox
+    - followup
+    - capture
+    - weekly
+  bespoke:
+    - quote-followup        # chase quotes that haven't been answered (the quarter goal)
+    - job-scheduler         # turn enquiries into calendar slots
+
+compliance:
+  high_risk_domains: []
+  data_processing_agreement: false

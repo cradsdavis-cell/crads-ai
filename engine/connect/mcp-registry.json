@@ -1,0 +1,42 @@
+{
+  "_doc": "Operator-maintained registry: provider/account -> MCP server definition. connect.mjs reads profile.accounts and writes the box's .mcp.json from these. Creds come from host env (${VAR}); never commit secrets. Microsoft is concrete (research-verified 2026-06-22); google + todoist are placeholders — replace the command with YOUR actual MCP invocation.",
+  "providers": {
+    "microsoft": {
+      "name": "ms365",
+      "server": {
+        "type": "stdio",
+        "command": "npx",
+        "args": ["-y", "@softeria/ms-365-mcp-server", "--preset", "outlook"],
+        "env": { "MS365_MCP_CLIENT_ID": "${MS365_MCP_CLIENT_ID}" }
+      },
+      "covers": ["email.send", "email.read", "calendar"],
+      "auth_steps": [
+        "operator (once): register ONE multi-tenant Entra app + publisher-verify (free, one-time, no CASA); delegated scopes Mail.Send + Mail.Read + Calendars.ReadWrite; set MS365_MCP_CLIENT_ID",
+        "client: click the consent link — owner-operator on own domain self-consents as admin; personal Outlook.com = one-click; employee of a managed tenant may need their IT admin"
+      ]
+    },
+    "google": {
+      "name": "google",
+      "superseded": "2026-08-17: Google is NOT operator-provisioned. The member connects it themselves with their OWN OAuth client via the app's Connections wizard (docs/design-google-byo-connect.md); mcp-connect.mjs add-google writes the real server entry against the image-baked /opt/gws/bin/workspace-mcp. This registry entry stays only so profile.accounts provider:google is recognised — connect.mjs must SKIP writing a server for it.",
+      "covers": ["email.send", "email.read", "calendar", "drive"],
+      "auth_steps": [
+        "member: Connections page -> Google -> Set up (guided; own client, Testing mode, weekly re-key)"
+      ]
+    }
+  },
+  "tasks": {
+    "todoist": {
+      "name": "todoist",
+      "server": {
+        "type": "stdio",
+        "command": "REPLACE-with-operator-todoist-mcp-command",
+        "args": [],
+        "env": { "TODOIST_API_TOKEN": "${TODOIST_API_TOKEN}" }
+      },
+      "auth_steps": [
+        "client: paste their Todoist API token -> secrets; export TODOIST_API_TOKEN",
+        "FILL: set the real todoist MCP command in this registry"
+      ]
+    }
+  }
+}

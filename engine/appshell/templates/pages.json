@@ -1,0 +1,8 @@
+{
+  "template_version": 2,
+  "pages": [
+    { "id": "welcome", "title": "Welcome", "seed": true },
+    { "id": "ask-me", "title": "Ask me", "seed": true },
+    { "id": "my-people", "title": "People", "seed": true }
+  ]
+}

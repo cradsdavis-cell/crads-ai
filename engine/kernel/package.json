@@ -1,0 +1,12 @@
+{
+  "name": "ai-os-kernel",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Per-instance single-writer kernel — durable job queue + serial git commit loop (decisions D9).",
+  "bin": {
+    "ai-os-kernel": "kernel.mjs",
+    "ai-os-enqueue": "enqueue.mjs"
+  },
+  "engines": { "node": ">=20" }
+}

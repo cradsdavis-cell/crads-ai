@@ -1,0 +1,16 @@
+{
+  "_doc": "SINGLE SOURCE OF TRUTH for the engine's cross-cutting safety policy (2026-07-14, mirrors the second-brain's shared-policy pattern: rules live as DATA in one file, consumers carry byte-identical fallbacks so a missing/corrupt file degrades to prior behaviour, never to open). EDIT RULES HERE, not in the consumers. Current consumers: engine/lib/comms.mjs (auto-send allowlist). Per-client OVERRIDES do not belong here — this is the shared engine floor; profile.yaml stays the per-client surface (outbound_policy, quiet_hours).",
+  "_version": "1.0",
+  "_created": "2026-07-14",
+  "auto_send": {
+    "_doc": "§0.4 gated-vs-auto-send law: the ONLY comms that may leave a box unattended. Everything else is drafted + gated (default-deny) and released only by an explicit Approve. Widening any of these three lists widens what can auto-send on EVERY client box — treat edits like a permissions change, not a config tweak.",
+    "channels": ["telegram"],
+    "recipient_classes": ["client_self"],
+    "comm_types": ["brief", "reminder"]
+  },
+  "backup": {
+    "_doc": "Nightly encrypted state snapshot (engine/backup.mjs). Targets are stateDir-relative paths; missing ones are skipped. sentinel_files must exist non-empty inside the archive for the verify step to pass.",
+    "targets": ["secrets", ".claude-auth", ".claude", ".mcp.json", ".kernel/gh", ".kernel/crontab", ".kernel/telegram-offset", "profile.yaml"],
+    "sentinel_files": ["profile.yaml", "secrets/telegram_bot_token"]
+  }
+}

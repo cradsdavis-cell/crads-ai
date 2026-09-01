@@ -1,0 +1,4 @@
+repo: https://github.com/cradsdavis-cell/brain-template.git
+sha: 09dfb47a06e66b74b6d91ea43418614d0c82c94d
+dirs: control orchestrator
+file_dirs: registry factory
