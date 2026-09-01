@@ -80,45 +80,16 @@ test('stall-board carries the rock\'s own build as the comparison baseline', () 
 });
 
 // --------------------------------------------------------------- the surface
-test('the panel reads the version and refuses to guess when it cannot', () => {
+//
+// RETIRED (2026-09-01, the face collapse). buildState, the fleet summary and
+// the per-member version chip lived on the org face's fleet cards, and no
+// mineral reads another mineral's build any more. The stamp, the bake wiring,
+// the heartbeat read and the stall-board transport above all survive (the box
+// still reports ITS OWN build, and the machinery rows read it); what is
+// pinned here is that the comparison surface stays gone.
+test('the fleet version surface is RETIRED: nothing in the panel judges another box\'s build', () => {
   const html = read('wizard/panel/member.html');
-  assert.match(html, /function buildState\(/, 'no buildState helper');
-  // Three states, and the unknown one must exist: a box that cannot report its
-  // build must never be rendered as current. That silent upgrade to good news
-  // is the whole failure this surface exists to prevent.
-  for (const level of ['current', 'behind', 'unknown']) {
-    assert.match(html, new RegExp(`level: '${level}'`), `buildState never returns ${level}`);
-  }
-  assert.match(html, /orgx\.selfBuild/, 'the rock baseline is never parsed');
-  assert.match(html, /older software/, 'the fleet summary never counts stale boxes');
-  // A preserved (open-fold) card must repaint when the version changes, or it
-  // keeps asserting "older software" after that mineral has restarted: finding
-  // 165's shape, on a new field.
-  const shape = html.slice(html.indexOf('function cardShape('), html.indexOf('function cardShape(') + 700);
-  assert.match(shape, /buildState/, 'cardShape omits the build state');
-});
-
-test('a member reporting no build is unknown, never current', () => {
-  // The helper is a pure function of (heartbeat, orgx.selfBuild), so it is
-  // lifted out of the page and run directly rather than asserted as a string.
-  const html = read('wizard/panel/member.html');
-  const src = html.slice(html.indexOf('function buildState(hb){'));
-  const body = src.slice(0, src.indexOf('\n  }') + 4);
-  const orgx = { selfBuild: 'abc1234' };
-  const buildState = new Function('orgx', `${body}; return buildState;`)(orgx);
-
-  assert.equal(buildState(null).level, 'unknown', 'no heartbeat must be unknown');
-  assert.equal(buildState({}).level, 'unknown', 'no app_commit must be unknown');
-  assert.equal(buildState({ app_commit: 'abc1234' }).level, 'current');
-  assert.equal(buildState({ app_commit: 'abc1234567890' }).level, 'current',
-    'a long sha must compare on its first 7, not fail to match');
-  assert.equal(buildState({ app_commit: 'def5678' }).level, 'behind');
-  assert.match(buildState({ app_commit: 'def5678' }).why, /abc1234/,
-    'the behind explanation must name the baseline it is judging against');
-
-  // No baseline: the members are readable but there is nothing to compare to.
-  const orgx2 = { selfBuild: null };
-  const bs2 = new Function('orgx', `${body}; return buildState;`)(orgx2);
-  assert.equal(bs2({ app_commit: 'def5678' }).level, 'unknown',
-    'with no rock baseline, a member must not be judged behind');
+  assert.ok(!html.includes('buildState'), 'the comparison helper must stay gone');
+  assert.ok(!html.includes('orgx.selfBuild'), 'and the baseline it compared against');
+  assert.ok(!html.includes('older software'), 'and the fleet summary sentence');
 });

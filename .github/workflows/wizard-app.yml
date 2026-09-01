@@ -1,10 +1,11 @@
 name: wizard-app
 
-# D41 phase 2: package the Practice Partner setup wizard as a downloadable Windows .exe.
-# Node single-executable application (SEA): esbuild inlines wizard/app.mjs +
-# wizard/ui/server-lib.mjs + wizard/engine.mjs into one CJS bundle, `node
-# --experimental-sea-config` bakes it plus the two assets (index.html, the cloud-init
-# rock template) into a blob, and postject injects the blob into a copy of node.exe.
+# D41 phase 2 (reshaped by the 2026-09-01 collapse): package the Crads-AI app
+# as a downloadable Windows .exe / Mac .app. Node single-executable application
+# (SEA): esbuild inlines wizard/app.mjs (door + the one panel; the org setup
+# wizard and its server-lib were deleted) into one CJS bundle, `node
+# --experimental-sea-config` bakes it plus the page + provisioning assets into
+# a blob, and postject injects the blob into a copy of node.exe.
 # esbuild + postject are BUILD tools only; the shipped exe has zero runtime deps.
 #
 # import.meta.url note: the engine derives paths from import.meta.url, which does not
@@ -20,7 +21,6 @@ on:
     branches: [main]
     paths:
       - 'wizard/**'
-      - 'provisioning/rock/cloud-init.rock.template.yaml'
       - '.github/workflows/wizard-app.yml'
 
 permissions:
@@ -167,12 +167,8 @@ jobs:
             "assets": {
               "crads-ai.ico": "dist/crads-ai.ico",
               "crads-ai-window.exe": "dist/crads-ai-window.exe",
-              "index.html": "wizard/ui/index.html",
               "member.html": "wizard/panel/member.html",
-              "member-connect.html": "wizard/panel/member-connect.html",
               "door.html": "wizard/panel/door.html",
-              "member-console.html": "wizard/panel/member-console.html",
-              "topology.html": "wizard/panel/topology.html",
               "xterm.js": "wizard/panel/vendor/xterm.js",
               "xterm.css": "wizard/panel/vendor/xterm.css",
               "xterm-addon-fit.js": "wizard/panel/vendor/xterm-addon-fit.js",
@@ -181,7 +177,6 @@ jobs:
               "inter/InterVariable.woff2": "wizard/panel/vendor/inter/InterVariable.woff2",
               "marks/index.mjs": "wizard/panel/vendor/marks/index.mjs",
               "build-info.json": "dist/build-info.json",
-              "cloud-init.rock.template.yaml": "provisioning/rock/cloud-init.rock.template.yaml",
               "cloud-init.template.yaml": "provisioning/managed/cloud-init.template.yaml",
               "aios-host-update": "provisioning/host/aios-host-update",
               "enter-aios": "provisioning/host/enter-aios"
@@ -198,7 +193,7 @@ jobs:
           postject dist/crads-ai.exe NODE_SEA_BLOB dist/sea-prep.blob `
             --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
 
-      - name: Smoke the exe (boots, serves the embedded wizard page)
+      - name: Smoke the exe (boots, serves the embedded door page)
         run: |
           $env:AIOS_NO_LAUNCH = '1'
           $env:AIOS_NO_INSTALL = '1'
@@ -219,7 +214,7 @@ jobs:
           # door.html's own click handler and door.test.mjs bind to, so it cannot
           # drift without breaking the app for real.
           if ($html -notmatch 'data-make="selfhost"') { throw 'door is missing the self-host path (data-make="selfhost")' }
-          Write-Host 'smoke OK: exe boots and serves the embedded wizard page'
+          Write-Host 'smoke OK: exe boots and serves the embedded door page'
 
       - name: Smoke the panel mode (D43; a fake Host block flips the exe to the control panel)
         run: |
@@ -239,11 +234,11 @@ jobs:
             throw "exe did not open in panel mode; stdout was: $out"
           }
           $port = $Matches[1]
-          # E7.1 REVERSED (upgraded-pebble, 2026-08-09): '/' serves the ONE app
-          # shell, edition-stamped org. The legacy console survives at /console
-          # until P3 re-homes its verbs. Greps pinned by door.test.mjs anti-drift.
+          # The one face (2026-09-01): '/' serves the ONE unstamped app shell to a
+          # legacy -rock alias exactly as to a -box one. Greps pinned by
+          # door.test.mjs anti-drift.
           $front = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$port/").Content
-          if ($front -notmatch 'var AIOS_EDITION = "org"') { throw "org '/' did not serve the edition-stamped shell" }
+          if ($front -match 'AIOS_EDITION') { throw "the edition stamp is retired; '/' must serve the shell unstamped" }
           if ($front -match '<title>Console</title>') { throw "org '/' bounced to the console; the cutover reversal regressed" }
           # Invoke-WebRequest cannot express "do not follow it, just tell me the
           # 3xx". -MaximumRedirection 0 makes PS7 THROW ("The maximum redirection
@@ -253,7 +248,7 @@ jobs:
           # ships in System32 on every Windows runner and does not follow
           # redirects unless asked, so it reports the status the check wants.
           $consoleCode = (curl.exe -s -o NUL -w '%{http_code}' "http://127.0.0.1:$port/console")
-          if ($consoleCode -ne '302') { throw "org /console should redirect home since the console retired (P3), got $consoleCode" }
+          if ($consoleCode -ne '302') { throw "/console should 302 to the seat since the console retired, got $consoleCode" }
           $html = $front
           $st = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$port/update-status").Content
           $xt = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$port/vendor/xterm.js").Content
@@ -264,32 +259,32 @@ jobs:
           # 404ed it, member.html's `import { markFor }` failed, and every connector
           # rendered as an initial disc. Nothing here noticed, because this smoke
           # asserted xterm and tokens.css and stopped. A vendor asset the panel
-          # IMPORTS is exactly what a packaging smoke has to fetch: the disk
-          # fallback in server-lib.mjs hides the whole class of failure in a dev
+          # IMPORTS is exactly what a packaging smoke has to fetch: the servers'
+          # disk fallback for /vendor/ hides the whole class of failure in a dev
           # checkout, so the exe is the only place it can be seen.
           $mk = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$port/vendor/marks/index.mjs").Content
           if ($mk -notmatch 'export const MARKS') { throw "/vendor/marks/index.mjs did not serve the marks module: every connector would fall back to an initial disc" }
           if ($mk -notmatch 'export function markFor') { throw "/vendor/marks/index.mjs served but has no markFor export, which is the symbol member.html imports" }
           Stop-Process -Id $p.Id -Force
-          # rock sections live in the shell under the ruled names (2026-08-09)
-          # orgbrain retired in S5 (2026-08-10): the org brain rides the shared
-          # data-sec="brain" graph viewer. rockbrain retired the same day with the
-          # Rocks rebuild: a rock's shared pages were a nav tab of their own while
-          # the page named Rocks carried no rock, so they became a block inside the
-          # rock's own row and the reader they open is data-sec="rockreader".
+          # The one-face shell (2026-09-01): the org/member edition split died,
+          # every mineral renders the same member.html, and the org-only pages
+          # (Organisations, Members, Decisions, Your rock, the rock reader) left
+          # with it. The sections below are the surviving sidebar.
           #
-          # This list is the reason that rename failed CI twice. It is a pinned
-          # string in workflow YAML, so `node --test` over every *.test.mjs in the
-          # repo cannot see it and neither can the qa-* sweep: the first signal was
-          # the exe build going red AFTER the merge had landed. If you rename a
-          # section, this list is the third place to change.
+          # This list is the reason the rockbrain rename failed CI twice. It is
+          # a pinned string in workflow YAML, so `node --test` over every
+          # *.test.mjs in the repo cannot see it and neither can the qa-* sweep:
+          # the first signal was the exe build going red AFTER the merge had
+          # landed. If you rename a section, this list is the third place to
+          # change (ci-section-pins.test.mjs parses these two loops, so a rename
+          # now fails at desk-time too).
           # R17 (2026-08-23): the Claude Code tab and the help modal merged into
-          # the data-sec="help" page, carried on both faces.
-          foreach ($sec in 'data-sec="pebbles"','data-sec="decisions"','data-sec="yourrock"','data-sec="publish"','data-sec="brain"','data-sec="rockreader"','data-sec="rocks"','data-sec="terminal"','data-sec="help"','id="openFolderName"') {
-            if ($html -notmatch [regex]::Escape($sec)) { throw "org shell is missing the $sec section" }
+          # the data-sec="help" page.
+          foreach ($sec in 'data-sec="seat"','data-sec="network"','data-sec="commons"','data-sec="publish"','data-sec="brain"','data-sec="skills"','data-sec="library"','data-sec="secrets"','data-sec="terminal"','data-sec="help"','id="openFolderName"') {
+            if ($html -notmatch [regex]::Escape($sec)) { throw "shell is missing the $sec section" }
           }
-          foreach ($gone in 'data-sec="operators"','Stall board','data-sec="chat"','data-sec="members"','data-sec="rockbrain"','data-sec="claudecode"','helpModal') {
-            if ($html -match [regex]::Escape($gone)) { throw "org shell still carries the removed $gone surface" }
+          foreach ($gone in 'data-sec="operators"','Stall board','data-sec="chat"','data-sec="members"','data-sec="rockbrain"','data-sec="claudecode"','helpModal','data-sec="pebbles"','data-sec="decisions"','data-sec="yourrock"','data-sec="rockreader"','data-sec="rocks"','AIOS_EDITION') {
+            if ($html -match [regex]::Escape($gone)) { throw "shell still carries the removed $gone surface" }
           }
           if ($st -notmatch '"sha"') { throw "update-status is missing the baked build identity: $st" }
           if ($xt.Length -lt 100000) { throw 'vendored xterm.js not served from the SEA assets' }
@@ -312,38 +307,36 @@ jobs:
           Start-Sleep -Seconds 6
           $env:USERPROFILE = $null
           $out = Get-Content dist\smoke-member-out.log -Raw
-          if ($out -notmatch 'Crads-AI member: http://127\.0\.0\.1:(\d+)') {
+          # One face (2026-09-01): a -box alias opens the same panel server a
+          # -rock one does, so the label is 'panel' for every mineral.
+          if ($out -notmatch 'Crads-AI panel: http://127\.0\.0\.1:(\d+)') {
             if (Test-Path dist\smoke-member-err.log) { Get-Content dist\smoke-member-err.log -Raw | Write-Host }
-            throw "exe did not open in member mode; stdout was: $out"
+            throw "exe did not open the one panel for a -box alias; stdout was: $out"
           }
           $mport = $Matches[1]
-          # The member front face is the APP itself, opening on Overview (2026-08-04:
-          # the E7.1 console redirect is the ORG edition's; a member landing on the
-          # standalone seat page was the bug, not the contract). The standalone
-          # console stays reachable at /console as the pre-app surface. These greps
-          # are pinned by door.test.mjs's anti-drift tests, so a surface rename
-          # fails at desk-time instead of ten minutes into a release.
+          # The front face is the APP itself, opening on Overview. The standalone
+          # console retired with the face collapse: /console 302s to the seat.
+          # These greps are pinned by door.test.mjs's anti-drift tests, so a
+          # surface rename fails at desk-time instead of mid-release.
           $front = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$mport/").Content
           if ($front -notmatch '<title>Your Brain</title>') { throw "member '/' did not serve the app" }
           if ($front -notmatch 'data-sec="dashboard" class="on"') { throw "the member app did not open on Overview" }
-          $console = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$mport/console").Content
-          if ($console -notmatch '<title>Your mineral</title>') { throw "the standalone member console left /console" }
+          $mConsoleCode = (curl.exe -s -o NUL -w '%{http_code}' "http://127.0.0.1:$mport/console")
+          if ($mConsoleCode -ne '302') { throw "/console should 302 to the seat since the console retired, got $mConsoleCode" }
           $html = $front
           Stop-Process -Id $p.Id -Force
           # Customise died in the S6 one-designed-grid ruling (2026-08-10); the
           # strength card replaced its purpose, then died into the capability
-          # ladder (2026-08-17), whose card is now the member surface pinned here.
-          foreach ($sec in 'Dashboard','Brain','What your pebble can do') {
+          # ladder (2026-08-17), whose card is the surface pinned here (renamed
+          # for the one face, 2026-09-01).
+          foreach ($sec in 'Dashboard','Brain','What your mineral can do') {
             if ($html -notmatch $sec) { throw "member HTML is missing the $sec surface" }
           }
-          # ONE shell serves both faces since 2026-08-09, so the org sections DO
-          # exist in the member-served HTML; what protects the member is the
-          # edition wall, and that is what this smoke pins: the serve is stamped
-          # member, the org chrome is orgonly-classed, and the CSS wall hides it.
-          if ($front -notmatch 'var AIOS_EDITION = "member"') { throw "member '/' was not edition-stamped member" }
-          if ($front -notmatch [regex]::Escape('class="orgonly" data-sec="yourrock"')) { throw 'the org chrome lost its orgonly marking' }
-          if ($front -notmatch [regex]::Escape('body:not([data-edition="org"]) .orgonly{display:none')) { throw 'the CSS edition wall is gone' }
-          Write-Host 'smoke OK: member app on / (Overview), standalone console at /console, edition wall intact'
+          # The edition wall is RETIRED (2026-09-01): one face, one nav, no
+          # stamp. The smoke pins the absence, mirroring door.test.mjs.
+          if ($front -match 'AIOS_EDITION') { throw "the edition stamp is retired; '/' must serve the shell unstamped" }
+          if ($front -match 'class="orgonly') { throw 'orgonly chrome came back; the face collapse removed the edition wall' }
+          Write-Host 'smoke OK: the one app on / (Overview), /console 302s to the seat, no edition machinery'
 
       - name: Smoke the self-install (first run installs to LOCALAPPDATA + creates shortcuts)
         run: |
@@ -497,12 +490,8 @@ jobs:
             "output": "dist/sea-prep.blob",
             "disableExperimentalSEAWarning": true,
             "assets": {
-              "index.html": "wizard/ui/index.html",
               "member.html": "wizard/panel/member.html",
-              "member-connect.html": "wizard/panel/member-connect.html",
               "door.html": "wizard/panel/door.html",
-              "member-console.html": "wizard/panel/member-console.html",
-              "topology.html": "wizard/panel/topology.html",
               "xterm.js": "wizard/panel/vendor/xterm.js",
               "xterm.css": "wizard/panel/vendor/xterm.css",
               "xterm-addon-fit.js": "wizard/panel/vendor/xterm-addon-fit.js",
@@ -510,7 +499,6 @@ jobs:
               "inter/inter.css": "wizard/panel/vendor/inter/inter.css",
               "inter/InterVariable.woff2": "wizard/panel/vendor/inter/InterVariable.woff2",
               "build-info.json": "dist/build-info.json",
-              "cloud-init.rock.template.yaml": "provisioning/rock/cloud-init.rock.template.yaml",
               "cloud-init.template.yaml": "provisioning/managed/cloud-init.template.yaml",
               "aios-host-update": "provisioning/host/aios-host-update",
               "enter-aios": "provisioning/host/enter-aios"
@@ -560,7 +548,7 @@ jobs:
           EOF
           codesign -s - --force "$APP"
 
-      - name: Smoke the app (boots, serves the embedded wizard page)
+      - name: Smoke the app (boots, serves the embedded door page)
         run: |
           AIOS_NO_LAUNCH=1 AIOS_NO_INSTALL=1 ./dist/Crads-AI.app/Contents/MacOS/crads-ai > dist/smoke-out.log 2> dist/smoke-err.log &
           PID=$!
@@ -574,19 +562,18 @@ jobs:
           # job above. This is the SECOND copy of the assertion, and it is why
           # fixing only the Windows one still shipped no Mac app.
           echo "$HTML" | grep -q 'data-make="selfhost"' || { echo 'door is missing the self-host path (data-make="selfhost")'; exit 1; }
-          echo 'smoke OK: mac app boots and serves the embedded wizard page'
+          echo 'smoke OK: mac app boots and serves the embedded door page'
 
       # Gatekeeper truth (2026-08-19, out of the Harriet walkthrough). The app is
       # ad-hoc signed and NOT notarized, so a member's Mac shows the hard block:
       # "Crads-AI can't be opened because Apple cannot check it for malicious
-      # software" — no Open Anyway on the dialog itself, and Harriet spent the
-      # first ten minutes of the 2026-08-18 walkthrough re-downloading against
-      # it. Money, not code: notarization needs the $99/yr Apple Developer
-      # membership. Until it is paid, the join page and the beta invite carry
-      # the bypass instructions, and THIS STEP PINS THE STATE so the two cannot
-      # drift: the day a notarized build ships, the assertions flip, this step
-      # goes red, and whoever flipped it must also update the join-page copy
-      # and the invite step-card before shipping.
+      # software" — no Open Anyway on the dialog itself. Money, not code:
+      # notarization needs the $99/yr Apple Developer membership. Until it is
+      # paid, the download instructions (docs site + release notes; the old
+      # join page was deleted 2026-09-01) carry the bypass steps, and THIS STEP
+      # PINS THE STATE so the two cannot drift: the day a notarized build
+      # ships, the assertions flip, this step goes red, and whoever flipped it
+      # must also update those instructions before shipping.
       - name: Pin the Gatekeeper state (ad-hoc today; goes red the day we notarize)
         run: |
           set -euo pipefail
@@ -594,15 +581,15 @@ jobs:
           codesign --verify --deep --strict "$APP" || { echo 'the ad-hoc signature itself is broken — the bundle would not even launch via the bypass'; exit 1; }
           codesign -dv "$APP" 2>&1 | tee dist/codesign-state.txt
           grep -q 'Signature=adhoc' dist/codesign-state.txt || {
-            echo '::error::The app is no longer ad-hoc signed. If this is the paid Developer ID landing: update the join page (drop the bypass instructions) and the beta invite step-card, then update these assertions.'; exit 1; }
+            echo '::error::The app is no longer ad-hoc signed. If this is the paid Developer ID landing: drop the Gatekeeper-bypass instructions from the download docs + release notes, then update these assertions.'; exit 1; }
           # what a member's Chrome download actually faces: quarantined + assessed
           cp -R "$APP" dist/Crads-AI-quarantined.app
           xattr -w com.apple.quarantine '0083;00000000;Chrome;' dist/Crads-AI-quarantined.app
           if spctl --assess --type execute dist/Crads-AI-quarantined.app 2> dist/spctl-state.txt; then
-            echo '::error::Gatekeeper ACCEPTED the app. If notarization landed: update the join page and invite step-card, then update these assertions.'; exit 1
+            echo '::error::Gatekeeper ACCEPTED the app. If notarization landed: drop the bypass instructions from the download docs + release notes, then update these assertions.'; exit 1
           fi
           cat dist/spctl-state.txt
-          echo 'Gatekeeper state pinned: ad-hoc + rejected, exactly what the join-page bypass instructions are written for'
+          echo 'Gatekeeper state pinned: ad-hoc + rejected, exactly what the download-docs bypass instructions are written for'
 
       - name: Zip the bundle
         run: ditto -ck --keepParent dist/Crads-AI.app dist/crads-ai-mac.zip

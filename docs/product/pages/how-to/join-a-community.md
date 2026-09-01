@@ -50,7 +50,7 @@ it never overwrites anything.
 Your mineral pulls each commons on its existing sync cadence into its own
 inbox. New and updated items appear as **offers**: skills on the
 [Skills page](/docs/skills-page) under the community's name, pages, prompts
-and folders in the Library.
+and folders in the [Library](/docs/library-page).
 
 Nothing installs by itself, ever. Installing is your explicit act, and it
 runs through the same lint and sandbox gates as anything else on your

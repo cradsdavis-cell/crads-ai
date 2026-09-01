@@ -93,40 +93,19 @@ test('both servers serve /tie-counts.js by stripping the export, and the page lo
   assert.match(harness, /path === '\/tie-counts\.js'/, 'the dev harness serves it too, or every driven qa test 404s the oracle');
 });
 
-// ---- cross-surface consistency: one fixture, every surface, one answer -----
+// ---- cross-surface consistency: RETIRED (2026-09-01, the face collapse) ----
 
-test('panel identity line, Pebbles tile and joinedCount all read the oracle', () => {
-  // joinedCount is derived from the oracle, never from ties.length
-  assert.match(html, /orgx\.joinedCount = oc \? oc\.joined : null;/,
-    'renderRockState must set joinedCount from the oracle');
-  assert.ok(!/orgx\.joinedCount = \(Array\.isArray\(st\.ties\) \? st\.ties : \[\]\)\.length/.test(html),
-    'the ties.length arithmetic must not come back');
-  // the identity line's pebble count
-  assert.match(html, /var n = oc \? oc\.anchored : \(orgx\.index \|\| \[\]\)\.filter/,
-    'renderRockIdentity anchors-count reads oc.anchored');
-  // the Pebbles tile and page big numbers
-  // split 2026-08-17 (lifecycle tile wording): wiring counts as setting-up,
-  // joined stands alone — both still read the oracle first
-  assert.match(html, /var tiedWiring = oc \? oc\.wiring/, 'tile wiring-count reads the oracle');
-  assert.match(html, /var tiedJoined = oc \? oc\.joined/, 'tile joined-count reads the oracle');
-  assert.ok(html.split('var total = oc ? (oc.anchored + oc.joined)').length === 3,
-    'tile and page totals both read anchored + joined from the oracle');
-  // the server-side rock-state payload carries the same oracle's answer
-  assert.match(server, /counts: tieCounts\(ties, Array\.isArray\(index\) \? index : \[\]\)/,
-    'panel-server attaches oracle counts to its fleet payload');
-});
-
-test('the account site\'s chips agree with the oracle on every explicit-rel fixture', (t) => {
-  // The site draws one chip per live edge: TIE_CHIP[e.rel || 'joined']
-  // (samdavis-site api/app/minerals.js). For explicit rels that is exactly the
-  // oracle's split. For a REL-LESS edge the site says joined while the worker's
-  // memberRel (and this oracle) say anchored: that divergence is real, filed as
-  // finding 183, and pinned by the rel-less unit test above.
-  const edges = [T('p1', 'anchored'), T('p2', 'anchored'), T('j1', 'joined'), T('l1', 'joined', { status: 'left' })];
-  const live = edges.filter((e) => e.status !== 'left');
-  const chips = { anchored: live.filter((e) => (e.tie || 'joined') === 'anchored').length,
-    joined: live.filter((e) => (e.tie || 'joined') === 'joined').length };
-  const oracle = tieCounts(edges, [R('p1'), R('p2')]);
-  assert.equal(chips.anchored, oracle.anchored, 'anchored chips == oracle.anchored');
-  assert.equal(chips.joined, oracle.joined, 'joined chips == oracle.joined');
+test('the UI consumers are RETIRED: no panel surface counts a fleet any more', () => {
+  // Three surfaces used to read the oracle (the identity line, the Pebbles
+  // tile, joinedCount) and one server payload attached its counts. All four
+  // died with the org face and /rock-mine; the account site whose chips the
+  // last test compared (finding 183) is retired with the directory. The
+  // arithmetic above stays pinned because the module still ships and is still
+  // served; what must stay gone is any fleet-counting consumer in the panel.
+  assert.ok(!html.includes('orgx.joinedCount'), 'joinedCount must stay gone');
+  assert.ok(!html.includes('tieCounts('), 'no inline fleet arithmetic in the page');
+  assert.ok(!server.includes('counts: tieCounts('), 'no server fleet payload carries counts');
+  // comments may still name the dead route to explain its absence; code must not
+  const code = server.replace(/^\s*\/\/.*$/gm, '');
+  assert.ok(!code.includes('/rock-mine'), 'the fleet payload route itself stays gone');
 });

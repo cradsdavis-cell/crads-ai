@@ -1,35 +1,27 @@
 Hi {{NAME}},
 
-Your AI OS is ready — a private workspace where your assistant lives. Nothing to install. Just open the link below in your browser (Chrome, Safari, Edge, any of them).
+Your mineral is alive. You built it, it runs on your own server, and everything
+it holds belongs to you.
 
-  Open:     {{URL}}
-  Password: {{PASSWORD}}
+First time, about two minutes:
 
-First time — about two minutes:
+  1. Open it from the Crads-AI app on your computer. The app connects over SSH
+     with the key made when the mineral was born; there is no password to keep.
 
-  1. Open the link and type in the password. You'll land in your workspace.
+  2. The first screen asks you to sign in to Claude. That is your own Claude
+     subscription (Claude Pro or above), the engine your assistant runs on.
+     No subscription yet? Get one at claude.ai first, then come back.
 
-  2. On the far-left strip of icons, click the Claude one (it looks like an asterisk *).
-     A "Welcome to Claude Code" panel opens.
+  3. Open a terminal inside the workspace, type /onboard and press enter. Your
+     assistant asks a few questions to learn your world: your work, your
+     people, what matters right now.
 
-  3. Click "Claude.ai Subscription" and sign in with your Claude account.
-     (No Claude account yet? Grab Claude Pro at claude.ai first — that's the engine
-     your assistant runs on. Then come back and sign in.)
+That is the whole setup. Everything you do saves itself, and the app brings
+you back to the same place every time.
 
-  4. Open a terminal inside the workspace: top menu → Terminal → New Terminal.
-     Type  /onboard  and hit enter. Your assistant will ask you a few questions to
-     learn your world — your work, your people, what matters right now.
+Worth knowing: nothing on this mineral reports to anyone. There are no
+accounts, no billing and no central service behind it. Backups go to a private
+repository you own. If you want another of your computers to open it, the app
+on this one can let it in from the Map page.
 
-That's the whole setup. Everything you do saves itself, and you come back to the
-same link whenever you want.
-
-One extra, whenever you're curious: a live map of your assistant's "brain" —
-the people, projects and notes it's holding for you, drawn as a graph:
-
-  Your brain map:  {{URL}}/proxy/7780/
-
-(Same login. It fills in as you and your assistant build things up.)
-
-Anything feels off, just reply to me here and I'll sort it.
-
-— Sam
+Stuck on anything? The guides live at crads-ai.com/docs.

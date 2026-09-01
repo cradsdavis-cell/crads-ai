@@ -19,17 +19,20 @@ test('the body ships the marker unhydrated, so a driver can tell "no signal yet"
     'body must carry data-hydrated="0" in the markup; the door has no marker and drivers key on that difference');
 });
 
-test('every expected leg is registered up front, per face', () => {
-  assert.match(html, /if \(IS_ORG\) \{ hydExpect\('stall-board'\); hydExpect\('rock-state'\); \}/,
-    'org face owes stall-board and rock-state before it may call itself hydrated');
-  assert.match(html, /hydExpect\('dashboard'\);/, 'both faces owe dashboard-data');
+test('the one expected leg is registered up front', () => {
+  // The org legs (stall-board, rock-state) retired with the face collapse
+  // (2026-09-01): there is no stall board and no rock state to wait on, so
+  // the dashboard leg is the whole debt. Registered before boot so an early
+  // settle cannot declare the page done while the leg is still unscheduled.
+  assert.match(html, /hydExpect\('dashboard'\);/, 'the page owes dashboard-data');
+  assert.ok(!html.includes("hydExpect('stall-board')"), 'the stall-board leg stays gone');
+  assert.ok(!html.includes("hydExpect('rock-state')"), 'the rock-state leg stays gone');
+  assert.ok(!html.includes('IS_ORG'), 'and no leg is gated on a face that no longer exists');
 });
 
-test('each boot leg settles exactly its own name, on answer and on transport failure', () => {
-  for (const leg of ['dashboard', 'stall-board', 'rock-state']) {
-    assert.match(html, new RegExp(`hydSettle\\('${leg}', !!r\\.ok\\);`), `${leg} settles on answer`);
-    assert.match(html, new RegExp(`hydSettle\\('${leg}', false\\);`), `${leg} settles on a rejected fetch`);
-  }
+test('the boot leg settles exactly its own name, on answer and on transport failure', () => {
+  assert.match(html, /hydSettle\('dashboard', !!r\.ok\);/, 'dashboard settles on answer');
+  assert.match(html, /hydSettle\('dashboard', false\);/, 'dashboard settles on a rejected fetch');
 });
 
 test('the first settle wins: a late catch cannot flip a leg that already landed', () => {

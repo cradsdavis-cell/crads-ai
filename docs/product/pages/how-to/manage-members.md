@@ -34,6 +34,12 @@ that creates a machine, and no roster state your software can read off their
 box. What you manage is access to your content, and what you provide beyond
 it is help.
 
+(The app's **Members** page still exists on a rock: it shows the rock-local
+registry of members from the hosted era, with each mineral's own check-ins
+and device receipts, and points at the commons flow for adding anyone new.
+For a community started under the commons model it is simply quiet; the
+grants roster below is the living list.)
+
 ## Adding a member
 
 1. **Record a grant** on the roster: a label you know them by, optionally

@@ -2,7 +2,7 @@
 name: connect
 title: "Connect a service"   # human name shown on the Skills page (2026-08-09 audit R6); the slash id stays as a chip
 description: Connect an outside service (Notion, Linear, a calendar, anything with an MCP server) so this mineral can use it, including in scheduled jobs. Triggers on /connect and natural asks like "connect me to Notion", "hook up my calendar", "add the Linear MCP", "can you talk to my email", "set up an integration".
-category: box             # Skills-page grouping (briefing|capture|comms|box|org|other) — wire vocabulary, not copy
+category: box             # Skills-page grouping (briefing|capture|comms|box|org|other), wire vocabulary, not copy
 generic: true
 ---
 
@@ -53,31 +53,31 @@ If the service gave them an API token, include `token_b64` (base64 of the
 token) in that JSON: the connection is then working immediately, no sign-in.
 
 **The sign-in**, for OAuth services, happens on the **Connections page in
-their Crads-AI app** — not in this chat. The reason is physical: the sign-in
+their Crads-AI app**, not in this chat. The reason is physical: the sign-in
 ends with their browser redirecting to a listener on THEIR machine, which the
 app provides and this box cannot. So after an `add`, say: open your Crads-AI
 app, Connections, and press Sign in on the new row. Then confirm with `status`
 before saying it is connected.
 
 **Google (Gmail / Calendar / Drive / Docs)** connects with the member's OWN
-Google key — a guided setup on the Connections page walks them through
+Google key, a guided setup on the Connections page walks them through
 creating it (about ten minutes, five clicks in Google's console, then drop a
 file and sign in). When they ask you to connect Google, send them there:
 "open Connections in your Crads-AI app and press Set up on the Google row".
 Three truths to state plainly when they ask: the key is theirs and never
 leaves their box; the sign-in is one-time and stays put (their app is
 published, so Google does not retire it on a schedule); and **they choose
-what it reaches** — Google's consent screen lists each service (Gmail,
+what it reaches**, Google's consent screen lists each service (Gmail,
 Calendar, Drive, Docs, Sheets, Tasks, Contacts) with its own tick-box, and
 anything they left unticked stays off until they sign in again and grant it.
 If a tool fails saying a Google scope is missing, that is a service they
-chose not to share — offer the re-sign-in, never work around it.
+chose not to share, offer the re-sign-in, never work around it.
 
 ## Honesty rules
 
 1. **Google runs on the member's own key, signed in once.** If its row says
    "sign-in expired, needs you once more", Google really has dropped the key
-   (rare — the box live-checks and tells them by Telegram once); point them at
+   (rare, the box live-checks and tells them by Telegram once); point them at
    Connections → Google → Sign in, two clicks. Never present that state as a
    fault in the product, and never route around the guided setup by other
    means (no hand-built google servers, no `claude mcp add`).
@@ -89,5 +89,5 @@ chose not to share — offer the re-sign-in, never work around it.
    never is.
 4. **If they connected something in Claude Code themselves** and it shows as
    "in your chats only", offer the fix:
-   `node /app/engine/comms/mcp-connect.mjs /state adopt <name>` — it keeps
+   `node /app/engine/comms/mcp-connect.mjs /state adopt <name>`, it keeps
    their sign-in and makes the connection available to their jobs.

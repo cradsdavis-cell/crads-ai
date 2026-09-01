@@ -239,34 +239,16 @@ test('createPanelServer: /run catalog-list on a two-rock box streams the merged 
   } finally { s.close(); b.done(); }
 });
 
-test('createPanelServer: a JOINED /rock-leave fires tie-drop on the mineral; an anchored one still fires leave-org', async () => {
-  const b = box();
-  b.anchor();
-  b.joined('tides-gh', 'tides');
-  const edges = [
-    { org: 'acme', role: 'member', status: 'active', slug: 'jane01', rel: 'anchored', box: 'jane01.crads-ai.com' },
-    { org: 'tides', role: 'member', status: 'active', slug: 'jane01', rel: 'joined', box: 'jane01.crads-ai.com' },
-  ];
-  const communityFetcher = async (url) => {
-    const u = String(url);
-    if (u.endsWith('/rock-tie-leave')) return { ok: true, status: 200, json: async () => ({ ok: true }) };
-    if (u.includes('/edges')) return { ok: true, status: 200, json: async () => ({ edges }) };
-    if (u.includes('/rock-tie-notices')) return { ok: true, status: 200, json: async () => ({ notices: [] }) };
-    return { ok: true, status: 200, json: async () => ({}) };
-  };
-  const cmds = [];
-  const s = await listen({ edition: 'member', bridge: realBridge(b, cmds), directoryUrl: 'https://dir.example', communityFetcher,
-    communitySignIn: async () => ({ ok: true, idToken: idToken('jane@example.com') }) });
-  const base = `http://127.0.0.1:${s.address().port}`;
+test('/rock-leave is RETIRED (2026-09-01): leaving is a box-local act now', async () => {
+  // The route chained the directory leave with the on-mineral tie-drop; the
+  // directory is gone, so the route is too. tie-drop itself survives above as
+  // the box-side half (the commons model reuses the inbox surfaces), so the
+  // strongest remaining truth is that the app no longer offers the chained
+  // route: a leave is whatever the box does to its own confs.
+  const s = await listen({ bridge: { targets: () => [], stream: () => { throw new Error('no ssh'); }, tty: () => {} } });
   try {
-    await fetch(`${base}/rock-mine/refresh`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
-    await new Promise((r) => setTimeout(r, 200));
-    const r = await fetch(`${base}/rock-leave`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ org: 'tides', tie: 'joined', slug: 'jane01' }) });
-    assert.equal(r.status, 200);
-    await new Promise((r) => setTimeout(r, 600));
-    assert.ok(cmds.some((c) => /TIE-DROP-OK: left tides/.test(c)), 'tie-drop ran for tides');
-    assert.ok(!cmds.some((c) => /left\.json/.test(c)), 'not the anchored leave');
-    assert.ok(!existsSync(path.join(b.state, 'org-inbox.d', 'tides-gh.conf')), 'the channel is gone from the box');
-    assert.ok(existsSync(path.join(b.state, 'org-inbox.conf')), 'the anchor is untouched');
-  } finally { s.close(); b.done(); }
+    const r = await fetch(`http://127.0.0.1:${s.address().port}/rock-leave`,
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    assert.equal(r.status, 404, '/rock-leave must stay gone');
+  } finally { s.closeAllConnections?.(); s.close(); }
 });

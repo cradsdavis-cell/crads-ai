@@ -16,7 +16,9 @@ import { dirname, join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(join(HERE, 'member.html'), 'utf8');
-const skillsSec = html.slice(html.indexOf('<section data-sec="skills">'), html.indexOf('<section data-sec="pebbles"'));
+// the next section in source order is Library since the org sections left
+// with the face collapse (2026-09-01)
+const skillsSec = html.slice(html.indexOf('<section data-sec="skills">'), html.indexOf('<section data-sec="library">'));
 const render = html.split('function renderSkills()')[1].split('function skillRow(')[0];
 const row = html.split('function skillRow(s, st, gated)')[1].split('function sendToSignIn(')[0];
 
@@ -25,17 +27,22 @@ test('two groups on one page, no tabs', () => {
   assert.ok(!/data-tab=/.test(skillsSec), 'no tab buttons');
   assert.doesNotMatch(html, /var skillsTab\b/, 'and no tab state variable left behind');
   assert.match(render, /skGroupHead\(box, 'On this mineral'\)/, 'group 1');
-  assert.match(render, /skGroupHead\(box, 'From your rocks'\)/, 'group 2');
-  assert.ok(render.indexOf("'On this mineral'") < render.indexOf("'From your rocks'"), 'installed first, offers second');
+  // renamed with the face collapse (2026-09-01): offers come from communities
+  // now, and the data-group hook keeps its old name for the shots rig
+  assert.match(render, /skGroupHead\(box, 'From your communities'\)/, 'group 2');
+  assert.match(render, /g2\.setAttribute\('data-group', 'rocks'\)/, 'the structural hook is unchanged');
+  assert.ok(render.indexOf("'On this mineral'") < render.indexOf("'From your communities'"), 'installed first, offers second');
 });
 
-test('From your rocks has one subsection per rock, listing only offers not installed', () => {
+test('From your communities has one subsection per rock, listing only offers not installed', () => {
   assert.match(render, /byRock\[l\.rock\]/, 'grouped by the offer’s rock');
   assert.match(render, /if \(!offerInstalled\(l\.it, installedIds\)\) byRock\[l\.rock\]\.push\(l\)/, 'installed ids are filtered out of the offers');
   assert.match(render, /className = 'skillcat skrock'; sub\.setAttribute\('data-rock', rock\)/, 'the subsection is addressable by rock');
   assert.match(render, /Nothing new from ' \+ rock/, 'an empty subsection says so, naming the rock');
   const ents = html.split('function libEntries()')[1].split('function offerInstalled(')[0];
-  assert.match(ents, /rockLocalAnchor && rockLocalAnchor\.name/, 'the anchor’s name is the last fallback for an unnamed rock');
+  // the fallback chain ends at plain words now: the directory’s anchor record
+  // died with the face collapse, so an unnamed source reads as your community
+  assert.match(ents, /\|\| 'your community'/, 'an unnamed source falls back to plain words');
 });
 
 // The offers list is skills only, by ALLOW-list. The deny-list this replaced
@@ -69,7 +76,9 @@ test('a mixed-kind catalogue: only the skill (and a bare pre-kind row) reach the
   assert.ok(isSkillOfferSrc, 'isSkillOffer moved or changed shape');
   assert.ok(offerInstalledSrc, 'offerInstalled moved or changed shape');
   const start = html.indexOf('// ---- group 2: From your rocks');
-  const end = html.indexOf('// E7 (2026-08-10 tie audit)', start);
+  // the loop ends where the attached-state computation begins; the old E7
+  // comment anchor left with the tie machinery (face collapse, 2026-09-01)
+  const end = html.indexOf('// "attached"', start);
   assert.ok(start > -1 && end > start, 'the group-2 loop lives where the other tests in this file expect it');
   const loopSrc = html.slice(start, end);
   const runLoop = new Function('libs', 'installedIds', `
@@ -167,7 +176,7 @@ test('driven: groups per rock, origin chips, x off engine cards, read on all, up
     await page.waitForTimeout(2000);
     await page.evaluate(() => { location.hash = '#skills'; });
     await page.waitForTimeout(1800);
-    assert.deepEqual(await page.locator('#skillsGroups .skgroup').allTextContents(), ['On this mineral', 'From your rocks']);
+    assert.deepEqual(await page.locator('#skillsGroups .skgroup').allTextContents(), ['On this mineral', 'From your communities']);
     const rocks = await page.locator('#skillsGroups .skrock').evaluateAll((els) => els.map((e) => e.getAttribute('data-rock')));
     assert.deepEqual(rocks, ['Harbour Guild', 'Tide Collective'], 'one subsection per rock, in inbox order');
     const libs = await page.locator('#skillsGroups [data-lib]').evaluateAll((els) => els.map((e) => e.getAttribute('data-lib')));

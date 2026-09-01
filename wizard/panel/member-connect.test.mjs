@@ -1,51 +1,19 @@
-// member-connect.test.mjs: the member first-run flow (D44).
+// member-connect.test.mjs: the surviving identity-install machinery (D44).
 //   node --test wizard/panel/member-connect.test.mjs
+//
+// The member-connect SURFACE (invite page + server + invite parsing + central
+// staging + join-org/my-orgs) was deleted 2026-09-01 with the invitation
+// system, and its tests went with it. What this file still pins is the
+// machinery that provision-routes and device-routes run on this machine:
+// install/repair/remove of the ~/.ssh identity and its vault keypair.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, statSync, existsSync, writeFileSync, appendFileSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
-import { installMemberAccess, createMemberConnectServer, removeIdentityAccess, removeHostBlock, parseInviteLink } from './member-connect.mjs';
+import { installMemberAccess, removeIdentityAccess, removeHostBlock } from './member-connect.mjs';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
 
 const tmp = () => tmpDir('pp-mc-');
-
-// factory#2: build a v1 invite link fragment from its decoded fields.
-const b64url = (s) => Buffer.from(s, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-const inviteLink = (org, slug, payload) => `https://crads-ai.com/join#v1.${org}.${slug}.${b64url(payload)}`;
-
-test('parseInviteLink: extended link carries tierName + tierDescription', () => {
-  const r = parseInviteLink(inviteLink('acme', 'jane01', 'jane01.example.com|203.0.113.5|member|tok123|standard|Full access to all content'));
-  assert.equal(r.slug, 'jane01');
-  assert.equal(r.host, 'jane01.example.com');
-  assert.equal(r.sip, '203.0.113.5');
-  assert.equal(r.token, 'tok123');
-  assert.equal(r.tierName, 'standard');
-  assert.equal(r.tierDescription, 'Full access to all content');
-});
-
-test('parseInviteLink: legacy link (no tier fields) returns empty tier strings, no throw', () => {
-  const r = parseInviteLink(inviteLink('acme', 'jane01', 'jane01.example.com|203.0.113.5|member|tok123'));
-  assert.equal(r.token, 'tok123');
-  assert.equal(r.tierName, '');
-  assert.equal(r.tierDescription, '');
-});
-
-test('/redeem returns tierName + tierDescription for an extended link', async () => {
-  const s = await new Promise((resolve) => {
-    const srv = createMemberConnectServer({ port: 0, host: '127.0.0.1', htmlText: '<html>connect</html>',
-      claudeSettingsPath: join(tmp(), 'settings.json'), sshDir: tmp() });
-    srv.on('listening', () => resolve(srv));
-  });
-  try {
-    const r = await fetch(`http://127.0.0.1:${s.address().port}/redeem`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ link: inviteLink('acme', 'jane01', 'jane01.example.com|203.0.113.5|member|tok|core|Online content access only') }),
-    });
-    const j = await r.json();
-    assert.equal(j.tierName, 'core');
-    assert.equal(j.tierDescription, 'Online content access only');
-  } finally { s.close(); }
-});
 
 test('installMemberAccess: mints key + pub + Host block', () => {
   const sshDir = tmp();
@@ -161,92 +129,6 @@ test('installMemberAccess: validation refuses bad slug/host/user', () => {
   assert.ok(!existsSync(join(sshDir, 'config')), 'refusals must write nothing');
 });
 
-// ---------------------------------------------------------------- server
-const listen = (opts) => new Promise((resolve) => {
-  const s = createMemberConnectServer({ port: 0, host: '127.0.0.1', htmlText: '<html>connect</html>',
-    claudeSettingsPath: join(tmp(), 'settings.json'),   // hermetic: never the real ~/.claude
-    ...opts });
-  s.on('listening', () => resolve(s));
-});
-const post = (s, path, body) => fetch(`http://127.0.0.1:${s.address().port}${path}`, {
-  method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
-});
-
-test('server: generate + test round-trip with an injected runner', async () => {
-  const sshDir = tmp();
-  const calls = [];
-  const s = await listen({
-    sshDir,
-    runner: (host, cmd) => { calls.push({ host, cmd }); return Promise.resolve({ code: 0, stdout: 'member\n', stderr: '' }); },
-  });
-  try {
-    const page = await fetch(`http://127.0.0.1:${s.address().port}/`);
-    assert.match(await page.text(), /connect/);
-
-    const gen = await post(s, '/generate', { slug: 'jane01', host: 'jane01.example.com', user: 'member' });
-    assert.equal(gen.status, 200);
-    const g = await gen.json();
-    assert.match(g.publicKey, /^ssh-ed25519 /);
-
-    const bad = await post(s, '/generate', { slug: 'NOPE', host: 'x' });
-    assert.equal(bad.status, 400);
-
-    const t = await post(s, '/test', { slug: 'jane01' });
-    const tr = await t.json();
-    assert.equal(tr.ok, true);
-    // R18: a passing whoami is followed by ONE more round trip asking the box
-    // which folder Claude Code should open (the mineral-named link in /state).
-    assert.deepEqual(calls, [{ host: 'jane01-box', cmd: 'whoami' }, { host: 'jane01-box', cmd: 'cat /state/open-folder 2>/dev/null || echo state' }]);
-
-    const tbad = await post(s, '/test', { slug: 'NOPE' });
-    assert.equal(tbad.status, 400);
-  } finally { s.close(); }
-});
-
-test('R18: /test points the Claude Code entry at the folder the box names', async () => {
-  const settings = join(tmp(), 'settings.json');
-  const s = await listen({
-    sshDir: tmp(), claudeSettingsPath: settings,
-    runner: (host, cmd) => Promise.resolve({ code: 0, stdout: cmd === 'whoami' ? 'member\n' : 'jane01\n', stderr: '' }),
-  });
-  try {
-    await post(s, '/generate', { slug: 'jane01', host: 'jane01.example.com', user: 'member' });
-    let e = JSON.parse(readFileSync(settings, 'utf8')).sshConfigs.find((c) => c.id === 'jane01-box');
-    assert.equal(e.startDirectory, '/state', 'registered at /state until the box has been asked');
-    const t = await post(s, '/test', { slug: 'jane01' });
-    assert.equal((await t.json()).ok, true);
-    e = JSON.parse(readFileSync(settings, 'utf8')).sshConfigs.find((c) => c.id === 'jane01-box');
-    assert.equal(e.startDirectory, '/state/jane01', 'the mineral-named folder, read from /state/open-folder');
-  } finally { s.close(); }
-});
-
-test('R18: a box with no open-folder yet (answers "state") keeps /state', async () => {
-  const settings = join(tmp(), 'settings.json');
-  const s = await listen({
-    sshDir: tmp(), claudeSettingsPath: settings,
-    runner: (host, cmd) => Promise.resolve({ code: 0, stdout: cmd === 'whoami' ? 'member\n' : 'state\n', stderr: '' }),
-  });
-  try {
-    await post(s, '/generate', { slug: 'jane01', host: 'jane01.example.com', user: 'member' });
-    await post(s, '/test', { slug: 'jane01' });
-    const e = JSON.parse(readFileSync(settings, 'utf8')).sshConfigs.find((c) => c.id === 'jane01-box');
-    assert.equal(e.startDirectory, '/state');
-  } finally { s.close(); }
-});
-
-test('server: failed ssh test reports not-ok with output', async () => {
-  const s = await listen({
-    sshDir: tmp(),
-    runner: () => Promise.resolve({ code: 255, stdout: '', stderr: 'Permission denied (publickey)\n' }),
-  });
-  try {
-    const t = await post(s, '/test', { slug: 'jane01' });
-    const tr = await t.json();
-    assert.equal(tr.ok, false);
-    assert.match(tr.output, /Permission denied/);
-  } finally { s.close(); }
-});
-
 test('installOperatorAccess: one operator login, alias is <org>-rock (D46)', async () => {
   const { installOperatorAccess } = await import('./member-connect.mjs');
   const sshDir = tmp();
@@ -263,51 +145,6 @@ test('installOperatorAccess: one operator login, alias is <org>-rock (D46)', asy
   // they asked for, and an aios-support alias would point at a login that is gone.
   assert.throws(() => installOperatorAccess({ org: 'acme', host: 'p.example.com', role: 'support' }, sshDir), /Support role has been removed/);
   assert.throws(() => installOperatorAccess({ org: 'acme', host: 'p.example.com', role: 'root' }, sshDir), /role/);
-});
-
-test('server: kind=operator generate + test route to the -rock alias', async () => {
-  const calls = [];
-  const s = await listen({
-    sshDir: tmp(),
-    runner: (host, cmd) => { calls.push(host); return Promise.resolve({ code: 0, stdout: 'x\n', stderr: '' }); },
-  });
-  try {
-    const g = await post(s, '/generate', { kind: 'operator', slug: 'acme', host: 'rock.example.com', role: 'admin' });
-    assert.equal(g.status, 200);
-    assert.equal((await g.json()).alias, 'acme-rock');
-    await post(s, '/test', { slug: 'acme', kind: 'operator' });
-    assert.deepEqual([...new Set(calls)], ['acme-rock'], 'every round trip (whoami, then the R18 open-folder read) dials the -rock alias');
-  } finally { s.close(); }
-});
-
-test('D52 nav: /door /dashboard /panel redirect when live, 404 otherwise; onConnected fires on a passing test only', async () => {
-  const urls = { door: '', member: '', panel: '' };
-  const connected = [];
-  let code = 255;
-  const s = await listen({
-    sshDir: tmp(),
-    urls: { door: () => urls.door, member: () => urls.member, panel: () => urls.panel },
-    onConnected: (x) => connected.push(x),
-    runner: () => Promise.resolve({ code, stdout: code === 0 ? 'member\n' : '', stderr: code === 0 ? '' : 'denied\n' }),
-  });
-  const get = (path) => fetch(`http://127.0.0.1:${s.address().port}${path}`, { redirect: 'manual' });
-  try {
-    for (const p of ['/door', '/dashboard', '/panel']) assert.equal((await get(p)).status, 404, `${p} must 404 while down`);
-    urls.door = 'http://127.0.0.1:9990/'; urls.member = 'http://127.0.0.1:9991/'; urls.panel = 'http://127.0.0.1:9992/';
-    assert.equal((await get('/door')).headers.get('location'), urls.door);
-    assert.equal((await get('/dashboard')).headers.get('location'), urls.member);
-    assert.equal((await get('/panel')).headers.get('location'), urls.panel);
-
-    await post(s, '/test', { slug: 'jane01' });                       // failing test: no hook
-    assert.deepEqual(connected, []);
-    code = 0;
-    await post(s, '/test', { slug: 'jane01' });                       // passing member test
-    await post(s, '/test', { slug: 'acme', kind: 'operator' });       // passing operator test
-    assert.deepEqual(connected, [
-      { kind: 'member', alias: 'jane01-box' },
-      { kind: 'operator', alias: 'acme-rock' },
-    ]);
-  } finally { s.close(); }
 });
 
 test('D56 claude-settings: upsert by id, preserve other keys, refuse corrupt files', async () => {
@@ -340,23 +177,6 @@ test('D56 claude-settings: upsert by id, preserve other keys, refuse corrupt fil
   assert.equal(readFileSync(p, 'utf8'), '{not json', 'a corrupt settings file must never be overwritten');
 });
 
-test('D56: /generate registers the connection with the right start folder', async () => {
-  const dir = tmp();
-  const settings = join(dir, 'settings.json');
-  const s = await listen({ sshDir: tmp(), claudeSettingsPath: settings, runner: () => Promise.resolve({ code: 0, stdout: '', stderr: '' }) });
-  try {
-    await post(s, '/generate', { slug: 'jane01', host: 'jane01.example.com', user: 'member' });
-    let cfgs = JSON.parse(readFileSync(settings, 'utf8')).sshConfigs;
-    assert.deepEqual(cfgs[0], { id: 'jane01-box', name: 'My assistant (jane01)', sshHost: 'jane01-box', startDirectory: '/state' });
-    await post(s, '/generate', { kind: 'operator', slug: 'acme', host: 'p.example.com', role: 'admin' });
-    cfgs = JSON.parse(readFileSync(settings, 'utf8')).sshConfigs;
-    const op = cfgs.filter((c) => c.id === 'acme-rock')[0];
-    // R18 (2026-08-23): a rock lands in /state too; the folder named after the
-    // rock is registered by /test once the box has said what it is called.
-    assert.deepEqual(op, { id: 'acme-rock', name: 'acme (rock)', sshHost: 'acme-rock', startDirectory: '/state' });
-  } finally { s.close(); }
-});
-
 test('self-heal: a private key whose .pub is missing is recovered, key reused, no error', async () => {
   const { installMemberAccess } = await import('./member-connect.mjs');
   const { generateDeployKeypair } = await import('../engine.mjs');
@@ -383,55 +203,6 @@ test('self-heal fallback: a foreign/unreadable key is retired aside and a fresh 
   assert.ok(readdirSync(dir).some((f) => f.startsWith('jane01-box.key.orphan-')), 'foreign key retired aside, not deleted');
 });
 
-test('owed item (g): a passing /test pins the verified host key into the USER known_hosts', async () => {
-  const dir = tmpDir('mc-pin-');
-  const appKH = join(dir, 'app-known-hosts');
-  // our bridge already learned the box under accept-new (two key types),
-  // plus a line for an unrelated host that must never leak into the pin
-  writeFileSync(appKH, [
-    '203.0.113.9 ssh-ed25519 AAAAC3realkeyblob',
-    '203.0.113.9 ecdsa-sha2-nistp256 AAAAE2othertype',
-    'unrelated.example.com ssh-ed25519 AAAAC3not-this-one',
-  ].join('\n') + '\n');
-  // the USER file carries a STALE entry for the same address (recycled IP)
-  // and an unrelated + hashed line that must both survive untouched
-  writeFileSync(join(dir, 'known_hosts'), [
-    '203.0.113.9 ssh-ed25519 AAAAC3STALEOLDKEY',
-    'keeper.example.com ssh-rsa AAAAB3keepme',
-    '|1|hashedsalt=|hashedhost= ssh-ed25519 AAAAC3hashedline',
-  ].join('\n') + '\n');
-  const s = await listen({
-    sshDir: dir, appKnownHosts: appKH,
-    runner: () => Promise.resolve({ code: 0, stdout: 'member\n', stderr: '' }),
-  });
-  try {
-    await post(s, '/generate', { slug: 'jane01', host: '203.0.113.9', user: 'member' });
-    const t = await post(s, '/test', { slug: 'jane01' });
-    assert.equal((await t.json()).ok, true);
-    const user = readFileSync(join(dir, 'known_hosts'), 'utf8');
-    assert.ok(!user.includes('AAAAC3STALEOLDKEY'), 'the stale entry for the box is gone');
-    assert.ok(user.includes('AAAAC3realkeyblob') && user.includes('AAAAE2othertype'), 'both verified key lines pinned');
-    assert.ok(!user.includes('not-this-one'), 'unrelated app entries never leak');
-    assert.ok(user.includes('keepme') && user.includes('hashedline'), 'unrelated + hashed user lines survive');
-  } finally { s.close(); }
-});
-
-test('owed item (g): a FAILED /test pins nothing (only verified keys reach the user file)', async () => {
-  const dir = tmpDir('mc-pin-');
-  const appKH = join(dir, 'app-known-hosts');
-  writeFileSync(appKH, '203.0.113.9 ssh-ed25519 AAAAC3realkeyblob\n');
-  const s = await listen({
-    sshDir: dir, appKnownHosts: appKH,
-    runner: () => Promise.resolve({ code: 255, stdout: '', stderr: 'denied' }),
-  });
-  try {
-    await post(s, '/generate', { slug: 'jane01', host: '203.0.113.9', user: 'member' });
-    await post(s, '/test', { slug: 'jane01' });
-    const user = (() => { try { return readFileSync(join(dir, 'known_hosts'), 'utf8'); } catch { return ''; } })();
-    assert.ok(!user.includes('AAAAC3realkeyblob'), 'an unverified key never lands in the user file');
-  } finally { s.close(); }
-});
-
 test('forgetting an identity retires the vault key, never destroys it', async () => {
   // The vault private key is the ONLY thing that can open cold envelopes already
   // sealed to this device (vault.mjs has deliberately no decrypt path without
@@ -454,151 +225,6 @@ test('forgetting an identity retires the vault key, never destroys it', async ()
   assert.ok(!ex(j(sshDir, `${alias}.vault.key`)), 'the live vault key is out of the way');
   const retired = readdirSync(sshDir).filter((f) => f.startsWith(`${alias}.vault.key.retired-`));
   assert.equal(retired.length, 1, `the vault key must be RETIRED, not deleted: ${readdirSync(sshDir).join(', ')}`);
-});
-
-test('/redeem with an aios-op invite installs the OPERATOR identity: -rock alias, aios-op user', async () => {
-  const sshDir = tmp();
-  const setPath = join(tmp(), 'settings.json');
-  const s = await new Promise((resolve) => {
-    const srv = createMemberConnectServer({ port: 0, host: '127.0.0.1', htmlText: '<html>connect</html>',
-      claudeSettingsPath: setPath, sshDir,
-      // A SIGN-IN PROVIDER, because the solo lane became account-bound (Harriet's audit
-      // 2026-08-21, point 5) and these invites are minted on it. These tests are about WHICH
-      // SSH IDENTITY gets installed, not about the gate, so they supply the token the gate
-      // now asks for rather than asserting the gate away.
-      idTokenProvider: async () => 'test.id.token',
-    });
-    srv.on('listening', () => resolve(srv));
-  });
-  try {
-    const r = await fetch(`http://127.0.0.1:${s.address().port}/redeem`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ link: inviteLink('crads-solo', 'acme', 'acme.crads-ai.com|203.0.113.5|aios-op|tok') }),
-    });
-    const j = await r.json();
-    assert.equal(r.status, 200, JSON.stringify(j));
-    assert.equal(j.alias, 'acme-rock', 'the -rock alias is what flips the app into the org panel');
-    const cfg = readFileSync(join(sshDir, 'config'), 'utf8');
-    assert.ok(cfg.includes('Host acme-rock'), 'operator Host block missing');
-    assert.ok(cfg.includes('User aios-op'), 'a rock is opened as aios-op, never member');
-    const set = JSON.parse(readFileSync(setPath, 'utf8'));
-    const entry = set.sshConfigs.find((c) => c.id === 'acme-rock');
-    assert.ok(entry, 'Claude Code entry missing');
-    assert.equal(entry.startDirectory, '/state', 'R18: an operator session lands in /state like every face; /test upgrades it to the rock-named folder');
-    assert.equal(entry.name, 'acme (rock)');
-  } finally { s.close(); }
-});
-
-test('/redeem with a member invite is unchanged by the operator routing', async () => {
-  const sshDir = tmp();
-  const s = await new Promise((resolve) => {
-    const srv = createMemberConnectServer({ port: 0, host: '127.0.0.1', htmlText: '<html>connect</html>',
-      claudeSettingsPath: join(tmp(), 'settings.json'), sshDir,
-      // A SIGN-IN PROVIDER, because the solo lane became account-bound (Harriet's audit
-      // 2026-08-21, point 5) and these invites are minted on it. These tests are about WHICH
-      // SSH IDENTITY gets installed, not about the gate, so they supply the token the gate
-      // now asks for rather than asserting the gate away.
-      idTokenProvider: async () => 'test.id.token',
-    });
-    srv.on('listening', () => resolve(srv));
-  });
-  try {
-    const r = await fetch(`http://127.0.0.1:${s.address().port}/redeem`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ link: inviteLink('crads-solo', 'jane01', 'jane01.crads-ai.com|203.0.113.6|member|tok') }),
-    });
-    const j = await r.json();
-    assert.equal(j.alias, 'jane01-box');
-    const cfg = readFileSync(join(sshDir, 'config'), 'utf8');
-    assert.ok(cfg.includes('Host jane01-box') && cfg.includes('User member'));
-  } finally { s.close(); }
-});
-
-// ------------------------------------------- the self-serve ROCK claim (2026-08-10)
-// Hit live on test-org-4. `/redeem` routes an aios-op invite to the OPERATOR
-// identity (`<slug>-rock`) and registers it in Claude Code immediately, but
-// both of member-connect.html's `/test` calls hardcoded kind:'member', so the
-// whoami went to a `<slug>-box` that a rock claim never installs. It could not
-// pass, which meant approvedUi() never fired (the page polled "your rock hasn't
-// approved this device" forever, even once approved) and, the real damage,
-// pinHostForUser() never ran: the connection sat registered-but-un-pinned and
-// the app, which reads only ~/.ssh/known_hosts, answered "Host denied
-// (verification failed)".
-
-test('rock claim: /redeem hands back the kind and the page test PINS the verified key', async () => {
-  const sshDir = tmp();
-  const appKH = join(sshDir, 'app-known-hosts');
-  // our bridge learned the rock's key under accept-new during the connect test
-  writeFileSync(appKH, '203.0.113.5 ssh-ed25519 AAAAC3rockhostkey\n');
-  const calls = [];
-  const connected = [];
-  const s = await listen({
-    sshDir, appKnownHosts: appKH,
-    onConnected: (x) => connected.push(x),
-    stageWithDirectory: async () => false,
-    // see the note above: the solo lane asks for a sign-in now, and these tests are about
-    // the kind/alias handed back and the host-key pin, not about the gate. Without this the
-    // redeem 401s, nothing is installed, and the assertions below would pass vacuously.
-    idTokenProvider: async () => 'test.id.token',
-    runner: (host) => { calls.push(host); return Promise.resolve({ code: 0, stdout: 'aios-op\n', stderr: '' }); },
-  });
-  try {
-    const r = await (await post(s, '/redeem', {
-      link: inviteLink('crads-solo', 'test-org-4', 'test-org-4.crads-ai.com|203.0.113.5|aios-op|tok'),
-    })).json();
-    assert.equal(r.alias, 'test-org-4-rock');
-    assert.equal(r.kind, 'operator', 'the page cannot infer the kind: the invite hash is gone by now');
-
-    // exactly the call member-connect.html makes, with what /redeem just handed it
-    const t = await (await post(s, '/test', { slug: r.slug, kind: r.kind })).json();
-    assert.equal(t.ok, true, 'a rock claim must be testable, or approvedUi() never fires');
-    assert.deepEqual([...new Set(calls)], ['test-org-4-rock'], 'a rock is tested over its -rock alias');
-    assert.deepEqual(connected, [{ kind: 'operator', alias: 'test-org-4-rock' }]);
-    const user = readFileSync(join(sshDir, 'known_hosts'), 'utf8');
-    assert.ok(user.includes('AAAAC3rockhostkey'),
-      'the verified rock key must reach ~/.ssh/known_hosts, the only file the app reads');
-  } finally { s.close(); }
-});
-
-test('rock claim: a caller that mislabels the kind still pins, and reports what it actually tested', async () => {
-  // Braces to the belt above: the ssh config gets the last word on which identity
-  // this machine has for a slug, so no future caller can re-open the un-pinned
-  // "Host denied" hole by guessing 'member'. The kind reported to onConnected
-  // follows the alias that won, never the form, so the wrong dashboard cannot open.
-  const sshDir = tmp();
-  const appKH = join(sshDir, 'app-known-hosts');
-  writeFileSync(appKH, '203.0.113.5 ssh-ed25519 AAAAC3rockhostkey\n');
-  const calls = [];
-  const connected = [];
-  const s = await listen({
-    sshDir, appKnownHosts: appKH,
-    onConnected: (x) => connected.push(x),
-    stageWithDirectory: async () => false,
-    // see the note above: the solo lane asks for a sign-in now, and these tests are about
-    // the kind/alias handed back and the host-key pin, not about the gate. Without this the
-    // redeem 401s, nothing is installed, and the assertions below would pass vacuously.
-    idTokenProvider: async () => 'test.id.token',
-    runner: (host) => { calls.push(host); return Promise.resolve({ code: 0, stdout: 'aios-op\n', stderr: '' }); },
-  });
-  try {
-    await post(s, '/redeem', {
-      link: inviteLink('crads-solo', 'test-org-4', 'test-org-4.crads-ai.com|203.0.113.5|aios-op|tok'),
-    });
-    const t = await (await post(s, '/test', { slug: 'test-org-4', kind: 'member' })).json();
-    assert.equal(t.ok, true);
-    assert.deepEqual([...new Set(calls)], ['test-org-4-rock'], 'no Host block for -box, so the -rock that exists is tested');
-    assert.deepEqual(connected, [{ kind: 'operator', alias: 'test-org-4-rock' }], 'kind follows the alias, not the form');
-    assert.ok(readFileSync(join(sshDir, 'known_hosts'), 'utf8').includes('AAAAC3rockhostkey'), 'still pinned');
-  } finally { s.close(); }
-});
-
-test('member-connect.html carries the redeemed kind on every /test call', async () => {
-  const html = readFileSync(new URL('./member-connect.html', import.meta.url), 'utf8');
-  const calls = html.match(/post\('\/test',[^)]*\)/g) || [];
-  assert.equal(calls.length, 2, `expected the poll + the button /test calls, found ${calls.length}`);
-  for (const c of calls) {
-    assert.match(c, /kind:\s*redeemedKind/, `a hardcoded kind is the test-org-4 bug: ${c}`);
-  }
 });
 
 // ---------------------------------------------------------------------------

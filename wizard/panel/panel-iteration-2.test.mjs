@@ -11,17 +11,21 @@ const nav = html.slice(html.indexOf('<nav id="nav">'), html.indexOf('</nav>'));
 const main = html.slice(html.indexOf('<main>'), html.indexOf('</main>'));
 
 // ---- R17: nav order ---------------------------------------------------------
-test('R17: the nav reads Overview · Decisions · Your rock / Your pebble · Network · Your assistant · Privacy & access · Terminal', () => {
+// The face collapse (2026-09-01) took Decisions and Your rock out of R17's
+// ordering: one face, so the nav reads Overview · Your mineral · Network ·
+// Your assistant · Privacy & access · Terminal for everyone.
+test('R17: the nav reads Overview · Your mineral · Network · Your assistant · Privacy & access · Terminal', () => {
   // groups by their wrapper, tabs by their button; the Map tab inside the
   // Network group is data-sec="network" and is not what this pin orders.
   const top = nav.replace(/<div class="gitems"[\s\S]*?<\/div>/g, '');
   const order = [...top.matchAll(/<button[^>]*data-sec="([a-z]+)"|<div class="navgroup" data-group="([a-z]+)"/g)].map((m) => m[1] || m[2]);
-  const want = ['dashboard', 'decisions', 'yourrock', 'seat', 'network', 'assistant', 'privacy', 'terminal'];
-  const seen = order.filter((x) => want.includes(x));
+  const want = ['dashboard', 'seat', 'network', 'assistant', 'privacy', 'terminal'];
+  const seen = order.filter((x) => want.includes(x) || ['decisions', 'yourrock', 'pebbles', 'rocks'].includes(x));
   assert.deepEqual(seen, want, `nav order is ${seen.join(' · ')}`);
   const net = nav.slice(nav.indexOf('id="grp-network"'), nav.indexOf('</div>', nav.indexOf('id="grp-network"')));
-  // Communities joined the group 2026-09-01 (commons-repo model), member-only.
-  assert.deepEqual([...net.matchAll(/data-sec="([a-z]+)"/g)].map((m) => m[1]), ['network', 'rocks', 'commons', 'pebbles'], 'Network = Map, Organisations, Communities, Members');
+  // Communities joined the group 2026-09-01 (commons-repo model); Rocks and
+  // Pebbles left with the org face the same day.
+  assert.deepEqual([...net.matchAll(/data-sec="([a-z]+)"/g)].map((m) => m[1]), ['network', 'commons'], 'Network = Map, Communities');
   const ast = nav.slice(nav.indexOf('id="grp-assistant"'), nav.indexOf('</div>', nav.indexOf('id="grp-assistant"')));
   // Library rejoined the group 2026-08-26 (step 7a), after Skills: Pages,
   // Prompts and Files moved off Skills onto their own page.
@@ -37,20 +41,24 @@ test('R17: the Claude Code tab and section are gone; old deep links land on Help
   assert.match(html, /if \(h === 'help'\) return 'help';/, 'and #help resolves without a nav button');
 });
 
-test('R17: Help is a section on both faces, reached from the footer link, carrying the connection name and the update folds', () => {
+test('R17: Help is one section, reached from the footer link, carrying the connection name, the restart card and support access', () => {
+  // The face collapse (2026-09-01): the org-only "Mineral software" restart
+  // fold (brBtn / br_ack) and the org onboarding banner died with the org
+  // face, and the surviving restart card is ungated. Support access moved
+  // here from the retired Sharing page, ids intact.
   assert.match(main, /<section data-sec="help">/, 'Help lives inside <main>');
   const link = html.match(/<a class="navlink" id="helpLink"[^>]*>/);
   assert.ok(link, 'the footer link exists');
   assert.ok(!/orgonly|memonly/.test(link[0]), 'and carries no face class');
   assert.match(link[0], /title="Help"/);
   const sec = main.slice(main.indexOf('<section data-sec="help">'), main.indexOf('</section>', main.indexOf('<section data-sec="help">')));
-  for (const id of ['ohHost', 'ohCopy', 'boxRefreshBtn', 'brBtn', 'br_ack', 'openFolderName']) {
+  for (const id of ['ohHost', 'ohCopy', 'boxRefreshBtn', 'openFolderName', 'supportState', 'supportGrant', 'supportRevoke', 'supportEvents']) {
     assert.ok(sec.includes(`id="${id}"`), `${id} lives on the Help page`);
   }
-  assert.match(sec, /class="[^"]*memonly/, 'face-aware copy: member');
-  assert.match(sec, /class="[^"]*orgonly/, 'face-aware copy: rock');
+  assert.ok(!sec.includes('id="brBtn"') && !sec.includes('id="br_ack"'), 'the org restart fold stays gone');
+  assert.ok(!/class="[^"]*(?:memonly|orgonly)/.test(sec), 'no face-classed copy survives on the page');
   assert.match(html, /function openHelp\(\)\{ activateSec\('help'\)/, 'the opener is a section switch, not a modal');
-  assert.match(html, /\$\('orgCcBannerBtn'\)\.onclick = openHelp;/, 'the onboarding banner still lands on it');
+  assert.ok(!html.includes('orgCcBannerBtn'), 'the org onboarding banner is gone with its face');
 });
 
 test('F1 / R18: nobody is told to type /state or /state/brain; the folder is the one named after the mineral', () => {
@@ -93,26 +101,19 @@ test('R19a: Health = headline, Checked N ago, one jobs line; the job list folds,
 });
 
 // ---- R19b: Decisions rows -------------------------------------------------------
-test('R19b: every Decisions row is one line with its buttons; the row click opens detail + inputs; handlers and attnErr honesty survive', () => {
-  assert.match(html, /function foldRow\(headHtml, acts, open\)/, 'the one row anatomy');
-  const fr = html.split('function foldRow(headHtml, acts, open){')[1].split('\n  }')[0];
-  assert.match(fr, /closest\('button, input, select, textarea, a, label'\)\) return;/, 'controls never toggle the row');
-  assert.match(fr, /e\.key === 'Enter' \|\| e\.key === ' '/, 'keyboard toggles too');
-  assert.match(fr, /aria-expanded/, 'the head says whether it is open');
-  // the four renderers build through it
-  for (const fnName of ['function renderPending(list){', 'function renderJoinRequests(list, dormant){', 'function row(kind, subj, meta, detail){']) {
-    assert.ok(html.split(fnName)[1].split('\n  }')[0].includes('foldRow('), `${fnName} uses foldRow`);
+test('R19b is RETIRED (2026-09-01): the Decisions page left with the org face', () => {
+  // foldRow, renderPending, renderJoinRequests and the attnErr honesty rails
+  // existed to serve a rock owner deciding on join requests and tie asks.
+  // Nothing central remains to ask: joining a community is a bundle the member
+  // pastes, and device approval is wizard-local. The stronger truth is that
+  // the whole machinery stays gone; if any of these names return, the hosted
+  // decision queue is growing back.
+  for (const gone of ['foldRow', 'renderPending', 'renderJoinRequests', 'attnErrState',
+    "run('join-approve'", "run('join-decline'", 'data-sec="decisions"']) {
+    assert.ok(!html.includes(gone), `${gone} stays out of the shell`);
   }
-  const ties = html.split("reqs.forEach(function(d){\n      var yes = document.createElement('button'); yes.className = 'act primary'; yes.textContent = 'Approve';")[1];
-  assert.ok(ties && ties.split('\n    });')[0].includes('foldRow('), 'tie asks use foldRow');
-  // the join row: slug + name inputs live in the fold; a nameless request opens itself
-  const join = html.split('function renderJoinRequests(list, dormant){')[1].split('\n  }')[0];
-  assert.match(join, /fr\.body\.appendChild\(slugIn\); fr\.body\.appendChild\(nameIn\);/, 'inputs in the fold');
-  assert.match(join, /var needsName = !nameIn\.value;/, 'nameless opens itself');
-  assert.match(join, /run\('join-approve'/, 'approve handler intact');
-  assert.match(join, /run\('join-decline'/, 'decline handler intact');
-  assert.match(html, /if \(!r\.ok\) \{ attnErrState\.join = r; updateAttention\(\); return; \}/, 'attnErr honesty intact');
-  assert.match(html, /if \(!r\.ok\) \{ attnErrState\.devices = r; updateAttention\(\); return; \}/, 'attnErr honesty intact (devices)');
+  assert.match(html, /if \(name === 'pebbles' \|\| name === 'decisions' \|\| name === 'yourrock'\) name = 'seat';/,
+    'an old #decisions deep link lands on the seat rather than nowhere');
 });
 
 // ---- R22: the Map heading -----------------------------------------------------

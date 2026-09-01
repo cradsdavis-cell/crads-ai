@@ -48,11 +48,21 @@ test('every surface the exe smoke forbids is actually gone from the shell', () =
     `wizard-app.yml forbids these and member.html still carries them: ${present.join(', ')}`);
 });
 
-// The specific rename that taught the lesson, pinned by name so a revert is loud
-// rather than merely red on a Windows runner ten minutes after the push.
-test('the retired rockbrain section stays retired, in the shell and in CI', () => {
-  assert.ok(!html.includes('data-sec="rockbrain"'), 'the section is gone from the shell');
-  assert.ok(pinnedList('gone').includes('data-sec="rockbrain"'), 'and CI forbids its return');
-  assert.ok(pinnedList('sec').includes('data-sec="rockreader"'), 'CI requires the reader that replaced it');
-  assert.ok(pinnedList('sec').includes('data-sec="rocks"'), 'and the page it is reached from');
+// The specific renames that taught the lesson, pinned by name so a revert is
+// loud rather than merely red on a Windows runner ten minutes after the push.
+// The face collapse (2026-09-01) retired the whole org-only page family, so the
+// reader and the Rocks page joined rockbrain on the forbidden list, and the
+// required list is the surviving one-face sidebar.
+test('the retired org-face sections stay retired, in the shell and in CI', () => {
+  const gone = pinnedList('gone');
+  for (const dead of ['data-sec="rockbrain"', 'data-sec="rockreader"', 'data-sec="rocks"',
+    'data-sec="pebbles"', 'data-sec="decisions"', 'data-sec="yourrock"']) {
+    assert.ok(!html.includes(dead), `${dead} is gone from the shell`);
+    assert.ok(gone.includes(dead), `and CI forbids the return of ${dead}`);
+  }
+  const sec = pinnedList('sec');
+  for (const alive of ['data-sec="seat"', 'data-sec="commons"', 'data-sec="publish"',
+    'data-sec="skills"', 'data-sec="library"']) {
+    assert.ok(sec.includes(alive), `CI requires the surviving section ${alive}`);
+  }
 });

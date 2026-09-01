@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(join(HERE, 'member.html'), 'utf8');
 const sec = html.slice(html.indexOf('<section data-sec="secrets">'), html.indexOf('<section data-sec="seat">'));
-const js = html.split('// ---- Secrets (R7, panel iteration 2)')[1].split('// ---- network: point the frame')[0];
+const js = html.split('// ---- Secrets (R7, panel iteration 2)')[1].split('// ---- network: app-nav messages')[0];
 
 test('one read-only ledger: no Add form, no Reveal, no Delete, no writer verbs on the page', () => {
   for (const gone of ['id="secSave"', 'id="secName"', 'id="secValue"', 'Add a secret', 'id="secretsRows"', 'id="secDiscovered"', 'data-secdel', 'data-secshow']) {
@@ -45,7 +45,9 @@ test('rows are grouped by kind, label bold, what on the line, where only on hove
 test('revoke links deep-link to the surface that owns the credential; none renders nothing', () => {
   const rv = js.split('function secRevoke(f)')[1].split('function secRowHtml(')[0];
   assert.match(rv, /r\.via === 'connections'\) return \{ sec: 'connections', label: 'Connections', key: r\.key \|\| ''/);
-  assert.match(rv, /r\.via === 'seat'\) return \{ sec: IS_ORG \? 'yourrock' : 'seat'/, 'the seat page per face');
+  // The face collapse (2026-09-01): there is no org face and no Your rock
+  // page, so the seat route points at the one seat section unconditionally.
+  assert.match(rv, /r\.via === 'seat'\) return \{ sec: 'seat', label: 'Your mineral', key: '' \}/, 'the one seat page, no face fork');
   assert.match(rv, /r\.via === 'telegram'\) return \{ sec: 'connections', label: 'Telegram'/, 'Telegram lives on Connections');
   assert.match(rv, /return null;\s*\}$/m, 'none = no link');
   assert.match(js, /activateSec\(sec\);/, 'the click navigates');

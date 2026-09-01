@@ -15,8 +15,10 @@ import { randomBytes } from 'node:crypto';
 import { createPanelServer, VERBS, MEMBER_VERBS } from './panel-server.mjs';
 import { mintVaultKeypair, ensureVaultKeypair, seal, open, vaultFingerprint } from './vault-crypto.mjs';
 // a self-enrolled row is named after the machine running the test (2026-08-12),
-// so ask the same function the server does rather than pinning one hostname
-import { machineSlug } from './device-enrol.mjs';
+// so ask the same function the server does rather than pinning one hostname.
+// machine-name.mjs is the function's home; device-enrol.mjs only re-exported
+// it and is deleted (self-host strip, 2026-09-01).
+import { machineSlug } from './machine-name.mjs';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
 
 const MEMBER = { host: 'jane01-box', org: 'jane01', kind: 'member' };
@@ -81,8 +83,10 @@ function machine(blob) {
   return sshDir;
 }
 
+// createPanelServer has no edition option since the face collapse (2026-09-01):
+// one server, one face, one verb table.
 const listen = (opts) => new Promise((resolve) => {
-  const s = createPanelServer({ port: 0, host: '127.0.0.1', htmlText: '<html>x</html>', edition: 'member', ...opts });
+  const s = createPanelServer({ port: 0, host: '127.0.0.1', htmlText: '<html>x</html>', ...opts });
   s.on('listening', () => resolve(s));
 });
 const jpost = (s, path, body) => fetch(`http://127.0.0.1:${s.address().port}${path}`, {
@@ -119,7 +123,9 @@ test('devices-set-vaultkey: member verb, validated, key never argv-mangled', () 
   assert.match(spec.command, /roster-cli\.mjs \/state set-vaultkey laptop /);
   assert.ok(spec.command.endsWith(vk), 'the public half rides verbatim (it is public)');
   assert.ok(MEMBER_VERBS['devices-set-vaultkey'].mutating);
-  assert.equal(VERBS['devices-set-vaultkey'], undefined, 'absent from the org edition');
+  // The old org table survives only as a builder library since the face
+  // collapse; a member-device verb never belonged in it and still does not.
+  assert.equal(VERBS['devices-set-vaultkey'], undefined, 'never grew a copy in the old org table');
   assert.throws(() => MEMBER_VERBS['devices-set-vaultkey'].build({ slug: 'laptop', vaultkey: 'short' }), /vaultkey/);
   assert.throws(() => MEMBER_VERBS['devices-set-vaultkey'].build({ slug: 'laptop', vaultkey: `${vk} extra` }), /vaultkey/);
   assert.throws(() => MEMBER_VERBS['devices-set-vaultkey'].build({ slug: '../x', vaultkey: vk }), /slug|short id/i);
@@ -311,28 +317,41 @@ test('/vault/rewrap reports what this machine cannot open as stale, never silent
 });
 
 // ---------------------------------------------------------------- guards
-test('vault routes: each face vaults only its own box kind, configured hosts only, open refuses hot entries', async () => {
+test('vault routes: configured hosts only (both alias shapes), open refuses hot entries', async () => {
+  // The per-face kind wall (org vaults rocks, member vaults pebbles) died with
+  // the face collapse (2026-09-01): one server serves every configured target,
+  // `<slug>-box` and legacy `<org>-rock` alike. The guard that remains is the
+  // one that always mattered: a host outside this app's target list is refused
+  // before any command is built, and the refusal names both admitted shapes.
   const blob = sshBlob();
   const box = { devices: [deviceRow('laptop', blob)], secrets: [{ name: 'gmail-token', label: 'Gmail', tier: 'hot' }] };
   const sshDir = machine(blob);
-  // P2 (2026-08-09): the org face HAS a vault now — for the rock's OWN secrets.
-  // The old invariant ("org edition has no decrypt path") narrowed to the part
-  // that actually protects members: an org-edition vault call can never address
-  // a member box, because target validation only admits rock-kind hosts. The
-  // member fixture host must therefore be refused, not merely unconfigured.
-  const org = await listen({ bridge: boxBridge(box), sshDir, edition: 'org' });
-  try {
-    const r = await jpost(org, '/vault/sync', { host: HOST });
-    assert.equal(r.status, 400, 'a member box is not a valid vault target for the org face');
-  } finally { org.close(); }
   const s = await listen({ bridge: boxBridge(box), sshDir });
   try {
-    assert.equal((await jpost(s, '/vault/sync', { host: 'evil-rock' })).status, 400);
+    const stray = await jpost(s, '/vault/sync', { host: 'evil-rock' });
+    assert.equal(stray.status, 400, 'a well-shaped alias that is not configured is still refused');
+    assert.match(await stray.text(), /host must be a configured <slug>-box \(or legacy <org>-rock\) target/);
     assert.equal((await jpost(s, '/vault/sync', { host: 'not-configured-box' })).status, 400);
     const hot = await jpost(s, '/vault/open', { host: HOST, name: 'gmail-token' });
     assert.equal(hot.status, 400);
     assert.match((await hot.json()).reason, /not sealed/);
     const missing = await jpost(s, '/vault/open', { host: HOST, name: 'nope' });
     assert.equal(missing.status, 404);
+  } finally { s.close(); }
+});
+
+test('a configured legacy -rock alias vaults through the same routes', async () => {
+  // A hosted-era install keeps its `<org>-rock` Host blocks; its cold secrets
+  // must stay reachable after the collapse. Same choreography, rock alias.
+  const rock = { host: 'acme-rock', org: 'acme', kind: 'rock' };
+  const blob = sshBlob();
+  const sshDir = tmpDir('vault-routes-');
+  writeFileSync(join(sshDir, `${rock.host}.key.pub`), `ssh-ed25519 ${blob} test\n`);
+  const box = { devices: [deviceRow('laptop', blob)], secrets: [] };
+  const s = await listen({ bridge: boxBridge(box, [rock]), sshDir });
+  try {
+    const r = await jpost(s, '/vault/sync', { host: rock.host }).then((x) => x.json());
+    assert.equal(r.ok, true, r.reason);
+    assert.equal(r.published, true, 'the rock roster row carries this machine’s vault key');
   } finally { s.close(); }
 });

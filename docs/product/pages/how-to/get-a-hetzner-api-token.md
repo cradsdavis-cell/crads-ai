@@ -22,7 +22,7 @@ Treat it like a password all the same.
 
 Go to **console.hetzner.com** and sign up with your email. Confirm the email,
 then add a payment method: the server is billed to you by Hetzner directly,
-roughly ten to twenty five dollars a month depending on the size you pick in
+roughly four to thirty euros a month depending on the size you pick in
 the wizard, and nothing is charged until a server actually exists.
 
 Hetzner sometimes asks new accounts to verify identity before they can create

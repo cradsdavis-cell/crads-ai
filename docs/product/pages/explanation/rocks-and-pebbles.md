@@ -41,7 +41,7 @@ server from its first boot is yours.
 
 The costs, plainly, because they are the first screen of the wizard too:
 
-- a Hetzner cloud server, roughly $10 to 25 a month depending on the size you
+- a Hetzner cloud server, roughly €4 to €30 a month depending on the size you
   pick, billed to you by Hetzner
 - your own Claude subscription, billed to you by Anthropic
 - nothing to Crads-AI, ever

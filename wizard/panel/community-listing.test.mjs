@@ -155,66 +155,37 @@ test('an absent blurb is allowed and simply carries none', () => {
 // broken form row. It now rides the panel's own switch surface (.devrow +
 // .toggle + switchable()), and the save reads a class, not `.checked`.
 const html = readFileSync(new URL('./member.html', import.meta.url), 'utf8');
-// End marker was `id="rockAdminCard"` until 2026-08-14, when access moved to the
-// account pages and that card was deleted. The Danger heading is the next real
-// structure after this card, and is searched FORWARD from the card so an earlier
-// `subhead zonegap` elsewhere in the page cannot invert the slice.
-const start = html.indexOf('id="commCard"');
-const card = html.slice(start, html.indexOf('class="subhead zonegap"', start));
 
-test('the door switch is the panel switch surface, never a raw checkbox in an org form', () => {
-  // bound raised 4000 -> 5200 on 2026-08-23: the card gained three listing fields
-  // (what members get, anchor fee, join fee); the slice still ends at the Danger subhead
-  assert.ok(card.length > 0 && card.length < 5200, 'found the door card');
-  assert.ok(!/type="checkbox"/.test(card), 'no bare checkbox: .orgsec input would stretch it to full width');
-  assert.match(card, /<div class="toggle" id="commListed"/, 'the switch is a .toggle');
-  assert.match(card, /<div class="devrow">/, 'the switch rides a row, so its label sits beside it');
-  assert.match(card, /aria-label="[^"]+"/, 'the switch names itself for a screen reader');
-  // every field label points at the input it titles: an unpaired <label> here
-  // is what the uppercase-mono rule is for. Four since 2026-08-23 (the blurb +
-  // the advertisement: what members get, anchor fee, join fee).
-  const labels = card.match(/<label\b[^>]*>/g) || [];
-  assert.deepEqual(labels.map((l) => (l.match(/for="([^"]+)"/) || [])[1]), ['commBlurb', 'commOffer', 'commAnchorTerms', 'commJoinTerms'], 'each label is paired, in page order');
-  for (const id of ['commOffer', 'commAnchorTerms', 'commJoinTerms']) assert.match(card, new RegExp(`<input type="text" id="${id}"`), `${id} is a real input`);
-});
-
-test('no write path can accidentally unlist: the flip carries intent, the blurb save carries the board', () => {
-  // Reshaped by finding 184 (instant-apply). The hazard this test guards is
-  // unchanged: a write that derives `listed` from something that can silently
-  // read false (`.checked` on a div, an unknown board) would unlist a listed
-  // rock. Two write paths now exist, and each is pinned to its safe source:
-  const js = html.slice(html.indexOf('var commKnown = null'), html.indexOf("function govPublish"));
-  assert.ok(!/commListed'\)\.checked/.test(js), 'nothing reads .checked off a div (always undefined -> always unlisted)');
-  assert.match(js, /classList\.contains\('on'\)/, 'listed state comes from the class');
-  assert.match(js, /switchable\(\$\('commListed'\)\)/, 'the switch gets the keyboard + ARIA contract');
-  assert.match(js, /run\('community-listing', \{ listed: want/, 'the flip sends the flipped intent');
-  assert.match(js, /run\('community-listing', \{ listed: commKnown === true/, 'the blurb save sends the BOARD\'s state, never the switch');
-  assert.match(js, /if \(commBusy \|\| !commLoaded \|\| commKnown === null\) return;/, 'and both paths are held while the board is unknown');
+test('the door card is RETIRED (2026-09-01): no listing surface remains in the shell', () => {
+  // The card, its switch, its four advertisement fields and both write paths
+  // (the instant-apply flip and the blurb save) presumed a public board on
+  // the directory worker. The worker is deleted and discovery is a join
+  // bundle handed person to person, so the stronger truth is that no page
+  // wires the listing verb at all. The old .checked / class-state hazard
+  // cannot recur on a control that does not exist; if any of these ids come
+  // back, the board is growing back and its tests should come back with it.
+  assert.ok(!html.includes('id="commCard"'), 'the card markup is gone (its CSS remnants are dead rules)');
+  for (const id of ['commListed', 'commBlurb', 'commOffer', 'commAnchorTerms', 'commJoinTerms', 'commSave']) {
+    assert.ok(!html.includes(`id="${id}"`), `#${id} stays out of the shell`);
+  }
+  assert.ok(!html.includes("run('community-listing'"), 'nothing dials the listing verb from the page');
+  assert.ok(!html.includes('function govPublish'), 'the governance publisher went with the board');
 });
 
 // ---- Sam's ruling at the T8 cert (2026-08-10): no public exposure while the
-// rock cannot host. Going LISTED and accepting an ANCHOR both run the same
-// resolver check adoption runs; delisting, joins and rejections never do.
-test('cannot-host gate: anchored accepts stay gated; the listing gate left with the board', async () => {
-  const { VERBS } = await import('./panel-server.mjs');
-  // SELF-HOST STRIP: listing no longer POSTs anywhere, so the "can this rock
-  // host" gate on it is moot and gone. The ANCHORED ACCEPT still creates real
-  // hosting obligations, so its gate stands exactly as before.
+// rock cannot host. That gate rode rock-answer's anchored accept, and the face
+// collapse (2026-09-01) deleted rock-answer with the rest of the tie
+// machinery: there are no hosting obligations to gate because nothing can be
+// hosted. The listing builder survives for its own tests, un-gated because it
+// no longer goes anywhere.
+test('cannot-host gate: RETIRED with rock-answer; the listing builder stays un-gated', async () => {
+  const { VERBS, MEMBER_VERBS } = await import('./panel-server.mjs');
   const on = VERBS['community-listing'].build({ listed: true, blurb: 'x' }).command;
   assert.ok(!on.includes('resolveOrgGitHub'), 'nothing to gate: the listing goes nowhere');
   const off = VERBS['community-listing'].build({ listed: false }).command;
   assert.ok(!off.includes('resolveOrgGitHub'), 'delisting always works');
-
-  const anchoredAccept = VERBS['rock-answer'].build({ id: 'a1b2c3d4', decision: 'accept', tie: 'anchored' }).command;
-  assert.match(anchoredAccept, /resolveOrgGitHub/, 'an anchored accept is gated BEFORE the edge is written');
-  const gateAt = anchoredAccept.indexOf('cannot host members yet');
-  const curlAt = anchoredAccept.indexOf('rock-tie-result');
-  assert.ok(gateAt > -1 && gateAt < curlAt, 'the gate runs before the directory call, so the ask stays pending');
-  const joinedAccept = VERBS['rock-answer'].build({ id: 'a1b2c3d4', decision: 'accept', tie: 'joined' }).command;
-  assert.ok(!joinedAccept.includes('resolveOrgGitHub'), 'a JOIN needs no repos and is never gated');
-  const reject = VERBS['rock-answer'].build({ id: 'a1b2c3d4', decision: 'reject', tie: 'anchored' }).command;
-  assert.ok(!reject.includes('resolveOrgGitHub'), 'saying no needs nothing');
-  assert.throws(() => VERBS['rock-answer'].build({ id: 'a1b2c3d4', decision: 'accept', tie: 'evil' }));
+  assert.ok(!('rock-answer' in VERBS) && !('rock-answer' in MEMBER_VERBS),
+    'rock-answer stays out of both verb tables: an accept that creates hosting obligations must not come back quietly');
 });
 
 // ---- trap 37 (2026-08-12): the door save said "see above" over an empty log.
@@ -287,11 +258,14 @@ test('trap 37: success prefers the verb\'s own sentence over a generic "Saved."'
     'and falls back to the caller\'s wording when the verb said nothing');
 });
 
-test('trap 37: the door save streams the rock\'s words as they arrive', () => {
-  const js = html.slice(html.indexOf("$('commSave').onclick"), html.indexOf('function govPublish'));
-  assert.match(js, /run\('community-listing',[^\n]*,\s*function\(l\)\{/, 'the verb gets an onLine callback');
-  assert.match(js, /verbSaid\(r, 'Saved\.', 'Could not save that\.'\)/, 'and the verdict comes from the shared helper');
-  assert.ok(!/see above/.test(js.replace(/\/\/[^\n]*/g, '')), 'the sentence that pointed at nothing is gone');
+test('trap 37: the door save is RETIRED with its card; the helpers it taught survive', () => {
+  // The handler that once said "see above" over an empty log went with the
+  // listing card (face collapse, 2026-09-01). The lesson lives on in the
+  // shared helpers exercised above and in the whole-file scan below, which
+  // still walks every surviving run() call.
+  assert.ok(!html.includes("$('commSave').onclick"), 'no door save handler remains');
+  assert.match(html, /function verbSaid\(/, 'the shared success helper survives');
+  assert.match(html, /function verbWhy\(/, 'and the shared failure helper');
 });
 
 test('trap 37: nobody says "see above" without having streamed something above', () => {

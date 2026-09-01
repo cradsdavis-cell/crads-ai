@@ -1,7 +1,7 @@
 /* Crads-AI app design tokens — canonical copy.
    Source of truth: docs/superpowers/ui-overhaul/design-language.md
-   Served at /vendor/tokens.css for the panel family (panel, member, door, connect).
-   Wizard UI + join-page inline a copy of this block (single-file constraint). */
+   Served at /vendor/tokens.css for the app pages (the one shell + the door).
+   The door also inlines a copy (it must render before any fetch succeeds). */
 
 :root{
   --paper:   #F7F5EF;

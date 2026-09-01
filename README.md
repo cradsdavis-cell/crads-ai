@@ -42,7 +42,7 @@ Claude subscription, and a free GitHub account for the brain backup.
 | Path | What it is |
 |---|---|
 | `engine/` | The box engine: scheduler, skills, brain, devices, community machinery |
-| `wizard/` | The desktop app: door, panel, member app, self-host provisioning wizard (`wizard/provision/`) |
+| `wizard/` | The desktop app: door, one panel (the org/member edition split died 2026-09-01), self-host provisioning wizard (`wizard/provision/`) |
 | `rock-machinery/` | Rock (community hub) machinery notes |
 | `brain-control/` | Vendored rock brain control plane (see `brain-control/SOURCE.txt`; refreshed by `scripts/vendor-brain-control.sh`) |
 | `Dockerfile.*`, `docker-bake.hcl` | The three images: base, pebble (member), rock |

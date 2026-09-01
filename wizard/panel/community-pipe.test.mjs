@@ -30,18 +30,20 @@ test('the community install verb is gone from both verb tables', () => {
   assert.doesNotMatch(server, /'community-skill-apply'\]/, 'and not imported across the org-verb wall');
 });
 
-test('a rock installs from a rock it joined the same way a pebble does', () => {
-  // The reason the verb crossed the wall in the first place was that a rock is
-  // a box and wanted its joined rocks' skills. That need did not go away; it is
-  // met by the ordinary installer now, because a rock gets an inbox from every
-  // rock it is tied to.
-  // Imported across the wall, not an org native: an imported mutating verb is
-  // rewritten adminOnly for the org face, which a native entry would not be.
-  assert.ok(!VERBS['catalog-install'], 'not an org NATIVE verb');
-  assert.match(server, /'catalog-list', 'catalog-install', 'skill-remove',/, 'the rock imports the member ones');
-  assert.equal(MEMBER_VERBS['catalog-install'].mutating, true, 'so the import lands adminOnly on the rock');
-  assert.equal(VERBS['community-catalog-push'].adminOnly, true, 'publishing is still an Admin action');
-  assert.ok(!MEMBER_VERBS['community-catalog-push'], 'a pebble still cannot publish a catalogue');
+test('every mineral installs through the one member table; the hosted push is not served', () => {
+  // The org-verb wall, and the import list that carried catalog-install
+  // across it, died with the face collapse (2026-09-01): one face, one served
+  // table (MEMBER_VERBS plus the named CATALOGUE_VERBS), so a hub installs
+  // from a commons it joined exactly the way any mineral does.
+  assert.ok(!VERBS['catalog-install'], 'no org-native duplicate of the installer');
+  assert.equal(MEMBER_VERBS['catalog-install'].mutating, true, 'the one installer serialises like any mutating verb');
+  assert.ok(!server.includes("'catalog-list', 'catalog-install', 'skill-remove',"), 'the wall-import list is gone with the wall');
+  // community-catalog-push survives as an exported builder for its own tests,
+  // but the served table must never carry it: publishing goes through
+  // commons-publish now.
+  const served = server.match(/const CATALOGUE_VERBS = \[([\s\S]*?)\];/)[1];
+  assert.ok(!served.includes('community-catalog-push'), 'the hosted push is not in the served catalogue list');
+  assert.ok(!MEMBER_VERBS['community-catalog-push'], 'and not a member verb either');
 });
 
 // ---- org verb: community-catalog-push --------------------------------------
@@ -73,17 +75,22 @@ test('community-catalog-push reads the rock’s own token + skills and enforces 
 
 // ---- panel routes -----------------------------------------------------------
 
-test('the panel serves the shop window, and no longer serves content', () => {
-  assert.match(server, /path === '\/community-catalogs'/, 'the manifest route survives: browsing is not acquiring');
-  assert.doesNotMatch(server, /path === '\/community-item'\) \{/, 'the content route is gone');
-  assert.match(server, /cache\[org\]\.at > 60000/, 'manifest fetches are still cached a minute');
+test('the shop window is RETIRED (2026-09-01): the panel serves neither manifests nor content', () => {
+  // /community-catalogs was the directory-backed read of rocks not yet
+  // joined, kept alive for the Organisations page after /community-item (the
+  // content route) died with one-inbox. The page and the directory are both
+  // gone, so the stronger truth is that neither route exists: browsing a
+  // commons now means being handed a join bundle, and content only ever
+  // arrives through a box's own inbox.
+  assert.ok(!server.includes("path === '/community-catalogs'"), 'the manifest route is gone');
+  assert.ok(!server.includes("path === '/community-item'"), 'the content route stays gone');
 });
 
 // ---- page wiring ------------------------------------------------------------
 
 test('the member page reads ONE source, and installs with one call', () => {
   assert.match(html, /function libEntries\(\)/, 'the list builder exists');
-  assert.match(html, /fetch\('\/community-catalogs'\)/, 'the shop window still loads for the Organisations page');
+  assert.ok(!html.includes("fetch('/community-catalogs')"), 'the shop-window fetch is gone with the Organisations page (2026-09-01)');
   // The merge is what had to go: every rock a box is tied to writes into that
   // box's own inbox, so catalog-list already carries all of them and merging
   // the window back in would render every row twice.

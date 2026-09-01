@@ -36,7 +36,7 @@ export const JOURNEY = [
   {
     id: 'hosting', title: 'Hosting a community',
     blurb: 'Turning your mineral into a rock, and looking after the people who pull from it.',
-    slugs: ['become-a-rock', 'share-with-your-community', 'manage-members', 'run-your-rock',
+    slugs: ['become-a-rock', 'share-with-your-community', 'library-page', 'manage-members', 'run-your-rock',
       'run-a-cohort-session', 'curate-for-your-community', 'host-a-community-well', 'decisions-page'],
   },
   {

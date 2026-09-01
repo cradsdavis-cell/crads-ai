@@ -3,7 +3,7 @@
 import http from 'node:http';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDoorServer } from './door-server.mjs';
@@ -20,14 +20,16 @@ const listen = (opts) => new Promise((resolve) => {
 test('door: identities, surface flags, go-redirects, probe validation', async () => {
   let panelUrl = '';
   const s = await listen({
-    urls: { panel: () => panelUrl, wizard: () => 'http://127.0.0.1:9/', member: () => '', connect: () => '' },
+    urls: { panel: () => panelUrl, member: () => '' },
     probe: (host) => Promise.resolve({ code: host === 'acme-rock' ? 0 : 255, stdout: 'login=aios-op\n', stderr: '' }),
   });
   try {
     const base = `http://127.0.0.1:${s.address().port}`;
     const d = await fetch(`${base}/identities`).then((r) => r.json());
     assert.equal(d.identities.length, 2);
-    assert.deepEqual(d.open, { panel: false, member: false, wizard: true, connect: false });
+    // one server, two names since the face collapse; the wizard + connect
+    // surfaces left the flags when their servers were deleted (2026-09-01)
+    assert.deepEqual(d.open, { panel: false, member: false });
     assert.equal((await fetch(`${base}/go/panel`, { redirect: 'manual' })).status, 404);
     panelUrl = 'http://127.0.0.1:8/';
     const go = await fetch(`${base}/go/panel`, { redirect: 'manual' });
@@ -297,26 +299,17 @@ test('live-cert D2, superseded twice over: the manage cards do not exist for ANY
   assert.doesNotMatch(html, /startRockFlow|startPebbleFlow/, 'no creator flow to resurrect them');
 });
 
-test('live-cert D4: the setup wizard no longer asks a new rock to invent membership levels', () => {
-  const wiz = readFileSync(join(HERE, '..', 'ui', 'index.html'), 'utf8');
-  assert.doesNotMatch(wiz, /Your membership levels/, 'the dead question is gone');
-  assert.doesNotMatch(wiz, /tiers_add/, 'and its add-a-level control with it');
-  assert.match(wiz, /id="vocab_tiers"/, 'the hidden input stays so val()/KEEP/review keep working');
-  assert.match(wiz, /id="tiers_rows" hidden/, 'the rows container stays for buildTiers(), hidden');
-});
-
-test('live-cert D5: a stopped build tells the truth about what it left behind', () => {
-  const wiz = readFileSync(join(HERE, '..', 'ui', 'index.html'), 'utf8');
-  // The old copy promised "Nothing half-made is left behind (automatic rollback)".
-  // Proven false on a real run: rollback() (engine.mjs) deletes server, DNS,
-  // tunnel and deploy key but NEVER the brain repo, and it is only wired inside
-  // the provisioning stage, so an earlier failure rolls back nothing at all.
-  const box = wiz.slice(wiz.indexOf('id="buildFail"'), wiz.indexOf('id="buildFail"') + 400);
-  assert.doesNotMatch(box, /Nothing half-made is left behind/, 'the false blanket promise is gone');
-  assert.match(wiz, /id="buildFailLeft"/, 'there is a place to say what remains');
-  assert.match(wiz, /brain repo \(\[\\w\.-\]\+\\\/\[\\w\.-\]\+\) created/, 'the repo it made is read back out of the log');
-  assert.match(wiz, /was created and is <b>kept<\/b>/, 'and named honestly as kept');
-  assert.match(wiz, /rolled back automatically/, 'while cloud resources are correctly described as rolled back');
+test('the org setup wizard is DELETED (2026-09-01): wizard/ui stays out of the tree', () => {
+  // live-cert D4 + D5 pinned copy inside wizard/ui/index.html; the whole
+  // surface (page, server-lib, VPS server entry) left with the hosted create
+  // flow, so the pin is now the absence. The door's self-host flow is the one
+  // create path, and its own tests live in provision-routes.test.mjs.
+  assert.ok(!existsSync(join(HERE, '..', 'ui')), 'wizard/ui must not return');
+  // comments stripped: app.mjs RECORDS the retirement in prose, and that
+  // record must not read as the surface returning
+  const app = readFileSync(new URL('../app.mjs', import.meta.url), 'utf8')
+    .replace(/^\s*\/\/.*$/gm, ' ');
+  assert.doesNotMatch(app, /createWizardServer|AIOS_FORCE_WIZARD/, 'the app boots no org-wizard surface');
 });
 
 test('the join-a-community flow is GONE (2026-09-01): no card, no board fetch, no orphan handlers', () => {
@@ -327,42 +320,37 @@ test('the join-a-community flow is GONE (2026-09-01): no card, no board fetch, n
   assert.doesNotMatch(html, /startJoinFlow|exitJoinFlow/, 'no orphan handlers left behind');
 });
 
-// Same anti-drift wall for the FACE smokes (2026-08-04): the release smoke
-// greps '/' and '/console' for face titles, and those titles live in files
-// edited far more often than the workflow. The member-mode smoke pinned
-// '<title>Your mineral</title>' on '/' after the landing was deliberately moved to
-// the app, so every build failed on prose while both surfaces were healthy —
-// the exact 2026-08-03 failure shape, one surface over.
-test('anti-drift: every face title the release smoke greps for is the real one', () => {
+// Same anti-drift wall for the FACE smoke (2026-08-04 origin): the release
+// smoke greps '/' for the app title, and titles live in files edited far more
+// often than the workflow. The member-mode smoke once pinned
+// '<title>Your mineral</title>' on '/' after the landing was deliberately moved
+// to the app, so every build failed on prose while both surfaces were healthy.
+// The EDITION-WALL half of this test retired with the face collapse
+// (2026-09-01): the shell has one face and ships unstamped, so the old parity
+// pins flip to absence pins here. The workflow's own smoke copy is re-pointed
+// by the release pass; what this file owns is that the SHELL never quietly
+// regrows a stamp for it to grep.
+test('anti-drift: the app title survives, and the edition wall stays demolished', () => {
   const wf = readFileSync(new URL('../../.github/workflows/wizard-app.yml', import.meta.url), 'utf8');
   const member = readFileSync(new URL('./member.html', import.meta.url), 'utf8');
-  const memberConsole = readFileSync(new URL('./member-console.html', import.meta.url), 'utf8');
 
-  // the org console retired with P3 (2026-08-09): the smoke pins the redirect
-  assert.ok(wf.includes('org /console should redirect home since the console retired'),
-    'the org smoke asserts the console redirect');
-
-  // the member front face: '/' serves the app itself, opened on Overview
-  assert.ok(wf.includes("'<title>Your Brain</title>'"), 'the member smoke asserts the app title on /');
+  // the front face: '/' serves the app itself, opened on Overview
+  assert.ok(wf.includes("'<title>Your Brain</title>'"), 'the smoke asserts the app title on /');
   assert.match(member, /<title>Your Brain<\/title>/, 'and member.html actually carries it');
-  assert.ok(wf.includes(`'data-sec="dashboard" class="on"'`), 'the member smoke asserts Overview is the landing tab');
+  assert.ok(wf.includes(`'data-sec="dashboard" class="on"'`), 'the smoke asserts Overview is the landing tab');
   assert.ok(member.includes('data-sec="dashboard" class="on"'), 'and member.html actually lands there');
 
-  // the standalone member console stays reachable at /console
-  assert.ok(wf.includes("'<title>Your mineral</title>'"), 'the member smoke asserts the standalone console survives at /console');
-  assert.match(memberConsole, /<title>Your mineral<\/title>/, 'and member-console.html actually carries it');
-
-  // ONE shell, two faces (2026-08-09): the smokes now pin the edition wall, so
-  // every string they grep for must exist in the shell + server for real.
-  const server = readFileSync(new URL('./panel-server.mjs', import.meta.url), 'utf8');
-  assert.ok(wf.includes('var AIOS_EDITION = "org"'), 'the org smoke asserts the org stamp');
-  assert.ok(wf.includes('var AIOS_EDITION = "member"'), 'the member smoke asserts the member stamp');
-  assert.ok(member.includes("var AIOS_EDITION = '__AIOS_EDITION__'"), 'the shell carries the placeholder the server stamps');
-  assert.ok(server.includes("'__AIOS_EDITION__'"), 'panel-server actually stamps it');
-  assert.ok(wf.includes('class="orgonly" data-sec="yourrock"'), 'the member smoke asserts the org chrome is orgonly-marked');
-  assert.ok(member.includes('class="orgonly" data-sec="yourrock"'), 'and the shell actually marks it');
-  assert.ok(wf.includes('body:not([data-edition="org"]) .orgonly{display:none'), 'the member smoke asserts the CSS wall');
-  assert.ok(member.includes('body:not([data-edition="org"]) .orgonly{display:none'), 'and the shell actually walls it');
+  // ONE face (2026-09-01): no stamp, no wall, no org-only chrome. Comments may
+  // still RECORD the old split, and the retired-hash aliases still say the
+  // word 'yourrock' to land old deep links on the seat, so every pin here is
+  // on a LIVE construct rather than a bare word. The server keeps its own
+  // '__AIOS_EDITION__' literal only for the topology page's app-link layer.
+  assert.ok(!member.includes('__AIOS_EDITION__'), 'the shell carries no edition placeholder');
+  assert.ok(!member.includes('AIOS_EDITION'), 'and no edition variable at all');
+  assert.ok(!member.includes('data-edition="'), 'the body wears no edition stamp');
+  assert.ok(!member.includes('class="orgonly') && !member.includes('.orgonly{'),
+    'no org-only chrome and no CSS wall to hide it behind');
+  assert.ok(!member.includes('data-sec="yourrock"'), 'the Your-rock page is gone, not merely hidden');
 });
 
 // ---- sign in before the box is built (Sam's ruling 2026-08-05, ruling 1) ----------
@@ -498,14 +486,18 @@ test('RULING 4: the door paints from disk first and never blanks', () => {
   assert.match(load, /\.then\(loadFull\)/, 'and the second stage follows it rather than gating it');
 });
 
-test('RULING 5: a key-opened mineral off the signed-in account is flagged, never hidden', () => {
-  // Sam, 2026-08-10: signed in with an unrelated account and read the list as
-  // that account's holdings. The key stays sovereign, so the row must open.
-  assert.match(DOOR, /r\.flagged/, 'the row consumes the flag');
-  assert.match(DOOR, /opens with this computer&#8217;s key, not held by/,
-    'and says which account it was measured against');
-  const flag = DOOR.slice(DOOR.indexOf('var flag = r.flagged'), DOOR.indexOf('b.innerHTML'));
-  assert.doesNotMatch(flag, /display:\s*none|return null/, 'flagged is a label, not a filter');
+test('RULING 5 is RETIRED (2026-09-01): no account remains to flag a key against', () => {
+  // The flag existed to reconcile two authorities: the sovereign SSH key and
+  // the signed-in account's holdings list. The account layer is deleted, so
+  // the mineral's own device roster is the only authority on what opens it and
+  // there is nothing left to measure a key against. The row's flag slot is
+  // pinned EMPTY rather than removed blind, so a future account-shaped layer
+  // has to reopen this test deliberately instead of quietly refilling it.
+  const flag = DOOR.slice(DOOR.indexOf('var flag = '), DOOR.indexOf('b.innerHTML'));
+  assert.match(flag, /var flag = '';/, 'the slot renders nothing');
+  assert.doesNotMatch(DOOR, /r\.flagged/, 'no row consumes an account-mismatch flag');
+  assert.doesNotMatch(DOOR_LIVE, /opens with this computer&#8217;s key, not held by/,
+    'and the measured-against-an-account copy is gone from what renders');
 });
 
 test('elsewhere rows are not pressable, because pressing them cannot open anything', () => {
@@ -520,6 +512,31 @@ test('only on-device rows are probed', () => {
   // failure rendered as a red dot on something that is not broken.
   const fn = DOOR.slice(DOOR.indexOf('function probeAll()'), DOOR.indexOf('// TWO STAGES'));
   assert.match(fn, /filter\(function\(r\)\{ return r\.onDevice; \}\)/, 'the probe list is filtered');
+});
+
+test('the door copy speaks device-add, never sign-in (2026-09-01)', () => {
+  // Every sentence that used to point at the account now points at the one
+  // way in that exists: another of the person's own computers lets this one
+  // in over SSH. Exact strings, read from the page, so the copy and the
+  // mechanism cannot drift apart quietly.
+  assert.ok(DOOR.includes('Another computer that already opens it can let this one in. Nothing new is made.'),
+    'the "I already have one" card names the device path');
+  assert.ok(DOOR.includes('A computer that already opens your mineral can let this one in. Nothing is created.'),
+    'the have-flow hint carries no sign-in narration');
+  assert.ok(DOOR.includes('<b>None yet.</b> Set up your own below, or have another of your computers let this one in.'),
+    'the empty inventory names both doors and no account');
+  assert.ok(DOOR.includes('another of your computers can let it back in'),
+    'the forget confirm says how to undo itself without an account');
+});
+
+test('/go/panel and /go/member land on the SAME server since the face collapse (2026-09-01)', () => {
+  // The door keeps both routes so old pages and both hash conventions keep
+  // working, but the app wires one panel server behind the pair: the two URLs
+  // are assigned in one statement, so they cannot point at different faces.
+  const app = readFileSync(new URL('../app.mjs', import.meta.url), 'utf8');
+  assert.match(app, /panelFlipUrl = memberUrl = `http:\/\/127\.0\.0\.1:\$\{panel\.address\(\)\.port\}\/`;/,
+    'one listener, two names');
+  assert.ok(!app.includes('startMember'), 'no second member-face server remains to start');
 });
 
 test('the elsewhere Connect ask left with the account system (2026-09-01)', () => {

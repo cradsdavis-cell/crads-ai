@@ -66,38 +66,19 @@ test('member-set-status: resume clears the reason without tripping the empty-str
   assert.match(readFileSync(row, 'utf8'), /^paused_reason: ""$/m, 'resume clears it');
 });
 
-test('console-answer: the request body is built by node, so a note cannot reach the shell', () => {
-  // My first version of this test ran the whole verb and asserted no marker
-  // appeared. It passed BEFORE the fix, because the command dies at the
-  // brain-root check long before it reaches the note. A test that cannot fail on
-  // the bug is worse than none, so this one runs ONLY the body-building fragment
-  // with $ORG supplied, and asserts on the JSON that comes out.
-  const dir = tmpDir('inj-note-');
-  const { marker, payload } = withMarker(dir);
-  const note = `declined: they're "unsure" ${payload}`;
-  const cmd = VERBS['console-answer'].build({ id: 'a'.repeat(32), answer: 'declined', note }).command;
-
-  const start = cmd.indexOf('NOTE=');
-  const end = cmd.indexOf('"$NOTE")"; ') + '"$NOTE")"; '.length;
-  assert.ok(start > 0 && end > start, 'found the body fragment');
-  const out = execFileSync('bash', ['-c', `ORG=acme; ${cmd.slice(start, end)} printf '%s' "$BODY"`], { encoding: 'utf8' });
-
-  assert.ok(!existsSync(marker), 'the note must never be evaluated by the shell');
-  const body = JSON.parse(out);
-  assert.equal(body.note, note, 'the note travels verbatim, quotes and all');
-  assert.equal(body.org, 'acme');
-  assert.equal(body.id, 'a'.repeat(32));
-  assert.equal(body.answer, 'declined');
-});
-
-test('console-answer omits the note key entirely when there is no note', () => {
-  const cmd = VERBS['console-answer'].build({ id: 'b'.repeat(32), answer: 'accepted' }).command;
-  const start = cmd.indexOf('NOTE=');
-  const end = cmd.indexOf('"$NOTE")"; ') + '"$NOTE")"; '.length;
-  const out = execFileSync('bash', ['-c', `ORG=acme; ${cmd.slice(start, end)} printf '%s' "$BODY"`], { encoding: 'utf8' });
-  const body = JSON.parse(out);
-  assert.ok(!('note' in body), `an empty note must not become note:"" — got ${out}`);
-  assert.equal(body.answer, 'accepted');
+test('console-answer is RETIRED (2026-09-01): the verb, and its injection surface, stay gone', () => {
+  // Its two tests ran the node-built request-body fragment and proved a note
+  // could never reach the shell. The face collapse deleted the verb with the
+  // rest of the directory machinery (invite-member, rock-state, rock-answer,
+  // rock-tie-end, console-request, console-withdraw, org-topology-state), so
+  // there is no body to build and no curl for a note to ride. The lesson
+  // survives in the structural lexer test below, which walks every verb that
+  // still exists; this pin holds that none of the deleted ones come back
+  // quietly, because each was a fresh chance to nest a shq word in "...".
+  for (const verb of ['console-answer', 'invite-member', 'rock-state', 'rock-answer',
+    'rock-tie-end', 'console-request', 'console-withdraw', 'org-topology-state']) {
+    assert.ok(!(verb in VERBS) && !(verb in MEMBER_VERBS), `${verb} stays out of both verb tables`);
+  }
 });
 
 

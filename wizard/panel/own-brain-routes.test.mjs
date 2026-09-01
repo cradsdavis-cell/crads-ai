@@ -1,17 +1,17 @@
-// P3.3: the member-connect server drives the own-brain flow: start returns the
-// GitHub code to show, status streams progress until done. Token lives only in
-// the in-memory flow state, never on disk, never in a response.
+// P3.3: the own-brain flow — start returns the GitHub code to show, status
+// streams progress until done. Token lives only in the in-memory flow state,
+// never on disk, never in a response. Since the member-connect surface was
+// deleted (2026-09-01) the routes' one mount is the panel server (the seat's
+// Backup card), so that is the server driven here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { join } from 'node:path';
-import { createMemberConnectServer } from './member-connect.mjs';
-import { tmpDir } from '../../tests/tmp-dir.mjs';
+import { createPanelServer } from './panel-server.mjs';
 
-const tmp = () => tmpDir('ob-routes-');
-
+const TARGETS = [{ host: 'jane01-box', org: 'jane01', kind: 'member' }];
 const listen = (opts) => new Promise((resolve) => {
-  const s = createMemberConnectServer({ port: 0, host: '127.0.0.1', htmlText: '<html>connect</html>',
-    claudeSettingsPath: join(tmp(), 'settings.json'), ...opts });
+  const s = createPanelServer({ port: 0, host: '127.0.0.1', htmlText: '<html>app</html>',
+    bridge: { targets: () => TARGETS, run: () => { throw new Error('no real ssh in this test'); } },
+    lastUsedPath: null, ...opts });
   s.on('listening', () => resolve(s));
 });
 const post = (s, path, body) => fetch(`http://127.0.0.1:${s.address().port}${path}`, {
@@ -30,7 +30,7 @@ function stubs({ pollDelay = 0, pollResult = { ok: true, token: 'gho_x' }, ownRe
 
 test('start -> code; status -> done with the repo; token never appears in any response', async () => {
   const st = stubs();
-  const s = await listen({ sshDir: tmp(), deviceFlow: st.deviceFlow, ownBrain: st.ownBrain });
+  const s = await listen({ deviceFlow: st.deviceFlow, ownBrain: st.ownBrain });
   try {
     const r = await post(s, '/own-brain/start', { slug: 'jane01' });
     assert.equal(r.status, 200);
@@ -56,7 +56,7 @@ test('start -> code; status -> done with the repo; token never appears in any re
 
 test('denied sign-in -> failed stage with the reason', async () => {
   const st = stubs({ pollResult: { ok: false, reason: 'sign-in was denied or cancelled on GitHub' } });
-  const s = await listen({ sshDir: tmp(), deviceFlow: st.deviceFlow, ownBrain: st.ownBrain });
+  const s = await listen({ deviceFlow: st.deviceFlow, ownBrain: st.ownBrain });
   try {
     await post(s, '/own-brain/start', { slug: 'jane01' });
     let body;
@@ -72,7 +72,7 @@ test('denied sign-in -> failed stage with the reason', async () => {
 
 test('bad slug is a 400 before any flow starts', async () => {
   let started = 0;
-  const s = await listen({ sshDir: tmp(), deviceFlow: async () => { started++; }, ownBrain: async () => {} });
+  const s = await listen({ deviceFlow: async () => { started++; }, ownBrain: async () => {} });
   try {
     const r = await post(s, '/own-brain/start', { slug: 'NOPE!!' });
     assert.equal(r.status, 400);
@@ -81,7 +81,7 @@ test('bad slug is a 400 before any flow starts', async () => {
 });
 
 test('status with no flow yet reports idle', async () => {
-  const s = await listen({ sshDir: tmp() });
+  const s = await listen({});
   try {
     const j = await (await get(s, '/own-brain/status')).json();
     assert.equal(j.stage, 'idle');
@@ -90,7 +90,7 @@ test('status with no flow yet reports idle', async () => {
 
 test('non-JSON content-type is refused (no-preflight CSRF guard)', async () => {
   let started = 0;
-  const s = await listen({ sshDir: tmp(), deviceFlow: async () => { started++; } });
+  const s = await listen({ deviceFlow: async () => { started++; } });
   try {
     const r = await fetch(`http://127.0.0.1:${s.address().port}/own-brain/start`, {
       method: 'POST', headers: { 'content-type': 'text/plain' }, body: '{"slug":"jane01"}' });
@@ -114,7 +114,7 @@ test('precheck: org-owned + grant, org-owned + none, member-owned, unparseable -
     { files: { own: 'not-json{{' }, want: { orgOwned: false, granted: false } },
   ];
   for (const c of cases) {
-    const s = await listen({ sshDir: tmp(), precheckBridge: mk(c.files), listTargets: () => [{ host: 'jane01-box', org: 'jane01', kind: 'member' }] });
+    const s = await listen({ precheckBridge: mk(c.files) });
     try {
       const r = await get(s, '/own-brain/precheck');
       assert.equal(r.status, 200);
@@ -128,7 +128,7 @@ test('precheck: org-owned + grant, org-owned + none, member-owned, unparseable -
 test('precheck: the two probes are SEPARATE commands (no combined read, the O5a discipline)', async () => {
   const cmds = [];
   const bridge = async (host, cmd) => { cmds.push(cmd); return { code: 0, stdout: '{"owner":"org"}', stderr: '' }; };
-  const s = await listen({ sshDir: tmp(), precheckBridge: bridge, listTargets: () => [{ host: 'jane01-box', org: 'jane01', kind: 'member' }] });
+  const s = await listen({ precheckBridge: bridge });
   try {
     await get(s, '/own-brain/precheck');
     assert.equal(cmds.length, 2, 'exactly two probes');

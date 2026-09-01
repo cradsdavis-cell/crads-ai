@@ -1,7 +1,7 @@
 // ssh-bridge.mjs: the panel's transport (D43). Pure Node, zero dependencies:
 // every panel verb runs on the rock box by spawning the SYSTEM ssh client
 // against the Host alias the wizard installed (`<org>-rock` in ~/.ssh/config,
-// see server-lib.mjs installAccessKey). Windows-compatible: ssh.exe ships with
+// see the retired wizard/ui server-lib's installAccessKey). Windows-compatible: ssh.exe ships with
 // Windows 10+ (the OpenSSH client feature), and `spawn('ssh', ...)` resolves it
 // from PATH exactly like on linux/darwin.
 //

@@ -110,10 +110,15 @@ test('the tree filter admits exactly the allowed families', () => {
   assert.match(fn, /BRAIN_ASSET_RE\.test\(l\)/, 'loadTree filters through it');
 });
 
-test('the public toggle is offered on pages only, never on assets', () => {
+test('the public toggle is RETIRED (2026-09-01): no reader surface offers it at all', () => {
+  // pubRow was the per-page public-brain toggle, and its whole sharing
+  // machinery died with the face collapse: a commons shares library files,
+  // never live wiki pages, so there is nothing for a page to opt into. The
+  // old pin here held pubRow to .md pages only (brain-public refuses assets);
+  // the stronger truth now is that no branch of the reader calls it.
   const fn = html.split('function loadPageContent(p)')[1].split('\n  }')[0];
-  assert.match(fn, /if \(r\.ok && isMd\) pubRow\(p\);/,
-    'pubRow is gated on .md — brain-public refuses assets, so offering it would offer a refusal');
+  assert.doesNotMatch(fn, /pubRow\(/, 'the reader never offers the retired toggle');
+  assert.ok(!html.includes('function pubRow('), 'and the toggle itself stays gone from the shell');
 });
 
 test('image hydration runs only for pages, and placeholders degrade in words', () => {

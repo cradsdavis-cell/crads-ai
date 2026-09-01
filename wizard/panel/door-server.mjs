@@ -1,15 +1,18 @@
 // door-server.mjs: the app's front door (D47). Lists this machine's installed
-// identities (org connections + member boxes), probes their liveness over the
-// real SSH bridge, and routes into the right surface: panel, member dashboard,
-// org wizard, or the join flows. Serverless day-to-day by design: the future
-// directory service only ADDS new-device bootstrap; nothing here depends on it.
+// identities (every mineral, one face), probes their liveness over the real
+// SSH bridge, and routes into the one panel. Serverless day-to-day by design.
+// The org-wizard and invite (member-connect) surfaces were DELETED 2026-09-01:
+// creating is the door's own self-host flow (provision-routes), a second
+// device joins by device-add (device-routes), so /go/wizard and /go/connect
+// no longer name anything.
 //
 //   GET  /            the door page
-//   GET  /identities  { identities:[{host,org,kind}], open:{panel,member,wizard,connect} }
+//   GET  /identities  { identities:[{host,org,kind}], open:{panel,member} }
 //   POST /probe       { host } -> { ok, login }   (host must be an installed identity)
-//   GET  /go/<name>   302 to the live surface (panel|member|wizard|connect); lazily
-//                     starts it via opts.start[name] if wired, 404 only when the app
-//                     says there is no identity behind it (or it never comes up)
+//   GET  /go/<name>   302 to the live surface (panel|member — one server, two
+//                     hash conventions); lazily starts it via opts.start[name]
+//                     if wired, 404 only when the app says there is no identity
+//                     behind it (or it never comes up)
 import http from 'node:http';
 import { randomBytes, createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -28,7 +31,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // The /go/<name> dead-end, in plain words and with a way back (2026-08-18).
 // Self-contained on purpose: no vendor CSS, no fetch, nothing that can itself
 // fail -- this page only ever renders when something already went wrong.
-const SURFACE_WORDS = { panel: 'rock', member: 'pebble', wizard: 'setup screen', connect: 'invite screen' };
+const SURFACE_WORDS = { panel: 'rock', member: 'pebble' };
 function notRunningPage(name = '') {
   const what = SURFACE_WORDS[name] || 'that surface';
   return `<!doctype html><meta charset="utf-8"><title>Not open yet</title>
@@ -194,7 +197,7 @@ export function createDoorServer(opts = {}) {
       let identities = [];
       try { identities = bridge.targets() || []; } catch { identities = []; }
       const open = {};
-      for (const n of ['panel', 'member', 'wizard', 'connect']) open[n] = !!url(n);
+      for (const n of ['panel', 'member']) open[n] = !!url(n);
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ identities, open }));
       return;
@@ -208,9 +211,10 @@ export function createDoorServer(opts = {}) {
     // what minerals this person has -- which is the exact failure this whole
     // pass exists to remove.
     //
-    // /identities, /account/minerals and /account/devices all STAY: panel-server
-    // relays the latter two and the enrol action still posts to them, and
-    // not-let-in.test.mjs pins both servers to the same module for it.
+    // /identities STAYS (it reads this machine's ssh config, no account
+    // involved). The /account/* relays are gone with the account system
+    // (2026-09-01): panel-server answers them 410, and enrolment is the
+    // wizard-local device-add below.
     if (inventory(req, res, path)) return;
 
     // The self-host "Set up my own" flow (2026-09-01): the wizard UI over the

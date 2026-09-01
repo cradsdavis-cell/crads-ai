@@ -290,13 +290,14 @@ test('org-sync: an inbox with no heartbeat/ directory changes nothing on an acti
 
 // ---- the anchor detach leaves joined confs alone ----------------------------------
 
-test('unanchorCmd removes the anchor conf and key only; heartbeat.d/ is not named', async () => {
-  const { unanchorCmd } = await import('../../wizard/panel/panel-server.mjs');
-  const cmd = unanchorCmd('downgrade');
-  assert.match(cmd, /rm -f \/state\/heartbeat\.conf \/state\/org-inbox\.conf/);
-  assert.match(cmd, /rm -f \/state\/secrets\/heartbeat_deploy_key \/state\/secrets\/org_inbox_deploy_key/);
-  assert.doesNotMatch(cmd, /heartbeat\.d/);
-  assert.doesNotMatch(cmd, /heartbeat_deploy_key\./);
+test('unanchorCmd is RETIRED (2026-09-01): the app-side detach died with the tie routes', async () => {
+  // The face collapse deleted /rock-tie-downgrade and the promote flow, and
+  // unanchorCmd with them: nothing app-side detaches an anchor any more,
+  // because nothing central can hold one. The box-side leave/evict scripts
+  // below are the only detach paths left, and they carry the file-scoping
+  // rules this test used to pin on the app copy too.
+  const panel = await import('../../wizard/panel/panel-server.mjs');
+  assert.equal(panel.unanchorCmd, undefined, 'the export stays gone');
 });
 
 // ---- 2026-08-23: the box CLAIMS its joined ties (multi-tie channel) ---------------
@@ -464,9 +465,11 @@ test('org-sync: a bad owner name or a conf with no SLUG is skipped, not sourced'
 
 // ---- the detach paths and the joined leave ----------------------------------------
 
-test('unanchorCmd and evict-apply name the anchor’s files only: org-inbox.d/ and heartbeat.d/ survive a downgrade or an eviction', async () => {
-  const { unanchorCmd } = await import('../../wizard/panel/panel-server.mjs');
-  for (const cmd of [unanchorCmd('downgrade'), unanchorCmd('promote'), readFileSync(path.join(HERE, 'evict-apply.sh'), 'utf8')]) {
+test('evict-apply names the anchor’s files only: org-inbox.d/ and heartbeat.d/ survive an eviction', async () => {
+  // unanchorCmd used to be checked here too; it is retired with the tie routes
+  // (see the retirement pin above), so evict-apply is the one detach script
+  // left to hold to the file-scoping rule.
+  for (const cmd of [readFileSync(path.join(HERE, 'evict-apply.sh'), 'utf8')]) {
     assert.doesNotMatch(cmd, /org-inbox\.d/);
     assert.doesNotMatch(cmd, /heartbeat\.d/);
     assert.doesNotMatch(cmd, /deploy_key\./);

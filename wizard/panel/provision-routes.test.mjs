@@ -33,8 +33,14 @@ function harness(over = {}) {
   const installs = [];
   const pins = [];
   const sshDir = tmpDir('prov-');
+  // The Claude Code settings path MUST be injected. Without it the default is
+  // the real ~/.claude/settings.json and a test run writes a fake mineral into
+  // the developer's own Environment dropdown: caught doing exactly that on
+  // 2026-09-01, one run after the register step was added.
+  const settingsPath = join(sshDir, 'claude-settings.json');
   const handle = provisionRoutes({
     sshDir,
+    settingsPath,
     makeClient: () => fakeClient(calls),
     install: (o) => { installs.push({ ...o }); return { publicKey: PUB + '\n' }; },
     pin: (ip) => pins.push(ip),
@@ -54,7 +60,7 @@ function harness(over = {}) {
   };
   // closeAllConnections too: fetch's keep-alive sockets otherwise hold the
   // process open past the last test and the runner never exits.
-  return { call, calls, installs, pins, sshDir, close: () => { server.closeAllConnections?.(); server.close(); } };
+  return { call, calls, installs, pins, sshDir, settingsPath, close: () => { server.closeAllConnections?.(); server.close(); } };
 }
 
 async function untilPhase(call, phase, tries = 200) {
@@ -136,4 +142,51 @@ test('destroy after an app restart needs the token again (it was never stored)',
   const r = await h.call('POST', '/provision/destroy', { name: 'ghost' });
   assert.equal(r.status, 400);
   assert.match(r.body.error, /never stored/);
+});
+
+// --- the Environment entry in the Claude Code app ------------------------------
+// Access is app-first: SSH only, no browser IDE. A box that never reaches the
+// dropdown is a box the member cannot open, however healthy it is. The
+// hosted-era connect flow registered it; the self-host flow shipped without
+// that step, so every mineral came up working and invisible (Sam, 2026-09-01).
+test('a finished build registers the mineral in the Claude Code app', async (t) => {
+  const h = harness({ openFolder: async () => ({ code: 0, stdout: 'demo\n' }) });
+  t.after(h.close);
+  await h.call('POST', '/provision/start', { token: 't', name: 'demo' });
+  await untilPhase(h.call, 'ready');
+  const entry = JSON.parse(readFileSync(h.settingsPath, 'utf8')).sshConfigs.find((c) => c.id === 'demo-box');
+  assert.ok(entry, 'the mineral is in sshConfigs');
+  assert.equal(entry.sshHost, 'demo-box', 'and dials the alias the Host block defines');
+  assert.equal(entry.name, 'demo', 'named as the person named it');
+  // /state/<name>, asked of the box once the chain is proven. A startDirectory
+  // nobody confirmed is a session Claude Code cannot open.
+  assert.equal(entry.startDirectory, '/state/demo');
+});
+
+test('a box that cannot answer the folder probe still gets a usable entry', async (t) => {
+  // The registration and the folder question are two steps on purpose. A box
+  // that is up but slow to answer must not lose its dropdown entry over it.
+  const h = harness({ openFolder: async () => { throw new Error('ssh died'); } });
+  t.after(h.close);
+  await h.call('POST', '/provision/start', { token: 't', name: 'demo' });
+  await untilPhase(h.call, 'ready');
+  const entry = JSON.parse(readFileSync(h.settingsPath, 'utf8')).sshConfigs.find((c) => c.id === 'demo-box');
+  assert.ok(entry, 'still registered');
+  assert.equal(entry.startDirectory, '/state', 'falling back to the box root, not to nothing');
+});
+
+test('a settings file it cannot write never fails a build that worked', async (t) => {
+  const h = harness({ register: () => { throw new Error('settings.json is read-only'); } });
+  t.after(h.close);
+  await h.call('POST', '/provision/start', { token: 't', name: 'demo' });
+  const s = await untilPhase(h.call, 'ready');
+  assert.equal(s.phase, 'ready', 'the mineral is up; the entry is repairable by hand');
+});
+
+test('no test may write the real ~/.claude/settings.json', () => {
+  // The pin for the pollution above: harness() must inject settingsPath, and it
+  // must land inside the scratch ssh dir, never in a home directory.
+  const h = harness();
+  h.close();
+  assert.ok(h.settingsPath.startsWith(h.sshDir), 'settings path is inside the scratch dir');
 });

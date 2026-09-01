@@ -13,7 +13,6 @@ import { mkdirSync, writeFileSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { joinFragment } from './fixtures.mjs';
 import { nav, navTo } from './nav.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -66,13 +65,9 @@ add('member-brain', '/member', { waitMs: 2500, after: nav('brain', 3500) });
 // an org-held one and a key-only one, so every row shape is drawn.
 add('door', '/door', { waitMs: 2500 });
 add('door', '/door?state=empty', { waitMs: 2500, suffix: 'empty' });   // fresh install: the takeover owns the screen
-add('door', '/door?state=error', { waitMs: 2500, suffix: 'error' });   // directory down: the machine list must still stand
-add('connect', '/connect', { waitMs: 2500 });
-add('wizard', '/wizard', { waitMs: 1500 });
-// The join page immediately tries the crads-ai:// app scheme, which aborts the
-// browser 'load' event in headless Chromium — wait on 'commit' instead. After
-// the 2s app-probe times out, the download-fallback card is showing.
-add('join', `/join${joinFragment()}`, { waitMs: 3500, waitUntil: 'commit' });
+add('door', '/door?state=error', { waitMs: 2500, suffix: 'error' });   // boxes not answering: the machine list must still stand
+// (the connect / wizard / join surfaces were deleted 2026-09-01; their shots
+// went with them)
 
 // suffix goes before the theme in the filename: panel-light-empty.png
 for (const s of SHOTS) if (s.suffix) s.name = s.name.replace(/-(light|dark)$/, (m, t) => `-${t}-${s.suffix}`);

@@ -36,20 +36,21 @@ function items(groupId) {
 //
 // Library rejoined the group 2026-08-26 (step 7a): Pages, Prompts and Files
 // moved out of Skills onto their own page, reclaiming the name a 2026-08-09
-// merge (R6) had retired. Shared like Skills and Connections; only Catalogue
-// stays org-only.
+// merge (R6) had retired. Since the face collapse (2026-09-01) nothing in the
+// group carries a face class: Catalogue is every mineral's publishing surface,
+// because acting as a community hub is a role, not an edition.
 test('Your assistant folds Brain, Skills, Library, Connections and Catalogue', () => {
   const g = items('assistant');
-  // ONE Brain button since S5 retired orgbrain: the shared graph viewer serves
-  // the member wiki and the org brain through each edition's own verbs, so this
-  // group needs no per-face chrome to read the same on both.
+  // ONE Brain button since S5 retired orgbrain: the shared graph viewer is the
+  // only brain surface there is.
   assert.match(g, /<button data-sec="brain">/, 'the shared brain viewer');
   assert.ok(!g.includes('data-sec="orgbrain"'), 'and no retired orgbrain twin');
-  assert.match(g, /<button data-sec="skills">/, 'Skills, shared');
-  assert.match(g, /<button data-sec="library">/, 'Library, shared, after Skills');
+  assert.match(g, /<button data-sec="skills">/, 'Skills');
+  assert.match(g, /<button data-sec="library">/, 'Library, after Skills');
   assert.ok(g.indexOf('data-sec="skills"') < g.indexOf('data-sec="library"'), 'Library sits after Skills');
-  assert.match(g, /<button data-sec="connections">/, 'Connections, shared');
-  assert.match(g, /<button class="orgonly" data-sec="publish">/, 'Catalogue, org-only');
+  assert.match(g, /<button data-sec="connections">/, 'Connections');
+  assert.match(g, /<button data-sec="publish">/, 'Catalogue, no face class');
+  assert.ok(!g.includes('class="orgonly"'), 'no org-only chrome survives in the group');
   assert.equal((g.match(/data-sec="/g) || []).length, 5, 'nothing else in the group');
   assert.match(g, />Catalogue</, 'the publish tab is labelled Catalogue now');
   assert.ok(!/>Publishing</.test(g), 'and no longer Publishing');
@@ -74,7 +75,9 @@ test('old Cadence deep links land on Skills (merged 2026-08-09, R6); Library dee
 test('Telegram is a Connections row, not a page (merged 2026-08-09, R4)', () => {
   assert.ok(!html.includes('<button data-sec="telegram">'), 'no Telegram nav tab');
   assert.ok(!html.includes('<section data-sec="telegram">'), 'no Telegram section');
-  const conn = html.slice(html.indexOf('<section data-sec="connections">'), html.indexOf('<section data-sec="rocks">'));
+  // The end anchor is the next section in source order (Brain); it used to be
+  // the Rocks section, which left with the face collapse (2026-09-01).
+  const conn = html.slice(html.indexOf('<section data-sec="connections">'), html.indexOf('<section data-sec="brain">'));
   for (const id of ['tgRow', 'tgChip', 'tgToggle', 'tgDetail', 'tgSetup', 'tgWait', 'tgForget']) {
     assert.ok(conn.includes(`id="${id}"`), `${id} lives inside the Connections section`);
   }
@@ -92,49 +95,50 @@ test('Telegram is a Connections row, not a page (merged 2026-08-09, R4)', () => 
   assert.match(html, /\} else tgStop\(\);/, 'leaving Connections stops the poll');
 });
 
-test('Privacy & access folds exactly Secrets and Sharing (Devices merged into Network 2026-08-04)', () => {
+// Sharing retired with the face collapse (2026-09-01): support access moved to
+// Help, and the rest of the page had already dispersed (Secrets and Devices
+// became their own surfaces long before). The group holds one tab now; the
+// header earns its keep as the place an access page would return to.
+test('Privacy & access folds exactly Secrets (Sharing retired 2026-09-01)', () => {
   const g = items('privacy');
-  for (const sec of ['secrets', 'sharing']) {
-    assert.match(g, new RegExp('<button data-sec="' + sec + '">'), `${sec} inside the group`);
-  }
-  assert.equal((g.match(/data-sec="/g) || []).length, 2, 'nothing else in the group');
+  assert.match(g, /<button data-sec="secrets">/, 'Secrets inside the group');
+  assert.ok(!g.includes('data-sec="sharing"'), 'no Sharing tab');
+  assert.equal((g.match(/data-sec="/g) || []).length, 1, 'nothing else in the group');
 });
 
 // The Network umbrella (Sam, 2026-08-09 rock-dashboard ruling): Map is the page
-// previously called Network, Rocks moved in from top level. Sec ids stayed stable
-// so deep links and the shots rig keep addressing the same selectors. The rock
-// face adds a Pebbles item in the same group; it is org-only chrome and a member
-// never sees it (CSS + the activateSec edition wall).
-//
-// Rock brain LEFT this group on 2026-08-10 (Sam): a rock's shared pages were a
-// tab of their own while the page named Rocks carried no rock at all. They are
-// a block inside the rock's own row now, so the group is back to three.
-test('Network folds exactly Map, Rocks, the member-only Communities, and the org-only Pebbles', () => {
+// previously called Network. The face collapse (2026-09-01) took Rocks and the
+// org-only Pebbles with the org face; Communities (the commons-repo model) is
+// the box-to-box surface that remains, and it carries no face class because
+// there is only one face.
+test('Network folds exactly Map and Communities', () => {
   const g = items('network');
-  assert.match(g, /<button data-sec="network">/, 'Map inside the group, shared since P3 (the rock has a map too)');
-  assert.match(g, /<button data-sec="rocks">/, 'Rocks inside the group, shared since P3 (a rock joins other rocks too)');
-  // Communities (commons-repo model, self-host pivot 2026-09-01): member-only;
-  // the rock owner's half is the Commons card on the Catalogue page.
-  assert.match(g, /<button class="memonly" data-sec="commons">/, 'Communities inside the group, member-only');
-  assert.match(g, /<button class="orgonly" data-sec="pebbles">/, 'Pebbles inside the group, org-only');
-  assert.ok(!g.includes('data-sec="rockbrain"'), 'and no Rock brain tab: it folded into the rock');
-  assert.equal((g.match(/data-sec="/g) || []).length, 4, 'nothing else in the group');
+  assert.match(g, /<button data-sec="network">/, 'Map inside the group');
+  assert.match(g, /<button data-sec="commons">/, 'Communities inside the group, no face class');
+  assert.ok(!g.includes('data-sec="rocks"'), 'no Rocks tab: the Organisations page retired');
+  assert.ok(!g.includes('data-sec="pebbles"'), 'no Pebbles tab: there are no hosted pebbles');
+  assert.ok(!g.includes('data-sec="rockbrain"'), 'and no Rock brain tab');
+  assert.equal((g.match(/data-sec="/g) || []).length, 2, 'nothing else in the group');
   assert.match(g, />Map</, 'the network tab is labelled Map now');
 });
 
-test('old deep links land on the regrouped tabs: #map, #communities, #devices, #rockbrain', () => {
+test('old deep links land on the regrouped tabs: #map, #communities, #devices, #rocks, #rockbrain', () => {
   assert.match(html, /if \(h === 'map'\) h = 'network';/, 'secFromHash maps #map');
-  assert.match(html, /if \(h === 'communities'\) h = 'rocks';/, 'secFromHash maps #communities');
+  assert.match(html, /if \(h === 'communities'\) h = 'commons';/, 'secFromHash maps #communities to the Communities page');
   assert.match(html, /if \(h === 'devices'\) h = 'network';/, 'secFromHash maps #devices');
   assert.match(html, /if \(name === 'map'\) name = 'network';/, 'activateSec maps map too');
-  // the tab that died 2026-08-10 — both routes, or a hashchange arrival strands
-  assert.match(html, /if \(h === 'rockbrain'\) h = 'rocks';/, 'secFromHash maps #rockbrain');
-  assert.match(html, /if \(name === 'rockbrain'\) name = 'rocks';/, 'activateSec maps it too');
+  // the org pages died 2026-09-01; their hashes land on Communities rather
+  // than nowhere, by both routes, or a hashchange arrival strands
+  assert.match(html, /if \(h === 'rocks' \|\| h\.indexOf\('rocks\/'\) === 0 \|\| h === 'rockbrain'\) h = 'commons';/,
+    'secFromHash maps the retired org hashes');
+  assert.match(html, /if \(name === 'rocks' \|\| name\.indexOf\('rocks\/'\) === 0 \|\| name === 'rockbrain'\) name = 'commons';/,
+    'activateSec maps them too, per-rock deep links included');
   assert.ok(!html.includes('<section data-sec="rockbrain"'), 'and the section itself is gone');
+  assert.ok(!html.includes('<section data-sec="rocks"'), 'so is the Rocks section');
 });
 
 test('each grouped tab exists once — inside its group, never also at top level', () => {
-  for (const sec of ['skills', 'library', 'connections', 'brain', 'publish', 'secrets', 'sharing', 'network', 'rocks', 'pebbles']) {
+  for (const sec of ['skills', 'library', 'connections', 'brain', 'publish', 'secrets', 'network', 'commons']) {
     const hits = html.match(new RegExp('<button[^>]* data-sec="' + sec + '">', 'g')) || [];
     assert.equal(hits.length, 1, `${sec} appears exactly once in the nav`);
   }

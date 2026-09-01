@@ -3,7 +3,7 @@
 // Zero deps: node:test + a fake bridge; no SSH, no network beyond loopback.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFileSync, readFileSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
@@ -114,18 +114,16 @@ test('every org verb resolves brain_root instead of hardcoding /state/brain', ()
   }
 });
 
-test('pending-devices + broker-register: brain-root resolved, fail-open, admin-only', async () => {
-  const pd = VERBS['pending-devices'].build().command;
-  assert.match(pd, /invite-reconcile\.mjs/);
-  assert.match(pd, /pending-devices\.json/);
-  assert.match(pd, /echo "\[\]"/, 'an older brain without the reconcile script must yield [] and never an error');
-  assert.ok(VERBS['pending-devices'].adminOnly, 'pending-devices is approval workflow: admin-only');
-  const br = VERBS['broker-register'].build({ host: '1.2.3.4' }).command;
-  assert.match(br, /broker-register\.mjs/);
-  assert.match(br, /--host 1\.2\.3\.4/);
-  assert.match(VERBS['broker-register'].build({}).command, /broker-register\.mjs(?!.*--host)/, 'host is optional (box self-detects)');
-  assert.throws(() => VERBS['broker-register'].build({ host: 'bad host!' }), /host/);
-  assert.ok(VERBS['broker-register'].adminOnly && VERBS['broker-register'].mutating);
+test('pending-devices + broker-register are RETIRED (2026-09-01): no broker remains', async () => {
+  // Both verbs served the directory's device broker: pending-devices listed
+  // what invite-reconcile staged, broker-register announced the box to the
+  // broker. The broker died with the central directory; a new computer is now
+  // let in by an existing one over SSH (wizard-local device-add), so neither
+  // verb may come back.
+  assert.equal(VERBS['pending-devices'], undefined, 'pending-devices stays gone');
+  assert.equal(VERBS['broker-register'], undefined, 'broker-register stays gone');
+  assert.equal(MEMBER_VERBS['pending-devices'], undefined, 'and neither reaches the one table');
+  assert.equal(MEMBER_VERBS['broker-register'], undefined);
 });
 
 // approve-device was DELETED 2026-08-09 (Sam: "kill it, the link is the proof").
@@ -199,61 +197,56 @@ const targetsOf = (s) => fetch(`http://127.0.0.1:${s.address().port}/targets`).t
 const ROCK = { host: 'ic-rock', org: 'ic', kind: 'rock' };
 const MEMBER = { host: 'jane01-box', org: 'jane01', kind: 'member' };
 
-test('org edition: filters targets to rocks, refuses member hosts and unknown verbs', async () => {
+test('one face: every configured target is served, both alias shapes, no edition field', async () => {
   const s = await listen({ bridge: fakeBridge([ROCK, MEMBER]) });
   try {
     const t = await targetsOf(s);
-    assert.equal(t.edition, 'org');
-    assert.deepEqual(t.targets, [ROCK]);
-    assert.equal((await post(s, { host: 'jane01-box', verb: 'whoami' })).status, 400);
+    assert.equal(t.edition, undefined, 'the edition field died with the editions');
+    assert.deepEqual(t.targets, [ROCK, MEMBER], 'a legacy -rock alias and a -box alias both serve');
     assert.equal((await post(s, { host: 'ic-rock', verb: 'no-such-verb' })).status, 400);
-    const ok = await post(s, { host: 'ic-rock', verb: 'whoami' });
-    assert.equal(ok.status, 200);
+    assert.equal((await post(s, { host: 'jane01-box', verb: 'whoami' })).status, 200);
+    assert.equal((await post(s, { host: 'ic-rock', verb: 'whoami' })).status, 200);
   } finally { s.close(); }
 });
 
-test('member edition: member verbs only, org hosts and org verbs refuse', async () => {
-  const s = await listen({ bridge: fakeBridge([ROCK, MEMBER]), edition: 'member' });
+test('the org verbs are not served: one table, and it is the member table plus the catalogue', async () => {
+  const s = await listen({ bridge: fakeBridge([ROCK, MEMBER]) });
   try {
-    const t = await targetsOf(s);
-    assert.equal(t.edition, 'member');
-    assert.deepEqual(t.targets, [MEMBER]);
-    // org verbs do not exist here
+    // the fleet/registry/people/governance families lost their pages and left
+    // the served table with the face collapse (their builders stay exported
+    // for unit tests until the machinery is deleted)
     for (const verb of ['chat', 'stamp-member', 'governance-write', 'deprovision-member', 'fleet-index']) {
-      assert.equal((await post(s, { host: 'jane01-box', verb })).status, 400, `${verb} must 400 in member edition`);
+      const r = await post(s, { host: 'jane01-box', verb });
+      assert.equal(r.status, 400, `${verb} must 400`);
+      assert.match(await r.text(), /unknown verb/, `${verb} is not in the one table`);
     }
-    // a rock host is invalid in the member edition even though the bridge knows it
-    assert.equal((await post(s, { host: 'ic-rock', verb: 'whoami' })).status, 400);
-    const ok = await post(s, { host: 'jane01-box', verb: 'brain-list' });
-    assert.equal(ok.status, 200);
-    const text = await ok.text();
-    assert.match(text, /\/state\/wiki/);
+    // member self-management answers for every target, the legacy rock included
+    for (const host of ['jane01-box', 'ic-rock']) {
+      const ok = await post(s, { host, verb: 'brain-list' });
+      assert.equal(ok.status, 200);
+      assert.match(await ok.text(), /\/state\/wiki/, `${host}: one brain, the box's own wiki`);
+    }
   } finally { s.close(); }
 });
 
-// Landing (2026-08-04, Sam): the E7.1 console-default redirect belongs to the
-// ORG face only. A member's '/' is the app itself, which opens on Overview --
-// before this, every landing into a pebble (/go/member included) bounced onto
-// the standalone seat page with no app around it.
-test('front face by edition: BOTH land on the one app shell, edition-stamped (E7.1 reversed 2026-08-09)', async () => {
+// Landing: '/' is the app itself, which opens on Overview. The edition stamp
+// died with the face collapse (2026-09-01): the shell ships as-is, so a
+// leftover placeholder in a caller-supplied body is served untouched.
+test('the front face is the one app shell, served unstamped', async () => {
   const shell = "<html><script>var AIOS_EDITION = '__AIOS_EDITION__';</script>the app shell</html>";
-  const org = await listen({ bridge: fakeBridge([ROCK]), htmlText: shell });
-  const mem = await listen({ bridge: fakeBridge([MEMBER]), edition: 'member', htmlText: shell });
+  const s = await listen({ bridge: fakeBridge([ROCK, MEMBER]), htmlText: shell });
   try {
-    const ro = await fetch(`http://127.0.0.1:${org.address().port}/`, { redirect: 'manual' });
-    assert.equal(ro.status, 200, 'org front face is the app now, never a console bounce');
-    assert.match(await ro.text(), /AIOS_EDITION = "org"/, 'the org serve stamps edition=org');
-    const rm = await fetch(`http://127.0.0.1:${mem.address().port}/`, { redirect: 'manual' });
-    assert.equal(rm.status, 200, 'member front face is the app, not a bounce to the seat page');
-    assert.match(await rm.text(), /AIOS_EDITION = "member"/, 'the member serve stamps edition=member');
-  } finally { org.close(); mem.close(); }
+    const r = await fetch(`http://127.0.0.1:${s.address().port}/`, { redirect: 'manual' });
+    assert.equal(r.status, 200, 'the front face is the app, never a console bounce');
+    assert.match(await r.text(), /'__AIOS_EDITION__'/, 'no stamping: the placeholder passes through verbatim');
+  } finally { s.close(); }
 });
 
-test('support role: adminOnly verbs 403 in org edition', async () => {
+test('support role: the adminOnly commons verbs 403, plain reads still answer', async () => {
   const s = await listen({ bridge: fakeBridge([ROCK]), role: 'support' });
   try {
-    assert.equal((await post(s, { host: 'ic-rock', verb: 'governance-read' })).status, 403);
-    assert.equal((await post(s, { host: 'ic-rock', verb: 'fleet-index' })).status, 200);
+    assert.equal((await post(s, { host: 'ic-rock', verb: 'commons-publish' })).status, 403);
+    assert.equal((await post(s, { host: 'ic-rock', verb: 'skills-list' })).status, 200);
   } finally { s.close(); }
 });
 
@@ -270,14 +263,15 @@ test('SSE stream carries the fake bridge output and __DONE__', async () => {
   } finally { s.close(); }
 });
 
-test('ruling 10 (2026-08-10): stamp-member is DEAD; no verb installs a caller-supplied key at birth', () => {
-  assert.equal(VERBS['stamp-member'], undefined, 'the direct-key stamp verb no longer exists');
-  // invite-member must not quietly absorb the capability: a stray pubkey
-  // argument never reaches stamp-pebble.
-  const key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBEqBeSfd/bTMrQlFHEMSnBr jane01-box';
-  const c = VERBS['invite-member'].build({ slug: 'jane01', name: 'Jane', email: 'j@x.com', provider: 'google', member_pubkey: key }).command;
-  assert.ok(!c.includes('--member-pubkey'), 'invite-member ignores a pasted key; the link is the only birth path');
-  assert.ok(!c.includes(key), 'the key never rides the command at all');
+test('ruling 10 (2026-08-10), completed by the collapse: no verb births a mineral for somebody else', () => {
+  // stamp-member died 2026-08-10 (no caller-supplied key at birth); the face
+  // collapse (2026-09-01) then deleted invite-member too, the last verb that
+  // could create Hetzner infrastructure for another person. A person gets a
+  // mineral by building their own through the door's wizard.
+  assert.equal(VERBS['stamp-member'], undefined, 'the direct-key stamp verb stays gone');
+  assert.equal(VERBS['invite-member'], undefined, 'and the invite-stamp path went with the Members page');
+  assert.equal(MEMBER_VERBS['stamp-member'], undefined);
+  assert.equal(MEMBER_VERBS['invite-member'], undefined);
 });
 
 test('people verbs: validation + shapes (D46)', () => {
@@ -335,12 +329,14 @@ test('devices verbs: validation + shapes (device roster phase 1)', () => {
 });
 
 test('adminOnly verbs get the box-side AIOS_LOGIN guard prefixed', async () => {
+  // commons-publish is the served table's adminOnly representative since the
+  // face collapse (the governance/fleet verbs are no longer served).
   const bridge = fakeBridge([ROCK]);
   const s = await listen({ bridge });
   try {
-    await post(s, { host: 'ic-rock', verb: 'governance-read' }).then((r) => r.text());
+    await post(s, { host: 'ic-rock', verb: 'commons-publish' }).then((r) => r.text());
     assert.match(bridge.ran[0].command, /^\[ "\$\{AIOS_LOGIN:-\}" != "aios-support" \]/);
-    await post(s, { host: 'ic-rock', verb: 'fleet-index' }).then((r) => r.text());
+    await post(s, { host: 'ic-rock', verb: 'skills-list' }).then((r) => r.text());
     assert.ok(!bridge.ran[1].command.includes('AIOS_LOGIN'), 'non-admin verbs unprefixed');
   } finally { s.close(); }
 });
@@ -361,12 +357,17 @@ test('update routes: status echoes the injected updater; apply gated on availabi
   } finally { s.close(); }
 });
 
-test('invite-member: D49 onboarding gate is prepended (blocks until rock onboarded)', () => {
-  const c = VERBS['invite-member'].build({ slug: 'jane01', name: 'Jane', email: 'j@x.com', provider: 'google' }).command;
-  assert.match(c, /onboarding-state\.json/);
-  assert.match(c, /finish onboarding this rock first/);
-  // the gate must run BEFORE the factory tokens are sourced / the stamp fires
-  assert.ok(c.indexOf('onboarding-state.json') < c.indexOf('stamp-pebble.sh'), 'gate must precede the stamp');
+test('invite-member is RETIRED (2026-09-01), and no served verb reaches stamp-pebble', () => {
+  // The D49 onboarding gate guarded a birth verb that no longer exists: the
+  // face collapse deleted invite-member with the Members page. Nothing served
+  // may stamp a pebble on someone's behalf.
+  assert.equal(VERBS['invite-member'], undefined, 'the birth verb stays gone');
+  for (const [name, spec] of Object.entries(MEMBER_VERBS)) {
+    if (typeof spec.build !== 'function') continue;
+    let cmd = '';
+    try { cmd = spec.build({}).command || ''; } catch { continue; }
+    assert.ok(!cmd.includes('stamp-pebble.sh'), `${name} must not reach the stamp machinery`);
+  }
 });
 test('skill verbs (D49): skill-list read-only, skill-push adminOnly + validated', () => {
   assert.ok(!VERBS['skill-list'].adminOnly, 'skill-list readable by support');
@@ -526,182 +527,65 @@ test('D55 box-refresh: org admin-only, member self-serve, kill detached + delaye
   assert.match(mem.build().command, /rock has published/, 'member copy states the org-pinned bound');
 });
 
-test('D54 org-teardown: every guardrail enforced server-side', async () => {
-  // a bridge whose member-list emits controllable registry yaml
-  function registryBridge(statuses) {
-    return {
-      targets: () => [ROCK],
-      stream: (host, command, o = {}) => {
-        const pebble = new EventEmitter();
-        pebble.kill = () => {};
-        setImmediate(() => {
-          statuses.forEach((st, i) => {
-            if (o.onStdout) { o.onStdout(`=== /state/brain/registry/members/m${i}.yaml`); o.onStdout(`slug: "m${i}"`); o.onStdout(`status: "${st}"`); }
-          });
-          pebble.emit('close', 0);
-        });
-        return pebble;
-      },
-    };
-  }
+test('D54 org-teardown is RETIRED (2026-09-01): the route answers nothing', async () => {
+  // The teardown route destroyed hosted infrastructure the panel's operator
+  // provisioned for an org. All Sam-hosted metal is gone; a self-hosted
+  // mineral is deleted where it lives, at its owner's hosting provider, so
+  // the route (and both of its guardrail ladders) stays deleted.
   const teardownCalls = [];
   const orgTeardown = (args, emit) => { teardownCalls.push(args); emit('engine: rock gone'); return Promise.resolve(); };
-  const jpost = (s, body) => fetch(`http://127.0.0.1:${s.address().port}/org-teardown`, {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   const good = { host: 'ic-rock', confirm: 'delete ic forever', hcloud_token: 'h1', cf_api_token: 'c1', github_token: 'g1' };
-
-  // support role refused
-  let s = await listen({ bridge: registryBridge([]), orgTeardown, role: 'support' });
-  try { assert.equal((await jpost(s, good)).status, 403); } finally { s.close(); }
-
-  // no engine hook: 501
-  s = await listen({ bridge: registryBridge([]) });
-  try { assert.equal((await jpost(s, good)).status, 501); } finally { s.close(); }
-
-  s = await listen({ bridge: registryBridge(['left', 'left']), orgTeardown });
+  const s = await listen({ bridge: fakeBridge([ROCK]), orgTeardown });
   try {
-    assert.equal((await jpost(s, { ...good, host: 'jane01-box' })).status, 400, 'member host refused');
-    assert.equal((await jpost(s, { ...good, confirm: 'delete ic' })).status, 400, 'wrong phrase refused');
-    assert.equal((await jpost(s, { ...good, github_token: '' })).status, 400, 'missing token refused');
-    assert.equal((await jpost(s, { ...good, cf_api_token: 'has space' })).status, 400, 'malformed token refused');
-    const ok = await jpost(s, good);
-    assert.equal(ok.status, 200);
-    const text = await ok.text();
-    assert.match(text, /engine: rock gone/);
-    assert.match(text, /__DONE__/);
-    assert.deepEqual(teardownCalls, [{ org: 'ic', hcloudToken: 'h1', cfToken: 'c1', githubToken: 'g1' }]);
+    const r = await fetch(`http://127.0.0.1:${s.address().port}/org-teardown`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(good) });
+    assert.equal(r.status, 404, 'the route stays gone');
+    assert.equal(teardownCalls.length, 0, 'and the engine hook is never invoked, even when injected');
   } finally { s.close(); }
-
-  // any member still in the org blocks the teardown even with every other
-  // guardrail passed (active/paused/invited all count: only 'left' is gone)
-  for (const st of ['active', 'paused', 'invited']) {
-    s = await listen({ bridge: registryBridge(['left', st]), orgTeardown });
-    try {
-      const r = await jpost(s, good);
-      const text = await r.text();
-      assert.match(text, /REFUSED: this rock still has 1 member/, `${st} must block`);
-      assert.match(text, /__FAIL__/);
-      assert.equal(teardownCalls.length, 1, 'engine must NOT have been called again');
-    } finally { s.close(); }
-  }
-
-  // fail-safe: a member record whose status line is missing/garbled must still
-  // block, an unreadable member never counts as 'gone'
-  function rawBridge(emitLines) {
-    return {
-      targets: () => [ROCK],
-      stream: (host, command, o = {}) => {
-        const pebble = new EventEmitter();
-        pebble.kill = () => {};
-        setImmediate(() => { emitLines.forEach((l) => o.onStdout && o.onStdout(l)); pebble.emit('close', 0); });
-        return pebble;
-      },
-    };
-  }
-  s = await listen({ bridge: rawBridge([
-    '=== /state/brain/registry/members/ghost.yaml',
-    'slug: "ghost"',
-    'display_name: "a member with no parseable status"',
-  ]), orgTeardown });
-  try {
-    const r = await jpost(s, good);
-    const text = await r.text();
-    assert.match(text, /REFUSED: this rock still has 1 member/, 'missing status must block');
-    assert.match(text, /__FAIL__/);
-    assert.equal(teardownCalls.length, 1, 'engine must NOT have been called on a fail-safe block');
-  } finally { s.close(); }
-
-  // member edition has no such route
-  s = await listen({ bridge: registryBridge([]), orgTeardown, edition: 'member' });
-  try { assert.equal((await jpost(s, good)).status, 404); } finally { s.close(); }
 });
 
-// Hosted rocks (2026-08-09): the platform owns their Hetzner/Cloudflare
-// infrastructure, so the owner never held the access codes the teardown form
-// demands. The app shell reports which orgs THIS computer provisioned
-// (opts.orgProvisioned); a hosted rock is refused before the token dance with
-// a message that names the real path (the evict → suspend → delete ladder),
-// and /targets stamps the flag so the Danger tab can say the same thing
-// instead of rendering an unfillable form.
-test('D54 hosted rock: teardown refuses without the local provisioning record; /targets carries the flag', async () => {
-  const bridge = { targets: () => [ROCK], stream: () => { throw new Error('must not reach the box'); } };
-  const teardownCalls = [];
-  const orgTeardown = (args, emit) => { teardownCalls.push(args); emit('engine: rock gone'); return Promise.resolve(); };
-  const jpost = (s, body) => fetch(`http://127.0.0.1:${s.address().port}/org-teardown`, {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-  const good = { host: 'ic-rock', confirm: 'delete ic forever', hcloud_token: 'h1', cf_api_token: 'c1', github_token: 'g1' };
-
-  const s = await listen({ bridge, orgTeardown, orgProvisioned: (org) => org !== 'ic' });
+// The hosted-rock refusal (2026-08-09) and the guardrail ladder are retired
+// with the route: opts.orgProvisioned no longer exists, and /targets stamps
+// no provisioned flag, because there is nothing left that this computer could
+// have provisioned for somebody else.
+test('D54 hosted-rock machinery is RETIRED: /targets carries no provisioned flag', async () => {
+  const s = await listen({ bridge: fakeBridge([ROCK]), orgProvisioned: () => true });
   try {
-    const r = await jpost(s, good);
-    assert.equal(r.status, 400, 'a rock this computer did not provision cannot be torn down from here');
-    const text = await r.text();
-    assert.match(text, /hosted/i, 'the refusal names the hosted case');
-    assert.match(text, /evict.*suspend.*delete/i, 'and points at the platform ladder');
-    assert.match(text, /GitHub/, 'and reassures about the brain repo');
-    assert.equal(teardownCalls.length, 0, 'the engine is never invoked');
-
-    const t = await (await fetch(`http://127.0.0.1:${s.address().port}/targets`)).json();
-    assert.equal(t.targets[0].provisioned, false, '/targets stamps provisioned:false for the hosted rock');
+    const t = await targetsOf(s);
+    assert.equal(t.targets[0].provisioned, undefined, 'no provisioned stamp, even with the old option injected');
   } finally { s.close(); }
-
-  // and a rock this computer DID provision keeps the self-serve flow intact
-  const s2 = await listen({ bridge, orgTeardown, orgProvisioned: () => true });
-  try {
-    const t = await (await fetch(`http://127.0.0.1:${s2.address().port}/targets`)).json();
-    assert.equal(t.targets[0].provisioned, true);
-    // wrong phrase still refused AFTER the provisioned gate, proving the flow fell through to the old checks
-    assert.equal((await jpost(s2, { ...good, confirm: 'delete ic' })).status, 400);
-  } finally { s2.close(); }
 });
 
-test('device-activity: admin-only read of the auto-approve feed, fail-open on older brains', () => {
-  const v = VERBS['device-activity'];
-  assert.ok(v, 'device-activity verb exists');
-  assert.ok(v.adminOnly, 'activity feed drives revoke decisions: admin-only');
-  assert.ok(!v.mutating, 'read-only');
-  const c = v.build().command;
-  assert.match(c, /device-activity\.json/);
-  assert.match(c, /echo "\[\]"/, 'an older brain without the feed must yield [] and never an error');
-  assert.match(c, /\$BR|\$\{BRAIN_ROOT:-\/state\/brain\}/, 'brain_root resolved');
+test('device-activity is RETIRED (2026-09-01): the auto-approve feed died with the broker', () => {
+  // The feed listed what control/auto-approve.mjs let in off the broker
+  // staging. The broker is gone; a device is added by a computer that already
+  // has access, over SSH, so there is no feed left to read.
+  assert.equal(VERBS['device-activity'], undefined, 'the verb stays gone');
+  assert.equal(MEMBER_VERBS['device-activity'], undefined, 'and never reaches the one table');
 });
 
-test('membership levels are dead: a.tier is accepted and IGNORED, never forwarded, never refused', () => {
-  // Sam's verb-interview ruling 2026-08-03 (brain-template killed levels
-  // 2026-07-27; the app's stamp path could still overwrite the KIND field).
-  // Older cached UIs may still send tier: ignoring beats refusing (the
-  // 2026-07-24 stranded-stamp lesson).
-  for (const tier of ['Core', 'Inner Circle', '!!!']) {
-    const c = VERBS['invite-member'].build({ slug: 'jane01', name: 'Jane', email: 'j@x.com', provider: 'google', tier });
-    assert.doesNotMatch(c.command, /--tier/, 'invite-member: tier never reaches stamp-pebble');
+test('membership levels stay dead: no served verb accepts or forwards a tier', () => {
+  // Sam's verb-interview ruling 2026-08-03 killed levels; the birth verbs
+  // that could still carry a tier flag died with the face collapse. Nothing
+  // served may reintroduce the flag.
+  for (const [name, spec] of Object.entries(MEMBER_VERBS)) {
+    if (typeof spec.build !== 'function') continue;
+    let cmd = '';
+    try { cmd = spec.build({ tier: 'Core' }).command || ''; } catch { continue; }
+    assert.ok(!cmd.includes('--tier'), `${name}: a tier flag never reaches a command`);
   }
 });
 
-test('P4 join verbs: admin-only, validated, riding the certified machinery', () => {
-  const jr = VERBS['join-requests'];
-  assert.ok(jr && jr.adminOnly && !jr.mutating);
-  const c = jr.build().command;
-  assert.match(c, /join-reconcile\.mjs/);
-  assert.match(c, /join-requests\.json/);
-  assert.match(c, /echo "\[\]"/, 'older brains yield [] not an error');
-
-  const ja = VERBS['join-approve'];
-  assert.ok(ja && ja.adminOnly && ja.mutating);
-  const ac = ja.build({ id: 'aaaa1111aaaa1111aaaa', slug: 'jane01', name: 'Cert Jane', email: 'jane@example.com', tier: 'Core' }).command;
-  assert.match(ac, /join-approve\.sh/);
-  assert.match(ac, /--invite-pending|--id aaaa1111aaaa1111aaaa/);
-  assert.doesNotMatch(ac, /--tier/, 'levels dead: tier ignored here too');
-  assert.match(ac, /PEBBLE_IMAGE/, 'approve stamps a box: hub-setup gate applies');
-  assert.throws(() => ja.build({ id: 'NOPE', slug: 'jane01', name: 'J', email: 'j@x.com' }), /request/i);
-  assert.throws(() => ja.build({ id: 'aaaa1111aaaa1111aaaa', slug: 'jane01', name: 'J', email: 'bad' }), /email/i);
-
-  const jd = VERBS['join-decline'];
-  assert.ok(jd && jd.adminOnly && jd.mutating);
-  const dc = jd.build({ id: 'aaaa1111aaaa1111aaaa', note: "Not right now, we're full." }).command;
-  assert.match(dc, /--decline/);
-  assert.match(dc, /Not right now/);
-  const dc2 = jd.build({ id: 'aaaa1111aaaa1111aaaa' }).command;
-  assert.match(dc2, /--decline/, 'note optional, decline still fires');
+test('P4 join verbs are RETIRED (2026-09-01): joining is a bundle, not a queue', () => {
+  // join-requests/approve/decline ran the directory's request queue and could
+  // stamp a box on approval. Joining a community is now a cradscommons1:
+  // bundle pasted on the member's own Communities page and applied locally;
+  // nothing queues, nothing stamps.
+  for (const v of ['join-requests', 'join-approve', 'join-decline']) {
+    assert.equal(VERBS[v], undefined, `${v} stays gone`);
+    assert.equal(MEMBER_VERBS[v], undefined, `${v} never reaches the one table`);
+  }
+  assert.ok(MEMBER_VERBS['community-join'], 'the bundle path is what replaced the queue');
 });
 
 test('pause is DEAD (ruling 2026-08-10): member-set-status is resume-only, and the delivery tap is gone with it', () => {
@@ -731,15 +615,16 @@ test('P5 leave: deprovision-member prunes the edge and never deletes the member 
 });
 
 // ---- device-link gate (ruling 2026-08-10, second grill) ----------------------
-test('invite-reissue: refuses a LIVE member-owned pebble; the birth invite stays re-sendable', () => {
-  const c = VERBS['invite-reissue'].build({ slug: 'jane01' }).command;
-  const reissueAt = c.indexOf('invite-reissue.sh');
-  const ownAt = c.indexOf('own=$(sed -n');
-  assert.ok(ownAt > -1 && ownAt < reissueAt, 'ownership is read BEFORE any link is minted');
-  assert.match(c, /own=\$\{own:-member\}/, 'absent owner defaults to member: the gate fails CLOSED');
-  assert.match(c, /if \[ "\$own" = "member" \] && \[ "\$st" != "invited" \]; then echo "REFUSED/,
-    'live member-owned refuses; a never-enrolled invited row keeps its birth link whatever it was stamped as');
-  assert.match(c, /their account is the way in/, 'the refusal names the real path (identity-model ruling 4)');
+test('invite-reissue is RETIRED (2026-09-01): no rock mints device links at all', () => {
+  // The gate refused a rock re-minting a device link for a LIVE member-owned
+  // pebble. The whole minting surface died with the directory: a new device
+  // is approved by one that already has access, so no verb hands out links.
+  assert.equal(VERBS['invite-reissue'], undefined, 'the verb stays gone');
+  assert.equal(MEMBER_VERBS['invite-reissue'], undefined, 'and never reaches the one table');
+  // The self-host sweep (same day) retired the last invite verb with it: rows
+  // still status "invited" render on the roster as history, nothing polls.
+  assert.equal(VERBS['invite-pending-list'], undefined, 'and no invite queue to poll');
+  assert.equal(MEMBER_VERBS['invite-pending-list'], undefined, 'on either table');
 });
 
 test('invite-reissue gate: the bash fragment refuses live member-owned, passes org and invited (fixture)', () => {
@@ -955,22 +840,16 @@ test('O5b: member transfer-accept verb exists, not adminOnly, refuses cleanly wi
   assert.equal(VERBS['transfer-accept'], undefined, 'not an org verb');
 });
 
-test('O5b: member.html carries the transfer-accept surface, gated on owner AND a staged offer (static)', () => {
+test('O5b: the transfer-accept UI is RETIRED (2026-09-01); the verb lingers unwired', () => {
+  // Nothing central can stage a transfer any more, so the accept surface
+  // (taRow, syncTransferRow, acceptTransfer) left the shell with the custody
+  // machinery. The MEMBER verb still exists as an exported builder, but no
+  // page runs it: a control must never outlive the thing it does
+  // (phantom-control.test.mjs holds the rest of that law).
   const html = _rf(new URL('./member.html', import.meta.url), 'utf8');
-  assert.match(html, /acceptTransfer\(\)/, 'the button goes through the consent step');
-  assert.match(html, /run\('transfer-accept', \{ receipt: c\.receipt \}/, 'and only then runs the member verb, with the receipt');
-  assert.doesNotMatch(html, /run\('transfer-accept', \{\}/, 'no surface runs the verb bare');
-  assert.match(html, /id="taRow"/, 'the action row exists');
-  // This used to assert the literal `o.owner === 'member' ? 'block' : 'none'`,
-  // which pinned a defect rather than the intent: ownership alone revealed the
-  // control, so a box nobody had offered anything showed a permanent "Accept
-  // rock transfer" button (found live 2026-08-04, it answered "No
-  // transfer invitation from your rock" when pressed). The intent was
-  // always "member-owned only"; the requirement is now that AND a staged offer.
-  const gate = html.match(/function syncTransferRow\(\)\{[\s\S]{0,600}?\n  \}/);
-  assert.ok(gate, 'one place decides whether the row is shown');
-  assert.match(gate[0], /owner === 'member'/, 'still member-owned only');
-  assert.match(gate[0], /transfer_invitation/, 'and only when something is actually staged');
+  assert.doesNotMatch(html, /run\('transfer-accept'/, 'no surface runs the verb at all');
+  assert.ok(!html.includes('acceptTransfer()'), 'the consent step is gone');
+  assert.ok(!html.includes('<div id="taRow"'), 'and so is the action row');
 });
 import { readFileSync as _rf } from 'node:fs';
 
@@ -1102,9 +981,11 @@ test('landing: one oversized Meet-your-assistant step; desktop app framed as upg
 });
 
 test('sidebar footer names the Terminal tab first, Claude Code as the fuller experience', () => {
+  // The memonly gate fell off with the faces (2026-09-01): the one footer
+  // shows to everyone.
   const html = _rf(new URL('./member.html', import.meta.url), 'utf8');
-  assert.match(html, /class="foot memonly">/, 'sidebar footer present (white-label copy is member-only since the org face shares the shell)');
-  const foot = html.split('class="foot memonly">')[1].split('</div>')[0];
+  assert.match(html, /class="foot">/, 'sidebar footer present, ungated');
+  const foot = html.split('class="foot">')[1].split('</div>')[0];
   assert.match(foot, /use the <b>Terminal<\/b> tab above/, 'footer points at the terminal ramp first');
   assert.match(foot, /<b>Claude Code<\/b> app is the fuller desktop experience/, 'the Claude Code app named as the fuller experience, not the only way to talk');
   // Terminal must be named before Claude Code in reading order
@@ -1148,14 +1029,17 @@ test('org contact flows to the member escape hatch', () => {
   assert.doesNotMatch(fn, /esc\(email\)/, 'email is never passed through esc() anywhere in the function');
 });
 
-test('the panel speaks pebble: add-member surfaces retitled, verbs and ids unchanged', () => {
-  const html = _rf(new URL('./member.html', import.meta.url), 'utf8');
-  assert.match(html, /New Pebble/, 'the day-zero verb and the daily verb are the same word');
-  assert.ok(!/>Add a member</.test(html), 'old shortcut label gone');
-  assert.match(html, /id="st_name"/, 'field ids untouched');
-  assert.match(html, /'invite-member'/, 'the one birth verb is wired');
-  assert.match(html, /id="fleetEmptyAdd">\+ New Pebble</,
-    'day-zero empty-state CTA (fleetEmptyAdd) uses the same word as the daily verb');
+test('the New Pebble surfaces are RETIRED (2026-09-01): nobody births a mineral for another', () => {
+  // "New Pebble" was the Members page's birth flow over invite-member. Both
+  // died with the face collapse; a person gets a mineral through the door's
+  // wizard, on their own account.
+  const raw = _rf(new URL('./member.html', import.meta.url), 'utf8');
+  // an old comment still narrates the vocabulary; only rendered surfaces count
+  const html = raw.replace(/^\s*\/\/.*$/gm, '').replace(/<!--[\s\S]*?-->/g, '');
+  assert.ok(!html.includes('New Pebble'), 'the birth CTA stays gone');
+  assert.ok(!html.includes('id="st_name"'), 'and its form fields with it');
+  assert.ok(!html.includes("'invite-member'"), 'no surface wires the deleted birth verb');
+  assert.ok(!html.includes('fleetEmptyAdd'), 'no day-zero empty-state CTA either');
 });
 
 // ---------------------------------------------------------------- role-gate invariants (2026-07-28 QA sweep)
@@ -1170,28 +1054,12 @@ test('every mutating org verb is adminOnly; no member verb is', () => {
   assert.deepEqual(memberAdmin, [], 'the member edition has one person and no roles: adminOnly is meaningless there');
 });
 
-test('invite-member: admin-gated and mutating, like every sibling birth verb was required to be', () => {
-  assert.equal(VERBS['invite-member'].adminOnly, true);
-  assert.equal(VERBS['invite-member'].mutating, true);
-  assert.equal(MEMBER_VERBS['invite-member'], undefined, 'never in the member edition');
-});
-
-// ---- T3.1 · the New Pebble ownership choice (plan E3.1 remainder) -------------
-// Originally pinned on stamp-member; the choice survives its verb (ruling 10)
-// because invite-member carries the same --owner flag to stamp-pebble.
-test('T3.1: invite-member carries the ownership choice through to stamp-pebble', () => {
-  const base = { slug: 'jane01', name: 'Jane', email: 'j@x.com' };
-  // org-owned: the box is a work asset from birth (D60 keystone 1)
-  const org = VERBS['invite-member'].build({ ...base, owner: 'org' }).command;
-  assert.match(org, /--owner org/);
-  // member-owned explicit
-  const member = VERBS['invite-member'].build({ ...base, owner: 'member' }).command;
-  assert.match(member, /--owner member/);
-  // omitted: no flag, the org-policy ownership.default rules (T1.2 resolver)
-  const dflt = VERBS['invite-member'].build(base).command;
-  assert.ok(!/--owner /.test(dflt), 'no override when the admin made no choice');
-  // junk refused before any command is built
-  assert.throws(() => VERBS['invite-member'].build({ ...base, owner: 'nobody' }), /owns|owner/i);
+// invite-member's adminOnly pin and the T3.1 ownership choice both retired
+// with the verb (2026-09-01): its deletion is held by the ruling-10 pin above.
+// Ownership needs no choice any more: whoever runs the wizard on their own
+// Hetzner token owns the mineral, by construction.
+test('T3.1: the ownership choice is RETIRED with the birth verb', () => {
+  assert.equal(VERBS['invite-member'], undefined, 'no verb carries an --owner flag to stamp-pebble');
 });
 
 // ---- E6.1/E6.2 · the minimum console verbs (org seat) -------------------------
@@ -1206,18 +1074,12 @@ test('console-state: read-only, emits one CONSOLE_STATE JSON from the org plane'
   assert.match(c, /normalize-row\.mjs/, 'prefers the brain\'s own normalize module');
 });
 
-test('console-answer: adminOnly + mutating; answers via the box-held token; junk refused', () => {
-  const v = VERBS['console-answer'];
-  assert.ok(v, 'console-answer verb exists');
-  assert.equal(v.adminOnly, true, 'answering consent requests is an admin act');
-  assert.equal(v.mutating, true);
-  const c = v.build({ id: 'a'.repeat(32), answer: 'accepted', note: 'welcome' }).command;
-  assert.match(c, /ORG_PULL_TOKEN/, 'the token stays on the box');
-  assert.match(c, /requests-answer/, 'talks to the directory answer endpoint');
-  assert.ok(!/welcome"/.test(JSON.stringify(c)) || true);
-  assert.throws(() => v.build({ id: 'short', answer: 'accepted' }), /id/i);
-  assert.throws(() => v.build({ id: 'a'.repeat(32), answer: 'maybe' }), /answer/i);
-  assert.throws(() => v.build({ id: 'a'.repeat(32), answer: 'accepted', note: 'x'.repeat(500) }), /note/i);
+test('console-answer is RETIRED (2026-09-01): no directory holds requests to answer', () => {
+  // The verb answered directory consent requests with the box-held org token.
+  // The directory is deleted; console-state keeps its box-local read with the
+  // directory pulls stubbed, and the answer verb stays gone.
+  assert.equal(VERBS['console-answer'], undefined, 'the verb stays gone');
+  assert.equal(MEMBER_VERBS['console-answer'], undefined, 'and never reaches the one table');
 });
 
 // ---- E6.1 · the member console seat ------------------------------------------
@@ -1251,98 +1113,31 @@ test('member-console-state: reads only the box\'s own truth, emits CONSOLE_STATE
   assert.match(c, /replace\(\/\\\/\\\/\[\^@\\\/\]\*@\/,"\/\/"\)/, 'any token in the remote URL is stripped');
 });
 
-// panel.test's post() always targets /run (the verb endpoint); /handover-ask is a
-// plain route, so it needs a direct call.
-const askHandover = (s, body) => fetch(`http://127.0.0.1:${s.address().port}/handover-ask`, {
-  method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
-});
-
-// A6: the member's hand-over ask. Custody could already move both ways, but both
-// directions were org-initiated, so a member who wanted to hand their box over could
-// only wait to be asked. The ask must move NO custody, and must only ever be made for
-// a box this machine actually holds a key for.
-test('/handover-ask relays to the directory, using the CONFIGURED box, not what the page says', async () => {
-  let sent = null;
-  const realFetch = globalThis.fetch;
-  // only intercept the DIRECTORY call; the test's own request to the server must
-  // still go over real HTTP, or the server never runs at all
-  globalThis.fetch = async (url, init) => {
-    if (!String(url).startsWith('https://dir.example')) return realFetch(url, init);
-    sent = { url: String(url), body: JSON.parse(init.body) };
-    return { ok: true, status: 200, json: async () => ({ ok: true, id: 'abc123' }) };
-  };
-  try {
-    const s = await listen({
-      edition: 'member',
-      bridge: { targets: () => [{ host: 'jane01-box', kind: 'member', org: 'jane01' }], stream: () => {}, tty: () => {} },
-      directoryUrl: 'https://dir.example',
-      handoverIdentity: async () => ({ name: 'Jane Member', email: 'jane@example.com' }),
-      // The directory now demands a verified identity for this ask (it used to take
-      // none, and an admin's console rendered whatever arrived as a real request).
-      handoverSignIn: async () => ({ ok: true, idToken: 'stub.id.token' }),
-    });
-    try {
-      // the page claims a different box; the server must ignore that and use its own target
-      const r = await askHandover(s, { host: 'someone-elses-box', org: 'acme', note: 'moving to the team plan' });
-      assert.equal(r.status, 200);
-      assert.match(sent.url, /\/handover-request$/);
-      assert.equal(sent.body.slug, 'jane01', 'the slug comes from the configured target, never the page');
-      assert.equal(sent.body.org, 'acme');
-      assert.equal(sent.body.note, 'moving to the team plan');
-      assert.equal(sent.body.name, 'Jane Member');
-    } finally { s.close(); }
-  } finally { globalThis.fetch = realFetch; }
-});
-
-test('/handover-ask refuses a bad handle, a machine with no box, and a wrong edition', async () => {
-  const s = await listen({
-    edition: 'member',
-    bridge: { targets: () => [{ host: 'jane01-box', kind: 'member', org: 'jane01' }], stream: () => {}, tty: () => {} },
-  });
-  try {
-    assert.equal((await askHandover(s, { org: 'NOT A HANDLE' })).status, 400);
-    assert.equal((await askHandover(s, { org: '' })).status, 400);
-  } finally { s.close(); }
-
-  const none = await listen({ edition: 'member', bridge: { targets: () => [], stream: () => {}, tty: () => {} } });
-  try {
-    const r = await askHandover(none, { org: 'acme' });
-    assert.equal(r.status, 400);
-    assert.match((await r.json()).error, /no mineral on this computer/);
-  } finally { none.close(); }
-
-  const org = await listen({ edition: 'operator' });
-  try { assert.equal((await askHandover(org, { org: 'acme' })).status, 404, 'not an org-seat route'); }
-  finally { org.close(); }
-});
-
-test('/handover-ask surfaces a directory refusal instead of claiming success', async () => {
+// A6, RETIRED (2026-09-01): the member's hand-over ask relayed to the
+// directory's handover-request endpoint with a verified identity. Custody asks
+// died with the directory; ownership does not move between accounts any more,
+// it is established at create time by whose SSH key the wizard installs.
+test('/handover-ask is RETIRED: the route 404s and dials nothing', async () => {
+  let dialled = false;
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
     if (!String(url).startsWith('https://dir.example')) return realFetch(url, init);
-    return { ok: false, status: 404, json: async () => ({ error: 'unknown org' }) };
+    dialled = true;
+    return { ok: true, status: 200, json: async () => ({ ok: true }) };
   };
   try {
     const s = await listen({
-      edition: 'member',
       bridge: { targets: () => [{ host: 'jane01-box', kind: 'member', org: 'jane01' }], stream: () => {}, tty: () => {} },
       directoryUrl: 'https://dir.example',
       handoverSignIn: async () => ({ ok: true, idToken: 'stub.id.token' }),
     });
     try {
-      const r = await askHandover(s, { org: 'ghost' });
-      assert.equal(r.status, 404);
-      assert.match((await r.json()).error, /unknown org/);
+      const r = await fetch(`http://127.0.0.1:${s.address().port}/handover-ask`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ org: 'acme' }) });
+      assert.equal(r.status, 404, 'the route stays gone');
+      assert.equal(dialled, false, 'and nothing ever dials a directory, even with the old options injected');
     } finally { s.close(); }
   } finally { globalThis.fetch = realFetch; }
-});
-
-test('member console: the hand-over ask is offered only for a member-owned box (static)', () => {
-  const html = _rf(new URL('./member-console.html', import.meta.url), 'utf8');
-  assert.match(html, /id="handoverPanel"/);
-  assert.match(html, /\$\('handoverPanel'\)\.style\.display = \(o\.owner === 'member'\) \? '' : 'none'/,
-    'an org-owned box is already the org\'s: offering to hand it over would be nonsense');
-  assert.match(html, /Nothing changes when you ask/, 'the copy must not imply the box moves on asking');
 });
 
 // The brain graph is the member's picture of their own brain, so a page or a link
@@ -1411,45 +1206,14 @@ test('/brain-download refuses before sending bytes when the box is unreachable',
   } finally { s.close(); }
 });
 
-test('/brain-download is member-only and needs a configured box', async () => {
-  const org = await listen({ edition: 'operator' });
-  try { assert.equal((await fetch(`http://127.0.0.1:${org.address().port}/brain-download`)).status, 404, 'not an org-seat route'); }
-  finally { org.close(); }
-  const none = await listen({ edition: 'member', bridge: { targets: () => [], stream: () => {}, tty: () => {} } });
+test('/brain-download needs a configured box (the edition gate died with the editions)', async () => {
+  const none = await listen({ bridge: { targets: () => [], stream: () => {}, tty: () => {} } });
   try { assert.equal((await fetch(`http://127.0.0.1:${none.address().port}/brain-download`)).status, 400); }
   finally { none.close(); }
 });
 
-// The console's route to the GitHub-backup flow. That flow lives on a different
-// server whose port this page cannot know, so the hop is resolved here. A dead
-// entry point is the exact bug being fixed, so it is pinned.
-test('/go/connect reaches the invite page, and never dead-ends', async () => {
-  const s = await listen({ edition: 'member', connectUrl: () => 'http://127.0.0.1:44444/', doorUrl: () => 'http://127.0.0.1:33333/' });
-  try {
-    const r = await fetch(`http://127.0.0.1:${s.address().port}/go/connect`, { redirect: 'manual' });
-    assert.equal(r.status, 302);
-    // No #ownbrain fragment since 2026-08-09: GitHub backup lives in the box's
-    // own app and the fold this route used to open was deleted with the rest of
-    // the non-invite clutter. Pointing at it would be a link to nowhere.
-    assert.equal(r.headers.get('location'), 'http://127.0.0.1:44444/', 'lands on the invite page itself');
-  } finally { s.close(); }
-
-  // connect server not up: fall back to the door rather than 404 into a cul-de-sac
-  const s2 = await listen({ edition: 'member', doorUrl: () => 'http://127.0.0.1:33333/' });
-  try {
-    const r = await fetch(`http://127.0.0.1:${s2.address().port}/go/connect`, { redirect: 'manual' });
-    assert.equal(r.status, 302);
-    assert.equal(r.headers.get('location'), 'http://127.0.0.1:33333/');
-  } finally { s2.close(); }
-
-  // neither up: an explaining 503, never a bare 404
-  const s3 = await listen({ edition: 'member' });
-  try {
-    const r = await fetch(`http://127.0.0.1:${s3.address().port}/go/connect`);
-    assert.equal(r.status, 503);
-    assert.match(await r.text(), /reopen the Crads-AI app/);
-  } finally { s3.close(); }
-});
+// The /go/connect hop is DELETED (2026-09-01): the invite page it resolved to
+// left with the invitation system. backup-handoff.test.mjs pins the 404.
 
 // The embedded probe is a STRING, so a syntax error in it would only surface on a
 // live box. Parse it here instead. The command now runs behind the shared
@@ -1465,31 +1229,15 @@ test('member-console-state: the embedded probe is valid JavaScript', async () =>
 });
 
 // ---- E6.3 · console verbs wired to the choreography ---------------------------
-test('console-request: admin-gated create; kind enum + bounded fields server-checked', () => {
-  const v = VERBS['console-request'];
-  assert.ok(v, 'console-request exists');
-  assert.equal(v.adminOnly, true);
-  assert.equal(v.mutating, true);
-  const c = v.build({ kind: 'transfer', to_org: 'beta', subject: 'jane01' }).command;
-  assert.match(c, /ORG_PULL_TOKEN/, 'box-held token');
-  assert.match(c, /\/requests/, 'talks to the engine');
-  assert.throws(() => v.build({ kind: 'annex', to_org: 'beta', subject: 's' }), /kind/i);
-  assert.throws(() => v.build({ kind: 'transfer', to_org: 'Bad Org!', subject: 's' }), /org/i);
-  assert.throws(() => v.build({ kind: 'transfer', to_org: 'beta', subject: 'x'.repeat(200) }), /subject/i);
-  assert.throws(() => v.build({ kind: 'late-attach', to_org: 'beta', subject: 's', role: 'boss' }), /role/i);
-  // reframe carries a payload; junk payload shapes refused before any command exists
-  const f = v.build({ kind: 'reframe', to_org: 'beta', subject: 'jane01', framework: 'the method', intensity: 'overlay' }).command;
-  assert.match(f, /the method/);
-  assert.throws(() => v.build({ kind: 'reframe', to_org: 'beta', subject: 'j', framework: 'm', intensity: 'demolish' }), /intensity/i);
-});
-
-test('console-withdraw: sender-side withdraw, admin-gated, id-checked', () => {
-  const v = VERBS['console-withdraw'];
-  assert.ok(v);
-  assert.equal(v.adminOnly, true);
-  const c = v.build({ id: 'a'.repeat(32) }).command;
-  assert.match(c, /requests-withdraw/);
-  assert.throws(() => v.build({ id: 'nope' }), /id/i);
+test('console-request and console-withdraw are RETIRED (2026-09-01): no request fabric', () => {
+  // Both verbs drove the directory's org-to-org request fabric (transfer,
+  // late-attach, reframe asks) with the box-held token. The fabric died with
+  // the directory; anything two communities agree on now happens over their
+  // own channels and commons repos.
+  assert.equal(VERBS['console-request'], undefined, 'the create verb stays gone');
+  assert.equal(VERBS['console-withdraw'], undefined, 'and the withdraw verb with it');
+  assert.equal(MEMBER_VERBS['console-request'], undefined);
+  assert.equal(MEMBER_VERBS['console-withdraw'], undefined);
 });
 
 // 'console-delivery' was removed 2026-08-10 with the pause concept; the
@@ -1629,226 +1377,86 @@ test('evict-member verb (Mountain model): reason required and bounded, admin-onl
   assert.throws(() => v.build({ slug: '../evil', reason: 'x' }), /slug/i);
 });
 
-test('evict UI (member card, 2026-08-09): reason required, honest copy survives the move', async () => {
+test('the evict UI is RETIRED (2026-09-01): no card offers to end somebody\'s membership', async () => {
+  // Evict was the Members card's staged End-flow outcome. The Members page is
+  // gone and no mineral holds authority over another, so no ending surface
+  // may come back. The evict-member builder above stays pinned (reason
+  // required) only until the machinery is deleted.
   const { readFileSync } = await import('node:fs');
   const html = readFileSync(new URL('./member.html', import.meta.url), 'utf8');
-  assert.ok(!/id="evictBtn"/.test(html), 'the global evict form died with the Decisions slim-down');
-  // re-pinned 2026-08-10: Evict is a staged End-flow outcome now
-  assert.match(html, /flowOption\('End the membership', 'Reason always required; they see it'/, 'the one merged ender lives in the card End flow');
-  assert.match(html, /delivers your reason to their screen word for word/, 'the copy says the reason reaches the person');
-  assert.match(html, /re-anchored to Crads AI/, 'the copy says nothing is destroyed');
-  assert.match(html, /go\.disabled = !rin\.value\.trim\(\);/, 'an empty reason cannot fire: the button stays disarmed');
+  assert.ok(!/id="evictBtn"/.test(html), 'the global evict form stays dead');
+  assert.ok(!html.includes('flowOption('), 'the staged End flow stays gone');
+  assert.ok(!html.includes('End the membership'), 'and its copy with it');
 });
 
-// ---- rock ties (rulings 2026-08-05 + 2026-08-09, grilled) --------------------
+// ---- rock ties (rulings 2026-08-05 + 2026-08-09), RETIRED 2026-09-01 --------
 
-test('rock-answer: adminOnly + mutating; box-held token; junk refused', () => {
-  const v = VERBS['rock-answer'];
-  assert.ok(v.adminOnly && v.mutating);
-  const c = v.build({ id: 'a'.repeat(32), decision: 'accept' }).command;
-  assert.match(c, /ORG_PULL_TOKEN/, 'the token stays on the box');
-  assert.match(c, /rock-tie-result/, 'talks to the tie answer endpoint');
-  assert.throws(() => v.build({ id: 'short', decision: 'accept' }), /id/i);
-  assert.throws(() => v.build({ id: 'a'.repeat(32), decision: 'maybe' }), /decision/i);
+test('rock-answer and rock-tie-end are RETIRED: no directory holds ties to answer or end', () => {
+  // Both verbs spoke to the directory's tie endpoints with the box-held org
+  // token. Ties died with the directory: a community relationship is now a
+  // commons repo a member pulls, ended by either side without a fabric.
+  assert.equal(VERBS['rock-answer'], undefined, 'the tie answer verb stays gone');
+  assert.equal(VERBS['rock-tie-end'], undefined, 'and the tie ender with it');
+  assert.equal(MEMBER_VERBS['rock-answer'], undefined);
+  assert.equal(MEMBER_VERBS['rock-tie-end'], undefined);
 });
 
-test('rock-tie-end: the evict shape for both ties — reason REQUIRED locally, tie named, never the registry', () => {
-  const v = VERBS['rock-tie-end'];
-  assert.ok(v.adminOnly && v.mutating);
-  assert.throws(() => v.build({ e: 'a'.repeat(64), tie: 'joined' }), /reason is required/i, 'no reason, no ending');
-  assert.throws(() => v.build({ e: 'a'.repeat(64), reason: 'x' }), /tie/i, 'the tie must be named');
-  assert.throws(() => v.build({ e: 'nothex', tie: 'joined', reason: 'x' }), /member hash/i);
-  assert.throws(() => v.build({ e: 'a'.repeat(64), tie: 'joined', reason: 'y'.repeat(200) }), /reason/i, 'over-length refused');
-  const c = v.build({ e: 'a'.repeat(64), tie: 'anchored', reason: 'Code of conduct' }).command;
-  assert.match(c, /rock-tie-end/, 'talks to the directory tie-end endpoint');
-  assert.match(c, /ORG_PULL_TOKEN/);
-  assert.ok(!/drop-membership|registry\/members/.test(c), 'T2.7 stands: the registry and membership-drop are never involved');
-});
-
-test('console-state also pulls tie asks + ties with the org token (directory = sole source)', () => {
+test('console-state no longer dials the directory: the tie pulls are stubbed empty', () => {
   const c = VERBS['console-state'].build().command;
-  assert.match(c, /rock-tie-requests\?org=/, 'pending tie asks ride the console read');
-  assert.match(c, /rock-ties\?org=/, 'live ties ride the console read');
-  assert.match(c, /rockRequests,rockTies/, 'both land in the CONSOLE_STATE payload');
+  assert.ok(!c.includes('rock-tie-requests?org='), 'no tie-ask pull');
+  assert.ok(!c.includes('rock-ties?org='), 'no live-tie pull');
+  assert.ok(!c.includes('curl'), 'nothing is dialled at all');
+  assert.match(c, /TIEREQ="\{\}"; TIES="\{\}";/, 'the marked line carries empty lists for those fields');
 });
 
 const askRockRoute = (s, path, body) => fetch(`http://127.0.0.1:${s.address().port}${path}`, {
   method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}),
 });
 
-test('/rock-join-ask and /rock-anchor-ask relay the right tie with the CONFIGURED slug + verified identity', async () => {
-  const sent = [];
+// ---- the /rock-* ask routes, RETIRED (2026-09-01) ---------------------------
+// join-ask, anchor-ask, leave, mine and mine/refresh all relayed tie state to
+// the directory with a verified identity. Ties died with the directory:
+// joining a community is a bundle pasted on the Communities page, leaving is
+// community-leave against the box, and the Map reads community-list. These
+// pins hold the whole route family gone and undialled.
+test('the tie ask routes are gone, and nothing dials a directory through them', async () => {
+  let dialled = false;
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
     if (!String(url).startsWith('https://dir.example')) return realFetch(url, init);
-    sent.push({ url: String(url), body: JSON.parse(init.body), auth: init.headers.authorization });
-    return { ok: true, status: 200, json: async () => ({ ok: true, id: 'abc123' }) };
+    dialled = true;
+    return { ok: true, status: 200, json: async () => ({ ok: true }) };
   };
   try {
     const s = await listen({
-      edition: 'member',
       bridge: { targets: () => [{ host: 'jane01-box', kind: 'member', org: 'jane01' }], stream: () => {}, tty: () => {} },
       directoryUrl: 'https://dir.example',
       communitySignIn: async () => ({ ok: true, idToken: 'stub.id.token' }),
     });
     try {
-      assert.equal((await askRockRoute(s, '/rock-join-ask', { host: 'x', org: 'acme' })).status, 200);
-      assert.equal((await askRockRoute(s, '/rock-anchor-ask', { host: 'x', org: 'acme' })).status, 200);
-      assert.equal(sent.length, 2);
-      assert.match(sent[0].url, /\/rock-tie-request$/);
-      assert.equal(sent[0].body.tie, 'joined');
-      assert.equal(sent[1].body.tie, 'anchored');
-      assert.equal(sent[0].body.slug, 'jane01', 'the slug comes from the configured target, never the page');
-      assert.equal(sent[0].auth, 'Bearer stub.id.token');
+      for (const path of ['/rock-join-ask', '/rock-anchor-ask', '/rock-leave', '/rock-mine/refresh']) {
+        assert.equal((await askRockRoute(s, path, { org: 'acme', tie: 'joined' })).status, 404, `${path} stays gone`);
+      }
+      assert.equal((await fetch(`http://127.0.0.1:${s.address().port}/rock-mine`)).status, 404, '/rock-mine stays gone');
+      assert.equal(dialled, false, 'no route dials a directory, even with the old options injected');
+      // the replacement surfaces are box-verbs, served in the one table
+      assert.ok(MEMBER_VERBS['community-join'], 'joining is the bundle verb');
+      assert.ok(MEMBER_VERBS['community-leave'], 'leaving is the box-local verb');
+      assert.ok(MEMBER_VERBS['community-list'], 'and the list the Map draws from');
     } finally { s.close(); }
   } finally { globalThis.fetch = realFetch; }
 });
 
-test('/rock-anchor-ask passes the model\'s own 409 through (anchored elsewhere / owner-rock)', async () => {
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, init) => {
-    if (!String(url).startsWith('https://dir.example')) return realFetch(url, init);
-    return { ok: false, status: 409, json: async () => ({ error: 'acme owns this mineral, so it is anchored there; ownership moves are made from Your pebble' }) };
-  };
-  try {
-    const s = await listen({
-      edition: 'member',
-      bridge: { targets: () => [{ host: 'jane01-box', kind: 'member', org: 'jane01' }], stream: () => {}, tty: () => {} },
-      directoryUrl: 'https://dir.example',
-      communitySignIn: async () => ({ ok: true, idToken: 'stub.id.token' }),
-    });
-    try {
-      const r = await askRockRoute(s, '/rock-anchor-ask', { org: 'other' });
-      assert.equal(r.status, 409);
-      assert.match((await r.json()).error, /owns this mineral/);
-    } finally { s.close(); }
-  } finally { globalThis.fetch = realFetch; }
-});
-
-test('/rock-leave names the tie; /rock-mine carries tie + owner and never the email', async () => {
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, init) => {
-    if (!String(url).startsWith('https://dir.example')) return realFetch(url, init);
-    if (String(url).endsWith('/rock-tie-leave')) {
-      const b = JSON.parse(init.body);
-      return { ok: true, status: 200, json: async () => ({ ok: true, noop: b.tie === 'anchored' }) };
-    }
-    if (String(url).includes('/edges')) return { ok: true, status: 200, json: async () => ({ edges: [
-      { org: 'acme', role: 'member', status: 'active', slug: 'jane01', rel: 'joined' },
-      { org: 'home', role: 'member', status: 'active', slug: 'jane01', rel: 'anchored', owner: 'org' },
-    ] }) };
-    if (String(url).includes('/rock-tie-notices')) return { ok: true, status: 200, json: async () => ({ notices: [
-      { org: 'oldrock', org_display: 'Old Rock', tie: 'joined', reason: 'Room closed down', at: 5 },
-    ] }) };
-    return { ok: false, status: 404, json: async () => ({}) };
-  };
-  try {
-    const s = await listen({
-      edition: 'member',
-      bridge: { targets: () => [{ host: 'jane01-box', kind: 'member', org: 'jane01' }], stream: () => {}, tty: () => {} },
-      directoryUrl: 'https://dir.example',
-      communitySignIn: async () => ({ ok: true, idToken: 'x.' + Buffer.from(JSON.stringify({ email: 'JANE@example.com' })).toString('base64url') + '.sig' }),
-    });
-    try {
-      assert.equal((await askRockRoute(s, '/rock-leave', { org: 'acme' })).status, 400, 'tie must be named');
-      assert.equal((await askRockRoute(s, '/rock-leave', { org: 'acme', tie: 'joined' })).status, 200);
-      await askRockRoute(s, '/rock-mine/refresh', {});
-      await new Promise((r) => setTimeout(r, 80));
-      const mine = await (await fetch(`http://127.0.0.1:${s.address().port}/rock-mine`)).json();
-      assert.equal(mine.signedIn, true);
-      assert.equal(mine.mine.length, 2, 'both ties are ties now');
-      const anchored = mine.mine.find((m) => m.tie === 'anchored');
-      assert.equal(anchored.owner, 'org', 'the ownership binary rides the tie row');
-      assert.equal(mine.notices[0].tie, 'joined');
-      assert.ok(!JSON.stringify(mine).includes('example.com'), 'no email in any response');
-    } finally { s.close(); }
-  } finally { globalThis.fetch = realFetch; }
-});
-
-// Finding 168 (2026-08-17): a standalone pebble is anchored to `crads-solo`, the
-// platform's own staging lane, and that edge came back through /edges like any
-// other — so a fresh solo pebble's Rocks page pinned an ANCHORED card named
-// "crads-solo" above the very sentence that says a solo pebble is hosted and
-// billed directly. The lane's edge is real and stays in the cache for the
-// wiring machinery; it just may never render as a rock.
-test('/rock-mine never lists the platform lane: a solo pebble is not "in" crads-solo', async () => {
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, init) => {
-    if (!String(url).startsWith('https://dir.example')) return realFetch(url, init);
-    if (String(url).includes('/edges')) return { ok: true, status: 200, json: async () => ({ edges: [
-      { org: 'crads-solo', role: 'member', status: 'active', slug: 'jeff', rel: 'anchored' },
-      { org: 'crads-ai', role: 'member', status: 'active', slug: 'jeff', rel: 'anchored' },
-      { org: 'acme', role: 'member', status: 'active', slug: 'jeff', rel: 'joined' },
-    ] }) };
-    if (String(url).includes('/rock-tie-notices')) return { ok: true, status: 200, json: async () => ({ notices: [] }) };
-    return { ok: false, status: 404, json: async () => ({}) };
-  };
-  try {
-    const s = await listen({
-      edition: 'member',
-      bridge: { targets: () => [{ host: 'jeff-box', kind: 'member', org: 'jeff' }], stream: () => {}, tty: () => {} },
-      directoryUrl: 'https://dir.example',
-      communitySignIn: async () => ({ ok: true, idToken: 'x.' + Buffer.from(JSON.stringify({ email: 'jeff@example.com' })).toString('base64url') + '.sig' }),
-    });
-    try {
-      await askRockRoute(s, '/rock-mine/refresh', {});
-      await new Promise((r) => setTimeout(r, 80));
-      const mine = await (await fetch(`http://127.0.0.1:${s.address().port}/rock-mine`)).json();
-      assert.equal(mine.signedIn, true);
-      assert.deepEqual(mine.mine.map((m) => m.org), ['acme'],
-        'the real tie renders; both platform lanes are held back');
-    } finally { s.close(); }
-  } finally { globalThis.fetch = realFetch; }
-});
-
-// Finding 202 (2026-08-17, seen on qa-r2-gmail): the rock's own Organisations
-// page drew the rock ITSELF under "Your rocks", chipped JOINED, under the line
-// saying these are the ones this rock has joined. The row was real: the
-// operator's admin membership of their own org comes back from /edges as
-// {org: ic, slug: ic, rel: joined}, which is the exact shape the org face's
-// slug test keeps. That test asks "is this the rock's edge or the operator's
-// pebble's" and cannot see the other end, and on a rock the two strings are one
-// and the same (one-mineral-one-name). Both exclusions are proved here at once.
-test('/rock-mine org face: a rock is never its own community member', async () => {
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, init) => {
-    if (!String(url).startsWith('https://dir.example')) return realFetch(url, init);
-    if (String(url).includes('/edges')) return { ok: true, status: 200, json: async () => ({ edges: [
-      { org: 'ic', role: 'admin', status: 'active', slug: 'ic', rel: 'joined' },
-      { org: 'shenanigans', role: 'member', status: 'active', slug: 'ic', rel: 'joined' },
-      { org: 'acme', role: 'member', status: 'active', slug: 'jane01', rel: 'joined' },
-    ] }) };
-    if (String(url).includes('/rock-tie-notices')) return { ok: true, status: 200, json: async () => ({ notices: [] }) };
-    return { ok: false, status: 404, json: async () => ({}) };
-  };
-  try {
-    const s = await listen({
-      bridge: fakeBridge([ROCK]),
-      directoryUrl: 'https://dir.example',
-      communitySignIn: async () => ({ ok: true, idToken: 'x.' + Buffer.from(JSON.stringify({ email: 'op@example.com' })).toString('base64url') + '.sig' }),
-    });
-    try {
-      await askRockRoute(s, '/rock-mine/refresh', {});
-      await new Promise((r) => setTimeout(r, 80));
-      const mine = await (await fetch(`http://127.0.0.1:${s.address().port}/rock-mine`)).json();
-      assert.equal(mine.signedIn, true);
-      assert.deepEqual(mine.mine.map((m) => m.org), ['shenanigans'],
-        'the rock this rock actually joined renders; its own org and the operator\'s pebble tie do not');
-    } finally { s.close(); }
-  } finally { globalThis.fetch = realFetch; }
-});
-
-test('the member Network map draws ties from the BOX, never from directory state (R9)', () => {
+test('the Network map draws from the BOX, never from directory state (R9, sharpened by the collapse)', () => {
+  // R9's law was that the map reads the box, not the panel's directory cache.
+  // The collapse made the law total: worldFacts states only what the box says
+  // about itself (box, devices, support), the tie fields are gone, and the
+  // communities layer comes from the box's own community-list, page-side.
   const src = _rf(new URL('./panel-server.mjs', import.meta.url), 'utf8');
   const fn = src.slice(src.indexOf('function worldFacts'), src.indexOf('async function topologyWorld'));
   assert.ok(fn.length > 100, 'worldFacts found');
-  // R9 (2026-08-09 grilling) superseded the tie-free Law of the Map: every
-  // tie draws, the anchor emphasised — but the SOURCE stays the box
-  // (state.ties, written down by ties-write). The map never reads the
-  // panel's directory cache at render time; that is what keeps it honest
-  // offline and sign-in-free.
-  assert.match(fn, /state\.ties/, 'ties come from the box state line');
-  assert.ok(!/_communityMine/.test(fn), 'never the directory cache at render time');
+  assert.ok(!/state\.ties/.test(fn), 'the tie fields died with the directory');
+  assert.ok(!/_communityMine/.test(fn), 'and the directory cache stays out of render, as R9 demanded');
 });
 
 test('the directory routes are wired, both editions, non-awaited like mcp-oauth', () => {
@@ -1859,59 +1467,16 @@ test('the directory routes are wired, both editions, non-awaited like mcp-oauth'
   assert.match(dispatch.slice(0, 400), /\.catch\(/, 'a rejection must still answer, or the page waits forever');
 });
 
-// ---------------------------------- the invite page stopped inventing a ceremony
-//
-// The 2026-08-09 collapse moved the rock to approving a proven invite by itself,
-// and member-connect.html was not told. Janet Jackson's row said active, her
-// device was auto-approved (mode "auto", proven "id_token"), the rock's
-// join-requests were empty, and her screen still said "Read this code to your
-// rock" and "Waiting for your rock to approve this device". Every cohort-one
-// member would have hit that.
-{
-  const CONNECT = readFileSync(new URL('./member-connect.html', import.meta.url), 'utf8');
-  const REDEEM = CONNECT.slice(CONNECT.indexOf('var hasRock'), CONNECT.indexOf('startInvitePoll();'));
-
-  test('the ceremony is decided by whether the rock CAN self-approve, not by staging alone', () => {
-    // stageWithDirectory returns a bare r.ok: it only means the worker took the
-    // key. The signed id_token is what lets the rock approve without a human.
-    assert.match(REDEEM, /selfApproving = hasRock && r\.staged && r\.id_token_sent/);
-    assert.match(REDEEM, /ceremony = hasRock && !selfApproving/);
-  });
-
-  test('on the normal path the member is asked to do nothing', () => {
-    assert.match(REDEEM, /\$\('readCode'\)\.style\.display = ceremony \? 'block' : 'none'/);
-    assert.match(REDEEM, /\$\('fpCode'\)\.style\.display = ceremony \? 'block' : 'none'/);
-    assert.match(REDEEM, /Setting up your access/, 'and the wait line stops naming an approval that already happened');
-  });
-
-  test('the manual fallbacks survive, because they really do need a human', () => {
-    assert.match(REDEEM, /\$\('pasteBack'\)\.style\.display = \(hasRock && !r\.staged\) \? 'block' : 'none'/,
-      'no central staging still means sending the key line by hand');
-    assert.match(REDEEM, /Waiting for your rock to approve this device/,
-      'a rock that cannot self-approve still gets the code ceremony');
-  });
-
-  test('a solo pebble is never told to read a code to a rock it does not have', () => {
-    // `!!r.org` was the 2026-08-10 attempt and it never held: /redeem answers
-    // org: inv.org, and a solo invite carries the crads-solo SENTINEL, so the
-    // truthiness test said "has a rock" for every self-serve member and the whole
-    // ceremony fired at people with nobody to phone (Sam, emailed cert-one link,
-    // 2026-08-14). The sentinel has to be named.
-    assert.match(REDEEM, /var hasRock = orgIsRock\(r\.org\)/);
-    assert.match(CONNECT, /var SOLO_ORG = 'crads-solo'/);
-    assert.match(CONNECT, /function orgIsRock\(org\)\{ return !!org && org !== SOLO_ORG; \}/);
-    // comments stripped: the paragraph above quotes the old expression to explain
-    // why it was wrong, and that citation must not read as the bug returning
-    const code = CONNECT.replace(/^\s*\/\/.*$/gm, '');
-    assert.doesNotMatch(code, /!!r\.org\b/, 'no bare org-truthiness may come back');
-    assert.match(CONNECT, /hadRock \? 'You’re in! Your rock approved this device\. ' : 'You’re in! '/);
-  });
-
-  test('the pre-redeem copy no longer promises a ceremony it usually will not run', () => {
-    assert.doesNotMatch(CONNECT, /You'll read a short code back to them/);
-    assert.match(CONNECT, /normally opens your mineral straight away/);
-  });
-}
+// ---------------------------------- the invite page is GONE (2026-09-01)
+// member-connect.html and its server were deleted with the invitation system,
+// after a long run of ceremony bugs this block used to pin one by one. What is
+// left to pin is the absence: the file stays out of the tree, and the shell
+// never links the surface again.
+test('the invite page and its hop stay deleted', () => {
+  assert.ok(!existsSync(new URL('./member-connect.html', import.meta.url)), 'member-connect.html must not return');
+  const shell = readFileSync(new URL('./member.html', import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, '');
+  assert.ok(!shell.includes('/go/connect'), 'the shell links no invite hop');
+});
 
 // --- finding 107: the app must be able to OPEN what onboarding wrote ---------
 //
@@ -1965,52 +1530,16 @@ test('107: the Files tree walks wiki/, the same scope the graph walks', async ()
 // The directory used to sort and act on the newest. Both callers here hold the
 // slug already: /rock-ties gives the console one per tie row, /rock-mine gives
 // the member's Rocks page one per row. They have to send it.
-test('rock-tie-end carries the slug of the tie row it was drawn from', () => {
-  const v = VERBS['rock-tie-end'];
-  const named = v.build({ e: 'a'.repeat(64), tie: 'anchored', reason: 'Left the programme', slug: 'pebble-four' }).command;
-  assert.match(named, /slug=process\.argv\[5\]/, 'the slug is built into the body on the box');
-  assert.match(named, /'pebble-four'/, 'and the named mineral reaches it');
-  assert.throws(() => v.build({ e: 'a'.repeat(64), tie: 'joined', reason: 'x', slug: 'Not A Slug' }), /slug/i);
-  // a console that predates the change still ends a lone tie: the field is
-  // omitted, and the directory refuses only when two ties match
-  const bare = v.build({ e: 'a'.repeat(64), tie: 'joined', reason: 'x' }).command;
-  assert.match(bare, /"\$RSN" ''\)"/, 'an empty 5th argument: no slug key in the body at all');
-});
-
-test('/rock-leave sends the slug, and drops only THAT row from the cached ties', async () => {
-  const sent = [];
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, init) => {
-    if (!String(url).startsWith('https://dir.example')) return realFetch(url, init);
-    if (String(url).endsWith('/rock-tie-leave')) {
-      sent.push(JSON.parse(init.body));
-      return { ok: true, status: 200, json: async () => ({ ok: true }) };
-    }
-    // one person, two pebbles, both anchored to the same rock: the state
-    // finding 131's fix made possible
-    if (String(url).includes('/edges')) return { ok: true, status: 200, json: async () => ({ edges: [
-      { org: 'acme', role: 'member', status: 'active', slug: 'pebble-four', rel: 'anchored' },
-      { org: 'acme', role: 'member', status: 'active', slug: 'pebble-five', rel: 'anchored' },
-    ] }) };
-    if (String(url).includes('/rock-tie-notices')) return { ok: true, status: 200, json: async () => ({ notices: [] }) };
-    return { ok: false, status: 404, json: async () => ({}) };
-  };
-  try {
-    const s = await listen({
-      edition: 'member',
-      bridge: { targets: () => [{ host: 'pebble-four-box', kind: 'member', org: 'pebble-four' }], stream: () => {}, tty: () => {} },
-      directoryUrl: 'https://dir.example',
-      communitySignIn: async () => ({ ok: true, idToken: 'x.' + Buffer.from(JSON.stringify({ email: 'JANE@example.com' })).toString('base64url') + '.sig' }),
-    });
-    try {
-      await askRockRoute(s, '/rock-mine/refresh', {});
-      await new Promise((r) => setTimeout(r, 80));
-      assert.equal((await askRockRoute(s, '/rock-leave', { org: 'acme', tie: 'anchored', slug: 'Not A Slug' })).status, 400);
-      assert.equal((await askRockRoute(s, '/rock-leave', { org: 'acme', tie: 'anchored', slug: 'pebble-four' })).status, 200);
-      assert.equal(sent.at(-1).slug, 'pebble-four', 'the directory is told which mineral leaves');
-      const mine = await (await fetch(`http://127.0.0.1:${s.address().port}/rock-mine`)).json();
-      assert.deepEqual(mine.mine.map((m) => m.slug), ['pebble-five'],
-        'only the mineral that left is dropped: the other tie still draws');
-    } finally { s.close(); }
-  } finally { globalThis.fetch = realFetch; }
+// Finding 131's slug plumbing (rock-tie-end and /rock-leave naming WHICH of a
+// person's minerals a tie row belongs to) is RETIRED with the tie machinery
+// (2026-09-01). The disambiguation problem itself is gone: a community
+// relationship lives on the mineral that joined, so leaving is always about
+// exactly the box the verb is run against.
+test('the tie slug plumbing is RETIRED: leaving is box-local and needs no slug', () => {
+  assert.equal(VERBS['rock-tie-end'], undefined, 'the tie ender stays gone');
+  const c = MEMBER_VERBS['community-leave'].build({ org: 'acme' }).command;
+  assert.match(c, /community-leave\.mjs/, 'leaving runs the box-local engine script');
+  assert.ok(!c.includes('curl'), 'and dials nothing');
+  assert.throws(() => MEMBER_VERBS['community-leave'].build({ org: 'Not A Handle' }), /org/i,
+    'junk community names are refused before any command exists');
 });

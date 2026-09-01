@@ -39,8 +39,10 @@ test('every bubble is a real button with a tip and a label', () => {
 });
 
 test('every static page-head line is one short sentence', () => {
+  // Twelve sections survive the face collapse (2026-09-01); ten of them carry
+  // a static page head, so the floor drops from 14 with the org pages.
   const heads = html.match(/<div class="pagehead">[\s\S]*?<\/div>\s*<\/div>|<div class="pagehead">[\s\S]*?<\/div>/g) || [];
-  assert.ok(heads.length >= 14, `found ${heads.length} page heads`);
+  assert.ok(heads.length >= 10, `found ${heads.length} page heads`);
   for (const h of heads) {
     const p = h.match(/<p(?: id="[^"]*")?>([\s\S]*?)<\/p>/);
     if (!p) continue;
@@ -50,10 +52,13 @@ test('every static page-head line is one short sentence', () => {
   }
 });
 
-test('the org-face head overrides go through setHead so the bubble survives the face swap', () => {
-  assert.match(html, /function setHead\(sec, line, tip\)/);
+test('the org-face head overrides are RETIRED (2026-09-01): one face, static heads only', () => {
+  // The overrides existed to reword page heads when the shell flipped to the
+  // org face. There is no face swap any more, so no page rewrites its head at
+  // runtime, and nothing may reach past setHead's anatomy to write the
+  // paragraph directly.
   for (const sec of ['dashboard', 'sharing', 'network', 'rocks', 'brain']) {
-    assert.match(html, new RegExp(`setHead\\('${sec}', '`), `${sec} override uses setHead`);
+    assert.ok(!new RegExp(`setHead\\('${sec}', '`).test(html), `no ${sec} face override remains`);
   }
-  assert.ok(!/querySelector\('section\[data-sec="[a-z]+"\] \.pagehead p'\)/.test(html), 'no override writes the paragraph directly any more');
+  assert.ok(!/querySelector\('section\[data-sec="[a-z]+"\] \.pagehead p'\)/.test(html), 'nothing writes a page-head paragraph directly');
 });

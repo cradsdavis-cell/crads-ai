@@ -41,12 +41,11 @@ const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const RIGS = ['shots.mjs', 'member-shots.mjs', 'panel-shots.mjs', 'small-shots.mjs'];
 const member = read('../panel/member.html');
 
-// Every page the harness serves. The rigs drive across surfaces (small-shots
-// alone covers door, connect, wizard and join), so an id or class is held
+// Every page the harness serves (just the shell + the door since the
+// 2026-09-01 collapse deleted connect/wizard/join). An id or class is held
 // against the union: what this catches is a selector that exists NOWHERE,
 // which is what every rot found so far has been.
-const SHELLS = ['../panel/member.html', '../panel/door.html', '../panel/member-connect.html',
-  '../ui/index.html', '../join-page/index.html'].map(read);
+const SHELLS = ['../panel/member.html', '../panel/door.html'].map(read);
 const inAnyShell = (re) => SHELLS.some((h) => re.test(h));
 
 // Comments in a rig explain retirements by naming the retired selector, so they
@@ -82,7 +81,9 @@ for (const rig of RIGS) {
   test(`${rig}: every #id it drives exists in a shell`, () => {
     const ids = [...new Set(selectorsIn(codeOf(rig))
       .flatMap((s) => [...s.matchAll(/#([A-Za-z][\w-]*)/g)].map((m) => m[1])))];
-    assert.ok(ids.length > 0, `${rig} still targets elements by id`);
+    // a rig may legitimately drive no ids at all (small-shots became door-only
+    // when the connect/wizard/join surfaces were deleted, 2026-09-01)
+    if (!ids.length) return;
     // an id is either written into the markup or created by a page's own JS,
     // which reaches for it through the $() helper by the same name
     const missing = ids.filter((id) =>
@@ -152,16 +153,21 @@ test('the retired rockbrain tab and device chips stay out of the rigs', () => {
     'the Rock brain nav tab was retired 2026-08-10; the reader is reached through a rock');
   assert.ok(!code.includes('.ndev'),
     'the orbiting device chips were retired 2026-08-10; devices live in the roster under the map');
-  assert.ok(/nav\(\s*'rocks'/.test(code) && code.includes('rockpages'),
-    'and the rockreader shot still walks Rocks -> a rock row -> one of its shared pages');
+  // The rockreader itself died with the Organisations page (face collapse,
+  // 2026-09-01): a commons shares files, not a live-read wiki. The Communities
+  // page is the membership surface the rig photographs instead.
+  assert.ok(!/nav\(\s*'rocks'/.test(code) && !code.includes('rockpages'),
+    'the Rocks walk stays out of the rig with the page it walked');
+  assert.ok(/nav\(\s*'commons'/.test(code),
+    'and the Communities page is photographed in its place');
 });
 
-test('the folds deleted from the connect page stay out of small-shots', () => {
+test('the deleted connect page stays out of small-shots entirely', () => {
+  // 5b75c69 first cut the page back to the invite claim; 2026-09-01 deleted
+  // the page. The rig must not keep (or regrow) shots of a surface that is
+  // not served.
   const code = codeOf('small-shots.mjs');
-  for (const gone of ['manualFold', 'orgsFold', 'genBtn']) {
-    assert.ok(!code.includes(gone),
-      `#${gone} went out with 5b75c69 ("the invite page is the invite claim, and nothing else")`);
+  for (const gone of ['/connect', '/wizard', 'joinFragment', 'manualFold', 'orgsFold', 'joinFold', 'genBtn']) {
+    assert.ok(!code.includes(gone), `small-shots still drives the deleted surface (${gone})`);
   }
-  assert.ok(code.includes('#joinFold summary'),
-    'ask-to-join is the fold that survived, and the fold shots move to it rather than disappearing');
 });

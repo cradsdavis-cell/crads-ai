@@ -26,7 +26,7 @@ the two words you will keep meeting.
 The software is free, and it stays free. What costs money is the machine it
 runs on and the AI inside it, and you pay both providers directly:
 
-- a **Hetzner cloud server**, roughly $10 to 25 a month depending on the size
+- a **Hetzner cloud server**, roughly €4 to €30 a month depending on the size
   you pick in the setup wizard, billed to you by Hetzner
 - your own **Claude subscription**, billed to you by Anthropic
 - **nothing to Crads-AI, ever**

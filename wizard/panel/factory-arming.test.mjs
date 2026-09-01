@@ -28,15 +28,17 @@ import { tmpDir } from '../../tests/tmp-dir.mjs';
 
 // ------------------------------------------------------------------ structure
 
-test('the stamp path runs the credential preamble before it reaches the brain', () => {
-  const cmd = VERBS['invite-member'].build({ slug: 'jane01', name: 'Jane', email: 'j@x.com' }).command;
-  assert.match(cmd, /gh auth token/, 'invite-member must resolve the connected account');
-  assert.ok(cmd.indexOf('gh auth token') < cmd.indexOf('stamp-pebble.sh'),
-    'the preamble has to run BEFORE stamp-pebble, or the brain sees an empty environment');
+// THE FACE COLLAPSE (2026-09-01). The stamp path itself is retired: nobody
+// creates a pebble for anyone else, so invite-member (the last
+// create-infrastructure verb) and join-approve are deleted. The resolver and
+// the status read they carried live on as exported builders "until the
+// machinery is deleted" (panel-server's own words), so their unit truths below
+// still run; everything that SERVED or RENDERED them is pinned gone below.
+test('the stamp path is RETIRED: the create-infrastructure verbs stay deleted', () => {
+  assert.equal(VERBS['invite-member'], undefined, 'invite-member must stay out of VERBS');
+  assert.equal(VERBS['join-approve'], undefined, 'join-approve must stay out of VERBS');
+  assert.equal(VERBS['stamp-member'], undefined, 'stamp-member died 2026-08-10 and stays dead');
 });
-
-// stamp-member was deleted 2026-08-10 (ruling 10: the invite link is the only
-// birth path); invite-member above is the one way in and carries the preamble.
 
 test('factory-status is a READ: admin-gated, never mutating, never prints a token', () => {
   const v = VERBS['factory-status'];
@@ -48,7 +50,10 @@ test('factory-status is a READ: admin-gated, never mutating, never prints a toke
   assert.doesNotMatch(cmd, /JSON\.stringify\([^)]*ORG_GH_TOKEN/, 'nor ride out in the status payload');
 });
 
-test('factory-status is org-edition only: a member has no factory to ask about', () => {
+test('factory-status never joined the served member table: no mineral has a factory to ask about', () => {
+  // Since the one-face collapse the served table is MEMBER_VERBS plus the
+  // Catalogue dozen; factory-status must stay out of the member table so it
+  // can never ride into the served set by accident.
   assert.equal(MEMBER_VERBS['factory-status'], undefined);
 });
 
@@ -194,89 +199,13 @@ test('the status copy is prose for an owner, with no shell and no em dashes', ()
   }
 });
 
-// --------------------------------------- the refusal an OLD rock actually sees
+// --------------------------------------- the refusal an OLD rock actually saw
 //
-// Sam hit the identical raw guard AFTER the first fix shipped in build 862.
-// Resolving the connected account only helps a rock that HAS one; a rock that
-// never ran connect-github had nothing to resolve, control fell through to the
-// brain, and an old brain printed "ORG_GH_OWNER + ORG_GH_TOKEN required (repo
-// .env)" exactly as before. The friendly refusal lives in the brain's preflight,
-// which a rock born before 2026-08-10 does not have and can never pull. So the
-// app carries it too, and these tests RUN it.
-
-/** The verb's preamble, cut before it reaches the brain, with the box-only
- *  preconditions redirected at fixtures. Nothing here can stamp anything. */
-function preambleUpToBrain(verb, args) {
-  const cmd = VERBS[verb].build(args).command;
-  const cut = cmd.indexOf('cd "$BR"');
-  assert.ok(cut > -1, `${verb} no longer cds into the brain; update this probe`);
-  const dir = tmpDir('fa-gate-');
-  mkdirSync(join(dir, 'secrets'), { recursive: true });
-  mkdirSync(join(dir, 'brain'), { recursive: true });
-  writeFileSync(join(dir, 'secrets', 'provisioning.env.local'), 'PEBBLE_IMAGE=img:v2\nHCLOUD_TOKEN=hc\n');
-  writeFileSync(join(dir, 'deployment.yaml'), `brain_root: "${join(dir, 'brain')}"\n`);
-  writeFileSync(join(dir, 'onboarding-state.json'), '{"phase":"done"}');
-  const body = cmd.slice(0, cut)
-    .replaceAll('/state/secrets/provisioning.env.local', join(dir, 'secrets', 'provisioning.env.local'))
-    .replaceAll('/state/deployment.yaml', join(dir, 'deployment.yaml'))
-    .replaceAll('"$BR/onboarding-state.json"', join(dir, 'onboarding-state.json'));
-  const f = join(dir, 'probe.sh');
-  writeFileSync(f, body + '\necho REACHED-THE-BRAIN\n');
-  return { f, brain: join(dir, 'brain') };
-}
-
-function runGate(verb, args, env = {}) {
-  const { f, brain } = preambleUpToBrain(verb, args);
-  if (env.REMOTE) {
-    execFileSync('git', ['init', '-q', brain]);
-    execFileSync('git', ['-C', brain, 'remote', 'add', 'origin', env.REMOTE]);
-  }
-  const bin = [dirname(process.execPath), '/usr/bin', '/bin'];
-  try {
-    const out = execFileSync('bash', [f], {
-      encoding: 'utf8',
-      env: { PATH: [...(env.EXTRA_BIN ? [env.EXTRA_BIN] : []), ...bin].join(':'), HOME: tmpdir(), ...env },
-    });
-    return { code: 0, out };
-  } catch (e) { return { code: e.status, out: String(e.stdout || '') + String(e.stderr || '') }; }
-}
-
-const INVITE = { slug: 'jane01', name: 'Jane', email: 'j@x.com' };
-
-test('THE SECOND MISS: an unconnected rock is refused HERE, in words, never at the brain\'s guard', () => {
-  const r = runGate('invite-member', INVITE);
-  assert.equal(r.code, 1, 'it must stop before the brain, or the old raw guard speaks instead');
-  assert.doesNotMatch(r.out, /REACHED-THE-BRAIN/);
-  assert.match(r.out, /no GitHub account connected/i);
-  assert.match(r.out, /connect-github/, 'the one action that fixes it has to be IN the message');
-  assert.match(r.out, /Nothing has been created/i);
-  assert.doesNotMatch(r.out, /—/, 'house style: no em dashes in product copy');
-});
-
-test('a connected rock passes the gate untouched', () => {
-  const r = runGate('invite-member', INVITE, { EXTRA_BIN: fakeBin(), REMOTE: 'git@github.com:their-org/b.git' });
-  assert.equal(r.code, 0);
-  assert.match(r.out, /REACHED-THE-BRAIN/);
-});
-
-test('a fully staged operator rock passes the gate untouched', () => {
-  const r = runGate('invite-member', INVITE, { GH_OWNER: 'platform-org', GITHUB_TOKEN: 'platform-token' });
-  assert.equal(r.code, 0);
-  assert.match(r.out, /REACHED-THE-BRAIN/);
-});
-
-test('every GitHub-dependent factory verb carries the refusal', () => {
-  for (const v of ['invite-member', 'join-approve', 'ask-push']) {
-    assert.ok(VERBS[v], `${v} exists`);
-  }
-  const withGate = ['invite-member', 'join-approve'];
-  for (const v of withGate) {
-    const cmd = VERBS[v].build(v === 'join-approve'
-      ? { id: 'abc12345', slug: 'jane01', name: 'Jane', email: 'j@x.com' }
-      : { ...INVITE }).command;
-    assert.match(cmd, /no GitHub account connected/, `${v} must refuse in words`);
-  }
-});
+// RETIRED (2026-09-01). The in-app refusal ("no GitHub account connected",
+// with connect-github as the fix) guarded the stamp path, and the stamp path
+// is gone: invite-member and join-approve are deleted above, so there is no
+// gate left to drive. The one-shell-line rule and the gate fixtures went with
+// them. What remains testable is the SOFT posture of the verbs that survive.
 
 test('the SOFT verbs stay soft: teardown must work on a rock with no GitHub', () => {
   // It pushes from the brain clone and already warns-and-continues. A hard
@@ -286,161 +215,27 @@ test('the SOFT verbs stay soft: teardown must work on a rock with no GitHub', ()
   assert.doesNotMatch(cmd, /no GitHub account connected/, 'deprovision-member must not hard-refuse');
 });
 
-test('the refusal travels as ONE shell line, because the verb does', () => {
-  // A heredoc would put raw newlines inside a command that crosses ssh and a
-  // line-oriented bridge. printf keeps it one line in, many lines out.
-  const cmd = VERBS['invite-member'].build(INVITE).command;
-  assert.doesNotMatch(cmd, /\n/, 'the built command must not contain a raw newline');
-});
+// ('the refusal travels as ONE shell line' rode invite-member and retired with
+// it: with no stamp verb there is no built command to keep newline-free.)
 
-// ------------------------------------- the headline an owner actually reads
+// ------------------------------------- the headline an owner actually read
 //
-// The refusal is worth nothing if it lands inside a collapsed "Show technical
-// detail" while the visible headline still says "Something went wrong while
-// creating the member". friendlyStampError is the classifier that decides, and
-// its GitHub branch must ALSO recognise the OLD raw guard: a rock born before
-// 2026-08-10 still runs the brain that prints it and can never pull a newer one,
-// so the app is the only place its owner will ever be told what it means.
-test('friendlyStampError names the GitHub cause, for the new refusal AND the old raw guard', () => {
+// RETIRED (2026-09-01). friendlyStampError, stArm, the New Pebble form, the
+// factory notice (loadFactoryStatus), the busy-state flow (orgGhStart /
+// orgGhBusy / orgGhSay) and renderRockBackup all lived on the org face, and
+// the org face is gone from member.html. The pin below holds that none of
+// them comes back: a one-face app has no stamp form to gate and no factory
+// notice to word.
+test('the factory UI is RETIRED: none of its functions or state survive in member.html', () => {
   const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'member.html'), 'utf8');
-  const fn = html.match(/function friendlyStampError\(lines\)\{[\s\S]*?\n {2}\}/);
-  assert.ok(fn, 'friendlyStampError moved or changed shape');
-  const classify = new Function(`${fn[0]}; return friendlyStampError;`)();
-
-  const cases = [
-    ['the old raw brain guard', ['ERROR: ORG_GH_OWNER + ORG_GH_TOKEN required (repo .env; IC_ORG/IC_ORG_TOKEN accepted as legacy names)']],
-    ['the new panel refusal', ['This rock has no GitHub account connected.', '    connect-github']],
-  ];
-  for (const [label, lines] of cases) {
-    const r = classify(lines);
-    assert.match(r.what, /GitHub/, `${label}: the headline must name the cause`);
-    assert.doesNotMatch(r.what, /Something went wrong/, `${label}: still the generic fallback`);
-    // The action is the BUTTON now, not the shell command (2026-08-10). The
-    // copy must point at the thing a person can press.
-    assert.match(r.next, /Connect GitHub/, `${label}: the one action must be in the visible copy`);
-    assert.match(r.next, /Members page/, `${label}: and where to find it`);
+  for (const name of ['friendlyStampError', 'stArm', 'renderRockBackup', 'loadFactoryStatus',
+    'orgGhStart', 'orgGhBusy', 'orgGhSay', 'loadFleetHealth', 'stampBtn', 'stampBlocked']) {
+    assert.ok(!html.includes(name), `${name} must stay out of the page`);
   }
-});
-
-test('the GitHub branch does not swallow the other known failures', () => {
-  const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'member.html'), 'utf8');
-  const fn = html.match(/function friendlyStampError\(lines\)\{[\s\S]*?\n {2}\}/);
-  const classify = new Function(`${fn[0]}; return friendlyStampError;`)();
-  assert.match(classify(['resource_limit_exceeded']).what, /machine limit/);
-  // both spellings: the panel's own message and an older brain's guard, which
-  // used to fall through to "something went wrong" and explain nothing
-  assert.match(classify(['ERROR: your hub is missing its one-time setup tokens']).what, /one-time setup tokens/i);
-  assert.match(classify(['ERROR: no /app/provisioning/managed/.env.local (this box\'s ai-os provisioning)']).what, /one-time setup tokens/i);
-  assert.match(classify(['finish onboarding this rock first']).what, /onboarding/i);
-  assert.match(classify(['totally unknown explosion']).what, /Something went wrong/);
-});
-
-// -------------------------------- the page refuses BEFORE the form, not after
-//
-// Sam: "Need to be very explicit that github needs to be connected before
-// stamping." Explaining a failure well is second best; not letting someone fill
-// in a colleague's name and email only to meet it is the point.
-test('the New pebble button is blocked, and says why, while the factory is unarmed', () => {
-  const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'member.html'), 'utf8');
-  const fn = html.match(/function stArm\(\)\{[\s\S]*?\n {2}\}/);
-  assert.ok(fn, 'stArm moved or changed shape');
-  // stArm calls emailDerived (naming law, 2026-08-17). On the page both live in
-  // the same script scope, so hoisting always defines it; here the page's own
-  // definition is lifted into the eval scope so the stub cannot drift.
-  const ed = html.match(/function emailDerived\(name, email\)\{[\s\S]*?\n {2}\}/);
-  assert.ok(ed, 'emailDerived moved or changed shape');
-
-  const els = {};
-  const $ = (id) => (els[id] = els[id] || { value: '', disabled: false, textContent: '', style: {}, trim() { return this.value; } });
-  // onboarded defaults to true: this test is about the FACTORY gate, and the
-  // onboarding gate below owns its own cases.
-  const mk = (armed, filled, onboarded = true) => {
-    for (const k of Object.keys(els)) delete els[k];
-    const g = (id) => ({ value: filled ? 'x' : '', disabled: false, textContent: '', style: {} });
-    els.stampBtn = { disabled: false, textContent: '', style: {} };
-    els.st_owner = { value: filled ? 'member' : '' };
-    els.st_name = { value: filled ? 'Jane' : '' };
-    els.st_email = { value: filled ? 'j@x.com' : '' };
-    els.stampBlocked = { style: {} };
-    // stArm now also reads which gap it is and what to name it.
-    // factoryCanAsk = false here: this test is the BLOCKED case, where the rock
-    // cannot build and cannot ask either.
-    new Function('$', 'esc', 'factoryArmed', 'factoryNeedsGh', 'factoryGapNames', 'factoryCanAsk', 'rockOnboarded',
-      `${ed[0]}; ${fn[0]}; stArm();`)(
-      (id) => els[id] || null, (x) => String(x), armed, armed === false, 'server provider', false, onboarded);
-    return els;
-  };
-
-  let e = mk(false, true);
-  assert.equal(e.stampBtn.disabled, true, 'a filled-in form must still be refused while unarmed');
-  assert.match(e.stampBtn.textContent, /Connect GitHub first/, 'the button itself states the requirement');
-  assert.equal(e.stampBlocked.style.display, 'block', 'and the reason is next to it');
-
-  e = mk(true, true);
-  assert.equal(e.stampBtn.disabled, false, 'an armed rock with a filled form stamps');
-  assert.match(e.stampBtn.textContent, /New Pebble/);
-  assert.equal(e.stampBlocked.style.display, 'none');
-
-  e = mk(true, false);
-  assert.equal(e.stampBtn.disabled, true, 'an empty form is still an empty form');
-
-  // null = we have not asked yet (old rock, unreachable box). Ignorance must not
-  // block: the refusal still lands at press time, with an explanation.
-  e = mk(null, true);
-  assert.equal(e.stampBtn.disabled, false, 'not knowing must never block a rock that works');
-
-  // THE OTHER GATE ON THE SAME BUTTON (2026-08-14). ONBOARD_GATE refuses at the
-  // far end of stamp-member and join-approve, so a rock with perfect credentials
-  // and an un-onboarded brain used to show a live button and fail only after a
-  // colleague's name and email had been typed in.
-  e = mk(true, true, false);
-  assert.equal(e.stampBtn.disabled, true, 'a fully armed factory does not beat an un-onboarded brain');
-  assert.match(e.stampBtn.textContent, /Onboard this rock first/, 'and the button names THAT obstacle');
-  assert.equal(e.stampBlocked.style.display, 'block');
-  assert.match(e.stampBlocked.innerHTML, /\/onboard/, 'with the command that fixes it');
-
-  e = mk(true, true, null);
-  assert.equal(e.stampBtn.disabled, false, 'an unread onboarding state is ignorance, and ignorance never blocks');
-
-  // Both broken: naming one and meeting the other on the next press is the same
-  // failure twice.
-  e = mk(false, true, false);
-  assert.match(e.stampBlocked.innerHTML, /\/onboard/);
-  assert.match(e.stampBlocked.innerHTML, /GitHub/);
-});
-
-// ------------------------------- "is it still loading?" must be answerable
-//
-// Sam, watching a backup run: "I don't know if this is still loading because
-// Connect GitHub is selectable again". Disabling the button was a one-off DOM
-// write, so any repaint rebuilt it in its default enabled state. Same lesson as
-// the erased outcome (trap 23), one attribute over: what you render comes from
-// state, never from a mutation a paint can undo.
-test('the button is rendered FROM the flow state, not disabled by a one-off write', () => {
-  const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'member.html'), 'utf8');
-  const fn = html.match(/function renderRockBackup\(\)\{[\s\S]*?\n {2}\}/);
-  assert.ok(fn, 'renderRockBackup moved or changed shape');
-  assert.match(fn[0], /orgGhBusy/, 'the paint has to know whether a flow is running');
-  assert.match(fn[0], /Connecting…/, 'and say so on the control itself');
-  // and the same for the readiness notice on the Pebbles page
-  const notice = html.match(/function loadFactoryStatus\(\)\{[\s\S]*?\n {2}\}/);
-  assert.match(notice[0], /orgGhBusy/, 'both surfaces render from the same state');
-});
-
-test('every exit from the flow clears the busy state', () => {
-  // A stuck-busy button is worse than a lying one: it cannot be retried at all.
-  const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'member.html'), 'utf8');
-  const region = html.slice(html.indexOf('function orgGhStart'), html.indexOf('function loadFleetHealth'));
-  const sets = (region.match(/orgGhBusy = true/g) || []).length;
-  const clears = (region.match(/orgGhBusy = false/g) || []).length;
-  assert.equal(sets, 1, 'one place starts a flow');
-  assert.ok(clears >= 4, `every terminal path clears it (start error, network error, done, failed); found ${clears}`);
-});
-
-test('what the flow says is remembered, so a repaint cannot silence it mid-run', () => {
-  const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'member.html'), 'utf8');
-  assert.match(html, /function orgGhSay\(html\)\{ orgGhOutcome = html;/,
-    'saying something and remembering it must be the same act, or they drift');
+  // comments may still recall the old copy; rendered strings must not
+  const code = html.replace(/^\s*\/\/.*$/gm, '');
+  assert.ok(!code.includes('Connect GitHub first'), 'the stamp-gate button copy is gone');
+  assert.ok(!code.includes('New Pebble'), 'and so is the form it guarded');
 });
 
 // ---------------------------------------- "Push it now" is a verb, not a hop
@@ -468,45 +263,9 @@ test('an image too old to have the push lane says so instead of failing oddly', 
   assert.match(cmd, /Restart it to pick up the latest published software/);
 });
 
-test('the connected branch no longer throws anyone at a terminal', () => {
-  const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'member.html'), 'utf8');
-  const fn = html.match(/function renderRockBackup\(\)\{[\s\S]*?\n {2}\}/)[0];
-  // orgGhBackup since 2026-08-12: the same backup leg the connect flow runs, so
-  // it can repoint a remote that turns out to be another box's repo. The bare
-  // push it replaced could only repeat the rejection that remote guarantees.
-  assert.match(fn, /if \(st\.connected\) \{ orgGhBackup\(\); return; \}/);
-  assert.doesNotMatch(fn, /openTerm\(\{ autorun: 'connect-github' \}\)/, 'no terminal hop survives on this card');
-});
-
-// ------------------------------- the notice must name the gap it actually has
-//
-// Sam, on a rock whose GitHub was connected and whose metal was not: "But I do
-// have a github account connected". The box was right (factory-status reported
-// github ok, server and address failing); the UI was hardcoded to the GitHub
-// sentence because that was the only case when it was written. Copy written for
-// one gap must not survive as copy for every gap.
-test('the headline branches on whether GitHub is actually one of the gaps', () => {
-  const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'member.html'), 'utf8');
-  const fn = html.match(/function loadFactoryStatus\(\)\{[\s\S]*?\n {2}\}/)[0];
-  assert.match(fn, /if \(needsGh\) noticeHead\(/, 'the headline is chosen, not fixed');
-  assert.match(fn, /This rock cannot build a pebble yet/, 'and there is a non-GitHub headline to choose');
-  assert.match(fn, /hosting side/, 'which names the side that IS missing');
-});
-
-test('the button label and the line beside it follow the same fact', () => {
-  const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'member.html'), 'utf8');
-  const fn = html.match(/function stArm\(\)\{[\s\S]*?\n {2}\}/)[0];
-  assert.match(fn, /factoryNeedsGh \? 'Connect GitHub first' : 'Not ready to build'/,
-    'sending someone to connect an account that is already connected is a dead end');
-  assert.match(fn, /factoryGapNames/, 'and the reason names the real gaps');
-});
-
-test('stArm reads state, so the two surfaces cannot disagree', () => {
-  const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'member.html'), 'utf8');
-  assert.match(html, /var factoryNeedsGh = false;/);
-  assert.match(html, /factoryNeedsGh = gaps\.some/, 'set from the same gaps the notice renders');
-  assert.match(html, /factoryNeedsGh = false; factoryGapNames = '';/, 'and cleared when the answer is unknown');
-});
+// (The connected-branch, gap-headline, button-label and stArm-state tests all
+// rendered the org face's backup card and factory notice; the retirement pin
+// above already holds that none of those functions survive in member.html.)
 
 // ------------------------------------------------ presence is not proof
 //

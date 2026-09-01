@@ -114,18 +114,11 @@ add('member-brain', '/member', { waitMs: 2500, after: nav('brain', 3500) });
 // away to Pebbles, so a shot of it would document the Pebbles page, not this one.
 add('member-network', '/member', { waitMs: 2500, after: nav('network', 2000) });
 add('member-network-org', '/member?world=org', { waitMs: 2500, after: nav('network', 2000) });
-// S9: the public brain a tied rock chose to share, read live + tie-gated. The
-// Rock brain nav tab was retired 2026-08-10 (rockreader is a sibling section
-// with no nav button, deliberately: "no route can reach it except through a
-// rock"), so the shot now walks the only path a member has — open the anchor
-// rock's row on Rocks, then a page in its "Their brain" block.
-add('member-rockbrain', '/member', { waitMs: 2500, after: async (page) => {
-  await nav('rocks', 2000)(page);
-  await page.locator('#rockMine .cadrow .info').first().click();
-  await page.waitForTimeout(500);
-  await page.locator('#rockMine .rockpages button.pg').first().click();
-  await page.waitForTimeout(900);
-} });
+// The rock-brain reader died with the Organisations page (face collapse,
+// 2026-09-01): a commons shares files, not a live-read wiki, so there is no
+// tie-gated page walk left to photograph. The Communities page below is the
+// membership surface now.
+add('member-communities', '/member', { waitMs: 2500, after: nav('commons', 1800) });
 // Cadence + Library folded into Skills (2026-08-09 audit R6): one page carries
 // the rows, the inline editors and the rock catalogue sections.
 add('member-skills', '/member', { waitMs: 2500, after: nav('skills', 1500) });
@@ -142,7 +135,6 @@ add('member-skills-rocks', '/member', { waitMs: 2500, after: async (page) => {
   await page.locator('#skillsGroups .skgroup[data-group="rocks"]').scrollIntoViewIfNeeded();
   await page.waitForTimeout(600);
 } });
-add('member-sharing', '/member', { waitMs: 2500, after: nav('sharing', 1500) });
 // R17 (2026-08-23): the Claude Code tab is the Help page now, off the footer link.
 add('member-help', '/member', { waitMs: 2500, after: async (page) => { await page.click('#helpLink'); await page.waitForTimeout(600); } });
 add('member-terminal', '/member', { waitMs: 2500, after: async (page) => {

@@ -1,25 +1,15 @@
-// invite-copy.test.mjs — the invitation a host sends must be true.
+// invite-copy.test.mjs — RETIRED (2026-09-01, the face collapse).
 //   node --test wizard/panel/invite-copy.test.mjs
 //
-// This is the first thing a new member ever reads about Crads-AI, and on
-// 2026-08-24 it carried two instructions that were false, both of them known:
-//
-//   "it expires in 14 days"  — QA finding 140. The only expiry anything
-//     enforces is CLAIM_TTL_MS in cockpit/jobs/enrol-arrivals.mjs, which is 48
-//     HOURS and refuses an older claim outright. 140 found one link carrying
-//     three different promises; the join page was corrected and this one, the
-//     copy the member actually receives, was not.
-//
-//   "choose Join"            — QA finding 142. There is no Join button. The
-//     door offers Connect this computer, Continue, Create my pebble and Sign in
-//     to Crads-AI. A member following this instruction looks for a control that
-//     has never existed, and concludes they have the wrong app.
-//
-// Pinned by SOURCE STRING rather than by driving the page, deliberately: this
-// text is assembled in a function that only runs after a real invite is minted
-// against a real rock, which no test can reach. A string pin is weaker than a
-// driven assertion and it is what is available; it is still enough to stop the
-// two specific regressions above.
+// What this file used to hold. The invitation a host sent had to be true: the
+// expiry it promised had to be the one CLAIM_TTL_MS enforced (finding 140) and
+// it could not send the member looking for a Join button that never existed
+// (finding 142). The self-host pivot removed invitations altogether: nobody
+// provisions or enrols anyone else, sharing rides commons repos, so
+// showInviteResult and the copy it assembled are gone from member.html. The
+// pins below hold the stronger truth (no invite surface remains), plus the one
+// live half of finding 142: the door still offers no Join button, so no copy
+// anywhere may ever point at one.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -28,28 +18,17 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(path.join(HERE, 'member.html'), 'utf8');
-const invite = /function showInviteResult\([\s\S]*?\n {4}}/.exec(html);
 
-test('the invite function is still where this test thinks it is', () => {
-  assert.ok(invite, 'showInviteResult moved or was renamed; re-anchor this test');
+test('the invite surface is RETIRED: showInviteResult and its copy stay out of member.html', () => {
+  assert.ok(!html.includes('showInviteResult'), 'the assembler must stay gone');
+  assert.ok(!html.includes('expires in 48 hours') && !html.includes('expires in 14 days'),
+    'no invite expiry promise remains, true or false');
 });
 
-test('the invite promises the expiry the code actually enforces', () => {
-  assert.match(invite[0], /expires in 48 hours/,
-    'CLAIM_TTL_MS is 48h (cockpit/jobs/enrol-arrivals.mjs); the member must be told that');
-  assert.doesNotMatch(invite[0], /14 days/,
-    'nothing anywhere enforces 14 days (finding 140)');
-});
-
-test('the invite does not send the member looking for a Join button', () => {
-  assert.doesNotMatch(invite[0], /choose Join/i,
-    'no Join control exists in the app (finding 142)');
-});
-
-test('the door really has no Join button, so the rule above still applies', () => {
+test('the door really has no Join button, so nothing may ever instruct "choose Join"', () => {
   const door = readFileSync(path.join(HERE, 'door.html'), 'utf8');
   const labels = [...door.matchAll(/<button[^>]*>([^<]{2,40})/g)].map((m) => m[1].trim());
   assert.ok(labels.length, 'no buttons parsed; re-anchor');
   assert.ok(!labels.some((l) => /^join\b/i.test(l)),
-    `if a Join button is ever added, this test and the invite copy should change together (found: ${labels.join(' | ')})`);
+    `if a Join button is ever added, revisit every instruction that names it (found: ${labels.join(' | ')})`);
 });

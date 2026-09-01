@@ -55,7 +55,7 @@ test('enrolThisMachine parses', () => {
   assert.doesNotThrow(() => new Function(fnSource('enrolThisMachine')));   // eslint-disable-line no-new-func
 });
 
-test('opening a box enrols this machine, on the rising edge, for BOTH faces', () => {
+test('opening a box enrols this machine, on the rising edge, for the ONE face', () => {
   const enrol = at('function enrolThisMachine(){');
   const connect = at('function connect(quiet){');
 
@@ -68,9 +68,12 @@ test('opening a box enrols this machine, on the rising edge, for BOTH faces', ()
 
   const okBranch = at('connectAttempts = 0; hideConnError();');
   const call = html.indexOf('enrolThisMachine();', okBranch);
-  const orgSplit = html.indexOf('if (IS_ORG) {', okBranch);
   assert.ok(call > okBranch, 'called from the connected branch');
-  assert.ok(call < orgSplit, 'and BEFORE the org face returns early, so a rock enrols too (Sam\'s own case)');
+  // The face collapse (2026-09-01) removed the org early-return this call once
+  // had to beat. The old failure mode is structurally gone rather than dodged:
+  // there is no face split anywhere in the page for a future edit to move the
+  // call behind, and a rock enrols because every mineral runs the same branch.
+  assert.equal(html.includes('IS_ORG'), false, 'no face split remains to starve the enrol call');
 
   assert.match(html.slice(enrol, connect), /'\/devices\/self-heal'/, 'it posts to the self-heal route');
 });

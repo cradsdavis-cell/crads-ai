@@ -71,7 +71,9 @@ test('the Skills page chip and the Cadence page agree via the shared describeCad
 // the raw status token as the headline, a raw timestamp, and kebab job ids as
 // row labels. Pinned so a revert is loud.
 test('the health card speaks in plain words, not box vocabulary', () => {
-  const block = html.split("{ id: 'health', title: 'Health', faces: ['member', 'org'],")[1]
+  // The faces attribute left the card definitions with the face collapse
+  // (2026-09-01): one face, so cards no longer declare who sees them.
+  const block = html.split("{ id: 'health', title: 'Health',")[1]
     .split("{ id: 'skills'")[0];
   // the headline is a phrase, never the box's own token
   assert.match(block, /'All good'/, 'healthy headline');
@@ -91,7 +93,11 @@ test('the health card speaks in plain words, not box vocabulary', () => {
 
 test('machinery rows carry human labels, never raw job ids', () => {
   assert.match(html, /function machineryLabel\(id\)\{/, 'one label map for both id shapes');
-  assert.match(html, /'heartbeat': 'Status check-in'/, 'heartbeat is not a word a member needs');
+  // Self-host restatement (2026-09-01): the heartbeat no longer checks in with
+  // anyone. It is a local liveness stamp the page itself reads, the label says
+  // so, and the row copy promises it stays on the mineral.
+  assert.match(html, /'heartbeat': 'Liveness stamp'/, 'heartbeat is not a word a member needs');
+  assert.match(html, /A local liveness stamp this page reads; it stays on the mineral\./, 'the row says the stamp never leaves');
   assert.match(html, /'auto-update': 'Software updates'/, 'kebab ids are mapped');
   assert.match(html, /esc\(machineryLabel\(m\.id\)\)/, 'the row renders through the map');
   assert.doesNotMatch(html, /OPTED OUT via cockpit\/auto-update\.json/, 'no config file paths in member copy');

@@ -48,55 +48,20 @@ test('the sandbox that shim runs in is still opaque, so parent is the only way o
 
 // ------------------------------------------------------------ finding 114/115
 //
-// An anchored, org-managed pebble was told "You have not tied to any rocks yet.
-// You own your pebble; it is hosted and billed directly" — while Your pebble,
-// the Map and the same page's own card said the opposite — and was then offered
-// Join and Ask to anchor on the very rock anchoring it.
-//
-// Cause: this page rode /rock-mine alone, whose edges are keyed to the SIGNED-IN
-// ACCOUNT at the directory, and has several ordinary ways to come back empty.
-// The mineral's own record was never consulted.
-test('the box sends the anchor SLUG, not just the bool: a name cannot be derived from true', () => {
-  assert.match(server, /anchored,anchor:\(own\.anchor&&own\.anchor!=="crads-ai"\?own\.anchor:""\)/,
-    'console-state carries ownership.json.anchor, with the Mountain sentinel read as unanchored');
-});
-
-test('a mineral that records an anchor is never told it has no rocks', () => {
-  const map = fn('rockTieMap', 'rockOwnLine');
-  assert.match(map, /if \(!IS_ORG && rockLocalAnchor && rockLocalAnchor\.org && !m\[rockLocalAnchor\.org\]\)/,
-    'the local anchor seeds the tie map when the directory has not named it');
-  assert.match(map, /tie: 'anchored'/, 'as an anchor, which is what it is');
-  assert.match(map, /local: true/, 'flagged, so the page can tell a mineral fact from a directory fact');
-  // the directory may ADD rocks to this page; it may never remove the anchor
-  assert.ok(map.indexOf('rockMineSt') < map.indexOf('rockLocalAnchor'),
-    'directory rows first, then the floor: a directory row for the same rock wins on detail');
-});
-
-test('the anchor survives being signed out, because signing in is not what makes it true', () => {
-  const mine = fn('rockRenderMine', 'rockConsumeWanted');
-  const signedOut = mine.slice(0, mine.indexOf('var seenTie'));
-  assert.match(signedOut, /if \(rockLocalAnchor\) \{[\s\S]*rockRow\(rockLocalAnchor\.org/,
-    'the signed-out branch still renders the anchor row');
-  assert.match(signedOut, /Sign in once to see any other rocks you belong to\./,
-    'and the prompt narrows to the rocks it can actually speak for');
-});
-
-test('the board cannot offer a member the rock that already anchors them', () => {
-  const board = fn('rockRenderBoard', 'rockRenderMine');
-  assert.match(board, /\.filter\(function\(c\)\{ return !tiedHere\[c\.org\]; \}\)/, 'ties are subtracted');
-  // 182 narrowed the subtraction to the PICKED mineral's ties, and the locally-
-  // recorded anchor is exactly that mineral's own tie: it must stay in the set,
-  // or the signed-out board would offer the anchoring rock a Join it refuses.
-  assert.match(board, /if \(rockLocalAnchor && rockLocalAnchor\.org\) tiedHere\[rockLocalAnchor\.org\] = true;/,
-    'the mineral\'s local anchor still hides its rock, signed in or not');
-});
-
-test('a tie known only to the mineral offers no button the worker would refuse', () => {
-  const blk = fn('rockTieBlock', 'rockBrainBlock');
-  assert.match(blk, /if \(tie && tie\.local\) \{/, 'the local case comes first');
-  assert.match(blk, /Sign in above to change it\./, 'and says what would make the action possible');
-  const localBranch = blk.slice(blk.indexOf('tie.local'), blk.indexOf('} else if'));
-  assert.ok(!/rockLeave/.test(localBranch), 'no Leave button on a tie the directory has not confirmed');
+// RETIRED (2026-09-01, the face collapse). The four pins here held that a
+// mineral's OWN record of its anchor outranked the directory's empty answer
+// on the Organisations page (tie map seeding, the signed-out anchor row, the
+// board subtraction, the button-less local tie). Anchoring itself is gone:
+// nothing anchors a self-hosted mineral, the page died with the org face, and
+// rocks-page.test.mjs pins the sections and routes as gone. The lesson (the
+// box's own record is the truth, a remote read is only ever additive) lives
+// on in the Map, which now draws ONLY what the mineral states about itself;
+// ties-map.test.mjs pins that shape.
+test('the anchor-vs-directory reconciliation is RETIRED with the page that needed it', () => {
+  for (const name of ['rockTieMap', 'rockRenderMine', 'rockRenderBoard', 'rockOwnLine']) {
+    assert.ok(!html.includes(`function ${name}(`), `${name} must stay gone`);
+  }
+  assert.ok(!html.includes('rockLocalAnchor'), 'the local-anchor shadow store went with it');
 });
 
 // ---------------------------------------------------------------- finding 116
@@ -106,15 +71,22 @@ test('a tie known only to the mineral offers no button the worker would refuse',
 // is the list you revoke a lost laptop from, and two devices would have read
 // identically. The self-serve path (/enrol-request) had carried device_name
 // since it shipped; the admin-first claim path (/redeem) dropped it.
-test('the claim path names the machine, exactly as the enrol path always did', () => {
+test('the machine name has ONE home, and the dead claim paths stay deleted', () => {
+  // The /redeem claim path carried device_name: machineName() until the invite
+  // system (and member-connect's server with it) was deleted 2026-09-01. What
+  // survives of finding 116 is the rule: machine-name.mjs is the single home
+  // of the name, and the one live consumer (panel-server's device naming)
+  // imports it rather than growing a second copy.
+  const ps = readFileSync(new URL('./panel-server.mjs', import.meta.url), 'utf8');
+  assert.match(ps, /import \{ machineName \} from '\.\/machine-name\.mjs'/,
+    'the shared module, not a second copy that could drift');
+  // device-enrol.mjs (the central-account enrol path and its re-export) was
+  // DELETED with the face collapse: a new computer is let in by an old one
+  // over SSH now, and machine-name.mjs is the single home of the name.
+  assert.ok(!existsSync(new URL('./device-enrol.mjs', import.meta.url)),
+    'the enrol module stays deleted; the name has one home');
   const mc = readFileSync(new URL('./member-connect.mjs', import.meta.url), 'utf8');
-  assert.match(mc, /device_name: machineName\(\)/, 'the /redeem body carries it');
-  assert.match(mc, /import \{ machineName \} from '\.\/machine-name\.mjs'/,
-    'from the shared module, not a second copy that could drift from the enrol path');
-  const de = readFileSync(new URL('./device-enrol.mjs', import.meta.url), 'utf8');
-  assert.match(de, /export \{ machineName, machineSlug \} from '\.\/machine-name\.mjs'/,
-    're-exported, so every existing importer keeps working');
-  assert.match(de, /device_name: machineName\(deviceName\)/, 'and the enrol path is unchanged');
+  assert.ok(!mc.includes('function createMemberConnectServer'), 'the invite server stays deleted (its header may record the name)');
 });
 
 test('the worker relay pin is RETIRED (2026-09-01): the directory worker is deleted', () => {
@@ -152,14 +124,18 @@ test('every skill the pebble-template ships has a human title', () => {
 });
 
 // ---------------------------------------------------------------- finding 118
-test('one rock is called one thing on one page', () => {
+test('the Origin row still names the seeder, without the dead anchor lookup', () => {
+  // Finding 118 wanted one name for one rock. The anchor display-name store
+  // (rockNoteAnchor / rockLocalAnchor) died with anchoring, so the seat now
+  // renders lineage.stamped_by itself with an honest fallback; with no anchor
+  // row above it there is no second name on the page to disagree with.
   const seat = fn('loadSeat', 'seatRenameApply');
-  assert.match(seat, /rockNoteAnchor\(st\);\s+\/\/ the Rocks page and Origin below both read it/,
-    'the seat records the anchor before it renders anything that names it');
-  assert.match(seat, /var seededBy = lin && lin\.stamped_by/, 'Origin resolves the slug');
-  assert.match(seat, /\(rockLocalAnchor \|\| \{\}\)\.name \|\| lin\.stamped_by/,
-    'to the anchor display name when it is the same rock, and keeps the slug when it is not');
-  assert.match(seat, /seatRow\('Seeded by', seededBy,/, 'and renders the resolved name');
+  assert.ok(!seat.includes('rockNoteAnchor'), 'the anchor note-taker is gone');
+  assert.match(seat, /var seededBy = \(lin && lin\.stamped_by\) \|\| 'another mineral';/,
+    'the slug renders, or an honest placeholder, never undefined');
+  assert.match(seat, /seatRow\('Seeded by', seededBy,/, 'and reaches the Origin row');
+  assert.match(seat, /Self-started\. Nobody seeded this mineral\./,
+    'a self-started mineral says so instead of inventing a seeder');
 });
 
 test('counts on the member Welcome page pluralise', () => {

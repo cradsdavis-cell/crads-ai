@@ -47,16 +47,18 @@ your week running you, and none of them requires you to remember to ask. Each
 arrives as a recipe in the library on your mineral, with its own guide beside
 it; the [Skills page](/docs/skills-page) is where they land.
 
-## The ten skills it ships with
+## The skills it ships with
 
-The four cadences above are the daily shape; the shipped set is short enough
-to name in full. Every mineral arrives with ten engine skills: the **Daily
-brief**, **Inbox triage**, **Follow-ups**, **Plan your week**, the **Weekly
-review**, **Capture the session**, **Connect a service**, **Build pages and
-cards**, **Explain this system**, and the **Onboarding interview**. That is
-the whole built-in set. Anything beyond it is something you or your community
-added, and the generated table at
-[every skill your mineral ships with](/docs/skills) says what each one does.
+The four cadences above are the daily shape; the everyday set is short enough
+to name in full: the **Daily brief**, **Inbox triage**, **Follow-ups**,
+**Plan your week**, the **Weekly review**, **Capture the session**,
+**Connect a service**, **Build pages and cards**, **Explain this system**,
+and the **Onboarding interview**. The engine also ships a small set of
+authoring skills for writing pages, prompts and folders, which a community
+host leans on when curating a commons. That is the whole built-in set:
+anything beyond it is something you or your community added, and the
+generated table at [every skill your mineral ships with](/docs/skills) is
+the authoritative list, straight from the code, of what each one does.
 
 To take one apart: a follow-up sweep surfaces overdue tasks, unanswered email
 threads from the people who matter to you, chat messages in both directions

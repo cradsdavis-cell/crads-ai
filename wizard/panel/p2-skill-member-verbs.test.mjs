@@ -324,11 +324,19 @@ test('an image without the scrubber warns rather than pretending it ran', () => 
     /if \[ -f \/app\/engine\/ops\/skill-scrub\.mjs \]; then .* else echo "WARN: .*too old to scrub/);
 });
 
-// ---- SELF_VERBS --------------------------------------------------------------------
+// ---- the one verb table ------------------------------------------------------------
 
-test('both faces carry skill-read; the rock face keeps the self verbs admin-gated where they write', () => {
-  const selfList = SRC.split('const SELF_VERBS = [')[1].split('];')[0];
-  for (const v of ['skill-remove', 'skill-read', 'catalog-install']) assert.ok(selfList.includes(`'${v}'`), v + ' crosses to the rock face');
+test('the org-face wall is RETIRED (2026-09-01): one served table, member verbs plus the catalogue dozen', () => {
+  // SELF_VERBS was the list that carried member verbs across the org wall so
+  // a rock could act on itself. There is no wall and no org face: every
+  // mineral serves MEMBER_VERBS plus the named CATALOGUE_VERBS, and the
+  // skills verbs live in the member table where every mineral reaches them.
+  assert.ok(!SRC.includes('SELF_VERBS'), 'the wall-crossing list is gone');
+  assert.match(SRC, /const verbs = Object\.assign\(\s*Object\.fromEntries\(CATALOGUE_VERBS\.filter\(\(k\) => VERBS\[k\]\)\.map\(\(k\) => \[k, VERBS\[k\]\]\)\),\s*MEMBER_VERBS\);/,
+    'the served table is built from exactly those two sources');
+  for (const v of ['skill-remove', 'skill-read', 'catalog-install']) {
+    assert.ok(MEMBER_VERBS[v], v + ' is a member verb, served to every mineral');
+  }
 });
 
 // ---- R23 POST /rock-tie-downgrade ----------------------------------------------------
@@ -337,100 +345,32 @@ const listen = (opts) => new Promise((resolve) => {
   const s = createPanelServer({ port: 0, host: '127.0.0.1', htmlPath: HTML_PATH, ...opts });
   s.on('listening', () => resolve(s));
 });
-const idToken = (email) => 'x.' + Buffer.from(JSON.stringify({ email })).toString('base64url') + '.sig';
-
-test('/rock-tie-downgrade forwards the signed ask, flips the cached edge and rewrites the box ties', async () => {
-  const sent = [];
+test('R23 is RETIRED (2026-09-01): the tie-downgrade route and its directory legs stay gone', async () => {
+  // Three tests stood here, driving POST /rock-tie-downgrade end to end: the
+  // signed ask to the directory worker, the cached-edge flip, the box-side
+  // unanchor and the ties rewrite. The worker is deleted and ties with it;
+  // there is no anchor left to downgrade, because no mineral hosts another.
+  // The live pin is the strongest one available: a real server answers 404,
+  // and the source carries neither the route nor the edge machinery.
   const boxCmds = [];
-  const edges = [
-    { org: 'acme', role: 'member', status: 'active', slug: 'pebble-four', rel: 'anchored', box: 'pebble-four.crads-ai.com' },
-  ];
-  const communityFetcher = async (url, init) => {
-    const u = String(url);
-    if (u.endsWith('/rock-tie-downgrade')) {
-      sent.push({ auth: init.headers.authorization, body: JSON.parse(init.body) });
-      return { ok: true, status: 200, json: async () => ({ ok: true, rel: 'joined' }) };
-    }
-    if (u.includes('/edges')) return { ok: true, status: 200, json: async () => ({ edges }) };
-    if (u.includes('/rock-tie-notices')) return { ok: true, status: 200, json: async () => ({ notices: [] }) };
-    return { ok: true, status: 200, json: async () => ({}) };
-  };
   const s = await listen({
-    edition: 'member',
     bridge: {
       targets: () => [{ host: 'pebble-four-box', kind: 'member', org: 'pebble-four' }],
-      stream: (h, c, o = {}) => { boxCmds.push({ h, c, stdin: o.stdin }); const p = new EventEmitter(); p.kill = () => {}; setImmediate(() => { if (o.onStdout) o.onStdout(/UNANCHOR-OK/.test(c) ? 'UNANCHOR-OK' : ''); p.emit('close', 0); }); return p; },
+      stream: (h, c, o = {}) => { boxCmds.push(c); const p = new EventEmitter(); p.kill = () => {}; setImmediate(() => p.emit('close', 0)); return p; },
       tty: () => {},
     },
-    directoryUrl: 'https://dir.example',
-    communityFetcher,
-    communitySignIn: async () => ({ ok: true, idToken: idToken('jane@example.com') }),
   });
   const base = `http://127.0.0.1:${s.address().port}`;
   try {
-    await fetch(`${base}/rock-mine/refresh`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
-    await new Promise((r) => setTimeout(r, 200));
-    const r = await fetch(`${base}/rock-tie-downgrade`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ org: 'acme', host: 'pebble-four-box' }) });
-    assert.equal(r.status, 200);
-    const b = await r.json();
-    assert.deepEqual(b, { ok: true, rel: 'joined', org: 'acme', host: 'pebble-four-box', detach: 'UNANCHOR-OK' }, 'the worker JSON comes back, plus the box-side detach result');
-    // R23 box-side half: the old anchor's feed is cut and the Mountain is
-    // written into ownership.json, BEFORE the ties rewrite.
-    const det = boxCmds.findIndex((x) => /UNANCHOR-OK/.test(x.c) && /by:"downgrade"/.test(x.c));
-    assert.ok(det >= 0, 'the downgrade unanchor command ran on the box');
-    assert.match(boxCmds[det].c, /j\.anchor="crads-ai"/, 'ownership.json records the Mountain');
-    assert.match(boxCmds[det].c, /rm -f \/state\/heartbeat\.conf \/state\/org-inbox\.conf/, 'the old anchor confs go');
-    assert.match(boxCmds[det].c, /changed to a join/);
-    assert.equal(sent.length, 1);
-    assert.equal(sent[0].auth, 'Bearer ' + idToken('jane@example.com'));
-    assert.deepEqual(sent[0].body, { org: 'acme', box_host: 'pebble-four-box' }, 'names the mineral as the promote leg does');
-    assert.equal(s._communityMine.edges[0].rel, 'joined', 'the cached edge flipped');
-    const ties = boxCmds.filter((x) => /ties\.json/.test(x.c));
-    assert.ok(ties.length >= 1, 'ties.json was rewritten on the box');
-    const last = ties[ties.length - 1];
-    const rows = JSON.parse(Buffer.from(String(last.stdin).trim(), 'base64').toString('utf8'));
-    assert.deepEqual(rows.map((x) => [x.org, x.tie]), [['acme', 'joined']]);
+    for (const route of ['/rock-tie-downgrade', '/rock-mine/refresh', '/rock-leave', '/handover-ask', '/transfer-consent']) {
+      const r = await fetch(`${base}${route}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      assert.equal(r.status, 404, `${route} answers 404`);
+    }
+    assert.deepEqual(boxCmds, [], 'and nothing was streamed at the box on the way');
   } finally { s.close(); }
-});
-
-test('/rock-tie-downgrade passes the directory’s refusals through, and validates first', async () => {
-  const communityFetcher = async (url) => {
-    if (String(url).endsWith('/rock-tie-downgrade')) return { ok: false, status: 409, json: async () => ({ error: 'acme owns this mineral, so it stays anchored there' }) };
-    return { ok: true, status: 200, json: async () => ({}) };
-  };
-  const s = await listen({
-    edition: 'member',
-    bridge: { targets: () => [{ host: 'pebble-four-box', kind: 'member', org: 'pebble-four' }], stream: () => { const p = new EventEmitter(); setImmediate(() => p.emit('close', 0)); return p; }, tty: () => {} },
-    directoryUrl: 'https://dir.example',
-    communityFetcher,
-    communitySignIn: async () => ({ ok: true, idToken: idToken('jane@example.com') }),
-  });
-  const base = `http://127.0.0.1:${s.address().port}`;
-  try {
-    let r = await fetch(`${base}/rock-tie-downgrade`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ org: 'acme', host: 'pebble-four-box' }) });
-    assert.equal(r.status, 409);
-    assert.match((await r.json()).error, /owns this mineral/);
-    r = await fetch(`${base}/rock-tie-downgrade`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ org: 'Not A Handle' }) });
-    assert.equal(r.status, 400);
-    r = await fetch(`${base}/rock-tie-downgrade`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: 'nope' });
-    assert.equal(r.status, 400);
-  } finally { s.close(); }
-});
-
-test('/rock-tie-downgrade is a member-face route; an unsigned ask is 401', async () => {
-  const s = await listen({
-    edition: 'member',
-    bridge: { targets: () => [{ host: 'pebble-four-box', kind: 'member', org: 'pebble-four' }], stream: () => { const p = new EventEmitter(); setImmediate(() => p.emit('close', 0)); return p; }, tty: () => {} },
-    directoryUrl: 'https://dir.example',
-    communityFetcher: async () => { throw new Error('must not be dialled'); },
-    communitySignIn: async () => ({ ok: false, reason: 'cancelled' }),
-  });
-  const base = `http://127.0.0.1:${s.address().port}`;
-  try {
-    const r = await fetch(`${base}/rock-tie-downgrade`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ org: 'acme' }) });
-    assert.equal(r.status, 401);
-  } finally { s.close(); }
-  assert.match(SRC, /path === '\/rock-tie-downgrade' && edition === 'member'/, 'the rock face does not serve it');
+  assert.ok(!SRC.includes("'/rock-tie-downgrade'"), 'the route is out of the source');
+  assert.ok(!SRC.includes('refreshCommunityMine'), 'the cached-edge machinery went with it');
+  assert.ok(!SRC.includes('syncTiesToBox'), 'and the box-side ties writer');
 });
 
 // ---- the skills dir follows the brain root (live finding 2026-08-23) ---------------------

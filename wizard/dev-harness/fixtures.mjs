@@ -734,21 +734,9 @@ export function topologyWorld(state, org) {
 }
 
 // ---------------------------------------------------------------------------
-// member-connect endpoints
+// own-brain (the seat's Backup card; the other member-connect endpoint
+// fixtures were deleted with the invite surface, 2026-09-01)
 // ---------------------------------------------------------------------------
-export function myOrgs(state) {
-  if (state === 'error') return { orgs: [], signedIn: false, reason: 'could not reach the directory. Check your connection and try again' };
-  if (state === 'empty') return { orgs: [], signedIn: false };
-  return {
-    signedIn: true,
-    orgs: [
-      { org: ORG_DISPLAY, slug: 'mel', role: 'member', status: 'active', owner: 'member', connected: true },
-      { org: 'Northwind Circle', slug: 'mel-nw', role: 'member', status: 'active', owner: 'org', connected: false },
-    ],
-  };
-}
-
-export function joinOrgStatus() { return { stage: 'none' }; }
 export function ownBrainStatus() { return { stage: 'idle', steps: [] }; }
 
 // The brokered build's progress, walked on a clock: the same percentages
@@ -794,54 +782,10 @@ export function orgGitHubStatus() {
   return { stage: 'done', steps: ['Waiting for you to approve the code on github.com', 'Approved. Handing the account to your rock', 'Connected as driftwood-surf'], reason: '', login: 'driftwood-surf', repo: 'driftwood-surf/driftwood-brain' };
 }
 
-export function joinOrgLookup(handle, state) {
-  if (state === 'error') return { error: 'the directory did not answer; try again in a minute' };
-  if (String(handle || '').toLowerCase() === 'driftwood') return { orgDisplay: ORG_DISPLAY };
-  return { error: `no rock answers to "${handle}". Check the handle with them` };
-}
-
-export function redeem(state) {
-  if (state === 'error') return { error: 'that invite could not be read; ask your rock for a fresh link' };
-  return {
-    slug: 'mel', fingerprint: 'K7PMQZ', publicKey: FAKE_KEY('mel-laptop'),
-    staged: true, tierName: 'Standard', tierDescription: 'Full access to all content and the weekly group call',
-  };
-}
-
-export function testConnection(state) {
-  if (state === 'rich') return { ok: true };
-  return { ok: false, output: 'Permission denied (publickey).' };
-}
-
-export function generateKey(body) {
-  const slug = String((body && body.slug) || 'jane01');
-  const alias = slug + ((body && body.kind) === 'operator' ? '-rock' : '-box');
-  return { reused: false, keyPath: `~/.ssh/aios/${alias}`, configUpdated: true, alias, publicKey: FAKE_KEY(alias) };
-}
-
 // ---------------------------------------------------------------------------
-// wizard /provision (SSE lines with pacing handled by the harness)
-// ---------------------------------------------------------------------------
-export function provisionLines() {
-  return [
-    '▸ checking your three access codes…',
-    'Hetzner token OK (project: driftwood)',
-    'Cloudflare token OK (zone: driftwood-surf.example.com)',
-    'GitHub token OK (user: driftwood-ops)',
-    '▸ creating the hub machine…',
-    'Creating Hetzner server driftwood-rock (cx22, hel1)…',
-    'server up: 203.0.113.10',
-    '▸ first start: installing the hub (the long step)…',
-    'booted; waiting for services…',
-    'cloudflare access wired: panel.driftwood-surf.example.com',
-    'brain repo created: driftwood-ops/driftwood-surf-brain (private)',
-    'registered driftwood-rock',
-    '__DONE__',
-  ];
-}
-
-// ---------------------------------------------------------------------------
-// join-page fragment (valid-looking v1 invite; payload = host|sip|user|token)
+// invite fragment (valid-looking v1 invite; payload = host|sip|user|token).
+// The /join page died 2026-09-01; this survives only because the legacy
+// invite-verb fixtures below still print link-shaped strings.
 // ---------------------------------------------------------------------------
 export function joinFragment() {
   const payload = Buffer.from('mel.driftwood-surf.example.com|203.0.113.44|member|tok_demo_9f3a1c77', 'utf8')

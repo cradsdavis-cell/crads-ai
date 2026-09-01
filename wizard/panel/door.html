@@ -184,8 +184,8 @@
   /* pebble flow, collapsed 2026-08-17 (Sam's ruling): self-provision builds SOLO
      only, so the ownership and who-manages-it screens are gone. A pebble is one
      screen (name + sign-in, with a for-someone reveal); a rock keeps its handle
-     screen first. Rock anchoring happens where a rock is involved: an invite the
-     rock provisioned, or the ask-to-join flow behind "Join a community". Adds
+     screen first. (The invite + ask-to-join flows named here died with the
+     hosted era, 2026-09-01: communities are commons repos now.) Adds
      label/input/button.act, which this page didn't need before this screen existed. */
   .pstep{display:none}
   .back{display:inline-block;color:var(--soft-2);font-size:12.5px;text-decoration:none;margin:0 0 14px;border-radius:6px;padding:1px 4px}
@@ -304,7 +304,7 @@
              opens this screen. The picker was right to discard a slug it cannot
              open; what was missing is a surface to pick. -->
         <button class="bigcard" data-make="have"><b>I already have one</b>
-          <span>Sign in, and this computer joins the minerals your account already holds. Nothing new is made.</span></button>
+          <span>Another computer that already opens it can let this one in. Nothing new is made.</span></button>
       </div>
     </div>
 
@@ -321,7 +321,7 @@
       <div id="shCosts">
         <p class="hint">The real costs, before anything is made. The software is free and open source. What costs money is the machine it runs on and the AI inside it, and you pay both providers directly:</p>
         <ul class="hint" style="margin:.4em 0 .8em 1.2em">
-          <li>a Hetzner cloud server, roughly $10 to 25 a month depending on size, billed to you by Hetzner</li>
+          <li>a Hetzner cloud server, roughly €4 to €30 a month depending on the size you pick, billed to you by Hetzner in euros</li>
           <li>your own Claude subscription, billed to you by Anthropic</li>
           <li>nothing to Crads-AI, ever</li>
         </ul>
@@ -466,7 +466,7 @@
   <p class="hint" id="idsHint" style="margin:-.35em 0 .8em">A dot means this computer can open it. Anything dimmed lives elsewhere until you connect this computer to it.</p>
   <div id="inv"></div>
   <div class="invnote" id="invNote"></div>
-  <div class="empty" id="none" style="display:none"><b>None yet.</b> Start a rock below, or join one you've been invited to.</div>
+  <div class="empty" id="none" style="display:none"><b>None yet.</b> Set up your own below, or have another of your computers let this one in.</div>
 
   <h2 id="newHead">New here?</h2>
   <div class="newrow" id="newRow">
@@ -592,14 +592,10 @@
     // RULING 5. The key is what opens this, and the key stays sovereign, so the
     // row is never hidden. But Sam signed in with an unrelated account on
     // 2026-08-10 and read the whole list as that account's holdings, so a row
-    // the signed-in account holds no grant on says so, and names the account it
-    // was measured against. An account mismatch, not an intrusion: the key was
-    // admitted by this mineral's own device roster, which is the only thing
-    // that writes its authorized_keys.
-    var flag = r.flagged
-      ? '<span class="flag">opens with this computer&#8217;s key, not held by '
-        + (r.flagAccount ? esc(r.flagAccount) : 'the signed-in account') + '</span>'
-      : '';
+    // The account-mismatch flag died with the account layer (2026-09-01):
+    // there is no signed-in account to measure a key against, and the mineral's
+    // own device roster is the only authority on what opens it.
+    var flag = '';
     b.innerHTML = '<span class="dot' + (st === undefined ? '' : st ? ' ok' : ' err') + '" aria-hidden="true"></span>'
       + '<span class="meta"><span class="name">' + esc(r.label)
       + (isLast ? '<span class="lastchip">Last used</span>' : '') + '</span>'
@@ -662,7 +658,7 @@
     a.title = 'Removes only this computer’s key and connection entry. No mineral, brain or account anywhere is touched.';
     a.onclick = function(ev){
       ev.preventDefault();
-      if (!confirm('Remove "' + r.label + '" from this computer?\n\nThis deletes only this computer\'s key and connection entry for it; no mineral, brain or account anywhere is touched. If the ' + noun + ' still exists, you would need a fresh invite to reconnect.')) return;
+      if (!confirm('Remove "' + r.label + '" from this computer?\n\nThis deletes only this computer\'s key and connection entry for it; no mineral or brain anywhere is touched. If the ' + noun + ' still exists, another of your computers can let it back in.')) return;
       fetch('/forget', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host: r.alias }) })
         .then(function(x){ if (x.ok) { load(); } else { x.text().then(function(msg){ alert('Could not remove it: ' + (msg || x.status)); }); } });
     };
@@ -933,8 +929,8 @@
     // Name what the link asked for. Without it, a member who pressed "Open in
     // the app" and landed here cannot tell whether the link did anything at all.
     document.getElementById('haveHint').textContent = haveSlug
-      ? 'This computer has no key for "' + haveSlug + '" yet. Sign in to Crads-AI and it can ask that mineral to admit this computer. Nothing is created.'
-      : 'Sign in to Crads-AI and this computer joins what your account already holds. Nothing is created.';
+      ? 'This computer has no key for "' + haveSlug + '" yet. Open this app on a computer that already opens that mineral and approve this one from there. Nothing is created.'
+      : 'Open this app on a computer that already opens your mineral and approve this one from there. Nothing is created.';
   }
   function exitHaveFlow(){
     haveSlug = '';

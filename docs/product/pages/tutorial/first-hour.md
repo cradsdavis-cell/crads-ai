@@ -47,7 +47,7 @@ computer before. The same **Set up my own** choice is below the list.
 Press **Set up my own**. The first screen is the bill, in full, before
 anything is created:
 
-- a Hetzner cloud server, roughly $10 to 25 a month depending on size, billed
+- a Hetzner cloud server, roughly €4 to €30 a month depending on the size you pick, billed
   to you by Hetzner
 - your own Claude subscription, billed to you by Anthropic
 - nothing to Crads-AI, ever
@@ -112,7 +112,7 @@ of these docs assume its names.
   [joining a community](/docs/join-a-community) happens.
 - **Your assistant** opens onto [**Brain**](/docs/brain-page) (*everything
   your assistant knows*), [**Skills**](/docs/skills-page) (*what it can do,
-  and when it runs*), **Library** (pages, prompts and folders, including any
+  and when it runs*), **[Library](/docs/library-page)** (pages, prompts and folders, including any
   a community offers you) and [**Connections**](/docs/connections-page)
   (*what it can reach*).
 - **Privacy & access** opens onto [**Secrets**](/docs/secrets-page) and

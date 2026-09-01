@@ -16,10 +16,20 @@
 // Method: slice the REAL resolver out of the built factory-status command and
 // run it in bash against a fixture box (the suite's standard technique), so the
 // pin exercises the shipped shell, not a paraphrase of it.
+//
+// The face collapse (2026-09-01): factory-status is no longer SERVED (the one
+// verb table is MEMBER_VERBS plus the Catalogue dozen), but its builder stays
+// exported for exactly these unit truths until the machinery is deleted, so
+// the member-token rung keeps its pins. Fixed the same day: the fixture used
+// to leave the REAL gh first on PATH, so on a signed-in machine `gh auth
+// token` answered before the member-token rung and PRINTED the developer's
+// own PAT into the test output. The gh rung is now shadowed with a stub that
+// refuses, which is the promoted-rock reality these tests model anyway (the
+// member flow never configures the gh CLI).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, chmodSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { VERBS } from './panel-server.mjs';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
@@ -46,20 +56,44 @@ function fixture({ token = 'ghp_membertoken' } = {}) {
   execFileSync('git', ['remote', 'add', 'origin', 'git@github.com:ingrid-owner/ingrid-brain.git'], { cwd: repo });
   const tok = path.join(box, 'brain-github-token');
   if (token != null) writeFileSync(tok, token, { mode: 0o600 });
-  return { repo, tok };
+  // A gh that refuses auth, first on PATH: a member-born rock has no gh login,
+  // and the real gh on a developer machine must never answer for the fixture
+  // (it did once, and its answer was the developer's own live PAT).
+  const bin = path.join(box, 'bin');
+  mkdirSync(bin);
+  writeFileSync(path.join(bin, 'gh'), '#!/usr/bin/env bash\n[ "$1" = auth ] && exit 1\n[ "$1" = api ] && exit 1\nexit 1\n');
+  chmodSync(path.join(bin, 'gh'), 0o755);
+  return { repo, tok, bin };
 }
 
-function resolve({ repo, tok, env = {} }) {
+function resolve({ repo, tok, bin, env = {} }) {
   const script = resolverSlice().replaceAll('/state/.kernel/brain-github-token', tok)
     + 'printf %s "${ORG_GH_OWNER:-}|${ORG_GH_TOKEN:-}"';
   return execFileSync('bash', ['-c', script], {
     encoding: 'utf8',
-    // BR set as factory-status sets it (BR_RESOLVE runs before the resolver);
-    // GH_CONFIG_DIR pinned to a void so a developer's own gh login can't leak in.
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, BR: repo,
-           GH_CONFIG_DIR: path.join(repo, 'no-such-gh'), ...env },
+    // BR set as factory-status sets it (BR_RESOLVE runs before the resolver).
+    // The stub gh leads PATH (see fixture); GH_CONFIG_DIR stays pinned to a
+    // void as belt and braces against a keyring-backed real gh. HOME is a
+    // scratch dir (the runPreamble pattern in factory-arming.test.mjs): with
+    // the developer's real HOME, this box's bash sources ~/.bashrc, which
+    // sources the operator env file, and the fixture inherits a LIVE
+    // GITHUB_TOKEN through that side door. That is how a real PAT reached the
+    // test output once (hygiene finding, 2026-09-01). The staged rungs are
+    // blanked as well, belt and braces; a test that stages credentials on
+    // purpose overrides these via `env`.
+    env: { PATH: `${bin}:${process.env.PATH}`, HOME: repo, BR: repo,
+           GH_CONFIG_DIR: path.join(repo, 'no-such-gh'),
+           ORG_GH_OWNER: '', ORG_GH_TOKEN: '', IC_ORG: '', IC_ORG_TOKEN: '',
+           GH_OWNER: '', GITHUB_TOKEN: '', GH_TOKEN: '', ...env },
   });
 }
+
+test('factory-status is not SERVED any more: the member table never gained it', async () => {
+  // The rung below stays pinned as a builder truth; this pin holds the other
+  // half of the collapse: no served surface reaches the org resolver.
+  const { MEMBER_VERBS } = await import('./panel-server.mjs');
+  assert.equal(MEMBER_VERBS['factory-status'], undefined);
+});
 
 test('a member-born rock resolves its GitHub from the member token file', () => {
   const f = fixture();

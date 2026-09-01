@@ -4,20 +4,13 @@
 //     Windows: HKCU registry keys (per-user, no admin). macOS: the CFBundleURLTypes
 //     plist entry is a PACKAGING-time fact (wizard-app.yml bundle), so runtime is a
 //     no-op there. Linux dev boxes: no-op.
-//   extractInvite(argv): when the OS launches (or re-launches) the app from a link,
-//     the URL arrives as an argv entry. Normalise it back to the canonical web link
-//     shape that member-connect's parseInviteLink already accepts.
+//   extractBox(argv): when the OS launches (or re-launches) the app from a link,
+//     the URL arrives as an argv entry.
+// extractInvite (crads-ai://join/) retired 2026-09-01 with the self-host sweep:
+// invitations-to-a-box cannot exist; an old join link just opens the app's door.
 import { execFile } from 'node:child_process';
 
 const SCHEME = 'crads-ai';
-
-export function extractInvite(argv) {
-  for (const a of argv || []) {
-    const m = String(a || '').match(/^crads-ai:\/\/join\/(.+)$/i);
-    if (m) return `https://crads-ai.com/join#${m[1]}`;
-  }
-  return '';
-}
 
 // crads-ai://box/<slug> — "open my box". The ready email needs a link that lands
 // a member IN their box (2026-07-30: it had none at all, and simply told them to

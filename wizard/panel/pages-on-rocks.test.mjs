@@ -13,16 +13,24 @@ const fn = (name) => {
   return html.slice(i, html.indexOf('\n  }\n', i) + 4);   // the function body only
 };
 
-test('the edition wall no longer blocks page: routes on the org face', () => {
+test('the edition wall is RETIRED (2026-09-01): page: routes open on the one face', () => {
+  // R15's original pin held that the org face stopped blocking page: routes
+  // while the member-section wall (IS_ORG && MEM_SECS) still stood. The face
+  // collapse deleted the wall wholesale: there is no IS_ORG, no MEM_SECS, and
+  // page: routes just open. The stronger truth is that the wall stays gone.
   const wall = html.slice(html.indexOf('function activateSec('), html.indexOf('function activateSec(') + 8000);
-  assert.ok(!/IS_ORG\s*&&[^\n]*page:/.test(wall), 'no org-side wall on page: routes');
-  assert.match(wall, /IS_ORG && MEM_SECS\.indexOf\(name\) >= 0/, 'the member-section wall itself still stands');
+  assert.ok(!wall.includes('IS_ORG'), 'no edition check anywhere in activateSec');
+  assert.ok(!html.includes('MEM_SECS'), 'the member-section allowlist is gone from the shell');
   assert.match(wall, /name\.indexOf\('page:'\) === 0\) openMemberPage/, 'page: routes still open the page');
 });
 
-test('the org connect branch loads the page list on the rising edge', () => {
-  const orgBranch = html.slice(html.indexOf("$('connStat').textContent = 'Connected as '"), html.indexOf("$('connStat').textContent = 'Connected to your mineral'"));
-  assert.match(orgBranch, /loadPagesList\(\)/, 'loadPagesList() is called in the org branch');
+test('the connect branch loads the page list on the rising edge', () => {
+  // There is one connect branch now (no 'Connected as' org wording), and it
+  // must still refresh the page nav when the connection comes up.
+  const i = html.indexOf("$('connStat').textContent = 'Connected to your mineral'");
+  assert.ok(i > 0, 'the one connected state exists');
+  assert.ok(!html.includes("'Connected as '"), 'the org-face connected wording is gone');
+  assert.match(html.slice(i, i + 800), /loadPagesList\(\)/, 'loadPagesList() runs on the rising edge');
 });
 
 test('seeded entries get a chip, rock-pushed entries get an origin chip, every page gets Delete', () => {

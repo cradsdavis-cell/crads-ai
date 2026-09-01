@@ -43,12 +43,13 @@ test('the editor markup lives inside the publish section, no new nav entry', () 
 });
 
 test('no new nav button was added for this editor', () => {
-  // ORG_SECS is the full list of org nav entries; the brief is explicit that
-  // this task adds no new one. "publish" already existed before this task.
-  const orgSecs = HTML.match(/var ORG_SECS = \[([^\]]*)\]/);
-  assert.ok(orgSecs, 'ORG_SECS is still declared');
-  assert.ok(!/packauth/i.test(orgSecs[1]), 'no packauth-shaped entry in the nav list');
+  // The brief was explicit that this task adds no new nav entry; the editor
+  // rides the Catalogue page. ORG_SECS (the org nav list this used to check)
+  // died with the face collapse (2026-09-01), so the pin is now direct: no
+  // packauth-shaped tab in the one nav, and no section of its own.
+  assert.ok(!HTML.includes('ORG_SECS'), 'the org nav list itself is gone');
   assert.ok(!/data-sec="packauth/.test(HTML), 'no new data-sec section for pack authoring');
+  assert.ok(!/<button[^>]*data-sec="[^"]*packauth/i.test(HTML), 'no packauth-shaped nav button');
 });
 
 test('a loader function exists and parses PACKS_STATE, distinguishing dormant, error and empty', () => {
@@ -266,7 +267,10 @@ test('F3: a failed post-save refresh keeps its own notice; the save result is ap
   assert.match(save, /notice\('packAuthNotice', \(cur \? cur \+ '\\n\\n' : ''\) \+ msg\);/, 'appended after the existing text, never replacing it outright');
 
   const load = fnBody('loadPackAuthoring', 2400);
-  assert.match(load, /return Promise\.resolve\(false\);/, 'a non-org face resolves false, not undefined (undefined would read as falsy-but-unintentional)');
+  // Un-gated since the face collapse (2026-09-01): every mineral can author
+  // pack content, so the non-org early return is gone and the loader must
+  // not grow a face check back.
+  assert.ok(!load.includes('IS_ORG'), 'no face gate in the loader');
   assert.match(load, /if \(!r\.ok\) \{ notice\('packAuthNotice', 'Could not read your packs:\\n' \+ outText\(r\)\); return false; \}/);
   assert.match(load, /if \(s\.dormant\) \{ notice\('packAuthNotice', s\.dormant\); empty\.style\.display = 'none'; body\.style\.display = 'none'; return false; \}/);
   assert.match(load, /if \(s\.error\) \{ notice\('packAuthNotice', 'Could not read your packs just now\. Try again in a moment\.'\); return false; \}/);
@@ -306,7 +310,11 @@ test('driven: the non-kebab row cannot be targeted, and a diverged save is confi
     page.on('pageerror', (e) => errors.push(e.message));
     await page.goto(`http://localhost:${PORT}/panel`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(600);
-    await page.click('text=Open Catalogue');
+    // The one-face nav (2026-09-01): the "Open Catalogue" dashboard CTA died
+    // with the org face; the Catalogue tab lives in a collapsed nav group, so
+    // open its group with a real click first (same pattern as dev-harness nav.mjs).
+    const { navTo } = await import(path.join(HERE, '..', 'dev-harness', 'nav.mjs'));
+    await navTo(page, 'publish', 600);
     await page.waitForFunction(() => {
       const sel = document.getElementById('packAuthPack');
       return sel && sel.options.length > 0;

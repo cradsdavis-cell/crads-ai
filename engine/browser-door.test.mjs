@@ -119,14 +119,14 @@ test('no provisioning path routes a tunnel at the IDE port', () => {
   }
 });
 
-test('the tunnel and DNS record still exist, so teardown and the fleet snapshot keep working', () => {
+test('the tunnel and DNS record still exist in the legacy shell path, so its teardown keeps working', () => {
   // Shutting the door is an ingress change, NOT a "stop making tunnels" change: teardown
-  // deletes by tunnel id and the operator fleet view keys off it. Removing them here
-  // would strand records that other code still expects to find.
+  // deletes by tunnel id. The JS engine's tunnel path DIED with the org wizard
+  // (2026-09-01; the self-host flow makes no tunnels at all), so only the
+  // legacy shell provisioners are pinned here until they retire too.
   assert.match(PROV_CLIENT, /cfd_tunnel/, 'member provisioning still creates a tunnel');
   assert.match(PROV_CLIENT, /dns_records/, 'member provisioning still creates the DNS record');
-  assert.match(WIZARD, /cfd_tunnel/, 'the self-serve door still creates a tunnel');
-  assert.match(WIZARD, /dns_records/, 'the self-serve door still creates the DNS record');
+  assert.ok(!/cfd_tunnel/.test(WIZARD), 'the stripped engine reaches no Cloudflare API');
 });
 
 // --- 5. the Access block must not assert an exposure the door-shut ruling removed ------

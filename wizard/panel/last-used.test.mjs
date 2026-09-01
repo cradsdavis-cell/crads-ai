@@ -101,21 +101,31 @@ test('the DASHBOARD is the writer, and app.mjs is the reader', () => {
   assert.match(app, /import \{ launchTarget, readLastUsed, lastUsedPath \} from '\.\/panel\/last-used\.mjs'/, 'app.mjs reads it');
   assert.match(app, /const pick = launchTarget\(allTargets, readLastUsed\(\)\);/, 'and decides with the tested function');
 
-  // and it is the ONE writer: both faces it boots opt into the real file, and
-  // nothing else in the tree may (enumerated in the harness test below).
-  assert.equal((app.match(/lastUsedPath: lastUsedPath\(\)/g) || []).length, 2,
-    'the org face and the member face each opt in, because a pebble owner opens the member one');
+  // and it is the ONE writer: since the face collapse (2026-09-01) the app
+  // boots exactly one panel server, so exactly one boot site opts into the
+  // real file, and nothing else in the tree may (enumerated below).
+  assert.equal((app.match(/lastUsedPath: lastUsedPath\(\)/g) || []).length, 1,
+    'the one panel server is the one opt-in; a second appearing means a second face grew back');
+
+  // both picks open THAT one panel: a remembered rock rides #host= (its alias
+  // cannot be derived from the slug) and a remembered pebble rides #box=.
+  assert.match(app, /pick\.open === 'panel' && panelFlipUrl/, 'the rock pick waits on the one panel URL');
+  assert.match(app, /#host=\$\{encodeURIComponent\(pick\.host\)\}/, 'and opens it on the remembered alias');
+  assert.match(app, /pick\.open === 'member' && panelFlipUrl/, 'the pebble pick waits on the SAME URL');
+  assert.match(app, /#box=\$\{encodeURIComponent\(pick\.slug\)\}/, 'and opens it on the remembered slug');
 });
 
 test('an explicit destination always beats the stored preference', () => {
-  // An invite link, a crads-ai://box link and AIOS_FORCE_WIZARD all say where to
-  // go. A remembered choice must never override something just clicked, so the
-  // last-used branch is LAST in the chain.
+  // A crads-ai://box link says where to go. A remembered choice must never
+  // override something just clicked, so the last-used branch is LAST in the
+  // chain. (The invite deep link died with the invitation system and
+  // AIOS_FORCE_WIZARD with the org wizard, both 2026-09-01, so the chain now
+  // opens on extractBox and the only explicit destination is the box link.)
   const app = readFileSync(new URL('../app.mjs', import.meta.url), 'utf8');
-  const chain = app.slice(app.indexOf('const invitedLink = extractInvite'), app.indexOf('console.log(`Crads-AI'));
+  const chain = app.slice(app.indexOf('const wantBox = extractBox(process.argv)'), app.indexOf('console.log(`Crads-AI'));
   const at = (needle) => chain.indexOf(needle);
   assert.ok(at('extractBox(process.argv)') > -1 && at('launchTarget(allTargets') > -1);
-  for (const earlier of ['invitedLink && memberConnectUrl', 'wantBox && memberUrl', 'wantBox && panelFlipUrl', 'AIOS_FORCE_WIZARD']) {
+  for (const earlier of ['wantBox && panelFlipUrl']) {
     assert.ok(at(earlier) > -1 && at(earlier) < at('launchTarget(allTargets'),
       `${earlier} is decided BEFORE the stored preference`);
   }

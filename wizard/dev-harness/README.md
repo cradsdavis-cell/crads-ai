@@ -1,8 +1,10 @@
 # dev-harness — local fixture server + screenshot rig
 
 Dev-only tooling for the UI overhaul (`docs/superpowers/specs/2026-07-25-ui-overhaul-design.md`).
-Serves all six UI surfaces with realistic mock data so Playwright (or a browser)
-can exercise them without a real box. Never shipped, never touches live systems.
+Serves the surviving UI surfaces (the one shell + the door; the invite
+connect/join pages and the org wizard were deleted 2026-09-01) with realistic
+mock data so Playwright (or a browser) can exercise them without a real box.
+Never shipped, never touches live systems.
 
 ## Start the harness
 
@@ -13,12 +15,9 @@ node wizard/dev-harness/harness.mjs --port 5000
 
 | URL | Surface | Real file served (unmodified) |
 |---|---|---|
-| `/panel` | Org control panel | `wizard/panel/panel.html` |
-| `/member` | Member face | `wizard/panel/member.html` |
-| `/door` | Identity chooser | `wizard/panel/door.html` |
-| `/connect` | Member onboarding | `wizard/panel/member-connect.html` |
-| `/wizard` | Org setup wizard | `wizard/ui/index.html` |
-| `/join` | Invite landing | `wizard/join-page/index.html` — needs the `#v1.…` fragment; `GET /join-url` returns a complete demo URL |
+| `/panel` | The one shell | `wizard/panel/member.html` |
+| `/member` | The one shell (same file) | `wizard/panel/member.html` |
+| `/door` | Identity chooser + self-host create | `wizard/panel/door.html` |
 
 Fixture world: org **driftwood-surf** (7 members across every status/risk level,
 3 operators, 3 skills, governance doc, org brain) and member **Mel Harper**

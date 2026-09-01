@@ -276,14 +276,12 @@ test('one page per surface, never two', () => {
 
 test('coverage is reported, and does not silently go backwards', () => {
   const { covered, total, rows } = coverage();
-  // A floor rather than an equality: re-pinned 2026-09-01 after the self-host
-  // pivot re-extraction (the nav grew commons + library; see inventory.json).
-  // Two surfaces are knowingly uncovered: `rocks` (the legacy Organisations
-  // section, awaiting its commons-era replacement in the panel) and `library`
-  // (a page still to write). A change that drops any other surface page
-  // should have to say so out loud here.
-  assert.equal(total, 16, 'the nav grew or shrank; re-read the inventory before adjusting this');
-  assert.ok(covered >= 14, `surface coverage fell to ${covered}/${total}: ${rows.filter((r) => !r.page).map((r) => r.sec).join(', ')}`);
+  // Re-pinned 2026-09-01 (final sweep): the Organisations tab (`rocks`) left
+  // the nav with the hosted-era board, and the `library` page was written, so
+  // every nav section a reader can reach now has its page. A change that
+  // drops a surface page should have to say so out loud here.
+  assert.equal(total, 15, 'the nav grew or shrank; re-read the inventory before adjusting this');
+  assert.ok(covered >= 15, `surface coverage fell to ${covered}/${total}: ${rows.filter((r) => !r.page).map((r) => r.sec).join(', ')}`);
 });
 
 // --- how the pages know about each other -------------------------------------

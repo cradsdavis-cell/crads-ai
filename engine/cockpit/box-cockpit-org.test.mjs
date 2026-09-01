@@ -82,11 +82,13 @@ test('brain_root defaults to <box>/brain when deployment.yaml is absent', () => 
   assert.equal(d.assistant, 'Acme CoLab', 'org detection still fires at the default root');
 });
 
-test('dashboard-data is importable by the org face (SELF_VERBS crossing, non-mutating)', async () => {
-  const src = readFileSync(join(HERE, '..', '..', 'wizard', 'panel', 'panel-server.mjs'), 'utf8');
-  const selfVerbs = (src.split('const SELF_VERBS')[1] || '').split('];')[0];
-  assert.ok(selfVerbs.includes("'dashboard-data'"), 'dashboard-data rides SELF_VERBS into ORG_VERBS');
+test('dashboard-data is a member verb on the one face (the SELF_VERBS crossing retired with the editions)', async () => {
+  // The org face and its SELF_VERBS import died with the face collapse
+  // (2026-09-01): there is one served verb table now, and dashboard-data
+  // simply IS a member verb on it. The read-only guarantee is the part that
+  // still matters, so it is the part that stays pinned.
   const { MEMBER_VERBS } = await import('../../wizard/panel/panel-server.mjs');
+  assert.ok(MEMBER_VERBS['dashboard-data'], 'the verb is served');
   assert.ok(!MEMBER_VERBS['dashboard-data'].mutating, 'and stays read-only, so no adminOnly rewrite');
 });
 

@@ -24,6 +24,7 @@ import { HetznerClient } from '../provision/hetzner.mjs';
 import { provisionSelfHost, destroySelfHost, DEFAULT_SERVER_TYPE, DEFAULT_LOCATION } from '../provision/engine.mjs';
 import { installMemberAccess } from './member-connect.mjs';
 import { pinHostForUser, runSsh } from './ssh-bridge.mjs';
+import { registerClaudeSshConfig, syncClaudeStartDir, claudeSettingsPath, OPEN_FOLDER_PROBE } from './claude-settings.mjs';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$/;
 
@@ -37,6 +38,13 @@ export function provisionRoutes(opts = {}) {
   // working, not a proxy for it (live-cert 2026-09-01).
   const probe = opts.probe || ((alias) => runSsh(alias, 'echo chain-ok'));
   const sleep = opts.sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
+  // Access is app-first: SSH only, no browser IDE. So the Environment entry in
+  // the Claude Code app is not a nicety, it is the door the member walks
+  // through, and the flow is not finished until it exists.
+  const settingsPath = opts.settingsPath || claudeSettingsPath();
+  const register = opts.register || registerClaudeSshConfig;
+  const syncStartDir = opts.syncStartDir || syncClaudeStartDir;
+  const openFolder = opts.openFolder || ((alias) => runSsh(alias, OPEN_FOLDER_PROBE));
   const bootTimeoutMs = opts.bootTimeoutMs ?? 15 * 60_000;
   const bootPollMs = opts.bootPollMs ?? 15_000;
 
@@ -101,6 +109,26 @@ export function provisionRoutes(opts = {}) {
           await sleep(bootPollMs);
         }
         pin(run.ip, { sshDir });
+        // THE ENVIRONMENT ENTRY IN THE CLAUDE CODE APP.
+        // The hosted-era connect flow wrote this (member-connect's
+        // registerInClaude, with the same /test open-folder leg). This flow was
+        // written without it, so a self-hosted box came up healthy, reachable
+        // and pinned, and then simply never appeared in the dropdown: the one
+        // surface that can open it. Found by Sam on the first working box,
+        // 2026-09-01.
+        //
+        // Best-effort, on the rule the connect flow already states: a settings
+        // refusal must never fail a build that worked. The box is up either way.
+        try {
+          register({ id: run.alias, name: run.slug, sshHost: run.alias, startDirectory: '/state' }, settingsPath);
+          // /state/<name> is the folder the box wants opened, and it can only be
+          // asked now the chain is proven. Registering a folder nobody has
+          // confirmed exists is a session Claude Code cannot open, which is why
+          // this is a second step and not a guess at install time.
+          let of = null;
+          try { of = await openFolder(run.alias); } catch { of = null; }
+          if (of && of.code === 0) syncStartDir(run.alias, String(of.stdout || ''), settingsPath);
+        } catch { /* the mineral is up; the dropdown entry is repairable by hand */ }
         run.state.booted = true;
         saveState(slug, run.state);
         run.phase = 'ready';

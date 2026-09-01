@@ -1,14 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { extractInvite, registerProtocolHandler } from './protocol.mjs';
+import { readFileSync } from 'node:fs';
+import * as protocol from './protocol.mjs';
 
-test('extractInvite finds the deep link in argv and normalises to the web shape', () => {
-  const frag = 'v1.acme.jane01.cGF5bG9hZA';
-  assert.equal(extractInvite(['C:\\app.exe', `crads-ai://join/${frag}`]), `https://crads-ai.com/join#${frag}`);
-  assert.equal(extractInvite(['node', 'app.mjs']), '');
-  assert.equal(extractInvite([]), '');
-  assert.equal(extractInvite(null), '');
-  assert.equal(extractInvite(['evil://join/x', 'crads-ai://other/x']), '');
+const { registerProtocolHandler } = protocol;
+
+test('RETIREMENT PIN (self-host sweep, 2026-09-01): the join deep link stays dead', () => {
+  // Invitations-to-a-box cannot exist with nothing central. extractInvite was
+  // the argv hook that routed crads-ai://join/ links to the retired invite
+  // surface; an old link now just opens the app (the door explains the flows).
+  assert.equal(protocol.extractInvite, undefined, 'extractInvite must not come back');
+  const app = readFileSync(new URL('../app.mjs', import.meta.url), 'utf8');
+  assert.ok(!app.includes('extractInvite'), 'app.mjs must not route join links anywhere');
 });
 
 test('windows registration writes the three HKCU keys with the exe path', async () => {

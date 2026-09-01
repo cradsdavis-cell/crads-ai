@@ -148,7 +148,9 @@ test('regression (review round 2): a pack item never reaches the skills OFFERS l
   // kind, takes the skill path, and fails (no SKILL.md).
   const start = HTML.indexOf('// ---- group 2: From your rocks, one subsection per rock ----');
   assert.ok(start > -1, 'sanity: the offers-rendering block exists');
-  const end = HTML.indexOf('// E7 (2026-08-10 tie audit)', start);
+  // the loop ends where the attached-state computation begins; the old E7
+  // comment anchor left with the tie machinery (face collapse, 2026-09-01)
+  const end = HTML.indexOf('// "attached"', start);
   assert.ok(end > start, 'sanity: the block ends before the next section');
   const block = HTML.slice(start, end);
   assert.match(block, /libs\.forEach\(function\(l\)\{/, 'sanity: this is the loop that walks libEntries() output');

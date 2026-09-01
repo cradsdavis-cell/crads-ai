@@ -20,12 +20,14 @@ have to remember to ask for.
 
 ## The list
 
-Every mineral ships with the ten engine skills: `capture`, `connect`, `daily`,
-`dashboard`, `explain`, `followup`, `inbox`, `onboard`, `plan-week` and
-`weekly`. They are also the terminal's slash commands (`/daily`, `/inbox` and
-so on), and each is documented in
-[every skill your mineral ships with](/docs/skills). Anything beyond those
-arrived one of two ways: your community published it to you, or you wrote it.
+Every mineral ships with the same engine set: everyday skills like `capture`,
+`connect`, `daily`, `dashboard`, `explain`, `followup`, `inbox`, `onboard`,
+`plan-week` and `weekly`, plus the authoring skills (`write-page`,
+`write-prompt`, `write-folder`) that make library content. They are also the
+terminal's slash commands (`/daily`, `/inbox` and so on), and
+[every skill your mineral ships with](/docs/skills) is the generated,
+authoritative list. Anything beyond that set arrived one of two ways: your
+community published it to you, or you wrote it.
 
 The page has two groups. **"On this mineral"** is everything installed,
 grouped by category (briefings and planning, capture and review, inbox and

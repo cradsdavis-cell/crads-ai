@@ -1,139 +1,119 @@
-// catalogue-page.test.mjs — the rock's Catalogue page (Sam, 2026-08-10;
-// rewritten for panel iteration 2, 2026-08-23: R3, R4, R13, F2, R25).
+// catalogue-page.test.mjs — the Catalogue page (Sam, 2026-08-10; iteration 2
+// 2026-08-23; rebuilt commons-led for the face collapse, 2026-09-01).
 //   node --test wizard/panel/catalogue-page.test.mjs
 //
-// Iteration 2 took the page down to ONE audience (your members), ONE control
-// per skill per member (the offer toggle), and Publish ON THE ROW. What this
-// file guards:
-//   1. the retired surfaces stay retired (R3/R4/F2): no rock-to-rock push, no
-//      vendor fold, no "Install for…" panel, no page-level sticky bar
-//   2. the row anatomy: title · /id · version · description · member grid with
-//      three states and an offer toggle · a per-row Publish + Undo
-//   3. the dirty baseline does not alias its working copy, and comparison is
-//      normalised (an empty chosen-list IS nobody)
-//   4. publish writes the FULL policy, then reconciles, and a scrub refusal
-//      renders its file:line hits under the row while keeping the draft
-//   5. the count strip and empty state point the right way
-//   6. R27: org form labels + chips are not uppercase
+// The hosted era gave this page a per-member offer grid, an audience policy
+// and Publish-on-the-row, all of which presumed a rock pushing content down to
+// minerals it hosted. In the commons model membership IS the entitlement:
+// read access to a git repository the owner controls. So the page is now the
+// Commons card first (set up, publish, Access roster, grants) and a READ-ONLY
+// inventory of the library zones a publish ships whole. What this file guards:
+//   1. the hosted machinery stays retired: no offer grid, no audience policy,
+//      no per-row publish, and no catalog-policy verb in the SERVED table
+//   2. the Commons card leads the page, with the Access roster and the
+//      bundle-line and GitHub-sign-in hints where the owner will read them
+//   3. the inventory: one load from skill-list + pack-list + item-list,
+//      rendered in zones by kind, each row title · chips · description only
+//   4. the count strip counts per kind; empty and populated states render
+//      their own thing
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { VERBS } from './panel-server.mjs';
+import { VERBS, MEMBER_VERBS } from './panel-server.mjs';
 
 const html = readFileSync(new URL('./member.html', import.meta.url), 'utf8');
+const server = readFileSync(new URL('./panel-server.mjs', import.meta.url), 'utf8');
 const sec = html.slice(html.indexOf('<section data-sec="publish"'), html.indexOf('</section>', html.indexOf('<section data-sec="publish"')));
-const js = html.slice(html.indexOf('// ---- Catalogue (Sam, 2026-08-10'), html.indexOf('// ---- Progress steps + plain-words errors'));
+const js = html.slice(html.indexOf('// The catalogue, post-collapse (2026-09-01)'), html.indexOf('// ---- Pack content editor'));
 
-// F2 + R4 + R3. Assert on CODE shapes (a verb call, an element id, a function
-// definition), not on prose: the comments explaining the retirement are
-// allowed to name what went.
-test('R4/R3/F2: the page no longer calls the retired verbs or mounts the retired surfaces', () => {
-  for (const verb of ['community-catalog-push', 'community-catalog-list', 'catalog-sync', 'skill-push']) {
+// Assert on CODE shapes (a verb call, an element id, a function definition),
+// not on prose: comments explaining the retirements are allowed to name what
+// went.
+test('the hosted-era machinery stays retired: no grid, no policy, no per-row publish', () => {
+  for (const verb of ['community-catalog-push', 'community-catalog-list', 'catalog-sync', 'skill-push',
+    'catalog-policy-write', 'catalog-reconcile-run']) {
     assert.ok(!html.includes(`run('${verb}'`), `member.html no longer runs ${verb}`);
-    assert.ok(!html.includes(`'${verb}'`), `and does not name ${verb} as a string anywhere`);
   }
-  for (const id of ['vendorRow', 'catTies', 'catSave', 'catSaveCtx', 'catPublish', 'catDiscard', 'catalogSyncBtn']) {
+  for (const name of ['catToggle', 'catSetMember', 'catWritePolicy', 'catPublishRow(',
+    'catInstalled', 'catDirty', 'CAT.draft', 'CAT.base', 'catAud(', 'fleetNames']) {
+    assert.ok(!html.includes(name), `${name} is gone from the shell`);
+  }
+  for (const id of ['vendorRow', 'catTies', 'catSave', 'catSaveCtx', 'catPublish"', 'catDiscard', 'catalogSyncBtn']) {
     assert.ok(!html.includes(`id="${id}"`), `#${id} is gone`);
-    assert.ok(!html.includes(`$('${id}')`), `and nothing looks it up`);
   }
   assert.ok(!html.includes('catInstallPanel'), 'the Install-for panel is gone, name and all');
-  assert.ok(!html.includes('CAT.dormant'), 'and the directory-dormant lock with it');
   assert.ok(!html.includes('class="stickysave"'), 'no page-level sticky bar');
-  assert.ok(!/\.stickysave\{/.test(html), 'and its rule is retired');
-  assert.ok(!html.includes("data-aud=\"comm\""), 'no tied-rock audience segment');
-  assert.ok(!js.includes('catSeg('), 'the segmented control is gone with both audiences');
+  assert.ok(!sec.includes('class="catgrid"'), 'no member grid in the markup');
 });
 
-test('the page is one list of rows, with no page-level save', () => {
-  assert.ok(sec.includes('id="catRows"'), 'one row list');
-  assert.ok(sec.includes('id="catState"'), 'a count strip');
-  assert.ok(sec.includes('id="catEmpty"'), 'an empty state');
-  assert.ok(!sec.includes('listhead'), 'no list heading: the rows are the page');
-  assert.match(sec, /<h2>Catalogue<button class="info"[^>]*data-tip="[^"]*not the same list as Skills/, 'the heading bubble draws the line from Skills');
-  assert.match(sec, /<p>What this rock offers its members\.<\/p>/, 'one-line sub-copy');
+test('the served verb table carries the catalogue dozen and never the policy verbs', () => {
+  // One verb table since the face collapse: MEMBER_VERBS plus the named
+  // CATALOGUE_VERBS list. catalog-policy-write stays exported from VERBS for
+  // its own unit tests, but it must never be in the served list, or the
+  // audience machinery is reachable again from any browser.
+  const m = server.match(/const CATALOGUE_VERBS = \[([\s\S]*?)\];/);
+  assert.ok(m, 'the served catalogue list is a named literal');
+  const served = [...m[1].matchAll(/'([a-z-]+)'/g)].map((x) => x[1]);
+  assert.deepEqual(served, ['skill-list', 'pack-list', 'item-list', 'pack-content-list',
+    'prompt-write', 'page-write', 'commons-status', 'commons-roster', 'commons-init',
+    'commons-publish', 'commons-grant', 'commons-revoke'], 'exactly the catalogue dozen');
+  assert.ok(!served.includes('catalog-policy-write') && !served.includes('catalog-reconcile-run'),
+    'no policy verb rides the served table');
+  for (const v of served) assert.ok(VERBS[v] || MEMBER_VERBS[v], `${v} really exists to serve`);
+});
+
+test('the Commons card leads the page and the roster is headed Access', () => {
+  const commonsAt = sec.indexOf('id="commonsCard"');
+  const libraryAt = sec.indexOf('>Your library<');
+  assert.ok(commonsAt > 0 && libraryAt > commonsAt, 'Commons first, the library inventory below it');
+  assert.match(sec, /<h3 class="subhead" id="commonsCard">Commons<button class="info"/, 'the card head carries its bubble');
+  assert.match(sec, /<h4 class="subhead"[^>]*>Access<button class="info"/, 'the roster subheading is Access');
+  assert.match(sec, /it starts <span style="font-family:var\(--mono\)">cradscommons1:<\/span>/, 'the grant hint names the bundle line');
+  assert.match(sec, /the one the Backup card on <b>Your mineral<\/b> connects/, 'the setup hint points GitHub sign-in at the seat Backup card');
+  assert.match(sec, /<p>What this mineral shares when it hosts a community\.<\/p>/, 'one-line sub-copy, role not edition');
   assert.ok(!/[—]/.test(sec), 'zero em dashes');
 });
 
-// R13: the row anatomy.
-test('R13: each row carries title · /id · version · description · a member grid · Publish on the row', () => {
-  const row = js.slice(js.indexOf('function catRow('), js.indexOf('function catScrubHits('));
+test('the loaders are un-gated: opening the Catalogue loads commons, inventory and pack authoring', () => {
+  assert.match(html, /if \(name === 'publish'\) loadCatalogue\(\);/, 'a visit loads the inventory');
+  assert.match(html, /if \(name === 'publish'\) loadPackAuthoring\(\);/, 'and the pack editor');
+  assert.match(html, /if \(name === 'publish'\) loadCommons\(\);/, 'and the commons state');
+  assert.ok(!sec.includes('orgsec'), 'the section carries no org-face class');
+});
+
+test('the inventory is one read: skill-list + pack-list + item-list, no policy read', () => {
+  assert.match(js, /run\('skill-list', \{\}\), run\('pack-list', \{\}\)/, 'the two library verbs');
+  assert.match(js, /run\('item-list', \{\}\)\.catch\(function\(\)\{ return ''; \}\)/,
+    'item-list degrades to empty on an older image, not to an error');
+  assert.ok(!js.includes('community-catalogs'), 'the hosted catalog fetch is gone');
+  assert.match(js, /if \(!force && CAT\.loading\) return CAT\.loading;/, 'a load in flight is reused');
+});
+
+test('rows render in zones by kind, and an unknown kind still gets a zone', () => {
+  for (const z of ['skill', 'prompt', 'page', 'dir', 'pack']) {
+    assert.match(js, new RegExp(`\\['${z}',`), `zone ${z} declared`);
+  }
+  assert.match(js, /zone\('Other', 'Newer kinds this app does not have a name for yet\.',/,
+    'a newer mineral’s items never silently vanish');
+});
+
+test('each row is read-only: title · kind or /id chip · version · description, nothing pressable but the bubble', () => {
+  const row = js.slice(js.indexOf('function catRow('));
   assert.match(row, /<span class="nm">' \+ esc\(it\.title\)/, 'title');
-  assert.match(row, /'\/' \+ esc\(it\.id\)/, '/id chip');
+  assert.match(row, /KIND_CHIP\[it\.kind\] \? esc\(KIND_CHIP\[it\.kind\]\) : '\/' \+ esc\(it\.id\)/,
+    'only a skill is chipped /id: a prompt is not a command anyone can type');
   assert.match(row, /<span class="chip">v' \+ esc\(String\(it\.version/, 'version chip');
+  assert.match(row, /warnchip">sends outbound/, 'an outbound skill is flagged');
   assert.match(row, /desc\.length > 150/, 'a long description folds into a bubble');
-  assert.match(row, /<div class="catgrid"><\/div>/, 'the member grid');
-  assert.match(row, /line\.setAttribute\('data-member', x\.slug\)/, 'one line per live member');
-  assert.match(row, /fleetNames\(x\.m, x\.y\)/, 'headed by the mineral’s live name, via the one naming helper');
-  assert.match(row, /<span class="mono">' \+ esc\(x\.slug\)/, 'slug in mono');
-  assert.match(row, /chip\.setAttribute\('data-state', st\)/, 'a state chip per member');
-  assert.match(row, /catToggle\(on, /, 'and an offer toggle per member');
-  assert.match(row, /'Offer \/' \+ it\.id \+ ' to everyone'/, 'an Everyone switch at the top of the grid');
-  // publish lives on the row
-  assert.match(row, /ctx\.textContent = 'Not published yet'/, 'a dirty row says so on the row');
-  assert.match(row, /undo\.textContent = 'Undo'/, 'with Undo');
-  assert.match(row, /go\.textContent = CAT\.busy\[it\.id\] \? 'Publishing…' : 'Publish'/, 'and Publish');
-  assert.match(row, /go\.onclick = function\(\)\{ catPublishRow\(it\); \}/, 'wired to the per-row publisher');
+  assert.ok(!row.includes('catToggle') && !row.includes('Publish'), 'no toggle and no publish on the row');
 });
 
-test('R2/R13: the three states come from the receipt and the PUBLISHED policy, not the registry', () => {
-  assert.match(js, /function catInstalled\(id, slug\)\{[\s\S]*?skills_from_rocks/, 'installed reads the heartbeat receipt');
-  assert.match(js, /if \(catInstalled\(id, slug\)\) return 'installed';/, 'installed first');
-  assert.match(js, /return catOffers\(CAT\.base\[id\], slug\) \? 'offered' : 'not offered';/, 'then offered / not offered from the published base');
-  assert.ok(!js.includes('m.skills'), 'the registry’s pushed-skill lines are not read as installed');
-  assert.match(js, /aud === 'all' \|\| \(Array\.isArray\(aud\) && aud\.indexOf\(slug\) >= 0\)/, 'audience all counts as offered');
-});
-
-test('the Everyone switch and the per-member rule from all', () => {
-  assert.match(js, /CAT\.draft\[it\.id\] = draft === 'all' \? 'none' : 'all';/, 'Everyone on = all, off = nobody');
-  const set = js.slice(js.indexOf('function catSetMember('), js.indexOf('function catRow('));
-  assert.match(set, /cur === 'all' \? members\.map\(function\(x\)\{ return x\.slug; \}\)/, 'turning one member off from all = the explicit list minus that one');
-  assert.match(set, /CAT\.draft\[id\] = catAud\(list\);/, 'and an emptied list normalises to nobody');
-});
-
-// Both of these produced a save line that lied. Aliasing made every edit report
-// "no changes"; un-normalised comparison made an empty chosen-list a pending
-// change against a base of 'none'.
-test('the dirty baseline is honest: no aliasing, normalised comparison', () => {
-  assert.match(js, /CAT\.base\[it\.id\] = catAud\(raw\); CAT\.draft\[it\.id\] = catAud\(raw\);/, 'baseline and working copy are two separate arrays');
-  assert.match(js, /function catDirty\(id\)\{ return !catAudEq\(catAud\(CAT\.draft\[id\]\), catAud\(CAT\.base\[id\]\)\); \}/, 'dirtiness compares normal forms');
-  assert.match(js, /a\.length \? a : 'none'/, 'an empty chosen-list normalises to nobody');
-});
-
-test('the unsaved-edits guard does not block its own post-publish reload', () => {
-  assert.match(js, /function loadCatalogue\(force\)/, 'the reload takes a force flag');
-  assert.match(js, /if \(!force && CAT\.loaded && catChanges\(\)\.length\)/, 'the guard respects it');
-  assert.match(html, /if \(name === 'publish'\) loadCatalogue\(\);/, 'a plain visit does not force');
-  // the two loaders prefetch each other; neither may recurse forever
-  assert.match(js, /if \(CAT\.loading\) return CAT\.loading;/, 'a load in flight is reused');
-  assert.match(html, /if \(!CAT\.loaded && !CAT\.loading\) loadCatalogue\(\);/, 'and the fleet prefetch checks it');
-});
-
-// Publish writes the WHOLE policy, keeps every id the page never saw, and
-// reconciles in the same click. A scrub refusal (R25) leaves the draft in place
-// and puts the file:line hits under the row.
-test('publish = full policy write, then reconcile; a scrub refusal keeps the draft and shows the hits', () => {
-  const w = js.slice(js.indexOf('function catWritePolicy('), js.indexOf('function catPublishRow('));
-  assert.match(w, /Object\.keys\(CAT\.policyItems\)\.forEach\(function\(k\)\{ items\[k\] = CAT\.policyItems\[k\]; \}\);/, 'ids this page never saw are preserved');
-  assert.match(w, /run\('catalog-policy-write', \{ content_b64: b64utf8\(payload\) \}/, 'writes the policy');
-  assert.match(w, /run\('catalog-reconcile-run', \{\}/, 'then reconciles');
-  assert.match(w, /hits: catScrubHits\(r\)/, 'a refused write reports the scrub hits');
-  assert.match(js, /\/\^ERROR: \\\/\[a-z0-9-\]\+ cannot be published\/\.test\(l\) \|\| \/\^\\s\+\\S\+:\\d\+: \/\.test\(l\)/, 'hits = the header line + file:line lines, exactly what the verb prints');
-  const pr = js.slice(js.indexOf('function catPublishRow('));
-  assert.match(pr, /if \(res\.hits\.length\) \{ CAT\.hits\[it\.id\] = res\.hits; renderCatalogue\(\); return; \}/, 'the draft is kept and the row re-renders with the hits');
-  assert.match(js, /err\.innerHTML = '<b>Not published\.<\/b>/, 'the row says it was not published');
-  // the verb really prints those shapes
-  const cmd = VERBS['catalog-policy-write'].build({ content_b64: 'e30=' }).command;
-  assert.match(cmd, /skill-scrub\.mjs/, 'the verb scrubs before writing');
-  assert.match(cmd, /ERROR: nothing was published/, 'and refuses whole');
-});
-
-test('the count strip reads library · offered to someone · installed somewhere', () => {
-  const st = js.slice(js.indexOf('function renderCatState('), js.indexOf('function catToggle('));
-  assert.match(st, /'In your library'/);
-  assert.match(st, /'Offered to someone'/);
-  assert.match(st, /'Installed somewhere'/);
-  assert.ok(!st.includes('Tied rocks'), 'no tied-rock cell');
-  assert.match(st, /catAud\(CAT\.base\[it\.id\]\)/, 'offered counts the PUBLISHED policy, never a draft');
+test('the count strip counts per kind, from the same items the zones render', () => {
+  const st = js.slice(js.indexOf('function renderCatState('), js.indexOf('function catRow('));
+  assert.match(st, /'In your library'/, 'the total leads');
+  assert.match(st, /byKind\[k\] = \(byKind\[k\] \|\| 0\) \+ 1;/, 'counts are per kind');
+  assert.ok(!st.includes('Offered to someone') && !st.includes('Installed somewhere'),
+    'the hosted-era cells are gone: a commons has no per-member ledger to count');
 });
 
 test('empty and populated states each render their own thing', () => {
@@ -141,28 +121,19 @@ test('empty and populated states each render their own thing', () => {
     'the empty message shows when there is nothing, not when there is something');
   assert.match(js, /\$\('catState'\)\.style\.display = CAT\.items\.length \? 'flex' : 'none';/,
     'and the count strip hides with it');
-  assert.match(sec, /offered to nobody until you say so/, 'the empty state is one sentence with one action');
-  assert.ok(!sec.includes('pull the ones your rock has been granted'), 'and no longer points at the retired vendor fold');
+  assert.match(sec, /published to nobody until you set up a commons and press Publish/,
+    'the empty state points at the commons, not at a retired surface');
+  assert.match(sec, /\/write-skill/, 'and names the authoring route');
 });
 
-// R27 (2026-08-23): the org face's form label and the chip lost
-// text-transform:uppercase, so nothing a member reads is shouted.
-test('R27: org form labels and chips are sentence case', () => {
-  const formLabel = html.match(/\.orgsec label,\.orgonly label\{[^}]*\}/);
-  assert.ok(formLabel, 'the org form-label rule exists');
-  assert.ok(!formLabel[0].includes('text-transform:uppercase'), 'org form labels are sentence case');
-  const chip = html.match(/\n  \.chip\{[^}]*\}/);
-  assert.ok(chip && !chip[0].includes('text-transform:uppercase'), 'chips render as entered');
-  assert.ok(!html.includes('.picker label{'), 'the old picker (and its uppercase reset) is gone with the segment');
-});
-
-test('all new CSS sits in the one iteration-2 block at the end of the main sheet', () => {
-  const mark = html.indexOf('/* ===== iteration 2: catalogue / members ===== */');
-  const end = html.indexOf('</style>', mark);
-  assert.ok(mark > 0 && end > mark, 'the block exists and closes the main sheet');
-  const block = html.slice(mark, end);
-  for (const sel of ['.catgrid{', '.catline{', '.catpub{', '.caterr{', '.fcstate{', '.chip.st-active{', '.chip.st-quiet{']) {
-    assert.ok(block.includes(sel), `${sel} lives in the block`);
-    assert.equal(html.indexOf(sel), mark + block.indexOf(sel), `${sel} is defined nowhere earlier`);
+test('each live catalogue selector is defined exactly once in the sheet', () => {
+  // The predecessor pinned everything into the iteration-2 CSS block; the
+  // zones rebuild (delivery-model step 7) legitimately homed the zone rules
+  // in the main sheet, so the survivable rule is single definition, wherever
+  // it lives: a second copy is how the 2026-08-23 three-way merge hid itself.
+  for (const sel of ['.catzone{', '.catrow{', '.catstate{']) {
+    const first = html.indexOf(sel);
+    assert.ok(first > 0, `${sel} exists`);
+    assert.equal(html.indexOf(sel, first + 1), -1, `${sel} is defined only once`);
   }
 });

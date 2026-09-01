@@ -56,67 +56,60 @@ test("a rock's assistant is called what the rock is called", () => {
 });
 
 test('no path asks a human for a persona, and none defaults to "Foreman"', () => {
-  assert.ok(!/'Foreman'/.test(engine), 'the literal default persona is gone from the engine');
-  assert.match(engine, /PERSONA: String\(pol\['org\.display_name'\] \|\| name\)/,
-    'PERSONA is a derived mirror of the display name');
-  assert.match(engine, /displayName: ORG_DISPLAY_NAME/,
-    'the CLI path must be able to produce a display name that differs from the slug');
+  // The provisioning flow that carried PERSONA (runWizard + the org-policy
+  // composer) was deleted with the org wizard (2026-09-01); what survives of
+  // engine.mjs is key machinery, so the pin is that nothing persona-shaped
+  // (least of all the "Foreman" default) creeps back in.
+  assert.ok(!/'Foreman'/.test(engine), 'the literal default persona stays gone from the engine');
+  assert.ok(!/PERSONA/.test(engine), 'no persona plumbing survives in the key machinery');
 });
 
-test('the rock sidebar writes its name through the one cache the picker reads', () => {
-  // The sidebar used to set textContent directly, skipping the per-host cache
-  // the target picker falls back on. Same rock, same control, reading
-  // "Foreman (x-rock)" on a laptop that had opened it and "x (x-rock)" on one
-  // that had not, and flipping back when the 24h TTL expired.
-  assert.ok(!/\$\('brainName'\)\.textContent = String\(\(\(orgx/.test(html),
-    'the rock name must not bypass setBrainName');
+test('every sidebar write goes through the one cache the picker reads', () => {
+  // The rock sidebar used to set textContent directly, skipping the per-host
+  // cache the target picker falls back on. The org path died with the face
+  // collapse (2026-09-01); what survives is the law: nothing writes the h1
+  // except setBrainName, and every surface that learns the real name feeds it.
   const connect = html.slice(html.indexOf('function connect(quiet)'), html.indexOf('var wasOk'));
-  assert.match(connect, /setBrainName\(rockName\)/, 'connect() caches the display name');
-  assert.match(connect, /nameHint\(state\.host\) \|\| orgT\.org/,
-    'the pre-governance fallback shows the handle without caching it');
-  const rid = html.slice(html.indexOf('function renderRockIdentity()'), html.indexOf('function renderRockIdentity()') + 1200);
-  assert.match(rid, /if \(display\) setBrainName\(display\)/,
-    'governance is where the real name first lands, so it must feed the cache');
+  assert.match(connect, /setBrainName\(\);/, 'connect() opens with the cached name (or skeleton), never a generic label');
+  assert.match(html, /if \(state\.data\.assistant\) setBrainName\(state\.data\.assistant\);/,
+    'the dashboard feeds the cache when the data lands');
+  assert.match(html, /if \(nm\) setBrainName\(nm\);/, 'the seat feeds it: the sidebar says what the seat says');
+  assert.match(html, /if \(rr && rr\.ok\) \{ setBrainName\(name\); loadDashboard\(true\); \}/,
+    'a rename feeds it immediately, so no surface keeps the dead name');
+  assert.match(html, /\(nameHint\(x\.host\) \|\| x\.org\)/, 'the picker falls back to the same cache, then the handle');
+  // And the retired org write shape must not come back.
+  assert.ok(!html.includes("$('brainName').textContent = String((("), 'nothing bypasses setBrainName');
 });
 
-test('a pebble reads its rock by name, never by handle', () => {
+test('an owning community is read by name, never by handle alone', () => {
   // An admin read "Acme CoLab" on their own rows while every one of their
-  // members read "impact-colab" on theirs: the same rock, named two ways by the
-  // two people most likely to talk to each other about it.
+  // members read "impact-colab" on theirs. The rock-name resolver died with
+  // the org face, but the seat's Ownership row can still name a legacy owning
+  // org, so the display name must still ride the wire and win over the handle.
   assert.match(server, /org:\{name:org\.org\|\|org\.name\|\|"",display:/,
-    'the member console state must ship the rock display name, not the handle alone');
-  assert.match(html, /function rockName\(handle, staged\)/, 'the pebble face resolves a rock name');
-  assert.match(html, /var orgName = rockName\(orgHandle, org\.display\) \|\| orgHandle/,
-    'Ownership and Anchor rows read the resolved name with the handle as last resort');
+    'the member console state ships the display name, not the handle alone');
+  assert.match(html, /var orgName = String\(org\.display \|\| ''\)\.trim\(\) \|\| orgHandle;/,
+    'the seat prefers the display name with the handle as last resort');
 });
 
-test('the rock name is resolvable from connect, not only from the Rocks page', () => {
-  // strengthSync already fetches /rock-mine at connect and used to keep only the
-  // counts. rockName() reads org_display out of that same payload, so throwing
-  // it away meant Your pebble showed the raw handle until the member happened to
-  // open the Rocks page: a fix that worked on the one screen nobody was on.
+test('the rock-tie name plumbing is RETIRED (2026-09-01): community names ride the community list', () => {
+  // rockName() read org_display out of the /rock-mine payload strengthSync
+  // kept at connect. The directory tie read is gone; the map and the ladder
+  // name communities from the mineral's own community-list instead.
+  assert.ok(!html.includes('rockMineSt'), 'no kept tie payload');
+  assert.ok(!html.includes('function rockName('), 'no rock-name resolver');
   const sync = html.slice(html.indexOf('function strengthSync'), html.indexOf('// ---- the card library'));
-  assert.match(sync, /rockMineSt = j;/, 'connect keeps the tie payload it already fetched');
+  assert.match(sync, /state\.communities = cs\.communities \|\| \[\];/,
+    'the community list is what connect keeps now');
+  assert.match(html, /label: c\.org_display \|\| c\.org/,
+    'and the map names a community by its display name, handle as fallback');
 });
 
-test("a rock's Pebbles row leads with the name the mineral calls itself", () => {
-  // The registry row carries the name the ADMIN typed at stamp time, and nothing
-  // ever carried a member's own rename back: box-rename writes the box and
-  // stops, org-sync is strictly rock to box. So the row could sit on a name its
-  // owner replaced weeks ago while every other surface agreed on the new one.
-  assert.match(html, /function pebbleLiveName\(m\)/, 'the panel resolves the live name');
-  // run-6 (79695ca) folded the row's fcLive/fcPerson locals into a fleetNames()
-  // helper. Pin the helper's CONTRACT (live leads, person falls back, both
-  // exposed as fields), not its callers' variable names, so the next rename
-  // cannot rot this while the behaviour stands.
-  const names = html.slice(html.indexOf('function fleetNames('), html.indexOf('function armingSteps('));
-  assert.match(names, /pebbleLiveName\(m\)/, 'the fleet naming asks for the live name');
-  assert.match(names, /heading: live \|\| person \|\| 'Unnamed pebble'/,
-    'the mineral name leads, admin label is the fallback');
-  // R27 (panel iteration 2): the subtitle segments are HTML now (the slug and
-  // host render in mono), so the person is pushed through esc().
-  assert.match(html, /if \(\w+\.person && \w+\.person !== \w+\.heading\) \w+\.push\(esc\(\w+\.person\)\)/,
-    'the person becomes the subtitle, and is not repeated when the two agree');
-  assert.match(server, /rock-pebble-names\?org=\$ORGN/, 'console-state fetches the live names');
-  assert.match(server, /pebbleNames,value,platform/, 'and ships them on the state line');
+test("the Pebbles roster naming is RETIRED (2026-09-01): no mineral names another", () => {
+  // pebbleLiveName/fleetNames resolved a member's own rename against the
+  // admin's stamp-time label. The Pebbles page and the fleet died with the
+  // org face, so the resolver chain stays gone on both sides of the wire.
+  assert.ok(!html.includes('function pebbleLiveName('), 'the live-name resolver stays gone');
+  assert.ok(!html.includes('function fleetNames('), 'and the fleet naming helper with it');
+  assert.ok(!server.includes('rock-pebble-names?org='), 'the server no longer fetches live names from a directory');
 });

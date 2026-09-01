@@ -5,6 +5,9 @@
 //   2 old-shape Secrets rows showed raw keys  6 pebble copy on the rock's Skills page
 //   3 Help copy contradicted itself        7 Reject vs Decline, shouted PRIVATE, torn-down tint
 //   4 the version chip floated over controls
+// The face collapse (2026-09-01) retired several of the surfaces these fixes
+// lived on (the fleet, the ask rows, the per-anchor publisher); those pins
+// became retirement pins holding the defect unable to re-form.
 // Run: node --test wizard/panel/verify-fixes-2026-08-23.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -121,21 +124,21 @@ test('2: the page-side legacy glosses mirror the engine names, and loadSecrets n
 });
 
 // ---- 3: Help copy ------------------------------------------------------------
-function helpLib(anchor, isOrg) {
+function helpLib() {
   const from = html.indexOf('  var openFolderAt = \'\';');
-  const to = html.indexOf('  function checkOnboard(){');
+  const to = html.indexOf('  function yamlScalar(');
   assert.ok(from > 0 && to > from, 'help block found');
   // eslint-disable-next-line no-new-func
-  return new Function('rockLocalAnchor', 'IS_ORG', 'return (function(){'
+  return new Function('return (function(){'
     + 'var els = {}; function $(id){ if (!els[id]) els[id] = { id: id, innerHTML: "", textContent: "" }; return els[id]; }'
     + 'function esc(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }'
     + 'var state = { host: "h" }; function run(){ return Promise.resolve({ ok: false }); } function outLines(){ return []; }'
     + html.slice(from, to)
-    + 'return { els: els, renderOpenFolderStep: renderOpenFolderStep, loadOpenFolder: loadOpenFolder, renderRestartPublisher: renderRestartPublisher };})()')(anchor, isOrg);
+    + 'return { els: els, renderOpenFolderStep: renderOpenFolderStep, loadOpenFolder: loadOpenFolder };})()')();
 }
 
 test('3: the folder sentence has two honest shapes: named after the mineral, or "called state" with the why', () => {
-  const a = helpLib(null, false);
+  const a = helpLib();
   a.renderOpenFolderStep('priyas-pebble');
   const named = a.els.openFolderStep.innerHTML.replace(/<[^>]+>/g, '');
   assert.match(named, /pick the one named after your mineral: priyas-pebble\./);
@@ -151,25 +154,23 @@ test('3: the folder sentence has two honest shapes: named after the mineral, or 
   const li = html.match(/<li id="openFolderStep">[^\n]*<\/li>/)[0];
   assert.match(li, /pick the folder called <b[^>]*id="openFolderName">state<\/b> \(this mineral has not named its folder yet/);
   // loadOpenFolder renders through the two-shape function, never by textContent alone
-  const load = html.slice(html.indexOf('  function loadOpenFolder(){'), html.indexOf('  function renderRestartPublisher(){'));
+  const load = html.slice(html.indexOf('  function loadOpenFolder(){'), html.indexOf('  function yamlScalar('));
   assert.match(load, /renderOpenFolderStep\(name\)/);
   assert.doesNotMatch(load, /openFolderName'\)\.textContent = name/);
 });
 
-test('3: the member restart card names the publisher: the anchor rock, else Crads AI', () => {
-  const none = helpLib(null, false); none.renderRestartPublisher();
-  assert.equal(none.els.boxRefreshPublisher.textContent, 'Crads AI', 'a Mountain-anchored pebble has no rock');
-  const rock = helpLib({ org: 'harriets-rock', name: "Harriet's rock", owner: 'org' }, false); rock.renderRestartPublisher();
-  assert.equal(rock.els.boxRefreshPublisher.textContent, "Harriet's rock");
-  const unnamed = helpLib({ org: 'harriets-rock', name: '', owner: 'org' }, false); unnamed.renderRestartPublisher();
-  assert.equal(unnamed.els.boxRefreshPublisher.textContent, 'harriets-rock', 'the slug when the rock has no name');
-  // the card's static copy defaults to Crads AI and no longer says "your rock"
+test('3: the restart card publisher is a constant now: the Crads-AI release channel', () => {
+  // The per-anchor publisher (renderRestartPublisher: the anchor rock's name,
+  // else Crads AI) died with anchors (face collapse, 2026-09-01). Software
+  // comes from one place for every mineral, so the copy hard-codes it and the
+  // renderer must not come back.
+  assert.ok(!html.includes('renderRestartPublisher'), 'the per-anchor renderer stays gone');
+  assert.ok(!html.includes('boxRefreshPublisher'), 'and its span with it');
   const card = html.match(/<p class="hint"[^>]*id="boxRefreshHint">[^\n]*<\/p>/)[0];
-  assert.match(card, /software <span id="boxRefreshPublisher">Crads AI<\/span> has published for it/);
+  assert.match(card, /the software the Crads-AI release channel has published for it/);
   assert.doesNotMatch(card, /your rock has published/);
-  // re-rendered on every Help open and after every anchor read
-  assert.match(html, /if \(name === 'help'\) \{ loadOpenFolder\(\); renderRestartPublisher\(\); \}/);
-  assert.match(html, /function rockNoteAnchor\(st\)\{\s*rockNoteAnchorRead\(st\);\s*renderRestartPublisher\(\);/);
+  // Help open still refreshes the two things the page reads live
+  assert.match(html, /if \(name === 'help'\) \{ loadOpenFolder\(\); loadSupport\(\); \}/);
 });
 
 // ---- 4: the version chip lives in the header flow ----------------------------
@@ -191,54 +192,59 @@ test('4: member.html mounts the version chip in the header, and the shared fragm
 });
 
 // ---- 5: the Map no longer renders paused -------------------------------------
-test('5: a legacy paused member is drawn by presence, like an active one (R5)', () => {
+test('5: the fleet is RETIRED (2026-09-01), so no node can ever say paused again', () => {
+  // R5 fixed the Map drawing legacy members as "paused". The face collapse
+  // removed the fleet from the Map wholesale: netModel draws the you-card and
+  // the joined communities, nothing below, so there is no member node left to
+  // mislabel and the word must stay out of the model.
   const src = html.slice(html.indexOf('function netModel(w)'), html.indexOf('function netLayout(nodes)'));
-  // eslint-disable-next-line no-new-func
-  const model = new Function('netPresence', 'cap', src + '; return netModel;')(
-    (ls) => ({ cls: ls ? 'ok' : '', txt: ls ? 'connected now' : 'no record yet' }), (s) => s);
-  const nodes = model({ ok: true, rock: true, box: { label: 'acme', tier: 'rock', mountain: true }, org: { label: 'Crads AI', anchor: true }, orgs: [],
-    fleet: [{ slug: 'p1', label: 'Pat Legacy', tie: 'anchored', status: 'paused', last_seen: new Date().toISOString() },
-      { slug: 'a1', label: 'Active Al', tie: 'anchored', status: 'active', last_seen: new Date().toISOString() }] });
-  const pat = nodes.find((n) => n.slug === 'p1'), al = nodes.find((n) => n.slug === 'a1');
-  assert.ok(pat && al, 'both drawn');
-  assert.equal(pat.status, '', 'no paused node state');
-  assert.deepEqual(pat.pres, al.pres, 'judged by presence exactly as the active member');
-  assert.ok(!/paused/i.test(JSON.stringify(pat)), 'the word never reaches the node');
-  assert.doesNotMatch(src, /'paused'/, 'netModel carries no paused branch');
-  assert.doesNotMatch(html, /data-status="paused"/, 'and no paused node style is left to match');
-  const counts = html.slice(html.indexOf('function lifecycleCounts(){'), html.indexOf('return c;', html.indexOf('function lifecycleCounts(){')));
-  assert.doesNotMatch(counts, /'paused'/, 'the Overview counts a paused row as active too');
+  assert.doesNotMatch(src, /fleet/, 'netModel draws no fleet');
+  assert.doesNotMatch(src, /'paused'/, 'and carries no paused branch');
+  assert.doesNotMatch(html, /data-status="paused"/, 'no paused node style is left to match');
+  assert.ok(!html.includes('function lifecycleCounts('), 'the Overview lifecycle counter died with the Pebbles card');
 });
 
-// ---- 6: "From your rocks" is face-aware --------------------------------------
-test('6: a rock with no ties shows no "From your rocks" group; a pebble keeps the join hint', () => {
+// ---- 6: the skills group is the commons vocabulary ----------------------------
+test('6: the second skills group speaks community, with two honest empty shapes', () => {
+  // "From your rocks" became "From your communities" (face collapse); the
+  // data-group attribute keeps its old value so saved layouts and the
+  // delegated routes survive the rename.
   const render = html.slice(html.indexOf('function renderSkills()'), html.indexOf('function skillRow('));
-  const guard = render.indexOf('if (IS_ORG && !order.length && !attached) return;');
-  const head = render.indexOf("skGroupHead(box, 'From your rocks')");
-  assert.ok(guard > 0 && head > guard, 'the face guard runs before the group heading is drawn');
-  assert.ok(render.indexOf('var attached =') < guard, 'and after the tie read it depends on');
-  assert.match(render, /Join one on the Organisations page/, 'the pebble copy survives for pebbles');
+  assert.match(render, /skGroupHead\(box, 'From your communities'\)/, 'the heading names communities');
+  assert.match(render, /g2\.setAttribute\('data-group', 'rocks'\);/, 'the wire id survives the rename');
+  assert.ok(!render.includes('IS_ORG'), 'no face guard: one page for every mineral');
+  assert.match(render, /<b>No community yet\.<\/b> Join one on the Communities page and its offers appear here\./,
+    'the not-joined empty state points at the Communities page');
+  assert.match(render, /<b>Your communities haven’t published anything yet\.<\/b>/,
+    'and the joined-but-empty state blames nobody');
+  assert.ok(!render.includes('Organisations page'), 'the dead page name is out of the copy');
 });
 
 // ---- 7: vocabulary, case, colour ---------------------------------------------
-test('7: Decline is the one word for saying no; nothing on the page says Reject', () => {
+test('7: nothing on the page says Reject, and the ask rows that said Decline are retired', () => {
+  // The join/tie/pending ask rows died with the directory, so the Decline
+  // buttons went with them. What must hold: the harsh word never comes back
+  // on any surface that outlives them.
   assert.doesNotMatch(uncommented(html).join('\n'), /\bReject\b/);
-  assert.ok((html.match(/textContent = 'Decline'/g) || []).length >= 3, 'join rows, tie rows and pending rows all say Decline');
+  assert.ok(!html.includes("textContent = 'Decline'"), 'no ask rows remain to say it');
 });
 
-test('7: the door banner words are sentence case, never shouted', () => {
-  for (const m of html.matchAll(/class="word">([^<]*)</g)) {
-    assert.doesNotMatch(m[1], /[A-Z]{2,}/, 'banner word: ' + m[1]);
-    assert.match(m[1], /^[A-Z][^A-Z]*$/, 'sentence case: ' + m[1]);
-  }
+test('7: no banner word can shout: the writer is gone and the CSS never uppercases', () => {
+  // The publish-state banner (PUBLIC / PRIVATE / CHECKING) died with the
+  // hosted catalogue; its CSS lingers unused. Nothing may reintroduce a
+  // shouted word through it.
+  assert.ok(!/class="word">/.test(html.replace(/<!--[\s\S]*?-->/g, '')), 'no markup writes a banner word');
   assert.doesNotMatch(html, /#commBanner \.word\{[^}]*text-transform/, 'no CSS uppercase on the banner word');
 });
 
-test('7: the "Torn down" chip on an Ended row keeps the soft ended colour', () => {
+test('7: the Ended-row chip is RETIRED (2026-09-01) and its soft colour rule holds if drawn', () => {
+  // The fleet's Ended rows died with the Pebbles page; the chip writer is
+  // gone. The surviving CSS must stay soft so any future reuse of the class
+  // cannot ship an alarm tint by default.
+  assert.ok(!html.includes('decommissioned'), 'no ended-row writer remains');
   assert.doesNotMatch(html, /\.fleet-erow \.ehow\.torn\{/, 'no torn-specific tint rule');
   const base = html.match(/\.fleet-erow \.ehow\{[^}]*\}/)[0];
   assert.ok(!/--accent|--bad|--warn/.test(base), 'the chip rule uses no action or alarm colour: ' + base);
-  assert.match(html, /class="ehow' \+ \(m\.decommissioned \? ' torn' : ''\) \+ '">' \+ esc\(cap\(how\)\)/, 'the chip still names how it ended');
 });
 
 // ---- driven: the chip overlaps nothing at 1280 (Decisions) and 640 ----------
@@ -266,7 +272,10 @@ test('driven: the version chip sits in the header and overlaps no control at 128
     return { inHeader: !!chip.closest('header.top'), fixed: getComputedStyle(chip).position, text: chip.textContent, hits };
   });
   try {
-    for (const [width, path, hash] of [[1280, '/panel', '#decisions'], [640, '/member', '#dashboard'], [640, '/panel', '#decisions']]) {
+    // One shell since the face collapse (2026-09-01): the /panel org face and
+    // its #decisions section are gone, so the drive covers the one app at two
+    // widths on two sections.
+    for (const [width, path, hash] of [[1280, '/member', '#seat'], [640, '/member', '#dashboard']]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
@@ -279,10 +288,6 @@ test('driven: the version chip sits in the header and overlaps no control at 128
       assert.notEqual(o.fixed, 'fixed', `${width} ${path}: chip is in flow`);
       assert.ok(o.text.length > 0, 'the chip says something');
       assert.deepEqual(o.hits, [], `${width} ${path}: the chip overlaps ${o.hits.join(', ')}`);
-      if (hash === '#decisions') {
-        const words = await page.locator('section[data-sec="decisions"] .pendrow button').allTextContents();
-        assert.ok(words.length > 0 && !words.some((w) => /reject/i.test(w)), 'Decisions rows say Decline, not Reject: ' + JSON.stringify(words));
-      }
       // the fold opens below the chip, inside the viewport
       await page.locator('#verChip').click();
       await page.waitForTimeout(300);

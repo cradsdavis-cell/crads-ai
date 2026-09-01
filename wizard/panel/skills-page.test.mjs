@@ -98,7 +98,10 @@ test('every engine skill carries a human title', () => {
 test('the renderer groups by the six spec categories and badges provenance', () => {
   for (const key of CATEGORIES) assert.match(html, new RegExp(`key: '${key}'`), `category '${key}' rendered`);
   assert.match(html, /'built-in'/, 'engine badge');
-  assert.match(html, /'from your rock'/, 'org badge (rock unknown)');
+  // The org-source fallback stopped naming "your rock" with the face collapse
+  // (2026-09-01): a rock is a role a community hub plays, so the badge speaks
+  // of the community instead.
+  assert.match(html, /'from your community'/, 'org badge (community unknown)');
   assert.match(html, /'starter'/, 'seed badge');
   assert.match(html, /'yours'/, 'member badge');
 });

@@ -76,17 +76,19 @@ add('panel-focus', '/panel', { waitMs: 3000, after: async (page) => {
   for (let i = 0; i < 3; i++) await page.keyboard.press('Tab');
   await page.waitForTimeout(250);
 } });
+// The Pebbles-page focus shots died with the page (face collapse,
+// 2026-09-01): the Catalogue's commons setup carries the primary-button and
+// input focus states now.
 add('panel-focus-primary', '/panel', { waitMs: 3000, after: async (page) => {
-  // ring on the Pebbles page's PRIMARY button (+ New pebble)
-  await navTo('pebbles', 1500)(page);
-  await tabTo(page, 'addMemberBtn');
+  await navTo('publish', 1500)(page);
+  await page.evaluate(() => { document.getElementById('commonsSetupFold').open = true; });
+  await tabTo(page, 'commonsInitBtn');
   await page.waitForTimeout(250);
 } });
 add('panel-focus-input', '/panel', { waitMs: 2500, after: async (page) => {
-  await navTo('pebbles', 800)(page);
-  await page.evaluate(() => { document.getElementById('stampFold').open = true; });
-  await page.click('#stOwnMember');
-  await page.focus('#st_name');
+  await navTo('publish', 800)(page);
+  await page.evaluate(() => { document.getElementById('commonsSetupFold').open = true; });
+  await page.focus('#commonsUrl');
   await page.waitForTimeout(250);
 } });
 // R17 (2026-08-23): Help is a page, not a modal; the keyboard path lands on
@@ -96,59 +98,13 @@ add('panel-focus-help', '/panel', { waitMs: 3000, after: async (page) => {
   await page.keyboard.press('Enter');
   await page.waitForTimeout(450);
 } });
-add('panel-pebbles', '/panel', { waitMs: 2500, after: navTo('pebbles', 2000) });
-add('panel-pebbles-empty', '/panel?state=empty', { waitMs: 2500, after: navTo('pebbles', 2000) });
 // Catalogue (was Publishing). The shot names keep the -publish suffix so the
 // ledger's before/after pairs still line up across the rename.
 add('panel-publish', '/panel', { waitMs: 2500, after: navTo('publish', 1500) });
 add('panel-publish-empty', '/panel?state=empty', { waitMs: 2500, after: navTo('publish', 1500) });
-add('panel-publish-focus', '/panel', { waitMs: 2500, after: async (page) => {
-  await navTo('publish', 1200)(page);
-  await page.focus('#catRows .catrow .seg button');
-  await page.waitForTimeout(250);
-} });
-// The state the old page could not show at all: pending edits, named, with the
-// save bar up and the edited rows outlined.
-add('panel-publish-dirty', '/panel', { waitMs: 2500, after: async (page) => {
-  await navTo('publish', 1500)(page);
-  await page.click('[data-cat-id="weekly-review"] [data-seg="mem"] button[data-v="custom"]');
-  await page.waitForTimeout(300);
-  await page.click('[data-cat-id="daily-brief"] [data-seg="comm"] button[data-v="off"]');
-  await page.waitForTimeout(400);
-} });
-add('panel-decisions', '/panel', { waitMs: 2500, after: navTo('decisions', 3200) });
-add('panel-decisions-empty', '/panel?state=empty', { waitMs: 2500, after: navTo('decisions', 3200) });
-add('panel-invite-midstep', '/panel', { waitMs: 2500, after: async (page) => {
-  await navTo('pebbles', 800)(page);
-  await page.evaluate(() => { document.getElementById('stampFold').open = true; });
-  await page.click('#stOwnMember');
-  await page.fill('#st_name', 'Jane Doe');
-  await page.fill('#st_email', 'jane@example.com');
-  await page.route('**/run', async (route) => {
-    if ((route.request().postData() || '').includes('invite-member')) {
-      await new Promise((r) => setTimeout(r, 5000));
-    }
-    await route.continue().catch(() => {});
-  });
-  await page.click('#stampBtn');
-  await page.waitForTimeout(900);
-} });
-add('panel-invite', '/panel', { waitMs: 2500, after: async (page) => {
-  await navTo('pebbles', 800)(page);
-  await page.evaluate(() => { document.getElementById('stampFold').open = true; });
-  await page.click('#stOwnMember');
-  await page.fill('#st_name', 'Jane Doe');
-  await page.fill('#st_email', 'jane@example.com');
-  await page.click('#stampBtn');
-  await page.waitForTimeout(2600);
-} });
-add('panel-yourrock', '/panel', { waitMs: 2500, after: navTo('yourrock', 1800) });
-add('panel-yourrock-danger', '/panel', { waitMs: 2500, full: false, after: async (page) => {
-  // the danger cards fold under Your rock now; scroll them on camera
-  await navTo('yourrock', 1800)(page);
-  await page.evaluate(() => { const el = document.getElementById('dzBtn'); if (el) el.scrollIntoView({ block: 'center' }); });
-  await page.waitForTimeout(400);
-} });
+// The Pebbles/Decisions/Your-rock/invite shots died with their pages (face
+// collapse, 2026-09-01): there is no member grid to edit and no invite to
+// stage, so the Catalogue's read-only inventory above is the whole surface.
 // S5: the org brain rides the shared graph viewer (data-sec="brain"); the
 // shot walks the same surface a member sees — graph, tree, in-panel reader
 add('panel-orgbrain', '/panel', { waitMs: 2500, after: async (page) => {
@@ -161,11 +117,11 @@ add('panel-terminal', '/panel', { waitMs: 2500, after: async (page) => {
   await page.click('#termBtn');
   await page.waitForTimeout(2500);
 } });
-// P3: the rehomed console surfaces + the rock Map + the org sharing floor
-add('panel-rocks', '/panel', { waitMs: 2500, after: navTo('rocks', 2200) });
+// The one-face Map and Communities (the Rocks and Sharing pages are gone;
+// support access lives on Help now).
 add('panel-map', '/panel', { waitMs: 2500, after: navTo('network', 2600) });
 add('panel-map-empty', '/panel?state=empty', { waitMs: 2500, after: navTo('network', 2600) });
-add('panel-sharing', '/panel', { waitMs: 2500, after: navTo('sharing', 1800) });
+add('panel-communities', '/panel', { waitMs: 2500, after: navTo('commons', 1800) });
 add('panel-help', '/panel', { waitMs: 2500, after: async (page) => {
   await page.click('#helpLink');
   await page.waitForTimeout(400);

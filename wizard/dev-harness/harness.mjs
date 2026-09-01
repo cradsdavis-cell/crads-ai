@@ -1,19 +1,16 @@
 #!/usr/bin/env node
-// harness.mjs — zero-dependency local fixture server for the six Crads-AI UI
+// harness.mjs — zero-dependency local fixture server for the Crads-AI UI
 // surfaces. Serves the REAL, unmodified HTML files and stubs every backend
 // endpoint they call with realistic data from fixtures.mjs, so Playwright can
 // screenshot and exercise the whole app without a real box.
 //
 //   node wizard/dev-harness/harness.mjs [--port 4610]
 //
-// Surfaces:
-//   /panel    → wizard/panel/member.html, edition=org (rock face of the shell)
-//   /member   → wizard/panel/member.html         (member face)
-//   /door     → wizard/panel/door.html           (identity chooser)
-//   /connect  → wizard/panel/member-connect.html (member onboarding)
-//   /wizard   → wizard/ui/index.html             (org setup wizard)
-//   /join     → wizard/join-page/index.html      (invite landing; needs the
-//               #v1.… fragment — GET /join-url returns a ready-made one)
+// Surfaces (the invite /connect + /join pages and the org /wizard were DELETED
+// 2026-09-01 with the invitation system and the hosted create flow):
+//   /panel    → wizard/panel/member.html  (the one shell; /member is the same file)
+//   /member   → wizard/panel/member.html
+//   /door     → wizard/panel/door.html    (identity chooser + self-host create)
 //
 // States (page-level, non-invasive): open a surface with ?state=empty or
 // ?state=error and every API call the page makes inherits that state via the
@@ -35,8 +32,6 @@ import { collapseLocal, mergeInventory } from '../panel/inventory.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PANEL_DIR = join(HERE, '..', 'panel');
-const UI_DIR = join(HERE, '..', 'ui');
-const JOIN_DIR = join(HERE, '..', 'join-page');
 
 const argPort = process.argv.indexOf('--port');
 // `let`, and re-read from the socket after listen: `--port 0` then means "any
@@ -48,18 +43,15 @@ const argPort = process.argv.indexOf('--port');
 let PORT = argPort > -1 ? parseInt(process.argv[argPort + 1], 10) : 4610;
 
 const PAGES = {
-  // one shell (2026-08-09): /panel is member.html stamped edition=org, exactly
-  // like the real panel-server serve; panel.html is gone
+  // one shell (2026-08-09, one face since 2026-09-01): /panel and /member are
+  // the same member.html, exactly like the real panel-server serve
   '/panel': join(PANEL_DIR, 'member.html'),
   '/member': join(PANEL_DIR, 'member.html'),
   '/door': join(PANEL_DIR, 'door.html'),
-  '/connect': join(PANEL_DIR, 'member-connect.html'),
-  '/wizard': join(UI_DIR, 'index.html'),
-  '/join': join(JOIN_DIR, 'index.html'),
 };
 const REDIRECTS = {
   '/': '/door',
-  '/go/wizard': '/wizard', '/go/connect': '/connect', '/go/panel': '/panel', '/go/member': '/member',
+  '/go/panel': '/panel', '/go/member': '/member',
   '/dashboard': '/member',
 };
 
@@ -73,9 +65,6 @@ function ctxOf(req) {
     const p = ref.pathname;
     if (p.startsWith('/member')) surface = 'member';
     else if (p.startsWith('/door')) surface = 'door';
-    else if (p.startsWith('/connect')) surface = 'connect';
-    else if (p.startsWith('/wizard')) surface = 'wizard';
-    else if (p.startsWith('/join')) surface = 'join';
     const s = ref.searchParams.get('state');
     if (s && STATES.has(s)) state = s;
   } catch { /* no referer */ }
@@ -213,10 +202,9 @@ const server = createServer(async (req, res) => {
   }
   if (req.method === 'GET' && PAGES[path]) {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    let page = readFileSync(PAGES[path]).toString();
-    // same stamp the real server applies: /panel is the org face of the shell
-    page = page.replace("'__AIOS_EDITION__'", JSON.stringify(path === '/panel' ? 'org' : 'member'));
-    res.end(page);
+    // served as-is: the edition stamp died with the face collapse, and the
+    // topology page (the last placeholder carrier) left the tree 2026-09-01
+    res.end(readFileSync(PAGES[path]));
     return;
   }
   // the counting oracle, exactly as panel-server serves it: the module body is
@@ -244,10 +232,6 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, { 'content-type': name.endsWith('.css') ? 'text/css'
       : name.endsWith('.woff2') ? 'font/woff2' : 'text/javascript' });
     res.end(readFileSync(file));
-    return;
-  }
-  if (req.method === 'GET' && path === '/join-url') {
-    sendJson(res, { url: `http://localhost:${PORT}/join${FX.joinFragment()}` });
     return;
   }
   if (req.method === 'GET' && path.startsWith('/state/')) {
@@ -516,19 +500,7 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // ---- member-connect ------------------------------------------------------------
-  if (req.method === 'GET' && path === '/my-orgs') { sendJson(res, FX.myOrgs(state)); return; }
-  if (req.method === 'POST' && path === '/my-orgs/refresh') { await readBody(req); sendJson(res, { ok: true }); return; }
-  if (req.method === 'GET' && path === '/join-org/status') { sendJson(res, FX.joinOrgStatus()); return; }
-  if (req.method === 'POST' && path === '/join-org/lookup') {
-    const form = await readBody(req);
-    sendJson(res, FX.joinOrgLookup(form.handle, state));
-    return;
-  }
-  if (req.method === 'POST' && path === '/join-org/submit') { await readBody(req); sendJson(res, { ok: true }); return; }
-  // D60 O6 (hardening-loop merge): the connect page pre-flights the own-brain card;
-  // default fixture = member-owned box, card unchanged.
-  if (req.method === 'GET' && path === '/own-brain/precheck') { sendJson(res, { orgOwned: false, granted: false }); return; }
+  // ---- own-brain (the seat's Backup card) ----------------------------------
   if (req.method === 'GET' && path === '/own-brain/status') { sendJson(res, FX.ownBrainStatus()); return; }
   if (req.method === 'POST' && path === '/own-brain/start') {
     await readBody(req);
@@ -556,22 +528,6 @@ const server = createServer(async (req, res) => {
     return;
   }
   if (req.method === 'GET' && path === '/org-github/status') { sendJson(res, FX.orgGitHubStatus()); return; }
-  if (req.method === 'POST' && path === '/redeem') { await readBody(req); sendJson(res, FX.redeem(state)); return; }
-  if (req.method === 'POST' && path === '/test') { await readBody(req); sendJson(res, FX.testConnection(state)); return; }
-  if (req.method === 'POST' && path === '/generate') {
-    const form = await readBody(req);
-    sendJson(res, FX.generateKey(form));
-    return;
-  }
-
-  // ---- wizard --------------------------------------------------------------------
-  if (req.method === 'POST' && path === '/provision') {
-    await readBody(req);
-    const lines = FX.provisionLines();
-    const code = lines[lines.length - 1] === '__DONE__' ? 0 : 1;
-    streamRun(res, { code, lines: lines.filter((l) => l !== '__DONE__') }, { paceMs: 120 });
-    return;
-  }
 
   res.writeHead(404, { 'content-type': 'text/plain' });
   res.end(`harness: no stub for ${req.method} ${path}\n`);
@@ -580,6 +536,6 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   PORT = server.address().port;   // resolves --port 0; identical when one was named
   console.log(`dev-harness up on http://localhost:${PORT}`);
-  console.log('surfaces: /panel /member /door /connect /wizard /join (fragment via /join-url)');
+  console.log('surfaces: /panel /member /door');
   console.log('states:   append ?state=empty or ?state=error to a surface URL');
 });

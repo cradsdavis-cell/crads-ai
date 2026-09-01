@@ -68,13 +68,12 @@ The whole story, including the one step only you can do, is
 
 ## Becoming a rock
 
-The "Your rock" card is the way to [start a community](/docs/become-a-rock):
-turn this mineral into a rock, with your personal seat kept beside it. The
-card holds the form (handle, display name, and the consent sentence you have
-to type), reports the upgrade stage by stage, and picks the watch back up from
-the mineral's own record if you close the app partway. A promotion that
-stopped says so, confirms your mineral is untouched and your backup is still
-yours, and offers "Clear it and start over".
+The "Your rock" card states where this mineral stands. On a rock it says so,
+and points at the commons; on a pebble it says, honestly, that turning a
+pebble into a rock is **temporarily not offered in the app** while the
+commons-era version of the upgrade is built.
+[Start a community](/docs/become-a-rock) has what that means and what a
+would-be host can do meanwhile.
 
 ## Why there is no danger zone
 

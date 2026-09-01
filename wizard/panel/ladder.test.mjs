@@ -2,12 +2,15 @@
 // can DO right now. The contract under test: every value comes from the SAME
 // resolver its gate runs, every fact is tri-state (true / false / unread), and
 // unread locks nothing — ignorance never blocks, and never promises either.
+// The face collapse (2026-09-01) collapsed the two ladders into one: three
+// rungs (Claude sign-in, onboarding, first backup) and a commons-era
+// capability list; the rock rungs, the build gate and the directory-fed
+// truths (ORG_REG, ties, listing) are retired.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { VERBS } from './panel-server.mjs';
 
 const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'member.html'), 'utf8');
 
@@ -15,115 +18,97 @@ const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'member.
 const connLive = (d, re, strict) => (d.connections || []).some(
   (c) => re.test(c.name) && (strict ? c.state === 'ok' : (c.state === 'ok' || c.state === 'configured')));
 
-/** Build ladderModel with the page's own pebbleGate in scope, globals injected. */
+/** Build ladderModel with its one-face globals injected. */
 function modelWith(env) {
-  const pg = html.match(/function pebbleGate\(d\)\{[\s\S]*?\n {2}\}/);
   const lm = html.match(/function ladderModel\(d\)\{[\s\S]*?\n {2}\}/);
-  assert.ok(pg, 'pebbleGate moved or changed shape');
   assert.ok(lm, 'ladderModel moved or changed shape');
   const f = new Function(
-    'state', 'IS_ORG', 'connLive', 'CLAUDE_SIGNIN_RE', 'SIGNIN_OPENER', 'cadenceTaskSet',
-    'factoryArmed', 'factoryNeedsGh', 'factoryCanAsk', 'factoryGapNames',
-    `${pg[0]}; ${lm[0]}; return ladderModel;`);
+    'state', 'connLive', 'CLAUDE_SIGNIN_RE', 'SIGNIN_OPENER', 'cadenceTaskSet',
+    `${lm[0]}; return ladderModel;`);
   return f(
-    env.state || { strength: {} }, !!env.IS_ORG, connLive, /claude (account|sign)/i, 'claude',
-    env.cadenceTaskSet || (() => false),
-    env.factoryArmed !== undefined ? env.factoryArmed : null,
-    !!env.factoryNeedsGh, !!env.factoryCanAsk, env.factoryGapNames || '');
+    env.state || { strength: {} }, connLive, /claude (account|sign)/i, 'claude',
+    env.cadenceTaskSet || (() => false));
 }
 
 const signedIn = { connections: [{ name: 'Claude account on the box', state: 'ok' }], onboarding: { phase: 'done' } };
 
-test('rock, fresh door-born: sign-in is the current rung and the locked rows name it', () => {
-  const m = modelWith({
-    IS_ORG: true,
-    state: { strength: { registered: true } },
-    factoryArmed: false, factoryNeedsGh: true,
-  })({ connections: [], onboarding: { phase: 'discovery' } });
-  assert.equal(m.rungs.length, 4);
-  assert.equal(m.rungs[0].done, true, 'registered');
-  assert.equal(m.rungs[1].done, false, 'claude sign-in pending');
-  assert.match(m.rungs[1].why, /signs in your laptop, not this mineral/, 'the laptop-vs-mineral correction rides the rung');
-  assert.equal(m.rungs[1].act.to, 'terminal', 'the way in is the Terminal tab, never the desktop-app guide');
-  assert.equal(m.rungs[1].act.run, 'claude');
+test('fresh mineral: sign-in is the pending rung and the locked rows name it', () => {
+  const m = modelWith({ state: { strength: { communities: 0 } } })(
+    { connections: [], onboarding: { phase: 'discovery' } });
+  assert.equal(m.rungs.length, 3, 'three rungs: sign-in, onboard, backup');
+  assert.equal(m.rungs[0].done, false, 'claude sign-in pending');
+  assert.match(m.rungs[0].why, /signs in your laptop, not this mineral/, 'the laptop-vs-mineral correction rides the rung');
+  assert.equal(m.rungs[0].act.to, 'terminal', 'the way in is the Terminal tab, never the desktop-app guide');
+  assert.equal(m.rungs[0].act.run, 'claude');
   const sched = m.caps.find((c) => c.name === 'Run scheduled tasks');
   assert.equal(sched.st, 'dim');
   assert.match(sched.why, /nobody at the keyboard/);
-  const build = m.caps.find((c) => c.name === 'Build pebbles');
-  assert.equal(build.st, 'dim');
-  assert.match(build.why, /not onboarded/, 'the why is pebbleGate’s OWN missing line, not a re-derivation');
-  const joins = m.caps.find((c) => c.name === 'Accept joining members');
-  assert.equal(joins.st, 'ok', 'joined accepts only need registration');
+  const install = m.caps.find((c) => /Install skills/.test(c.name));
+  assert.equal(install.st, 'dim', 'no community read as zero: offers cannot exist yet');
+  assert.match(install.why, /once you join a community/);
 });
 
-test('rock, everything unread: no rung is false, nothing dims, nothing promises', () => {
-  const m = modelWith({ IS_ORG: true, state: { strength: {} }, factoryArmed: null })({});
+test('everything unread: no rung is false, nothing dims, nothing promises', () => {
+  const m = modelWith({ state: { strength: {} }, cadenceTaskSet: () => null })({});
   for (const r of m.rungs) assert.equal(r.done, null, `${r.name} must be unread, not asserted`);
   for (const c of m.caps) {
     assert.notEqual(c.st, 'dim', `${c.name}: ignorance must not lock`);
-    if (c.st !== 'ok') assert.equal(c.pill, 'Checking\u2026', `${c.name}: unread says Crads-AI is checking (and the 60s poll makes it true)`);
+    if (c.st !== 'ok') assert.equal(c.pill, 'Checking…', `${c.name}: unread says the app is checking (and the 60s poll makes it true)`);
   }
 });
 
-test('rock, fully armed: build row is open only because pebbleGate says ready', () => {
+test('fully landed: three rungs done, the community rows read the real count', () => {
   const m = modelWith({
-    IS_ORG: true,
-    state: { strength: { registered: true, listed: true, published: true } },
-    factoryArmed: true,
+    state: { strength: { backup: true, communities: 2 } },
+    cadenceTaskSet: () => true,
   })(signedIn);
-  assert.ok(m.rungs.every((r) => r.done === true), 'all four rungs land');
-  const build = m.caps.find((c) => c.name === 'Build pebbles');
-  assert.equal(build.st, 'ok');
-  const listed = m.caps.find((c) => c.name === 'List publicly');
-  assert.equal(listed.pill, 'Listed', 'a listed rock says so, not just "Ready"');
+  assert.ok(m.rungs.every((r) => r.done === true), 'all three rungs land');
+  const joined = m.caps.find((c) => c.name === 'Joined a community');
+  assert.equal(joined.pill, '2 joined', 'the joined row says how many, not just "Ready"');
+  const install = m.caps.find((c) => /Install skills/.test(c.name));
+  assert.equal(install.st, 'ok', 'offers are installable once a community exists');
+  assert.equal(m.caps.find((c) => c.name === 'Run scheduled tasks').pill, 'In use');
 });
 
-test('ladderModel reads pebbleGate for the build row — same resolver, never re-derived', () => {
+test('ladderModel reads the shared resolvers, and the retired gate stays gone', () => {
   const lm = html.match(/function ladderModel\(d\)\{[\s\S]*?\n {2}\}/)[0];
-  assert.match(lm, /pebbleGate\(d\)/, 'the build row must ask the one gate every other surface asks');
-  assert.match(lm, /g\.missing\.filter/, 'and surface ITS missing lines (filtered only of ignorance-asserted ones)');
   assert.match(lm, /CLAUDE_SIGNIN_RE/, 'sign-in reads the shared marker regex');
+  assert.match(lm, /cadenceTaskSet\(\)/, 'schedules read the one cadence resolver');
+  assert.ok(!lm.includes('pebbleGate'), 'the build gate is retired: no row asks it');
+  assert.ok(!html.includes('function pebbleGate('), 'and the resolver itself stays gone');
 });
 
-test('pebble: backup rung distinguishes connected-but-never-pushed, and promotion waits on it', () => {
+test('backup rung distinguishes connected-but-never-pushed; promotion is retired', () => {
   const m = modelWith({
-    state: { strength: { backup: false, backupConnected: true, anchored: true } },
+    state: { strength: { backup: false, backupConnected: true } },
   })(signedIn);
   assert.equal(m.rungs.length, 3);
   assert.equal(m.rungs[2].done, false);
   assert.match(m.rungs[2].why, /first push has not landed/, 'connected alone is not a copy');
-  const promote = m.caps.find((c) => c.name === 'Become a rock');
-  assert.equal(promote.st, 'dim');
-  assert.match(promote.why, /verified backup/);
-  assert.match(promote.why, /org brain/, 'promotion names its cost');
+  // "Become a rock" died with the directory: hosting a community is a row any
+  // mineral has, not a promotion to ask for.
+  assert.equal(m.caps.find((c) => c.name === 'Become a rock'), undefined, 'no promotion row');
+  const host = m.caps.find((c) => c.name === 'Host a community');
+  assert.equal(host.st, 'ok', 'hosting is open to every mineral');
+  assert.deepEqual(host.act, { label: 'Open the Commons card', to: 'publish', focus: 'commonsCard' });
 });
 
-test('pebble: what the rock controls renders as the rock’s call, never as broken here', () => {
-  const m = modelWith({
-    state: { strength: { backup: true, anchored: true, ties: 1 } },
-  })(signedIn);
-  const shared = m.caps.find((c) => /shared pages/.test(c.name));
-  assert.equal(shared.st, '', 'no green pill claiming the rock’s toggle on its behalf');
-  assert.equal(shared.pill, 'Rock’s call');
-  const joined = m.caps.find((c) => c.name === 'Joined a rock');
-  assert.equal(joined.pill, 'Anchored', 'the tie badge distinguishes anchored from joined');
-});
-
-test('pebble, tie state unread: install-from-rock is unread, not locked', () => {
+test('community count unread: install-from-community is unread, not locked', () => {
   const m = modelWith({ state: { strength: {} } })(signedIn);
   const install = m.caps.find((c) => /Install skills/.test(c.name));
   assert.notEqual(install.st, 'dim');
-  assert.equal(install.pill, 'Checking\u2026');
+  assert.equal(install.pill, 'Checking…');
 });
 
-test('the ladder card leads the work grid: after onboarding, before the strip tiles, both faces', () => {
+test('the ladder card leads the work grid: after onboarding, before the strip tiles', () => {
   const onboarding = html.indexOf("{ id: 'onboarding'");
   const ladder = html.indexOf("{ id: 'ladder'");
   const brain = html.indexOf("{ id: 'brain'");
   assert.ok(onboarding > -1 && ladder > -1 && brain > -1);
   assert.ok(onboarding < ladder && ladder < brain, 'R5: declaration order is the grid, and the ladder leads the work rows');
   const card = html.slice(ladder, brain);
-  assert.match(card, /faces: \['member', 'org'\]/);
+  assert.ok(!card.includes('faces:'), 'no face declaration: one ladder for every mineral');
+  assert.match(card, /title: 'What your mineral can do'/);
 });
 
 test('card footer buttons can carry data-run and data-focus (the Terminal sign-in needs it)', () => {
@@ -133,21 +118,15 @@ test('card footer buttons can carry data-run and data-focus (the Terminal sign-i
   assert.match(fn[0], /data-focus/);
 });
 
-test('ORG_REG rides org-backup-status, read from the file the machinery reads', () => {
-  const c = VERBS['org-backup-status'].build().command;
-  assert.match(c, /ORG_PULL_TOKEN/, 'registration truth = the token broker-register writes');
-  assert.match(c, /ORG_REG /, 'emitted as its own line for the ladder’s rung 1');
-  assert.ok(c.indexOf('ORG_BACKUP ') < c.indexOf('ORG_REG '), 'backup line first: old parsers keep working');
+test('the ORG_REG rung plumbing is RETIRED (2026-09-01): no directory answers it', () => {
+  // Registration with Crads-AI was rung 1 of the rock ladder, read off the
+  // org-backup-status verb. Nothing central registers a mineral any more, so
+  // no surface may resurrect the claim.
+  assert.ok(!html.includes('ORG_REG '), 'strengthSync no longer parses a registration line');
+  assert.ok(!html.includes('sx.registered'), 'and the ladder never reads one');
 });
 
-test('strengthSync treats a missing ORG_REG line as unread, never false', () => {
-  const sync = html.match(/function strengthSync\(\)\{[\s\S]*?\n {2}\}/);
-  assert.ok(sync, 'strengthSync moved or changed shape');
-  assert.match(sync[0], /delete state\.strength\.registered/, 'both the forget path and the absent-line path must unset, not assert');
-  assert.match(sync[0], /ORG_REG /);
-});
-
-test('member, cadence unread: Run scheduled tasks checks, never claims "Ready · Set one"', () => {
+test('cadence unread: Run scheduled tasks checks, never claims "Ready · Set one"', () => {
   // The false claim photographed in docs audit round two (2026-08-24): first
   // paint landed before machinerySync's cadence-list round trip, and the row
   // told a mineral with six armed schedules to go set one.

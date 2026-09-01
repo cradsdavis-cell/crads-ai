@@ -1,23 +1,21 @@
 ---
 title: Start a community
-summary: Turning your mineral into a rock, standing up the commons, and the one sentence you have to mean.
+summary: What a rock is, where the pebble-to-rock upgrade stands, and how the commons a community pulls from gets stood up.
 audience: public
 access: public
 mode: how-to
 persona: host
 surface: yourrock
 order: 20
-pins: wizard/panel/promote-flow.test.mjs, engine/community/commons-admin.mjs
+pins: wizard/panel/panel-server.mjs, engine/community/commons-admin.mjs
 reviewed: 2026-09-01
 ---
 
 A rock is a community's own mineral: the hub that curates what the community
 shares. If you run a community, a cohort or a team, starting one is two
-distinct moves: turning your mineral into a rock, and standing up the
-[commons](/docs/rocks-and-pebbles) your members will pull from.
-
-You do it from your own mineral, and nobody approves it. There is nothing
-central to ask.
+distinct moves: a mineral wearing the rock face, and standing up the
+[commons](/docs/rocks-and-pebbles) your members will pull from. Nobody
+approves any of it; there is nothing central to ask.
 
 What a rock is **not**: a machine that hosts, creates, or can reach into
 anyone else's machine. Your members make their own pebbles with the same
@@ -37,40 +35,31 @@ community's brain. If yours is full of things that are yours alone, the
 honest move is to keep this mineral as your own and set up a second mineral
 for the community instead, with the same wizard, on the same account.
 
-The upgrade takes this seriously enough that it will not run until you have
-typed that exact fact back at it, and a verified copy of your brain is pushed
-to your own repository first, so your pre-rock self is always recoverable.
+When promotion runs, it takes this seriously enough that it will not run
+until you have typed that exact fact back at it, and a verified copy of your
+brain is pushed to your own repository first, so your pre-rock self is
+always recoverable.
 
-## Before you press it
+## Where promotion stands today
 
-**Connect GitHub first.** The upgrade pushes your brain to your own private
-repository before it changes anything. If GitHub is not connected, the
-[backup page](/docs/back-up-and-restore) walks it; connect, then come back.
+**Turning a pebble into a rock is temporarily not offered in the app.** The
+old promote flow was built around the hosted platform's machinery, which the
+self-host pivot removed, and the commons-era version of the upgrade is still
+being built. The **Your rock** card on Your pebble says exactly this.
 
-That ordering is the whole safety story: backup, then upgrade. Not the
-reverse.
+What that means in practice:
 
-## The upgrade, step by step
-
-1. Open **Your pebble** and scroll to the **Your rock** card.
-2. Press **Promote to a rock...**. The form unfolds in place.
-3. **Pick a handle**: lowercase letters, digits and hyphens, like `acme-co`.
-   The display name beside it is the human name, and that one you can change
-   later; the handle you cannot.
-4. **Type the consent sentence, exactly**: *my personal brain becomes this
-   rock's brain*. The button stays grey until you do. A checkbox would soften
-   what changes hands here, so there is no checkbox.
-5. Press **Back up, then become a rock**.
-
-**You should see:** the card reports each stage as it goes: your backup
-pushed, then the mineral changing shape. You can close the app; it finishes
-on its own and the card picks it up again whenever you come back. If it
-stops partway, the card says so, confirms your mineral is untouched and your
-backup is still yours, and offers **Clear it and start over**.
-
-When it lands you have two faces of the same box: your personal seat,
-unchanged, and the rock console beside it. Your pages, your skills and your
-cadence all survive. You are adding capability, not starting over.
+- **If your mineral is already a rock**, nothing here affects you: both
+  faces keep working, and everything below applies as written.
+- **If you are starting a community fresh**, you do not have to wait for
+  promotion. The community itself is a
+  [commons](/docs/share-with-your-community): a git repository you own.
+  What the rock face adds is the Catalogue page's publishing and roster
+  tooling around that repository, so for now a new community needs a mineral
+  that is already a rock, or a host willing to curate the repository by hand
+  until the upgrade returns.
+- Your brain's safety story is unchanged either way:
+  [back up first](/docs/back-up-and-restore), always.
 
 ## The first thing to do as a rock
 

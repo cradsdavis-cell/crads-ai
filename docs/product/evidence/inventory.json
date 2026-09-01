@@ -31,12 +31,6 @@
       "group": "Network"
     },
     {
-      "sec": "rocks",
-      "label": "Organisations",
-      "face": "both",
-      "group": "Network"
-    },
-    {
       "sec": "commons",
       "label": "Communities",
       "face": "pebble",
@@ -103,7 +97,6 @@
       "label": "Network",
       "sections": [
         "network",
-        "rocks",
         "commons",
         "pebbles"
       ]
@@ -130,7 +123,8 @@
   ],
   "unreachableSections": [
     "help",
-    "rockreader"
+    "rockreader",
+    "rocks"
   ],
   "memberVerbs": [
     {
@@ -855,9 +849,9 @@
     "error"
   ],
   "totals": {
-    "navSections": 16,
+    "navSections": 15,
     "navByFace": {
-      "both": 10,
+      "both": 9,
       "rock": 4,
       "pebble": 2
     },
@@ -867,6 +861,6 @@
     "featuredConnectors": 6,
     "engineSkills": 13,
     "machineryJobs": 15,
-    "surfaceStates": 48
+    "surfaceStates": 45
   }
 }

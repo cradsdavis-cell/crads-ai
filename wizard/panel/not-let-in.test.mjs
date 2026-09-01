@@ -4,21 +4,16 @@
 // resolves on its own. Recognising the state correctly is the first half of this
 // file, and it has not changed.
 //
-// The second half did, on 2026-08-11. The state used to end in a two-party
-// ceremony: the app printed a 6-char code and told the member to find whoever
-// set the mineral up and read it to them. Sam retired that outright ("the user
-// shouldn't need a code or anything. They should just be allowed in through
-// clicking the link that's emailed to them"), which T9 had already made possible
-// in August: the device mints its own key, binds a token to it, and the MINERAL
-// decides. So the dead end becomes a button, and the code is DELETED rather than
-// hidden, route included, because a route that still answers is a route a future
-// screen re-grows.
-//
-// Two ways in remain, and the screen has to pick the right one, because only one
-// of them can work at a time:
-//   OWNED     the signed-in account owns this mineral -> ask it directly (T9).
-//   NOT OWNED nothing on this machine can vouch for it -> the emailed invitation
-//             is the only route, and saying anything else strands them.
+// The second half changed twice. On 2026-08-11 the two-party code ceremony
+// died ("the user shouldn't need a code or anything") and the dead end became
+// T9's account-backed "Let this computer in" button. Then the account system
+// itself died (self-host pivot, 2026-09-01), and the button, the entitlement
+// ask and the emailed-invitation branch all went with it. ONE way in remains,
+// and it involves no third party: another of the person's own computers, one
+// that already opens the mineral, adds this one from its Map page over SSH
+// (device-routes.mjs). The denied copy now says exactly that, and the old
+// account relays answer 410 tombstones so a stale page gets a sentence
+// instead of a hang.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -99,42 +94,47 @@ test('the copy still tells them the mineral is fine, and now names a route that 
   const body = html.match(/\$\('connErrBody'\)\.textContent = denied\s*\n?\s*\? '([^']+)'/);
   assert.ok(body, 'the denied branch has its own copy');
   assert.match(body[1], /up and answering/i, 'says the mineral is not the problem');
-  assert.match(body[1], /let this computer in/i, 'names the action');
-  assert.match(body[1], /decides for itself/i, 'and says who decides');
+  assert.match(body[1], /add this one from its Map page/, 'names the one action that works: device-add from an already-connected computer');
+  assert.match(body[1], /a computer that already has access/, 'and says which machine can do it');
+  assert.match(body[1], /Nothing new is made/, 'and that nothing is created by letting it in');
   assert.doesNotMatch(body[1], /nothing you need to do/i, 'never the reassuring lie');
 });
 
-// ------------------------------------------------- the two routes
+// ------------------------------------------------- the account leg is gone
 
-test('the owned case asks the mineral directly, through T9', () => {
-  assert.match(html, /fetch\('\/account\/devices'\)/, 'checks whether the account owns this mineral');
-  assert.match(html, /fetch\('\/account\/enrol-device'/, 'and asks that one to admit the machine');
-  assert.match(html, /body: JSON\.stringify\(\{ host: state\.host/, 'asking about THIS mineral, not the first in the list');
+test('the "Let this computer in" button is RETIRED (2026-09-01): no element, no handler, no ask', () => {
+  // The button asked the central account whether it owned this mineral, then
+  // asked the directory to admit the machine. Both services are deleted, so
+  // the whole leg is pinned as ABSENT: element, entitlement fetch, enrol ask
+  // and the emailed-invitation fallback copy that rode with them. Comments may
+  // still record the retirement; live constructs may not come back.
+  assert.doesNotMatch(html, /id="connLetIn"/, 'no button element');
+  assert.doesNotMatch(html, /\$\('connLetIn'\)/, 'no handler or visibility machinery');
+  assert.doesNotMatch(html, /fetch\('\/account\/devices'\)/, 'no entitlement ask');
+  assert.doesNotMatch(html, /fetch\('\/account\/enrol-device'/, 'no admit ask');
+  assert.doesNotMatch(html, /invitation link in your email/i, 'no route via an invitation that can no longer be sent');
 });
 
-test('the not-owned case is sent to the emailed invitation, the only route left', () => {
-  // Getting this branch wrong is worse than the code was: the button would be
-  // offered to someone it cannot possibly work for, and the real route unsaid.
-  // Anchored on the fetch, not on `var mine`: member.html has five of those and
-  // the first one is a keyboard-idle check 500 lines away.
-  const i = html.indexOf("fetch('/account/devices')");
-  assert.ok(i > 0, 'the page filters the account list down to this mineral');
-  const filtered = html.slice(i, html.indexOf('letIn.style.display', i));
-  assert.match(filtered, /invitation link in your email/i, 'and names the invitation when it is not there');
-  assert.match(filtered, /THIS computer/, 'on the machine that needs admitting, which is the part people miss');
-});
-
-test('the two names one mineral has are matched on the slug, never on equality', () => {
-  // state.host is the local ssh alias (keith-box); a /my-boxes row carries the
-  // registered host (keith.crads-ai.com). Comparing them directly offers the
-  // button to nobody and sends every owner to an email that may not exist. Found
-  // by driving it with a fixture that used the two real shapes.
-  assert.match(html, /function slugOf\(h\)\{/, 'there is one place that reduces both names');
-  assert.match(html, /slugOf\(b\.host\) === slugOf\(state\.host\)/, 'and the filter uses it');
-  assert.doesNotMatch(html, /b\.host === state\.host/, 'never raw equality between the two naming schemes');
-  assert.match(html, /letIn\.dataset\.host = mine\[0\]\.host/, 'the row keeps its own name for the ask');
-  assert.match(html, /host: \$\('connLetIn'\)\.dataset\.host \|\| state\.host/,
-    'and the ask sends the name the directory issued');
+test('the panel answers the dead account relays with 410 tombstones, in plain words', async () => {
+  // A page from an old build still calls these; it must get a sentence that
+  // names the replacement, not a hang or a bare 404 it cannot explain.
+  const { createPanelServer } = await import('./panel-server.mjs');
+  const s = createPanelServer({ port: 0, host: '127.0.0.1', htmlText: '<html>x</html>',
+    bridge: { targets: () => [], stream: () => {}, tty: () => {} } });
+  await new Promise((r) => s.on('listening', r));
+  try {
+    const base = `http://127.0.0.1:${s.address().port}`;
+    const dev = await fetch(`${base}/account/devices`);
+    assert.equal(dev.status, 410, 'gone for good, not not-found');
+    const devBody = await dev.json();
+    assert.equal(devBody.retired, true);
+    assert.match(devBody.reason, /add this computer from one that already opens the mineral \(Map page\)/,
+      'the tombstone names the way in that works now');
+    const enr = await fetch(`${base}/account/enrol-device`, { method: 'POST',
+      headers: { 'content-type': 'application/json' }, body: '{}' });
+    assert.equal(enr.status, 410);
+    assert.equal((await enr.json()).retired, true);
+  } finally { s.closeAllConnections?.(); s.close(); }
 });
 
 test('the enrol relays are retired: gone from the door, answered honestly by the panel', () => {

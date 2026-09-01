@@ -61,22 +61,18 @@ test('the member edition gains no org catalog powers', () => {
 
 // ---- member.html wiring -----------------------------------------------------------
 
-// 2026-08-10: R12 merged the Library into Skills, the rock's Skills page
-// dialled the then-member-only catalog-list, and the org verb table's design
-// refusal rendered to the operator as "Could not read your library: unknown
-// verb: catalog-list". The fix was an IS_ORG early return before the dial.
-// INVERTED 2026-08-17 (one-inbox): catalog-list crossed the org wall (it reads
-// what a box RECEIVES from rocks it joined, and a rock is a box) and became
-// the rocks tab's ONLY source when libEntries stopped merging the shop window
-// in. The early return outlived the wall by one commit and emptied the tab on
-// every rock: the driven pin (qa-org-skills.test.mjs, excluded from the default
-// suite, trap 15) was the only test that saw it. This is its always-running twin.
-test('both editions dial catalog-list: a rock reads its own inbox like any box', () => {
+// 2026-08-10: R12 merged the Library into Skills, and an IS_ORG early return
+// before the catalog-list dial once emptied the rocks tab on every rock. The
+// face collapse (2026-09-01) removed the last way that class of bug can come
+// back: there is no edition to gate on, and the /community-catalogs shop
+// window (the Organisations page's read of rocks not yet joined) went with
+// the page and the route. loadLibrary keeps exactly one source.
+test('loadLibrary dials catalog-list alone: no edition gate, no shop-window fetch', () => {
   const fn = memberHtml.split('function loadLibrary(')[1].split('function renderLibrary()')[0];
-  assert.ok(fn.indexOf("fetch('/community-catalogs')") >= 0, 'the shop window still loads for the Organisations page');
-  assert.ok(fn.indexOf("run('catalog-list'") >= 0, 'and the inbox catalogue is dialled');
-  assert.ok(!/if \(IS_ORG\)/.test(fn),
-    'unguarded: the IS_ORG early return is what left the org rocks tab with no source at all');
+  assert.ok(fn.indexOf("run('catalog-list'") >= 0, 'the inbox catalogue is dialled');
+  assert.ok(fn.indexOf("fetch('/community-catalogs')") < 0, 'the shop-window fetch is gone with the Organisations page');
+  assert.ok(!memberHtml.includes("fetch('/community-catalogs')"), 'and nothing else fetches it either');
+  assert.ok(!/if \(IS_ORG\)/.test(fn), 'no edition gate: there is no edition');
 });
 
 // Trap 23 (2026-08-10): loadLibrary cleared the notice on entry, so a verb that
@@ -91,31 +87,26 @@ test('a reload a verb triggers preserves the confirmation that verb just wrote',
   const skills = memberHtml.split('function loadSkills(')[1].split('function skTitle(')[0];
   assert.match(skills, /if \(!keep\) notice\('skillsNotice', ''\);/, 'loadSkills honours the same flag');
 
-  // Both Install branches: write the outcome, then tell the reload to keep it.
+  // The install handler: write the outcome, then tell the reload to keep it.
   // Order is asserted because the old code was correct only by accident of it.
-  //
-  // The two branches moved into rockInstall on 2026-08-10, when the Rocks page
-  // rebuild gave every rock its own catalogue block and would otherwise have
-  // made a SECOND copy of this exact sequence. Trap 23 was a bug present in one
-  // of two near-identical copies, so a third was the wrong direction: the
-  // contract is now asserted once, on the one function both callers use.
-  const inst = memberHtml.split('function rockInstall(')[1].split('function rockRenderBoard()')[0];
+  // The face collapse (2026-09-01) took the Organisations page's catalogue
+  // block with it, so rockInstall has two callers now: the offers row on
+  // Skills and the Update button on an installed row. One function, one
+  // sequence, still no bare reload.
+  const inst = memberHtml.split('function rockInstall(')[1].split('function rockRemove(')[0];
   assert.match(inst, /notice\(noticeId, outLines\(rr\)\.slice\(-2\)\.join\('\\n'\)\);\s*loadLibrary\(true\);/,
-    'the anchor-catalogue Install keeps its confirmation');
-  assert.match(inst, /notice\(noticeId, outLines\(rr\)\.slice\(-2\)\.join\('\\n'\)\);\s*loadSkills\(true\);/,
-    'and so does the community Install, the one trap 23 was reported on');
+    'the install keeps its confirmation through the reload');
   assert.ok(!/loadLibrary\(\);|loadSkills\(\);/.test(inst),
-    'no bare reload inside the install handler: each one follows a notice it must not eat');
+    'no bare reload inside the install handler: it follows a notice it must not eat');
 
   // and both callers still route through it, or the extraction just moved the
   // duplication somewhere the assertion above cannot see
   const row = memberHtml.split('function libRow(')[1].split('function loadLibrary(')[0];
-  assert.match(row, /rockInstall\(l, btn, 'libraryNotice'\)/, 'the Skills catalogue row calls it');
-  const cat = memberHtml.split('function rockCatBlock(')[1].split('function rockJoinBlock(')[0];
-  assert.match(cat, /rockInstall\(\{ it: it, org: org, rock: label, community: community \}, btn, 'rockNotice'\)/,
-    'and so does a rock drawer’s catalogue row, with its own notice target');
-  assert.ok(!/community-skill-apply/.test(row) && !/community-skill-apply/.test(cat),
-    'neither caller keeps a private copy of the install');
+  assert.match(row, /rockInstall\(l, btn, 'libraryNotice'\)/, 'the Skills offers row calls it');
+  assert.match(memberHtml, /rockInstall\(newer, updBtn, 'skillsNotice'\)/, 'and so does the Update button, with its own notice target');
+  // the retired verb survives in one explanatory comment, so the pin is on
+  // the call shape, not the raw name
+  assert.ok(!memberHtml.includes("run('community-skill-apply'"), 'no caller keeps a private copy of the install');
 });
 
 // R6 (2026-08-09 audit): the Library page folded into Skills. The catalogue
@@ -144,8 +135,13 @@ test('the skill catalogue still lives inside the Skills page as a second group w
   const loader = memberHtml.split('function loadSkills(')[1].split('function loadLibraryPage(')[0];
   assert.match(loader, /loadLibrary\(keep\);/, 'the catalogue loads with the page, passing the preserve flag through');
   assert.doesNotMatch(loader, /loadPrompts\(\)|loadFiles\(\)/, 'Prompts and Files no longer load with Skills: they moved to Library (step 7a)');
-  assert.match(memberHtml, /haven’t published anything yet/, 'attached-but-empty state under From your rocks');
-  assert.match(memberHtml, /No rock yet\./, 'unattached state points at the Organisations page');
+  // The group renamed with the face collapse (2026-09-01): communities, not
+  // rocks, and the unattached state points at the Communities page.
+  assert.match(memberHtml, /'From your communities'/, 'group 2 is headed From your communities');
+  assert.match(memberHtml, /g2\.setAttribute\('data-group', 'rocks'\)/, 'the structural hook keeps its old name for the shots rig');
+  assert.match(memberHtml, /Your communities haven’t published anything yet\./, 'attached-but-empty state');
+  assert.match(memberHtml, /No community yet\./, 'unattached state');
+  assert.match(memberHtml, /Join one on the Communities page/, 'and it points at the Communities page');
   // F3: the catalog-requests residue is gone, and with it the chip that read it
   assert.doesNotMatch(memberHtml, /installing…/, 'no pending-request chip: pickup is local and instant');
   assert.doesNotMatch(memberHtml, /pendingBy/, 'and no reader of catalog-requests in the row');
@@ -185,24 +181,18 @@ test('the rocks group reads the inbox alone, grouped per rock, provenance still 
 // (informational: what it ships, what it costs) and removes the action
 // (I4's ruling): a member should see a pack exists without being offered a
 // button that cannot work.
-test('a pack row on the Organisations page is informational: contents shown, no install action (I3/I4)', () => {
-  const block = memberHtml.split('function rockCatBlock(')[1].split('function rockHasAnchor()')[0];
-  const packBranch = block.split("if (it.kind === 'pack') {")[1].split('return;')[0];
-  assert.ok(packBranch, 'rockCatBlock branches a pack row before the install-state logic');
-  assert.match(packBranch, /'Ships ' \+/, 'a pack row says what it ships');
-  assert.doesNotMatch(packBranch, /rockInstall/, 'and never wires a click that catalog-install (no kind) is guaranteed to refuse');
-  // 2026-08-26: the same treatment for every OTHER non-skill kind, a standalone
-  // page offer (kind: 'page', step 5b) first among them. It reached the else
-  // branch and got an Install button that rockInstall could only fail, which is
-  // precisely what I3/I4 removed for packs.
-  const otherBranch = block.split('if (!isSkillOffer(it)) {')[1];
-  assert.ok(otherBranch, 'rockCatBlock branches every non-skill row before the install-state logic');
-  assert.doesNotMatch(otherBranch.split('return;')[0], /rockInstall/, 'a page row wires no click either');
-  // "Their catalogue" itself stays unfiltered (a pack, and now a page, is still
-  // part of what the rock publishes); it is only the separate "N skills"
-  // summary chip (rockCountLine) that must not count either as a skill.
-  const countLine = memberHtml.split('function rockCountLine(')[1].split('function rockRow(')[0];
-  assert.match(countLine, /rockCatOf\(org\)\.filter\(isSkillOffer\)/, 'the skills count is skills only');
+test('I3/I4 are RETIRED with the Organisations page; the allow-list that outlived them still guards the offers loop', () => {
+  // rockCatBlock, rockJoinBlock and rockCountLine rendered a rock's catalogue
+  // on the Organisations page, and I3/I4 were about never wiring an Install
+  // click that catalog-install (no kind) was guaranteed to refuse. The page
+  // and its blocks left with the face collapse (2026-09-01), so the pin is
+  // that they stay gone. What SURVIVES of the lesson is the isSkillOffer
+  // allow-list in the Skills offers loop, which is the one place a non-skill
+  // offer could still be handed a doomed install button.
+  for (const gone of ['rockCatBlock', 'rockJoinBlock', 'rockCountLine', 'rockRenderBoard', 'rockHasAnchor']) {
+    assert.ok(!memberHtml.includes(gone), `${gone} stays out of the shell`);
+  }
+  assert.match(memberHtml, /if \(!isSkillOffer\(l\.it\)\) return;/, 'the offers loop still skips every non-skill kind');
 });
 
 test('libRow\'s pack branch is dead code: renderSkills filters packs out before any row reaches it (I4)', () => {
@@ -227,29 +217,28 @@ test('libRow\'s pack branch is dead code: renderSkills filters packs out before 
 });
 
 test('the Catalogue lists v2 packs in the one row list', () => {
-  assert.ok(VERBS['pack-list'] && !VERBS['pack-list'].mutating, 'pack-list is a read-only org verb');
+  assert.ok(VERBS['pack-list'] && !VERBS['pack-list'].mutating, 'pack-list is a read-only verb');
   assert.match(orgHtml, /pit\.kind = 'pack';/, 'packs are merged into the one row list');
-  assert.match(orgHtml, /it\.kind === 'pack' \? 'pack' :/, 'pack rows are labelled');
+  assert.match(orgHtml, /KIND_CHIP = \{ pack: 'pack',/, 'pack rows are chipped by kind, not as /commands');
   // The tied-rock audience retired in panel iteration 2 (R4, 2026-08-23), so
   // the "bundles cannot be listed for tied rocks" refusal went with it: a pack
-  // is offered to members exactly like a skill.
+  // ships in the commons exactly like a skill.
   assert.ok(!orgHtml.includes('Bundles cannot be listed for tied rocks'), 'no tied-rock refusal survives');
 });
 
-// ---- org UI --------------------------------------------------------------------
+// ---- the audience machinery ------------------------------------------------
 
-// Rewritten 2026-08-10, and again for panel iteration 2 (R13, 2026-08-23). The
-// publish column was a <select> per row plus a free-text "slugs, comma-
-// separated" box, then a segmented control with a picker and a page-level save
-// bar. Now: one offer toggle per member on every row, an Everyone switch for
-// audience 'all', and Publish on the row. catalogue-page.test.mjs pins the
-// anatomy; this pins that the policy legs survived the redesign.
-test('the Catalogue carries the member audience and the write-then-reconcile flow', () => {
-  assert.match(orgHtml, /'Offer \/' \+ it\.id \+ ' to everyone'/, 'audience all stays expressible');
-  assert.match(orgHtml, /catSetMember\(it\.id, x\.slug, !on, members\)/, 'and per-member offers');
-  assert.ok(!orgHtml.includes('slugs, comma-separated'), 'the slug textbox is gone');
+// Rewritten 2026-08-10, again for panel iteration 2 (R13), and RETIRED with
+// the face collapse (2026-09-01). The member audience, the offer toggles and
+// the write-then-reconcile flow all presumed a rock deciding per member what
+// to publish; in the commons model membership is the entitlement and a
+// publish ships the library whole, so the page has nothing per-member to
+// write. catalogue-page.test.mjs pins the read-only inventory that replaced
+// it; this pin holds that the policy legs stay gone from the shell.
+test('the member-audience machinery is RETIRED: no policy write reachable from the page', () => {
+  assert.ok(!orgHtml.includes('catSetMember'), 'no per-member offer writer');
+  assert.ok(!orgHtml.includes("run('catalog-policy-write'"), 'the page never writes the policy');
+  assert.ok(!orgHtml.includes("run('catalog-reconcile-run'"), 'nor reconciles one');
+  assert.ok(!orgHtml.includes('slugs, comma-separated'), 'the slug textbox stays gone');
   assert.ok(!orgHtml.includes("label: 'Chosen'"), 'and the segmented control with it');
-  assert.match(orgHtml, /catalog-policy-write/, 'publish writes the policy');
-  assert.match(orgHtml, /catalog-reconcile-run/, 'and rebuilds member catalogues in the same click');
-  assert.match(orgHtml, /they install it themselves, and what they installed stays theirs/, 'the model is stated where the org clicks it');
 });

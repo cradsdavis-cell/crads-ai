@@ -1,14 +1,16 @@
-// transfer-consent.test.mjs — the member's own sign-in is what accepts a transfer.
+// transfer-consent.test.mjs — what Harriet's audit left behind after the face
+// collapse (2026-09-01).
 // Run: node --test wizard/panel/transfer-consent.test.mjs
 //
 // Harriet's audit, 2026-08-19, point 3: accepting a transfer-to-org was a script
-// on the box, runnable by anyone on the box (a granted support session included),
-// and the org's completer could not tell. These pin the new shape end to end on
-// the app side: the route reads the invitation FROM THE BOX (never the page),
-// signs the member in nonce-bound to the anchoring rock, records consent at the
-// directory and hands back only a receipt; the box verb refuses without one;
-// the org completer asks the directory before it flips owner and refuses when
-// the record is missing or for another invitation.
+// on the box, runnable by anyone on the box, and the org's completer could not
+// tell. The consent flow rode the central directory, and the directory is
+// gone: POST /transfer-consent is deleted with the rest of the hosted routes,
+// so nothing can mint a receipt any more. What survives, and stays pinned, is
+// the fail-closed half: the box verb still refuses to run without a receipt
+// (so the dead flow cannot be bypassed by calling the verb bare), and the org
+// completer builder still refuses without a directory record. Both survive as
+// exported builders until the machinery is deleted.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPanelServer, VERBS, MEMBER_VERBS } from './panel-server.mjs';
@@ -31,90 +33,16 @@ test('the box verb refuses to run without a receipt, and passes a well-formed on
   assert.match(MEMBER_VERBS['transfer-accept'].build({ receipt: r }).command, new RegExp(`bash "\\$S" /state ${r}$`));
 });
 
-test('/transfer-consent: invitation + rock come from the BOX, sign-in is nonce-bound to that rock, receipt comes back', async () => {
-  let sent = null, nonceUsed = null;
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, init) => {
-    if (!String(url).startsWith('https://dir.example')) return realFetch(url, init);
-    sent = { url: String(url), auth: init.headers.authorization, body: JSON.parse(init.body) };
-    return { ok: true, status: 200, json: async () => ({ ok: true, receipt: 'c'.repeat(32) }) };
-  };
+test('/transfer-consent is RETIRED: the route answers 404 on the one panel server', async () => {
+  // The three behavioural tests that lived here (nonce-bound sign-in, the
+  // box-read invitation, the 409/401 refusals) drove a route that recorded
+  // consent at the directory. No directory, no route: the strongest remaining
+  // truth is that it stays gone, so no page can be built against it again.
+  const s = await listen({ bridge });
   try {
-    const s = await listen({
-      edition: 'member', bridge, directoryUrl: 'https://dir.example',
-      transferProbe: boxState({ invited: '2026-08-19', repo: 'ic/jane01-brain' }, { owner: 'member', anchor: 'acme-collab' }),
-      handoverSignIn: async ({ nonce }) => { nonceUsed = nonce; return { ok: true, idToken: 'stub.id.token' }; },
-    });
-    try {
-      // the page names a different box and a different org; both are ignored
-      const r = await consent(s, { host: 'someone-elses-box', org: 'evil-rock' });
-      assert.equal(r.status, 200);
-      const j = await r.json();
-      assert.equal(j.receipt, 'c'.repeat(32));
-      assert.equal(j.org, 'acme-collab', 'the rock is the one the BOX is anchored to');
-      assert.equal(j.invited, '2026-08-19');
-      assert.match(sent.url, /\/transfer-consent$/);
-      assert.equal(sent.auth, 'Bearer stub.id.token');
-      assert.deepEqual(sent.body, { org: 'acme-collab', slug: 'jane01', host: 'jane01-box', invited: '2026-08-19' });
-      const { joinNonce } = await import('./member-connect.mjs');
-      assert.equal(nonceUsed, joinNonce('acme-collab'), 'the token is committed to the anchoring rock, not replayable elsewhere');
-    } finally { s.close(); }
-  } finally { globalThis.fetch = realFetch; }
-});
-
-test('/transfer-consent: no invitation on the box, or no anchoring rock, is a 409 and nothing is signed or sent', async () => {
-  let signed = 0;
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, init) => { if (String(url).startsWith('https://dir.example')) throw new Error('must not be called'); return realFetch(url, init); };
-  try {
-    const none = await listen({ edition: 'member', bridge, directoryUrl: 'https://dir.example',
-      transferProbe: boxState(null, { owner: 'member', anchor: 'acme-collab' }),
-      handoverSignIn: async () => { signed++; return { ok: true, idToken: 'x' }; } });
-    try {
-      const r = await consent(none, { host: 'jane01-box' });
-      assert.equal(r.status, 409);
-      assert.match((await r.json()).error, /holds no transfer invitation/);
-    } finally { none.close(); }
-    const mountain = await listen({ edition: 'member', bridge, directoryUrl: 'https://dir.example',
-      transferProbe: boxState({ invited: '2026-08-19' }, { owner: 'member', anchor: 'crads-ai' }),
-      handoverSignIn: async () => { signed++; return { ok: true, idToken: 'x' }; } });
-    try {
-      const r = await consent(mountain, { host: 'jane01-box' });
-      assert.equal(r.status, 409);
-      assert.match((await r.json()).error, /not anchored to a rock/);
-    } finally { mountain.close(); }
-    assert.equal(signed, 0, 'no sign-in prompt for a transfer that cannot exist');
-  } finally { globalThis.fetch = realFetch; }
-});
-
-test('/transfer-consent: a refused sign-in is a 401 and a directory refusal is surfaced, never a fake receipt', async () => {
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, init) => {
-    if (!String(url).startsWith('https://dir.example')) return realFetch(url, init);
-    return { ok: false, status: 403, json: async () => ({ error: 'that mineral is held by a different account; sign in as its holder to consent' }) };
-  };
-  try {
-    const probe = boxState({ invited: '2026-08-19' }, { owner: 'member', anchor: 'acme-collab' });
-    const noSign = await listen({ edition: 'member', bridge, directoryUrl: 'https://dir.example', transferProbe: probe,
-      handoverSignIn: async () => ({ ok: false, reason: 'closed the window' }) });
-    try {
-      const r = await consent(noSign, { host: 'jane01-box' });
-      assert.equal(r.status, 401);
-      assert.match((await r.json()).error, /your own sign-in is what makes this transfer yours to give/);
-    } finally { noSign.close(); }
-    const wrongHolder = await listen({ edition: 'member', bridge, directoryUrl: 'https://dir.example', transferProbe: probe,
-      handoverSignIn: async () => ({ ok: true, idToken: 'stub' }) });
-    try {
-      const r = await consent(wrongHolder, { host: 'jane01-box' });
-      assert.equal(r.status, 400);
-      assert.match((await r.json()).error, /held by a different account/);
-    } finally { wrongHolder.close(); }
-  } finally { globalThis.fetch = realFetch; }
-});
-
-test('/transfer-consent is a member-seat route only', async () => {
-  const org = await listen({ edition: 'operator' });
-  try { assert.equal((await consent(org, { host: 'x' })).status, 404); } finally { org.close(); }
+    const r = await consent(s, { host: 'jane01-box' });
+    assert.equal(r.status, 404, '/transfer-consent must stay gone');
+  } finally { s.closeAllConnections?.(); s.close(); }
 });
 
 test('the org completer asks the directory for consent and refuses without it, or with consent for another invitation', () => {

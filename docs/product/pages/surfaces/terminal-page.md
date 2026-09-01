@@ -34,8 +34,8 @@ and let it write that down.
 
 ## The commands
 
-Every engine skill is a command here. Ten of them, and the same set is on the
-Skills page, readable in full before you type anything:
+Every engine skill is a command here, the same set the Skills page lists in
+full before you type anything. The everyday ones:
 
 - `/capture`: the end-of-session sweep. What should have been written down but
   was not, proposed to you, then written.
@@ -54,6 +54,11 @@ Skills page, readable in full before you type anything:
 - `/plan-week`: sets this week's three to five outcomes, the surface the daily
   brief reads all week.
 - `/weekly`: the week reviewed. The log, project health, next week's focus.
+
+The authoring commands (`/write-page`, `/write-prompt`, `/write-folder`) are
+here too: they make library content, and a community host leans on them when
+curating a commons. The generated
+[skills reference](/docs/skills) is the authoritative list.
 
 ## Opening and closing a session
 

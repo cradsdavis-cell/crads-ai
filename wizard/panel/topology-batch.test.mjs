@@ -1,7 +1,7 @@
-// The 2026-08-09 lag audit: the map's probes ride ONE exec (topology-state /
-// org-topology-state), and dashboard-data serves a young data.json without a
-// rebuild unless fresh:1 forces the walk. These pins keep both from silently
-// regressing into per-probe SSH round-trips or an uncacheable dashboard.
+// The 2026-08-09 lag audit: the map's probes ride ONE exec (topology-state),
+// and dashboard-data serves a young data.json without a rebuild unless fresh:1
+// forces the walk. These pins keep both from silently regressing into
+// per-probe SSH round-trips or an uncacheable dashboard.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MEMBER_VERBS, VERBS } from './panel-server.mjs';
@@ -17,14 +17,12 @@ test('topology-state batches console + devices + support into one command', () =
   assert.ok(!MEMBER_VERBS['topology-state'].mutating, 'read-only');
 });
 
-test('org-topology-state batches the four rock-map probes, adminOnly like rock-state', () => {
-  const cmd = VERBS['org-topology-state'].build().command;
-  for (const m of ['__DEVICES__', '__SUPPORT__', '__STALL__', '__ROCKSTATE__']) {
-    assert.ok(cmd.includes(m), m + ' marker present');
-  }
-  assert.ok(cmd.indexOf('__STALL__') < cmd.indexOf('__ROCKSTATE__'), 'markers in split order');
-  assert.ok(cmd.includes(VERBS['stall-board'].build().command), 'stall leg is the real verb');
-  assert.equal(VERBS['org-topology-state'].adminOnly, true, 'rock-state rides inside, so adminOnly must too');
+test('org-topology-state is RETIRED (2026-09-01): the rock map died with the org face', () => {
+  // The four-probe rock batch (console, devices, stall board, rock state)
+  // synthesised a world the one face no longer draws. rock-state is deleted
+  // outright; the batch verb must not come back around it.
+  assert.equal(VERBS['org-topology-state'], undefined, 'the batch verb stays gone');
+  assert.equal(VERBS['rock-state'], undefined, 'and so does the rock-state leg it rode on');
 });
 
 test('dashboard-data gates the rebuild behind a 45s freshness check; fresh:1 bypasses it', () => {

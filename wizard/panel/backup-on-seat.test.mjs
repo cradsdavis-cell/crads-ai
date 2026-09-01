@@ -98,10 +98,14 @@ test('precheck answers for the box the seat names, and offers its slug', async (
   } finally { s.close(); }
 });
 
-test('the org console does not serve a personal-brain flow', async () => {
+test('the retired edition option cannot switch the flow off: one face, one seat, one backup', async () => {
+  // This used to pin that the org console served no personal-brain flow. The
+  // org console is gone (face collapse, 2026-09-01) and createPanelServer
+  // lost its edition option, so a stale caller still passing edition:'org'
+  // gets the same server as everyone, flow included.
   const s = await listen({ edition: 'org', htmlText: '<html></html>' });
   try {
-    assert.notEqual((await fetch(url(s, '/own-brain/precheck'))).status, 200);
+    assert.equal((await fetch(url(s, '/own-brain/precheck'))).status, 200);
   } finally { s.close(); }
 });
 

@@ -20,8 +20,10 @@ import { randomBytes } from 'node:crypto';
 import { createPanelServer } from './panel-server.mjs';
 // the self-enrolled row is named after the machine running the test (2026-08-12),
 // so these assertions ask the same function the server does rather than pinning
-// one box's hostname and failing everywhere else
-import { machineName, machineSlug } from './device-enrol.mjs';
+// one box's hostname and failing everywhere else. machine-name.mjs is where the
+// function lives; device-enrol.mjs only ever re-exported it and is deleted
+// (self-host strip, 2026-09-01).
+import { machineName, machineSlug } from './machine-name.mjs';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
 
 const HOST = 'jane01-box';
@@ -74,8 +76,10 @@ function machine(blob) {
   return sshDir;
 }
 
+// createPanelServer has no edition option since the face collapse (2026-09-01):
+// one server, one face, so nothing here declares what kind of panel it is.
 const listen = (opts) => new Promise((resolve) => {
-  const s = createPanelServer({ port: 0, host: '127.0.0.1', htmlText: '<html>x</html>', edition: 'member', ...opts });
+  const s = createPanelServer({ port: 0, host: '127.0.0.1', htmlText: '<html>x</html>', ...opts });
   s.on('listening', () => resolve(s));
 });
 const jpost = (s, path, body) => fetch(`http://127.0.0.1:${s.address().port}${path}`, {
@@ -184,17 +188,38 @@ test('a machine with no ssh identity for the box enrols nothing', async () => {
   } finally { s.close(); }
 });
 
-test('the route is member-edition only and host-validated', async () => {
+test('the route is host-validated, and the refusal names both alias shapes', async () => {
+  // The member-edition-only leg retired with the face collapse (2026-09-01):
+  // there is one server now, and it serves self-heal for every configured
+  // target, legacy `<org>-rock` aliases included. What survives is the gate
+  // that matters: a host this app is not connected to writes nothing.
   const box = { devices: [] };
-  const org = await listen({ bridge: boxBridge(box), sshDir: machine(sshBlob()), edition: 'org' });
-  try {
-    const r = await jpost(org, '/devices/self-heal', { host: HOST });
-    assert.notEqual(r.status, 200, 'the org/support edition has no self-enrol path');
-  } finally { org.close(); }
   const s = await listen({ bridge: boxBridge(box), sshDir: machine(sshBlob()) });
   try {
     const r = await jpost(s, '/devices/self-heal', { host: 'not-a-target' });
     assert.equal(r.status, 400);
+    assert.match(await r.text(), /host must be a configured <slug>-box \(or legacy <org>-rock\) target/,
+      'the copy admits the legacy alias shape the one-face server also serves');
     assert.equal(box.devices.length, 0);
+  } finally { s.close(); }
+});
+
+test('a configured legacy -rock alias is served by the same route', async () => {
+  // A hosted-era install carries `<org>-rock` Host blocks; the collapse must
+  // not orphan those machines from the self-heal that keeps their roster
+  // honest. Same bridge shapes, different alias kind.
+  const rockHost = 'acme-rock';
+  const blob = sshBlob();
+  const sshDir = tmpDir('device-heal-');
+  writeFileSync(join(sshDir, `${rockHost}.key.pub`), `ssh-ed25519 ${blob} jane@her-laptop\n`);
+  const box = { devices: [] };
+  const bridge = boxBridge(box);
+  bridge.targets = () => [{ host: rockHost, org: 'acme', kind: 'rock' }];
+  const s = await listen({ bridge, sshDir });
+  try {
+    const r = await jpost(s, '/devices/self-heal', { host: rockHost }).then((x) => x.json());
+    assert.equal(r.ok, true, r.reason);
+    assert.equal(r.enrolled, true);
+    assert.equal(box.devices[0].pubkey.split(/\s+/)[1], blob, 'the rock roster gains THIS machine');
   } finally { s.close(); }
 });

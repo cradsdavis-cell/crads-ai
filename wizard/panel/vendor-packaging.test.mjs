@@ -7,7 +7,7 @@
 // The packaged exe has no disk files, so /vendor/marks/index.mjs 404ed, the
 // `import { markFor }` in member.html failed, and EVERY connector fell back to
 // its initial disc. It looked perfect in a dev checkout the whole time, because
-// server-lib.mjs's /vendor/ route falls back to reading disk.
+// the servers' /vendor/ routes fall back to reading disk.
 //
 // So the contract is: if a panel page fetches /vendor/<name>, that <name> is in
 // both lists. Asserted from the SOURCE of each list rather than a copy, so this

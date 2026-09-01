@@ -1,5 +1,5 @@
 // panel-server.mjs: the control panel's local loopback server (D43). Same shape
-// as ui/server-lib.mjs: serves the SPA, streams every verb as SSE. The browser
+// as the retired wizard/ui server: serves the SPA, streams every verb as SSE. The browser
 // NEVER sends shell; it sends { host, verb, args } and only verbs in the VERBS
 // whitelist below map to commands, each built server-side from validated args.
 //
@@ -20,25 +20,21 @@
 // fall back to an https push with ORG_GH_TOKEN from /state/brain/.env (the same
 // var the factory already requires). A failed push is a loud WARN, never silent.
 import http from 'node:http';
-import { randomBytes, createHash } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { systemBridge, forgetHost, hostNameFor, userKnownHostsPath, appKnownHostsPath, rawSsh, runSsh, matchesKind } from './ssh-bridge.mjs';
 import { createOwnBrainRoutes } from './own-brain-routes.mjs';
-import { createOrgGitHubRoutes } from './org-github-routes.mjs';
 import { createMcpOAuthRoutes } from './mcp-oauth-routes.mjs';
 import { createMcpDirectoryRoutes } from './mcp-directory-routes.mjs';
 import { createGoogleConnectRoutes } from './google-connect-routes.mjs';
 import { fetchChangelog, plainRelease } from './updater.mjs';
-import { tieCounts } from './tie-counts.mjs';
 import { seal as sealEnvelope, open as openEnvelope, ensureVaultKeypair } from './vault-crypto.mjs';
-import { machineName } from './device-enrol.mjs';
+import { machineName } from './machine-name.mjs';
 import { inventoryRoutes } from './inventory-routes.mjs';
 import { writeLastUsed } from './last-used.mjs';
-import { parseOwnership } from './face-probe.mjs';
-import { BRAIN_ROOT_SH, BRAIN_ROOT_STAMP_SH } from '../../engine/lib/brain-root.mjs';
+import { BRAIN_ROOT_SH } from '../../engine/lib/brain-root.mjs';
 import { crossOriginBlocked, refuseCrossOrigin } from './same-origin.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -64,183 +60,9 @@ const ORG_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const MINERAL_RE = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
 const HOST_RE = /^[a-z0-9][a-z0-9-]{0,62}-rock$/;
 const MEMBER_HOST_RE = /^[a-z0-9][a-z0-9-]{0,62}-box$/;      // member edition (D44)
-// The platform's own lanes, which are never rocks (2026-08-17, finding 168). A
-// standalone pebble is anchored to `crads-solo` (SOLO_ORG in member-connect.mjs,
-// the staging lane the Mountain mints through) and its mirrored record reads
-// anchor `crads-ai` (MOUNTAIN_ANCHOR in directory/worker.js). Both mean the same
-// thing: no rock above you, hosted and billed directly by Crads AI. The edges
-// carrying them are REAL and stay in _communityMine.edges untouched — T7 anchor
-// wiring and the strength sync still read them — but any surface that lists
-// ROCKS (the Rocks page via /rock-mine, ties.json via syncTiesToBox, and the
-// map that reads ties.json) must not present a platform lane as a community the
-// member tied to. Observed live: a fresh solo pebble's Rocks page showed an
-// ANCHORED card named "crads-solo", an internal handle that means nothing to
-// the member it was shown to, sitting above the very sentence that says a solo
-// pebble is "hosted and billed directly".
-const PLATFORM_LANES = new Set(['crads-solo', 'crads-ai']);
-// The promotion consent sentence — MUST mirror directory/worker.js PROMOTE_CONSENT
-// verbatim (a parity test pins the two). The API refuses anything else, so no UI
-// can soften the moment into a checkbox.
-const PROMOTE_CONSENT = "my personal brain becomes this rock's brain";
-// The verified PRE-COPY (ruling: no verified backup, no promotion): a REAL push to
-// the member's OWN backup remote, run on the box, echoing the repo it pushed to.
-// Exit 78 = no remote connected (the honest refusal path).
-const PRECOPY_CMD = 'cd /state || exit 1; R="$(git remote | head -1)"; '
-  + '[ -n "$R" ] || { echo "PRECOPY-NONE: no backup remote connected"; exit 78; }; '
-  + 'git add -A >/dev/null 2>&1; git commit -qm "pre-promotion copy" >/dev/null 2>&1; '
-  + 'git push -q "$R" || { echo "PRECOPY-PUSH-FAILED"; exit 79; }; '
-  + 'echo "PRECOPY-OK $(git remote get-url "$R")"';
-// THE ANCHOR COMES OFF FIRST (Sam's ruling 2026-08-10). An anchored pebble may
-// now promote, and a rock is never anchored to a rock, so the anchor is dropped
-// as part of the upgrade instead of being refused. This is byte-for-byte the
-// detach the member's own `leave-org` verb performs, and deliberately so: the
-// rock's side of a departure is already built around that exact shape (the
-// leave marker up the heartbeat repo, which the rock's leave-reconcile reads to
-// flip the row and detach the door key), and inventing a second "unanchor"
-// marker would need a brain-template change that STANDING ROCKS CANNOT PULL.
-//
-// What survives it is the COMMUNITY JOIN, and that lives somewhere else: the
-// directory edge, downgraded anchored -> joined by the member's own
-// authenticated call before this runs. Community membership has never had a
-// registry row (an accepted `joined` rock-tie writes an edge and nothing else),
-// so "the row goes left, the edge stays joined" is the model's own shape, not a
-// special case. The order matters and is enforced in /promote/flip: downgrade
-// the edge, THEN publish the leave, or the rock's next reflect would prune the
-// tie it is meant to keep.
-//
-// Exit 0 with nothing done when the box is not anchored: the flip is retryable
-// and must be safe to re-run.
-// `by` names the leg that ended the anchor ('promote' or 'downgrade', R23:
-// the member changed the tie to a join). Both are ORG_RE-shaped words we
-// choose, never user input. The downgrade leg also writes the Mountain into
-// ownership.json, because the box stays a pebble and its record must agree
-// with the directory's (uniform anchor rule: anchored to crads-ai, never to
-// nothing).
-// The catalogue merge behind catalog-list: one JSON over every inbox on the
-// box. Single quotes are out (the program rides inside bash single quotes).
-const CATALOG_MERGE_JS = 'const fs=require("fs");const path=require("path");'
-  + 'const rd=(f)=>{try{return JSON.parse(fs.readFileSync(f,"utf8"))}catch{return null}};'
-  + 'const val=(f,k)=>{try{const m=fs.readFileSync(f,"utf8").match(new RegExp("^"+k+"=(.*)$","m"));return m?m[1].trim().replace(/^"|"$/g,""):""}catch{return ""}};'
-  + 'const out={items:[],inboxes:[]};'
-  + 'const anchor=rd("/state/org-inbox/catalog/catalog.json");'
-  + 'const ac=rd("/state/org-contact.json")||{};'
-  + 'const aOwner=val("/state/org-inbox.conf","ORG_GH_OWNER");'
-  + 'if(anchor&&typeof anchor==="object"){for(const k of Object.keys(anchor))if(k!=="items")out[k]=anchor[k];'
-  + 'const aid=String(ac.org||aOwner||"");const alabel=String(anchor.rock||ac.org||ac.name||aOwner||"");'
-  + 'out.inboxes.push({rock_id:aid,rock:alabel,owner:aOwner,anchor:true});'
-  + 'for(const it of (Array.isArray(anchor.items)?anchor.items:[])){if(!it||typeof it!=="object")continue;'
-  + 'out.items.push(Object.assign({},it,{rock:it.rock||alabel||undefined,rock_id:it.rock_id||aid||undefined}))}}'
-  + 'let owners=[];try{owners=fs.readdirSync("/state/org-inbox.d").filter((f)=>f.endsWith(".conf")).map((f)=>f.slice(0,-5)).filter((o)=>/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(o)).sort()}catch{}'
-  + 'for(const owner of owners){const conf="/state/org-inbox.d/"+owner+".conf";const rid=val(conf,"ORG")||owner;'
-  + 'const cat=rd("/state/org-inbox.d/"+owner+"/catalog/catalog.json");const label=String((cat&&cat.rock)||rid);'
-  + 'out.inboxes.push({rock_id:rid,rock:label,owner:owner,anchor:false});'
-  + 'for(const it of (cat&&Array.isArray(cat.items)?cat.items:[])){if(!it||typeof it!=="object")continue;'
-  + 'out.items.push(Object.assign({},it,{rock:it.rock||label,rock_id:rid}))}}'
-  + 'process.stdout.write(JSON.stringify(out))';
-
-export const unanchorCmd = (by) => 'set -e; '
-  + '[ -f /state/org-inbox.conf ] || { echo "UNANCHOR-NONE: not anchored to a rock"; exit 0; }; '
-  + '. /state/org-inbox.conf; '
-  + 'if [ -f /state/heartbeat.conf ] && [ -f /state/secrets/heartbeat_deploy_key ]; then '
-  + `node -e 'const fs=require("fs");fs.writeFileSync("/state/left.json",JSON.stringify({left:new Date().toISOString().slice(0,10),by:"${by}"})+"\\n")'; `
-  + 'W=/state/.leave; rm -rf "$W"; '
-  + 'export GIT_SSH_COMMAND="ssh -i /state/secrets/heartbeat_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"; '
-  + 'git clone -q --depth 1 "${HEARTBEAT_REMOTE_URL:-ssh://git@github.com/$ORG_GH_OWNER/heartbeat-$SLUG.git}" "$W"; '
-  + `node -e 'const fs=require("fs");fs.writeFileSync(process.argv[1]+"/leave.json",JSON.stringify({at:new Date().toISOString().slice(0,10),by:"${by}"})+"\\n")' "$W"; `
-  + `cd "$W"; git add leave.json; git -c user.name=mineral -c user.email=mineral@mineral.local commit -q -m "leave: anchor ${by === 'promote' ? 'dropped on promotion' : 'changed to a join'}" 2>/dev/null || true; `
-  + 'git push -q origin HEAD; rm -rf "$W"; fi; '
-  // The detach itself, last because the push above needs the very credentials it
-  // removes. Both background jobs self-guard on their conf and exit 0 without
-  // it, so removing the confs IS the detach.
-  + 'rm -f /state/heartbeat.conf /state/org-inbox.conf /state/org-contact.json; '
-  + 'rm -f /state/secrets/heartbeat_deploy_key /state/secrets/org_inbox_deploy_key; '
-  + (by === 'downgrade'
-    ? `node -e 'const fs=require("fs");const f="/state/ownership.json";try{const j=JSON.parse(fs.readFileSync(f,"utf8"));j.anchor="crads-ai";fs.writeFileSync(f,JSON.stringify(j,null,2)+"\\n")}catch(e){}'; `
-    : '')
-  + 'echo "UNANCHOR-OK"';
-export const PROMOTE_UNANCHOR_CMD = unanchorCmd('promote');
-
-// The box-side half of promotion: tier rock, owner the org itself (a rock is
-// org-owned by definition), anchor the Mountain.
-//
-// The anchor line is new (2026-08-10) and it is a backstop, not the mechanism:
-// PROMOTE_UNANCHOR_CMD above does the real work of ending the tie. Before
-// anchored pebbles could promote, this comment read "anchor facts are untouched
-// — rocks anchor to the Mountain, which is already what the record says", and
-// that assumption dies with the ruling. If the detach were ever skipped, a
-// promoted box would sit there calling itself a rock while its own record named
-// a rock above it, which the uniform anchor rule calls illegal and which
-// nothing downstream would reconcile.
-// handle is ORG_RE-validated (alphanumerics, space, _ and -), so embedding it in
-// double quotes inside the single-quoted shell string cannot break out.
-export const promoteFlipCmd = (handle) => `node -e '`
-  + `const fs=require("fs");const f="/state/ownership.json";`
-  + `const j=JSON.parse(fs.readFileSync(f,"utf8"));`
-  + `j.tier="rock";j.owner="org";j.owner_slug="${handle}";j.anchor="crads-ai";`
-  + `fs.writeFileSync(f,JSON.stringify(j,null,2)+"\\n");`
-  // The pending marker dies WITH the flip, in the same command, because the
-  // two facts are one fact: a box that is a rock has no promotion in flight.
-  // Left behind, it would make the seat resume a watch forever on a promotion
-  // that already landed.
-  + `try{fs.unlinkSync("/state/promotion-pending.json")}catch(e){}`
-  + `console.log("promoted: this mineral is a rock, personal seat intact")'`;
-
-// SELF-REGISTRATION (Sam's ruling 2026-08-17: "a promoted rock is just the
-// same as a normal rock"). A normal rock mints its own ORG_PULL_TOKEN into its
-// brain .env and registers itself; the operator never holds it. So the flip
-// now starts with exactly that: mint (or reuse — idempotent across retries,
-// which is what lets a crashed flip run the register leg again with the same
-// token and get the worker's already:true) and read back the token plus the
-// box's own public host, and the app claims the handle the ask reserved at the
-// directory. The claim carries the MEMBER's signed id token; the worker
-// converts the reservation only for the email that reserved it, and only once
-// the fulfilment record says done.
-//
-// The token never leaves the member's own machinery: minted on the box, sent
-// once from the member's own app to the directory (which stores only its
-// hash), exactly like a born rock's broker-register.
-// Resolution + STAMP: the mint resolves the brain root through the shared
-// fragment (same truth as every org verb — the token has to land in the .env
-// of the brain that actually exists, which on a member-born box is /state
-// itself), then writes that answer into deployment.yaml as `brain_root:` if
-// no line states it. From this moment the rock is SELF-DESCRIBING: no future
-// reader needs the existence-fallback leg to find its brain. Idempotent both
-// halves, like the whole mint — a crashed flip re-runs this and changes
-// nothing. Boxes promoted before the stamp existed are backfilled by the
-// scheduler's ensureBrainRootStamped() at boot (see brain-root.mjs).
-export const PROMOTE_MINT_CMD = BRAIN_ROOT_SH + BRAIN_ROOT_STAMP_SH
-  + 'T="$(grep \'^ORG_PULL_TOKEN=\' "$BR/.env" 2>/dev/null | head -1 | cut -d= -f2- | tr -d \'"\')"; '
-  + 'if [ -z "$T" ]; then T="$(node -e \'process.stdout.write(require("crypto").randomBytes(24).toString("hex"))\')"; '
-  + 'printf \'\\nORG_PULL_TOKEN=%s\\n\' "$T" >> "$BR/.env"; fi; '
-  + 'D="$(node -e \'const m=require("fs").readFileSync("/state/deployment.yaml","utf8").match(/^domain:\\s*"?([^"\\n#]*)"?/m);process.stdout.write(m?m[1].trim():"")\' 2>/dev/null)"; '
-  // the box states its token and its domain; the SLUG stays the app's fact
-  // (it is the configured target's name), so no hostname guessing here
-  + 'node -e \'const [t,d]=process.argv.slice(1);console.log("PROMOTE_REG "+JSON.stringify({token:t,domain:d||""}))\' "$T" "$D"';
-
-// THE PENDING-PROMOTION MARKER (2026-08-17). A promotion is the one flow where
-// the box-side finish is driven by a PAGE: only the seat's watcher calls
-// /promote/flip. Until this existed the watcher was started in exactly one
-// place, the button's own click handler, so anything that ended the page ended
-// the promotion — while the card explicitly invited it ("you can close this and
-// come back"). Closing the tab, losing the connection, opening the app on
-// another device, or hitting one transient failure left the mineral registered
-// as a rock at the directory and billed at the rock tier while its own
-// ownership record still said pebble, with no route back to the flip except
-// pressing promote again and filing a second request.
-//
-// Found on the first real promotion (2026-08-17): a register 400 stopped the
-// watcher, the retry fulfilled server-side, and the box never flipped.
-//
-// The marker lives ON THE BOX, not in localStorage, because the box is the only
-// party to this that survives a closed browser, a different device and an app
-// reinstall — the same reason the map reads live from the box.
-// The id is hex and the handle is ORG_RE-validated, but the JSON is base64'd
-// anyway so no value is ever interpolated into a shell string.
-export const promotePendingWriteCmd = (id, handle) =>
-  `printf %s '${Buffer.from(JSON.stringify({ id, org_handle: handle, at: Date.now() })).toString('base64')}'`
-  + ` | base64 -d > /state/promotion-pending.json`;
-export const PROMOTE_PENDING_CLEAR_CMD = 'rm -f /state/promotion-pending.json; echo "PENDING-CLEARED"';
-
+// (The platform-lane set PLATFORM_LANES and the edge machinery that read it
+// died with the hosted model: the face collapse removed /rock-mine, ties.json
+// syncing and the anchor wiring, 2026-09-01.)
 // The box-side half of demote: give the box back. It must reverse EXACTLY what
 // promoteFlipCmd wrote — tier, owner and owner_slug — not only the tier.
 //
@@ -796,6 +618,32 @@ function brainVerbs(enter, opts = {}) {
 }
 const memberBrainEnter = 'cd /state/wiki 2>/dev/null || { echo "ERROR: no brain at /state/wiki"; exit 1; }; ';
 
+// The catalogue merge behind catalog-list: one JSON over every inbox on the
+// box. Single quotes are out (the program rides inside bash single quotes).
+// Restored 2026-09-01: the face collapse swept this constant away with the
+// promote/unanchor block it sat beside, while catalog-list (very much alive:
+// the commons model delivers INTO these same inboxes) still referenced it, so
+// every Skills/Library page read threw a ReferenceError server-side.
+const CATALOG_MERGE_JS = 'const fs=require("fs");const path=require("path");'
+  + 'const rd=(f)=>{try{return JSON.parse(fs.readFileSync(f,"utf8"))}catch{return null}};'
+  + 'const val=(f,k)=>{try{const m=fs.readFileSync(f,"utf8").match(new RegExp("^"+k+"=(.*)$","m"));return m?m[1].trim().replace(/^"|"$/g,""):""}catch{return ""}};'
+  + 'const out={items:[],inboxes:[]};'
+  + 'const anchor=rd("/state/org-inbox/catalog/catalog.json");'
+  + 'const ac=rd("/state/org-contact.json")||{};'
+  + 'const aOwner=val("/state/org-inbox.conf","ORG_GH_OWNER");'
+  + 'if(anchor&&typeof anchor==="object"){for(const k of Object.keys(anchor))if(k!=="items")out[k]=anchor[k];'
+  + 'const aid=String(ac.org||aOwner||"");const alabel=String(anchor.rock||ac.org||ac.name||aOwner||"");'
+  + 'out.inboxes.push({rock_id:aid,rock:alabel,owner:aOwner,anchor:true});'
+  + 'for(const it of (Array.isArray(anchor.items)?anchor.items:[])){if(!it||typeof it!=="object")continue;'
+  + 'out.items.push(Object.assign({},it,{rock:it.rock||alabel||undefined,rock_id:it.rock_id||aid||undefined}))}}'
+  + 'let owners=[];try{owners=fs.readdirSync("/state/org-inbox.d").filter((f)=>f.endsWith(".conf")).map((f)=>f.slice(0,-5)).filter((o)=>/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(o)).sort()}catch{}'
+  + 'for(const owner of owners){const conf="/state/org-inbox.d/"+owner+".conf";const rid=val(conf,"ORG")||owner;'
+  + 'const cat=rd("/state/org-inbox.d/"+owner+"/catalog/catalog.json");const label=String((cat&&cat.rock)||rid);'
+  + 'out.inboxes.push({rock_id:rid,rock:label,owner:owner,anchor:false});'
+  + 'for(const it of (cat&&Array.isArray(cat.items)?cat.items:[])){if(!it||typeof it!=="object")continue;'
+  + 'out.items.push(Object.assign({},it,{rock:it.rock||label,rock_id:rid}))}}'
+  + 'process.stdout.write(JSON.stringify(out))';
+
 // ---------------------------------------------------------------- verb whitelist
 // Everything the browser can run, and nothing else. build(args) returns
 // { command, stdin? } or throws a 400. adminOnly verbs 403 for role=support;
@@ -957,37 +805,12 @@ export const VERBS = {
         + '{ [ -f control/ask-push-pending.mjs ] && node control/ask-push-pending.mjs >/dev/null 2>&1; } || true; '
         + '{ [ -f control/leave-reconcile.mjs ] && node control/leave-reconcile.mjs >/dev/null 2>&1; } || true; '
         + '{ [ -f control/late-attach-reconcile.mjs ] && node control/late-attach-reconcile.mjs >/dev/null 2>&1; } || true; '
-        // E6.5: the PLATFORM seat rides the operator credential. Only a mineral
-        // whose .env holds CREATE_PULL_TOKEN (Sam's crads root) can pull
-        // /platform-totals; every other org gets an empty PLATFORM_STATE and
-        // no chip. Counts only (pointers-only): orgs, edges, open requests.
-        + 'PTOK="$(grep -E "^CREATE_PULL_TOKEN=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; '
-        + 'PDIR="$(grep -E "^CRADS_DIRECTORY_URL=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; PDIR="${PDIR:-https://directory.crads-ai.com}"; '
-        + 'PLAT="{}"; if [ -n "$PTOK" ]; then PLAT="$(curl -s -m 6 -H "authorization: Bearer $PTOK" "$PDIR/platform-totals" 2>/dev/null || echo "{}")"; fi; '
-        + 'export PLAT; '
-        // A6 handover asks (verb-interview ruling 2026-08-03): the ask used to
-        // land at the directory and the rock was expected to just know. Pulled
-        // here with the org token so the console can show it as a Requests card.
-        + 'OTOK="$(grep -E "^ORG_PULL_TOKEN=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; '
-        + 'ORGN="$(node -e \'const m=require("fs").readFileSync("org-policy.yaml","utf8").match(/^org:\\s*$[\\s\\S]*?^\\s+name:\\s*"?([^"\\n#]*)"?/m);process.stdout.write(m?m[1].trim():"")\' 2>/dev/null)"; '
-        + 'HODIR="$(grep -E "^CRADS_DIRECTORY_URL=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; HODIR="${HODIR:-https://directory.crads-ai.com}"; '
-        + 'HANDOVER="{}"; if [ -n "$OTOK" ] && [ -n "$ORGN" ]; then HANDOVER="$(curl -s -m 6 -H "authorization: Bearer $OTOK" "$HODIR/handover-requests?org=$ORGN" 2>/dev/null || echo "{}")"; fi; '
-        + 'export HANDOVER; '
-        // Rock ties (2026-08-05 + 2026-08-09): pending tie asks + the live tie
-        // list ride the same console read, same org token. The directory is the
-        // SOLE source for both: a joined or anchored pebble was never stamped
-        // by this rock and has no registry row here.
-        + 'TIEREQ="{}"; if [ -n "$OTOK" ] && [ -n "$ORGN" ]; then TIEREQ="$(curl -s -m 6 -H "authorization: Bearer $OTOK" "$HODIR/rock-tie-requests?org=$ORGN" 2>/dev/null || echo "{}")"; fi; '
-        + 'export TIEREQ; '
-        + 'TIES="{}"; if [ -n "$OTOK" ] && [ -n "$ORGN" ]; then TIES="$(curl -s -m 6 -H "authorization: Bearer $OTOK" "$HODIR/rock-ties?org=$ORGN" 2>/dev/null || echo "{}")"; fi; '
-        + 'export TIES; '
-        // What each pebble calls ITSELF (2026-08-16, docs/naming.md). The registry
-        // row carries the name the ADMIN typed at stamp time and nothing has ever
-        // carried a member's own rename back to it, so the Pebbles page has been
-        // showing a name its owner may have replaced weeks ago. Same org token,
-        // same round, one more curl.
-        + 'PNAMES="{}"; if [ -n "$OTOK" ] && [ -n "$ORGN" ]; then PNAMES="$(curl -s -m 6 -H "authorization: Bearer $OTOK" "$HODIR/rock-pebble-names?org=$ORGN" 2>/dev/null || echo "{}")"; fi; '
-        + 'export PNAMES; '
+        // The directory pulls that rode this read (platform totals, handover
+        // asks, tie requests, ties, pebble names) died with the central
+        // directory (self-host strip, 2026-09-01): nothing is dialled, and the
+        // marked line carries empty lists for those fields.
+        + 'PLAT="{}"; HANDOVER="{}"; TIEREQ="{}"; TIES="{}"; PNAMES="{}"; '
+        + 'export PLAT HANDOVER TIEREQ TIES PNAMES; '
         + 'node -e \''
         + 'const fs=require("fs"),path=require("path");'
         + 'const pol=(()=>{try{return fs.readFileSync("org-policy.yaml","utf8")}catch{return ""}})();'
@@ -1016,273 +839,7 @@ export const VERBS = {
         + '})\'',
     }),
   },
-  // console-answer: answer a consent request from the org seat. The directory
-  // call runs ON the mineral with the box-held ORG_PULL_TOKEN (the credential never
-  // reaches the browser); requests-reconcile picks up the state change on its
-  // next pass. Admin-gated: answering consent is an authority act.
-  'console-answer': {
-    adminOnly: true,
-    mutating: true,
-    build: (a = {}) => {
-      const id = String(a.id ?? '');
-      if (!/^[0-9a-f]{8,32}$/.test(id)) bad('that request id does not look right (expected the id shown on the request card)');
-      const answer = String(a.answer ?? '');
-      if (answer !== 'accepted' && answer !== 'declined') bad('answer must be accepted or declined');
-      const note = String(a.note ?? '').trim();
-      if (note.length > 240) bad('the note is too long (240 characters is plenty for a consent note)');
-      // Control characters only. Quotes and backslashes were refused solely
-      // because the note used to be pasted into a shell-quoted JSON body; it is
-      // now built by node from argv (below), so an operator can write a normal
-      // sentence with an apostrophe or a quote in it.
-      if (/[\x00-\x1f\x7f]/.test(note)) bad('the note cannot contain control characters');
-      return {
-        command: BR_CD
-          + 'TOK="$(grep -E "^ORG_PULL_TOKEN=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; '
-          + '[ -n "$TOK" ] || { echo "ERROR: this rock has no directory token (ORG_PULL_TOKEN missing from the brain .env)"; exit 1; }; '
-          + 'ORG="$(node -e \'const m=require("fs").readFileSync("org-policy.yaml","utf8").match(/^org:\\s*$[\\s\\S]*?^\\s+name:\\s*"?([^"\\n#]*)"?/m);process.stdout.write(m?m[1].trim():"")\')"; '
-          + 'DIR="$(grep -E "^CRADS_DIRECTORY_URL=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; DIR="${DIR:-https://directory.crads-ai.com}"; '
-          // The BODY is built by node from argv, not assembled in the shell. It
-          // used to be a double-quoted -d "...\"note\":\"<note>\"...", so a note
-          // of `see $(cat /state/secrets/provisioning.env.local | curl ...)` was
-          // evaluated on the mineral and the org's Hetzner, Cloudflare and GitHub
-          // tokens left with the answer. Its sibling console-request already did
-          // it this way; console-answer was the one that assembled JSON in shell.
-          + 'NOTE=' + (note ? shq(note, 'note', 240) : "''") + '; '
-          + 'BODY="$(node -e \'process.stdout.write(JSON.stringify({org:process.argv[1],id:process.argv[2],answer:process.argv[3],'
-          + '...(process.argv[4]?{note:process.argv[4]}:{})}))\' "$ORG" \'' + id + '\' \'' + answer + '\' "$NOTE")"; '
-          + 'CODE="$(curl -s -o /tmp/console-answer.out -w "%{http_code}" -X POST "$DIR/requests-answer" '
-          + '-H "authorization: Bearer $TOK" -H "content-type: application/json" '
-          + '--data-binary "$BODY")"; '
-          + 'cat /tmp/console-answer.out; echo; '
-          + '[ "$CODE" = "200" ] || { echo "ERROR: the directory said $CODE"; exit 1; }; '
-          + 'node control/requests-reconcile.mjs 2>/dev/null || true; '
-          + 'echo "OK: request ' + id.slice(0, 8) + '\u2026 ' + answer + '."',
-      };
-    },
-  },
-  // Two-tier join (ruling 2026-08-05): the org card's read. Pending asks +
-  // live affiliations in one marked line, straight from the directory \u2014 the
-  // SOLE source for affiliation state, since an affiliated pebble was never
-  // stamped by this rock and has no registry row here. adminOnly for the same
-  // reason join-requests is: an empty answer to Support would read as "nobody
-  // is waiting" when the truth is "you may not look".
-  'rock-state': {
-    adminOnly: true,
-    build: () => ({
-      command: BR_CD
-        + 'TOK="$(grep -E "^ORG_PULL_TOKEN=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; '
-        + 'ORGN="$(node -e \'const m=require("fs").readFileSync("org-policy.yaml","utf8").match(/^org:\\s*$[\\s\\S]*?^\\s+name:\\s*"?([^"\\n#]*)"?/m);process.stdout.write(m?m[1].trim():"")\' 2>/dev/null)"; '
-        + 'DIR="$(grep -E "^CRADS_DIRECTORY_URL=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; DIR="${DIR:-https://directory.crads-ai.com}"; '
-        + 'if [ -z "$TOK" ] || [ -z "$ORGN" ]; then echo \'ROCK_STATE {"requests":[],"ties":[],"dormant":"this rock has no directory token or org name, so it cannot see tie asks"}\'; exit 0; fi; '
-        + 'REQS="$(curl -s -m 6 -H "authorization: Bearer $TOK" "$DIR/rock-tie-requests?org=$ORGN" 2>/dev/null || echo "{}")"; '
-        + 'TIES2="$(curl -s -m 6 -H "authorization: Bearer $TOK" "$DIR/rock-ties?org=$ORGN" 2>/dev/null || echo "{}")"; '
-        + 'export REQS TIES2; '
-        + 'node -e \'let r={},a={};try{r=JSON.parse(process.env.REQS||"{}")}catch{};try{a=JSON.parse(process.env.TIES2||"{}")}catch{};'
-        + 'const dormant=(Array.isArray(r.requests)||Array.isArray(a.ties))?undefined:"the directory did not answer just now";'
-        + 'console.log("ROCK_STATE "+JSON.stringify({requests:Array.isArray(r.requests)?r.requests:[],ties:Array.isArray(a.ties)?a.ties:[],...(dormant?{dormant}:{})}))\'',
-    }),
-  },
-  // Two-tier join (ruling 2026-08-05): answer a pebble's ASK TO JOIN this
-  // community. Affiliation only \u2014 no custody, no hosting, no anchor change \u2014
-  // so unlike the A6 handover there is no box-side accept step: the directory
-  // edge IS the tie, and the member's own bill is untouched.
-  'rock-answer': {
-    adminOnly: true,
-    mutating: true,
-    build: (a = {}) => {
-      const id = String(a.id ?? '');
-      if (!/^[0-9a-f]{8,40}$/.test(id)) bad('that request id does not look right (expected the id shown on the request card)');
-      const decision = String(a.decision ?? '');
-      if (decision !== 'accept' && decision !== 'reject') bad('decision must be accept or reject');
-      const tie = String(a.tie ?? '');
-      if (tie && tie !== 'joined' && tie !== 'anchored') bad('tie must be joined or anchored when given');
-      return {
-        command: BR_CD
-          // Sam's ruling (T8 cert): an ANCHOR is refused BEFORE the directory
-          // writes the edge when this rock cannot host — a half-state (tie
-          // standing, member forever "wiring") must never form. The ask stays
-          // pending; connect-github and approve again. The page passes the tie
-          // kind; an older page omitting it falls back to the post-accept WARN.
-          + (decision === 'accept' && tie === 'anchored' ? GH_HOSTING_CHECK : '')
-          + 'TOK="$(grep -E "^ORG_PULL_TOKEN=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; '
-          + '[ -n "$TOK" ] || { echo "ERROR: this rock has no directory token (ORG_PULL_TOKEN missing from the brain .env)"; exit 1; }; '
-          + 'DIR="$(grep -E "^CRADS_DIRECTORY_URL=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; DIR="${DIR:-https://directory.crads-ai.com}"; '
-          + 'BODY="$(node -e \'process.stdout.write(JSON.stringify({id:process.argv[1],decision:process.argv[2]}))\' \'' + id + '\' \'' + decision + '\')"; '
-          + 'CODE="$(curl -s -o /tmp/rock-answer.out -w "%{http_code}" -X POST "$DIR/rock-tie-result" '
-          + '-H "authorization: Bearer $TOK" -H "content-type: application/json" '
-          + '--data-binary "$BODY")"; '
-          + 'cat /tmp/rock-answer.out; echo; '
-          + '[ "$CODE" = "200" ] || { echo "ERROR: the directory said $CODE"; exit 1; }; '
-          // T6: an accepted ANCHOR is adopted on the spot \u2014 registry seat,
-          // channel repos, staged wire \u2014 so the app-made anchor ends where a
-          // rock-created member ends. The directory hands back tie+slug+email
-          // on exactly this accept (T1); joined accepts skip all of it.
-          + 'if node -e \'const d=JSON.parse(require("fs").readFileSync("/tmp/rock-answer.out","utf8"));process.exit(d.decision==="accept"&&d.tie==="anchored"?0:1)\' 2>/dev/null; then '
-          + 'if [ -f orchestrator/anchor-adopt.mjs ]; then '
-          + 'node orchestrator/anchor-adopt.mjs --result /tmp/rock-answer.out || echo "WARN: the tie stands but adoption staging failed; run the reconcile again or re-answer"; '
-          + 'else echo "WARN: this rock brain predates anchor adoption (no orchestrator/anchor-adopt.mjs). Update the brain from the template; the tie stands but the mineral is not wired."; fi; '
-          + 'fi; '
-          + 'echo "OK: tie ask ' + id.slice(0, 8) + '\u2026 ' + decision + 'ed."',
-      };
-    },
-  },
-  // Evict shape (ruling 2026-08-09): a community MAY end an affiliation it
-  // approved, but never silently \u2014 the reason is required here, enforced again
-  // by the directory (400 without one), stored, and SHOWN to the person on
-  // their own Communities page. Mirrors evict-member's reason discipline.
-  // membership-drop (T2.7, the mineral owner's verb) is deliberately not used:
-  // an affiliated pebble has no registry row on this rock to drop.
-  'rock-tie-end': {
-    adminOnly: true,
-    mutating: true,
-    build: (a = {}) => {
-      const e = String(a.e ?? '');
-      if (!/^[0-9a-f]{64}$/.test(e)) bad('e must be the member hash shown on the tie row');
-      const tie = String(a.tie ?? '');
-      if (tie !== 'joined' && tie !== 'anchored') bad('tie must be joined or anchored');
-      // WHICH MINERAL'S TIE (2026-08-16, finding 152's sibling, and the worst of
-      // the three). The hash names a PERSON, and a person may hold two pebbles
-      // on this rock, so the directory sorted and ended whichever was newest:
-      // one member's other pebble could be cut off its host and its billing by
-      // an eviction it had nothing to do with, and the notice they read would
-      // give a reason for a tie that still stands. The rock has the slug on
-      // every row of /rock-ties, which is where the End-tie button is drawn
-      // from, so it says which. Optional here only so a console that predates
-      // the change still ends a lone tie; two ties and no slug the directory
-      // refuses outright.
-      const slug = String(a.slug ?? '');
-      if (slug && !MINERAL_RE.test(slug)) bad('slug must be the mineral name shown on the tie row');
-      const reason = String(a.reason ?? '').trim();
-      if (!reason) bad('a reason is required: it is shown to the person (who ended the tie and why) \u2014 never a silent cut');
-      const rsn = shq(reason, 'reason', 160);
-      return {
-        command: BR_CD
-          + 'TOK="$(grep -E "^ORG_PULL_TOKEN=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; '
-          + '[ -n "$TOK" ] || { echo "ERROR: this rock has no directory token (ORG_PULL_TOKEN missing from the brain .env)"; exit 1; }; '
-          + 'ORG="$(node -e \'const m=require("fs").readFileSync("org-policy.yaml","utf8").match(/^org:\\s*$[\\s\\S]*?^\\s+name:\\s*"?([^"\\n#]*)"?/m);process.stdout.write(m?m[1].trim():"")\')"; '
-          + 'DIR="$(grep -E "^CRADS_DIRECTORY_URL=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; DIR="${DIR:-https://directory.crads-ai.com}"; '
-          + 'RSN=' + rsn + '; '
-          + 'BODY="$(node -e \'const b={org:process.argv[1],e:process.argv[2],tie:process.argv[3],reason:process.argv[4]};if(process.argv[5])b.slug=process.argv[5];process.stdout.write(JSON.stringify(b))\' "$ORG" \'' + e + '\' \'' + tie + '\' "$RSN" \'' + slug + '\')"; '
-          + 'CODE="$(curl -s -o /tmp/rock-tie-end.out -w "%{http_code}" -X POST "$DIR/rock-tie-end" '
-          + '-H "authorization: Bearer $TOK" -H "content-type: application/json" '
-          + '--data-binary "$BODY")"; '
-          + 'cat /tmp/rock-tie-end.out; echo; '
-          + '[ "$CODE" = "200" ] || { echo "ERROR: the directory said $CODE"; exit 1; }; '
-          + 'echo "OK: tie ended, and they will see why."',
-      };
-    },
-  },
-
   // ---- E6.3 · console verbs wired to the choreography ---------------------------
-  // console-request: INITIATE a two-consent move from the org seat. The kinds
-  // are the ruled taxonomy; every field is server-checked here and the body is
-  // built by node ON the mineral (no shell-quoting of user text into curl), sent
-  // with the box-held ORG_PULL_TOKEN. The directory re-validates everything
-  // again (auth, enums, bounds, cycle guards): defense in depth, not trust.
-  'console-request': {
-    adminOnly: true,
-    mutating: true,
-    build: (a = {}) => {
-      const KINDS = ['late-attach', 're-anchor', 'transfer', 'rejoin', 'ask-read', 'ask-install', 'reframe', 'self-run'];
-      const kind = String(a.kind ?? '');
-      if (!KINDS.includes(kind)) bad(`kind must be one of ${KINDS.join(' / ')}`);
-      const toOrg = String(a.to_org ?? '');
-      if (!ORG_RE.test(toOrg)) bad('to_org must be the receiving rock\u2019s handle (lowercase letters, numbers, hyphens)');
-      const subject = String(a.subject ?? '').trim();
-      // $ ( ) and backtick were permitted here, and the confirmation echoes below
-      // are double-quoted shell strings, so a subject could substitute a command
-      // inside the rock's rock container (which holds its Hetzner,
-      // Cloudflare and GitHub tokens). Both halves are closed: refused here, and
-      // the echoes no longer interpolate into double quotes.
-      if (!subject || subject.length > 120 || /[\x00-\x1f'"\\$`()]/.test(subject)) bad('subject must be short (120 chars), with no quotes, backslashes, brackets or $ and backtick characters; usually the mineral\u2019s short username');
-      // PATH CONTAINMENT (2026-08-20 audit). For kind 're-anchor' the subject is
-      // interpolated into readFileSync("registry/members/<subject>.yaml"), and it
-      // is the one such interpolation in this file that never passed through
-      // slugArg. The character class above forbids quotes, backslash, dollar,
-      // backtick and brackets, so nothing can break out of the JS string or the
-      // shell line, but it permits '/' and '.', so a subject of '../../org-policy'
-      // read outside registry/members/. The reachable harm is small, since the
-      // exporter copies an eight-key whitelist out of a regex-grepped row so no
-      // file content leaves the box, and this verb is adminOnly. But the read is
-      // still one the caller chose, and containment must not depend on what the
-      // consumer happens to do with the result. A re-anchor subject IS a mineral
-      // slug, so hold it to the mineral slug rule the directory uses.
-      if (kind === 're-anchor' && !MINERAL_RE.test(subject)) {
-        bad('for a re-anchor, subject must be the mineral short username: 2 to 40 characters, lowercase letters, numbers and hyphens, not starting or ending with a hyphen');
-      }
-      const role = a.role === undefined ? '' : String(a.role);
-      if (role && role !== 'applicant' && role !== 'inviter') bad('role must be applicant or inviter (late-attach only)');
-      let payload = null;
-      if (kind === 'reframe') {
-        const fw = String(a.framework ?? '').trim();
-        // Deliberately NOT tightened alongside `subject`. A framework name is prose
-        // ("GROW (coaching model)"), and unlike subject it only ever lands inside
-        // JSON.stringify(payload) within a single-quoted `node -e` script, where
-        // $ ( ) and backtick are inert. Refusing them here bought no safety and
-        // broke legitimate names, including re-sending an already-stored request.
-        if (!fw || fw.length > 80 || /[\x00-\x1f'"\\]/.test(fw)) bad('a reframe offer names the framework (short, no quotes)');
-        const intensity = String(a.intensity ?? 'overlay');
-        if (!['overlay', 'integrate', 'rebuild'].includes(intensity)) bad('intensity must be overlay, integrate or rebuild');
-        payload = { framework: fw, intensity };
-      }
-      return {
-        command: 'set -e; ' + BR_CD
-          + 'TOK="$(grep -E "^ORG_PULL_TOKEN=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; '
-          + '[ -n "$TOK" ] || { echo "ERROR: this rock has no directory token (ORG_PULL_TOKEN missing from the brain .env)"; exit 1; }; '
-          + 'ORG="$(node -e \'const m=require("fs").readFileSync("org-policy.yaml","utf8").match(/^org:\\s*$[\\s\\S]*?^\\s+name:\\s*"?([^"\\n#]*)"?/m);process.stdout.write(m?m[1].trim():"")\')"; '
-          + 'DIR="$(grep -E "^CRADS_DIRECTORY_URL=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; DIR="${DIR:-https://directory.crads-ai.com}"; '
-          // A re-anchor MUST carry the row, or the receiving rock has nothing to
-          // land. Nothing produced this payload: exportRowForReAnchor existed but
-          // was referenced only by its own tests, and console-request attached a
-          // payload for 'reframe' alone. So an accepted re-anchor left the sender
-          // marking the member as moved while the receiver's importReAnchoredRow
-          // threw "bad slug in re-anchor payload" on {} every tick, forever: the
-          // member belonged to nobody. Exported HERE, on the box that holds the
-          // row, through the same governed-field exporter the importer expects.
-          + (kind === 're-anchor'
-            ? 'ROWJSON="$(node -e \'import("./registry/re-anchor.mjs").then(async(m)=>{'
-              + 'const fs=require("fs");const nr=await import("./registry/normalize-row.mjs");'
-              + 'const y=fs.readFileSync("registry/members/' + subject + '.yaml","utf8");'
-              + 'process.stdout.write(JSON.stringify(m.exportRowForReAnchor(nr.extractRow(y),{anchorSlug:process.argv[1]})))})\' "$ORG" 2>/dev/null)"; '
-              + '[ -n "$ROWJSON" ] || { echo ' + "'ERROR: could not read the registry row for " + subject + "; a re-anchor must carry it.'" + '; exit 1; }; '
-            : '')
-          + 'BODY="$(node -e \'const extra=process.argv[2]?{payload:JSON.parse(process.argv[2])}:{};'
-          + 'console.log(JSON.stringify({from_org:process.argv[1],to_org:"' + toOrg + '",kind:"' + kind + '",subject:"' + subject + '"'
-          + (role ? ',role:"' + role + '"' : '')
-          + (payload ? ',payload:' + JSON.stringify(payload) : '')
-          + ',...extra}))\' "$ORG" ' + (kind === 're-anchor' ? '"$ROWJSON"' : '""') + ')"; '
-          + 'CODE="$(curl -s -o /tmp/console-req.out -w "%{http_code}" -X POST "$DIR/requests" '
-          + '-H "authorization: Bearer $TOK" -H "content-type: application/json" -d "$BODY")"; '
-          + 'cat /tmp/console-req.out; echo; '
-          + '[ "$CODE" = "200" ] || { echo "ERROR: the directory said $CODE"; exit 1; }; '
-          + 'node control/requests-reconcile.mjs 2>/dev/null || true; '
-          + "echo 'OK: " + kind + ' request sent to ' + toOrg + ' re ' + subject + ".'",
-      };
-    },
-  },
-  // console-withdraw: the sender takes an open request back (T2.1's withdraw).
-  'console-withdraw': {
-    adminOnly: true,
-    mutating: true,
-    build: (a = {}) => {
-      const id = String(a.id ?? '');
-      if (!/^[0-9a-f]{8,32}$/.test(id)) bad('that request id does not look right');
-      return {
-        command: 'set -e; ' + BR_CD
-          + 'TOK="$(grep -E "^ORG_PULL_TOKEN=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; '
-          + '[ -n "$TOK" ] || { echo "ERROR: no directory token (ORG_PULL_TOKEN)"; exit 1; }; '
-          + 'ORG="$(node -e \'const m=require("fs").readFileSync("org-policy.yaml","utf8").match(/^org:\\s*$[\\s\\S]*?^\\s+name:\\s*"?([^"\\n#]*)"?/m);process.stdout.write(m?m[1].trim():"")\')"; '
-          + 'DIR="$(grep -E "^CRADS_DIRECTORY_URL=" .env 2>/dev/null | head -1 | cut -d= -f2-)"; DIR="${DIR:-https://directory.crads-ai.com}"; '
-          + 'CODE="$(curl -s -o /tmp/console-wd.out -w "%{http_code}" -X POST "$DIR/requests-withdraw" '
-          + '-H "authorization: Bearer $TOK" -H "content-type: application/json" '
-          + '-d "{\\"org\\":\\"$ORG\\",\\"id\\":\\"' + id + '\\"}")"; '
-          + 'cat /tmp/console-wd.out; echo; '
-          + '[ "$CODE" = "200" ] || { echo "ERROR: the directory said $CODE"; exit 1; }; '
-          + 'node control/requests-reconcile.mjs 2>/dev/null || true; '
-          + 'echo "OK: request withdrawn."',
-      };
-    },
-  },
   // 'console-delivery' was DELETED 2026-08-10 with the pause concept (Sam's
   // pebble-audit ruling 3: "I don't think we need a Pause option at all").
   // brain-template's push-down still honours delivery_pause on a row; with the
@@ -1351,7 +908,7 @@ export const VERBS = {
     mutating: true,
     build: (a = {}) => {
       const slug = slugArg(a.slug);
-      if (!String(a.reason ?? '').trim()) bad('a reason is required: it is shown to the person (who ended the tie and why) — never a silent cut');
+      if (!String(a.reason ?? '').trim()) bad('a reason is required: it is shown to the person, who ended the tie and why. Never a silent cut');
       const reason = shq(a.reason, 'reason', 160);
       return { command: 'set -e; ' + SOFT_FACTORY_ENV + BR_CD + needsBrainScript('evict-member', 'ending a membership for cause') + 'node orchestrator/evict-member.mjs ' + slug + ' --reason ' + reason };
     },
@@ -1454,15 +1011,10 @@ export const VERBS = {
   // the T3.1 ownership choice; a technical member enrols through the same link.
 
 
-  // ---- Invites (D51): admin-first invite + two-party device approval. ------------
-  // invite-member stamps an invite-pending box (no working key) and the factory echoes
-  // a copyable, self-describing invite link the admin sends ("you send the link"). The
-  // member redeems it in the app and reads a 6-char safety code; the admin confirms that
-  // code here. approve-device RE-COMPUTES the code from the pasted key BEFORE any command
-  // runs, so a tampered/substituted key produces a different code and is refused (this is
-  // the graft that closes the leaked-bearer-link takeover every design's red-team found).
-  // On approval the key is appended + the box flips active + push-member-key installs it.
-  // member-revoke flips left + pushes an EMPTY key file = the door drops on the next sync.
+  // 'invite-member' was DELETED with the face collapse (self-host pivot,
+  // 2026-09-01): it was the last verb that could create Hetzner infrastructure
+  // for somebody else, and the Members page that drove it is gone. A person
+  // gets a mineral by building their own through the door's wizard.
   // Is this rock's factory armed, and if not, what exactly is missing? A READ:
   // creates nothing, spends nothing, prints no credential. It exists because the
   // answer used to be discoverable only by attempting a stamp and reading a raw
@@ -1483,184 +1035,11 @@ export const VERBS = {
     }),
   },
 
-  'invite-member': {
-    // BUILDS REAL INFRASTRUCTURE, so the bridge's 25s watchdog would kill it
-    // part-way and strand what it had already created. Driven from the app on
-    // 2026-08-05 this died at "waiting for the VM to boot" AFTER Hetzner had
-    // made the server: a running, billing box with no registry row, invisible
-    // to the app and with no teardown path. The watchdog is right about hung
-    // verbs and wrong about long ones, so the long ones say how long.
-    timeoutMs: 15 * 60 * 1000,
-    adminOnly: true,
-    mutating: true,
-    build: (a = {}) => {
-      const slug = slugArg(a.slug);
-      const name = shq(a.name, 'name', 80);
-      const email = String(a.email ?? '');
-      if (!EMAIL_RE.test(email)) bad('that email doesn’t look like a normal address. Expected something like jane@example.com (only this address will be able to use the invite and sign in, so it must be exactly right)');
-      const provider = String(a.provider || 'google');
-      if (!['google', 'microsoft'].includes(provider)) bad('provider must be Google or Microsoft 365');
-      let extra = '';
-      // Membership levels are DEAD (killed brain-template 2026-07-27; app caught
-      // up 2026-08-03, Sam's verb-interview ruling). a.tier from an older cached
-      // UI is accepted and IGNORED, never refused: rejecting it stranded a live
-      // stamp once (2026-07-24) and a dead field is not worth a second.
-      if (a.region) { if (!WORD_RE.test(String(a.region))) bad('location (region) must be one lowercase word using only letters, numbers and hyphens. Leave it blank to use your rock’s default'); extra += ' --region ' + a.region; }
-      // WHO OWNS THE PEBBLE. The form asks this and explains what it changes (a
-      // member-owned brain is theirs and leaves with them; a rock-owned box is a
-      // work asset whose brain lives in the rock's account), and THIS verb dropped
-      // the answer on the floor, so every pebble created the normal way came out
-      // member-owned whatever the admin chose. stamp-member (the advanced path,
-      // where a device key is pasted in) carried it correctly all along and even
-      // had a test, which is exactly why the gap survived: the covered path
-      // worked and the default one did not. Blank still means the rock's default,
-      // which is what the form's first option promises, so it passes nothing.
-      if (a.owner !== undefined && a.owner !== '') {
-        const own = String(a.owner);
-        if (!['member', 'org'].includes(own)) bad('who owns the pebble must be the member, your rock, or left blank for your rock\u2019s default');
-        extra += ' --owner ' + own;
-      }
-      return {
-        command: 'set -e; ' + BR_RESOLVE + ONBOARD_GATE + FACTORY_ENV + ORG_GH_REQUIRED
-          + ': "${PEBBLE_IMAGE:?your hub is not fully set up yet, so it cannot create member minerals. Ask whoever set up your hub (technical detail: PEBBLE_IMAGE, the member software image, is missing from /state/secrets/provisioning.env.local on the rock)}"; '
-          + 'cd "$BR"; bash factory/stamp-pebble.sh --slug ' + slug + ' --name ' + name
-          + ' --provider ' + provider + ' --email ' + email + ' --invite-pending' + extra + '; '
-          + 'echo "^ Copy the invite link above and send it to ' + email + ' (only that address can complete it). It expires in 14 days."',
-      };
-    },
-  },
-
-  // D58 P1.5: the auto-approve activity feed. Verified devices enrol without an admin tap
-  // (spec 2026-07-24 § 1), so the admin's role becomes informed-with-instant-revoke: this
-  // read powers the panel's "Recent device activity" list; ending access runs
-  // through the card's End flow (member-leave) since 2026-08-10.
-  // D58 P4: request-to-join. The list read runs the rock's own reconcile (which
-  // VERIFIES each request's ID token rock-side) then prints the verified queue;
-  // approve rides the certified invite-pending stamp via factory/join-approve.sh.
-  'join-requests': {
-    adminOnly: true,
-    build: () => ({
-      command: BR_CD
-        + '{ [ -f control/join-reconcile.mjs ] && node control/join-reconcile.mjs 2>&1 | grep -i dormant | sed "s/^/__DORMANT__ /"; } || true; '
-        + 'cat control/join-requests.json 2>/dev/null || echo "[]"',
-    }),
-  },
-  'join-approve': {
-    adminOnly: true,
-    mutating: true,
-    build: (a = {}) => {
-      const id = String(a.id || '');
-      if (!/^[0-9a-f]{8,40}$/.test(id)) bad('that request id does not look right; refresh the Requests list and try again');
-      const slug = slugArg(a.slug);
-      const name = shq(a.name, 'name', 80);
-      const email = String(a.email ?? '');
-      if (!EMAIL_RE.test(email)) bad('that email doesn’t look like a normal address');
-      // levels dead (see stamp-member): a.tier ignored, never refused
-      return {
-        command: 'set -e; ' + BR_RESOLVE + ONBOARD_GATE + FACTORY_ENV + ORG_GH_REQUIRED
-          + ': "${PEBBLE_IMAGE:?your hub is not fully set up yet, so it cannot create member minerals. Ask whoever set up your hub (technical detail: PEBBLE_IMAGE is missing from /state/secrets/provisioning.env.local)}"; '
-          + 'cd "$BR"; bash factory/join-approve.sh --id ' + id + ' --slug ' + slug
-          + ' --name ' + name + ' --email ' + email,
-      };
-    },
-  },
-  'join-decline': {
-    adminOnly: true,
-    mutating: true,
-    build: (a = {}) => {
-      const id = String(a.id || '');
-      if (!/^[0-9a-f]{8,40}$/.test(id)) bad('that request id does not look right; refresh the Requests list and try again');
-      const note = a.note ? shq(String(a.note).slice(0, 300), 'note', 300) : "'Thanks for asking; not right now.'";
-      return {
-        command: 'set -e; ' + BR_CD + 'bash factory/join-approve.sh --id ' + id + ' --decline ' + note,
-      };
-    },
-  },
-
-  'device-activity': {
-    adminOnly: true,
-    build: () => ({
-      command: BR_CD + 'cat control/device-activity.json 2>/dev/null || echo "[]"',
-    }),
-  },
-
-  // Staged devices (D51 Phase 2): members who opened their invite link and whose PUBLIC key
-  // was staged with the central broker. Runs the rock's own reconcile pull on demand
-  // (fail-silent, ~6s worst case) then prints the staged list as JSON. An older brain
-  // without the reconcile script returns [] and the manual paste-back path stands.
-  'pending-devices': {
-    adminOnly: true,
-    build: () => ({
-      // Lazy self-registration: the first poll from an admin panel registers the org with
-      // the broker if it never has (mints the pull token on the box; fail-soft). So the
-      // paste-free approve path lights up with zero setup steps for the admin.
-      command: BR_CD
-        + '{ [ -f control/broker-register.mjs ] && ! grep -q "^ORG_PULL_TOKEN=" .env 2>/dev/null && node control/broker-register.mjs >/dev/null 2>&1; } || true; '
-        + '{ [ -f control/invite-reconcile.mjs ] && node control/invite-reconcile.mjs 2>&1 | grep -i dormant | sed "s/^/__DORMANT__ /"; } || true; '
-        + 'cat control/pending-devices.json 2>/dev/null || echo "[]"',
-    }),
-  },
-
-  // One-time broker registration (D51 Phase 2): the box mints its own pull token, keeps it
-  // in the brain .env (never committed, never leaves the box), and claims the org handle at
-  // the broker. Idempotent + fail-soft: with the broker unreachable the org just stays on
-  // manual paste-back.
-  'broker-register': {
-    adminOnly: true,
-    mutating: true,
-    build: (a = {}) => {
-      const host = String(a.host || '').trim();
-      if (host && !/^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$/i.test(host)) bad('host must be a plain hostname or IP');
-      return {
-        command: BR_CD
-          + '[ -f control/broker-register.mjs ] || { echo "ERROR: this rock brain predates automatic invites (no control/broker-register.mjs). Update the brain from the template, or keep using the manual paste-back."; exit 1; }; '
-          + 'node control/broker-register.mjs' + (host ? ' --host ' + host : ''),
-      };
-    },
-  },
-
-  // Fresh link for a member still waiting (status invited) whose link was lost or expired.
-  // Rotates the token hash (the old link dies) and echoes the new self-describing link.
-  'invite-reissue': {
-    adminOnly: true,
-    mutating: true,
-    build: (a = {}) => {
-      const slug = slugArg(a.slug);
-      return {
-        // THE OWNERSHIP GATE (Sam's ruling 2026-08-10, second pebble grill):
-        // since "the link is the proof", a rock minting a fresh device link for
-        // a LIVE member-owned pebble is minting the enrolment proof for metal
-        // it does not own — roster control on someone else's box, the same
-        // class the pause ruling killed. Their account is the way in from any
-        // new device (identity-model ruling 4). The one legitimate re-send is
-        // the BIRTH link: a row still status "invited" has never enrolled, so
-        // there is no account to be the way in yet, whatever ownership it was
-        // stamped with. Absent owner defaults to member and fails CLOSED.
-        command: BR_CD + 'f=registry/members/' + slug + '.yaml; '
-          + '[ -f "$f" ] || { echo "ERROR: there is no member called \'' + slug + '\'."; exit 1; }; '
-          + 'own=$(sed -n \'s/^owner: *"\\{0,1\\}\\([a-z0-9-]*\\)"\\{0,1\\}.*/\\1/p\' "$f" 2>/dev/null | head -1); own=${own:-member}; '
-          + 'st=$(sed -n \'s/^status: *"\\{0,1\\}\\([a-z]*\\)"\\{0,1\\}.*/\\1/p\' "$f" 2>/dev/null | head -1); '
-          + 'if [ "$own" = "member" ] && [ "$st" != "invited" ]; then echo "REFUSED: ' + slug + ' is member-owned and live, so the rock does not mint device links for their box: their account is the way in from any new device (they sign in and connect). A fresh invite can only be re-sent while they have never enrolled."; exit 1; fi; '
-          + '[ -f factory/invite-reissue.sh ] || { echo "ERROR: this rock brain predates invite re-issue (no factory/invite-reissue.sh). Update the brain from the template, or remove and re-add the member."; exit 1; }; '
-          + 'bash factory/invite-reissue.sh ' + slug,
-      };
-    },
-  },
-
-  // Members currently mid-invite (status invited): who is waiting on a device approval.
-  'invite-pending-list': {
-    build: () => ({
-      command: BR_RESOLVE + 'for f in "$BR"/registry/members/*.yaml; do [ -f "$f" ] || continue; '
-        + 'case "$f" in */_*) continue;; esac; '
-        + 'grep -qE \'^status:[[:space:]]*"?invited"?\' "$f" && { echo "=== $f"; cat "$f"; }; done; '
-        // An EMPTY list is the normal state, not a failure. The loop's last
-        // statement is the grep, so with nobody waiting on an invite its
-        // non-match became the verb's exit status and the panel reported
-        // "__FAIL__ exit 1" (seen live 2026-08-03, once the only member had
-        // claimed). Nothing pending is a fine answer: say so with exit 0.
-        + 'exit 0',
-    }),
-  },
+  // 'invite-pending-list' was RETIRED 2026-09-01 with the invite flow (and
+  // 'invite-reissue' with it: there are no invite links to re-mint). Rows
+  // whose registry status is still "invited" render on the roster as history;
+  // nothing waits on a device approval any more. A lost laptop is re-admitted
+  // through the wizard-local device-add flow (device-routes.mjs).
 
   // 'approve-device' was DELETED 2026-08-09 (Sam: "kill it, the link is the
   // proof"). It performed the acts control/auto-approve.mjs now performs by
@@ -2308,18 +1687,6 @@ export const VERBS = {
     }),
   },
 
-  // The rock map's four probes in ONE exec (2026-08-09 lag audit): same law as
-  // the member 'topology-state' verb. adminOnly because rock-state is.
-  'org-topology-state': {
-    adminOnly: true,
-    build: () => ({
-      command: 'echo "__DEVICES__"; { ' + MEMBER_VERBS['devices-list'].build().command + '; } 2>/dev/null || true'
-        + '; echo "__SUPPORT__"; { ' + MEMBER_VERBS['support-status'].build().command + '; } 2>/dev/null || true'
-        + '; echo "__STALL__"; { ' + VERBS['stall-board'].build().command + '; } 2>/dev/null || true'
-        + '; echo "__ROCKSTATE__"; { ' + VERBS['rock-state'].build().command + '; } 2>/dev/null || true',
-    }),
-  },
-
   // Governance: the org-policy.yaml editor (the panel renders it as a
   // structured form; this verb stays a raw read either way)
   'governance-read': {
@@ -2488,7 +1855,7 @@ export const VERBS = {
       // silent cut, no exceptions). Same argv-not-sed transport the pause
       // writer proved out: operator text must never re-parse as shell.
       const reason = String(a.reason ?? '').trim();
-      if (!reason) bad('a reason is required: it is recorded with the departure and carried to the person — never a silent cut');
+      if (!reason) bad('a reason is required: it is recorded with the departure and carried to the person. Never a silent cut');
       if (reason.length > 160) bad('the reason is too long (160 characters is plenty)');
       if (/[\x00-\x1f\x7f]/.test(reason)) bad('the reason cannot contain control characters');
       const rq = shq(reason, 'reason', 160);
@@ -4107,13 +3474,12 @@ export const MEMBER_VERBS = {
 };
 
 // ---------------------------------------------------------------- server
-// createPanelServer({ port, host, htmlText|htmlPath, bridge, wizardUrl, role,
-//                     edition }) -> the listening http.Server.
+// createPanelServer({ port, host, htmlText|htmlPath, bridge, role, ... })
+//                     -> the listening http.Server.
 //   bridge     injectable transport (tests); defaults to the system ssh bridge
-//   wizardUrl  where "Set up another rock" goes (the co-running wizard)
-//   role       'admin' (default) | 'support'   (org edition only)
-//   edition    'org' (default) | 'member' (D44: member verb table, <slug>-box
-//              hosts, member.html; roles are meaningless, one person one box)
+//   role       'admin' (default) | 'support' (legacy; gates adminOnly verbs)
+// The edition option is GONE (face collapse, 2026-09-01): one server serves
+// the one face to every mineral, whatever its alias suffix says.
 export function createPanelServer(opts = {}) {
   const bridge = opts.bridge || systemBridge();
   // RULING 8 (spec 2026-08-13): the dashboard's header picker is the SAME list
@@ -4128,69 +3494,30 @@ export function createPanelServer(opts = {}) {
     accountFetcher: opts.accountFetcher,
     directoryUrl: opts.directoryUrl,
   });
-  const edition = opts.edition === 'member' ? 'member' : 'org';
-  // Upgraded-pebble P2 (2026-08-09): the rock box is a pebble-plus, so the org
-  // face runs the member SELF-MANAGEMENT verb families against its own rock
-  // box: skills/cadence (org skills on a rhythm + the run ledger), telegram,
-  // MCP connections, secrets (+ the operator device roster the vault leans on),
-  // sharing and the verified restart's version read. Org VERBS spread LAST so
-  // the org-pathed twins (brain-list/brain-read on /state/brain, box-refresh,
-  // whoami) always win. Box-side coverage varies by image age; every one of
-  // these degrades through the engine-too-old / honest-error rails, never a
-  // false empty. NOT imported on purpose: member-console-state + the seat
-  // verbs (the rock seat is governance), box-rename (the rock's name is
-  // governance's display_name, one name with one owner).
-  //
-  // catalog-list/install WERE excluded, on the reasoning that "a rock's library
-  // is the vendor catalog under Publishing". One-inbox removes exactly that
-  // confusion, so the exclusion goes with it: the Catalogue page is what this
-  // rock GIVES OUT, and catalog-list is what it RECEIVES from the rocks it is
-  // tied to. Different lists, different directions. A rock is a box, it gets an
-  // inbox from every rock it joins, and it picks up from that inbox like anyone
-  // else. This is the need community-skill-apply used to meet by crossing the
-  // wall; it is met by the ordinary installer now.
-  const SELF_VERBS = ['cadence-list', 'cadence-write', 'skills-list', 'skill-run',
-    'sharing-list', 'sharing-write', 'support-status', 'support-grant', 'support-revoke',
-    'secrets-list', 'secrets-envelopes', 'secrets-discover', 'secrets-put', 'secrets-remove',
-    'telegram-status', 'telegram-verify', 'telegram-link', 'telegram-forget',
-    'mcp-status', 'mcp-add', 'mcp-remove', 'mcp-add-custom', 'mcp-adopt', 'mcp-token-set', 'mcp-token-forget',
-    'mcp-add-google', 'mcp-token-set-google',
-    'devices-list', 'devices-add', 'devices-revoke', 'devices-stamp', 'devices-rename', 'devices-set-vaultkey',
-    // dashboard-data crossed the wall for the overview unification (2026-08-09
-    // S3): box-cockpit.mjs detects the org brain itself and the org face
-    // reads the same data spine the pebble always had. Non-mutating.
-    'box-version', 'dashboard-data', 'open-folder',
-    'catalog-list', 'catalog-install', 'skill-remove', 'skill-read',
-    // Pages on rocks (panel iteration 2, R15): the rock box is seeded like a
-    // pebble by boot-rock.sh, so the org face reads, lists and deletes its own
-    // pages. page-delete is mutating, so it lands adminOnly here.
-    'pages-list', 'page-read', 'page-delete', 'prompt-list', 'dir-remove', 'library-list',
-    // (community-skill-apply used to cross the wall here, so a rock could
-    // install from a rock it had joined. One-inbox retired it: a rock is a box,
-    // it gets an inbox from every rock it is tied to, and it picks up from that
-    // inbox with catalog-install like anyone else.)
-  ];
-  // Imported self-management verbs: mutating ones become adminOnly on the org
-  // edition (the member face has no roles; the org face does, and a Support
-  // sign-in must not write secrets/sharing/devices on the rock's own box).
-  const ORG_VERBS = Object.assign(
-    Object.fromEntries(SELF_VERBS.filter((k) => MEMBER_VERBS[k])
-      .map((k) => [k, MEMBER_VERBS[k].mutating ? { ...MEMBER_VERBS[k], adminOnly: true } : MEMBER_VERBS[k]])),
-    VERBS);
-  const verbs = edition === 'member' ? MEMBER_VERBS : ORG_VERBS;
-  const hostRe = edition === 'member' ? MEMBER_HOST_RE : HOST_RE;
-  const targetKind = edition === 'member' ? 'member' : 'rock';
-  // Host gate (promote ruling § 3): valid = present in the bridge's target list
-  // for THIS edition AND (matches the edition's alias shape OR carries the
-  // probe-set promoted flag — a promoted rock keeps its -box alias). The flag
-  // travels on the target row, which only the server-side face probe writes;
-  // request input can never mint one. Org teardown deliberately does NOT use
-  // this gate: destroying a promoted box goes through demote and its guards.
+  // ONE verb table (face collapse, 2026-09-01): the member table is the
+  // floor, plus the Catalogue page's library/commons verbs from the old org
+  // table. Everything else that lived in ORG_VERBS (fleet, registry, people,
+  // governance, factory) lost its pages and is no longer served; the builders
+  // stay exported for their own unit tests until the machinery is deleted.
+  const CATALOGUE_VERBS = ['skill-list', 'pack-list', 'item-list', 'pack-content-list',
+    'prompt-write', 'page-write',
+    'commons-status', 'commons-roster', 'commons-init', 'commons-publish',
+    'commons-grant', 'commons-revoke'];
+  const verbs = Object.assign(
+    Object.fromEntries(CATALOGUE_VERBS.filter((k) => VERBS[k]).map((k) => [k, VERBS[k]])),
+    MEMBER_VERBS);
+  // Both alias shapes open the same face: <slug>-box (the ordinary mineral)
+  // and the legacy <org>-rock. The probe-set promoted flag still admits a
+  // promoted host under its -box alias.
+  const hostRe = { test: (h) => MEMBER_HOST_RE.test(h) || HOST_RE.test(h) };
+  const kindOk = (t) => matchesKind(t, 'member') || matchesKind(t, 'rock');
+  // Host gate: valid = present in the bridge's target list AND (matches an
+  // alias shape OR carries the probe-set promoted flag). The flag travels on
+  // the target row, which only the server-side face probe writes; request
+  // input can never mint one.
   const validTarget = (host, targets) => targets.some((t) => t.host === host && (hostRe.test(host) || t.promoted));
   const role = String(opts.role || 'admin').toLowerCase() === 'support' ? 'support' : 'admin';
   const roleAssumed = !opts.role; // no explicit role given: staging default (Admin), shown as assumed
-  // ONE shell for both editions (2026-08-09): panel.html is gone; the org face
-  // is member.html with edition=org stamped at serve time.
   const html = () => (opts.htmlText ?? readFileSync(opts.htmlPath || join(HERE, 'member.html')));
   let busy = false; // one mutating verb at a time
 
@@ -4200,48 +3527,13 @@ export function createPanelServer(opts = {}) {
   // which is the page for someone who does not have one. Same routes, mounted here, so
   // the button runs the flow in place and never leaves the app. Member edition only:
   // an org console has no personal brain to make yours.
-  const ownBrainTargets = () => { try { return (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { return []; } };
+  const ownBrainTargets = () => { try { return (bridge.targets() || []).filter(kindOk); } catch { return []; } };
   const ownBrainRoute = createOwnBrainRoutes({
     opts,
     defaultHost: () => { const t = ownBrainTargets(); return t.length ? t[0].host : null; },
     // Reuses the same gate every other box-addressed route uses, so a caller cannot
     // name a host this app does not manage and have it dialled.
     resolveHost: (want) => (validTarget(want, ownBrainTargets()) ? want : null),
-  });
-
-  // ---- the ROCK's own GitHub, connected from the app (2026-08-10) ----------
-  // Same device flow the seat has had since 2026-08-05, pointed at the rock. It
-  // exists because a door-born rock cannot stamp a pebble until its owner
-  // connects an account they own, and the only way to do that was a terminal
-  // command. Org edition only: a member has no factory to arm.
-  const orgGitHubRoute = createOrgGitHubRoutes({
-    opts,
-    state: {},
-    // Same target gate every box-addressed route uses: the value becomes an ssh
-    // destination, so it can only ever be a rock THIS app already manages.
-    //
-    // FINDING 199 (2026-08-17): this used to be `t[0].host`, unconditionally.
-    // With ONE rock that is the selected rock by definition, and one rock is all
-    // this flow was ever driven against. The day the picker held two, Connect
-    // GitHub pressed while VIEWING institute-of-shenanigans ran the whole flow
-    // (token install + backup) against qa-r2-gmail: the token landed on the
-    // wrong rock, the green line truthfully named the wrong rock's repo, and
-    // the card's status read (which does follow the picker) went on saying "No
-    // offsite copy yet". Sam: "it appears to connect but doesn't register".
-    // Every box-addressed surface follows the picker through /run's host field;
-    // this one route ignored it.
-    //
-    // The page now names the mineral it is showing, and the same validTarget
-    // gate own-brain's resolveHost uses decides. A named host this app does not
-    // manage is REFUSED, never silently swapped for t[0]: the silent swap is
-    // the bug. No host named (an older page) keeps the old single-rock
-    // behaviour.
-    host: (want) => {
-      const t = ownBrainTargets();
-      if (!t.length) return null;
-      if (want) return validTarget(want, t) ? want : null;
-      return t[0].host;
-    },
   });
 
   // ---- MCP sign-in, run by THIS app (2026-08-09) ---------------------------
@@ -4252,7 +3544,7 @@ export function createPanelServer(opts = {}) {
   // over the existing SSH channel, base64 on stdin so it never touches argv.
   const mcpOAuthRoute = createMcpOAuthRoutes({
     sendToBox: async (host, payload) => {
-      const targets = (() => { try { return (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { return []; } })();
+      const targets = (() => { try { return (bridge.targets() || []).filter(kindOk); } catch { return []; } })();
       const h = validTarget(host, targets) ? host : (targets[0] && targets[0].host);
       if (!h) throw new Error('this app is not connected to a mineral');
       const spec = MEMBER_VERBS['mcp-token-set'].build({
@@ -4278,7 +3570,7 @@ export function createPanelServer(opts = {}) {
   const googleConnectRoute = createGoogleConnectRoutes({
     opts: {
       runVerb: async (host, verb, args) => {
-        const targets = (() => { try { return (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { return []; } })();
+        const targets = (() => { try { return (bridge.targets() || []).filter(kindOk); } catch { return []; } })();
         const h = validTarget(host, targets) ? host : (targets[0] && targets[0].host);
         if (!h) throw new Error('this app is not connected to a mineral');
         const spec = MEMBER_VERBS[verb].build(args);
@@ -4316,283 +3608,6 @@ export function createPanelServer(opts = {}) {
     pebble.on('error', (e) => resolve({ code: 1, out: String(e.message || e) }));
     pebble.on('close', (code) => resolve({ code: code ?? 1, out: lines.join('\n') }));
   });
-  // R9 (2026-08-09 grilling): write the ties the app knows DOWN to each member
-  // box, so the Network map (which reads only the box) can draw a tie made
-  // after stamp time. Fired whenever fresh edges land (full refresh + the
-  // silent 10-min repair); per-box filtering by slug keeps one owner's several
-  // pebbles from wearing each other's ties.
-  const syncTiesToBox = async (host, explicit) => {
-    try {
-      if (edition !== 'member') return;
-      const st = server._communityMine || {};
-      if (!Array.isArray(st.edges)) return;
-      const slug = String(host).replace(/-box$/, '');
-      const rows = st.edges
-        .filter((x) => (x.rel === 'joined' || x.rel === 'anchored')
-          // a platform lane is not a rock (PLATFORM_LANES): letting it into
-          // ties.json made the Network map draw "crads-solo" as an anchored
-          // community above a solo pebble
-          && !PLATFORM_LANES.has(String(x.org || '').toLowerCase())
-          // slug is the primary match; the edge's box host is the fallback the
-          // T6 slug-reconciliation relies on (a collision renames the registry
-          // slug, never the box)
-          && (String(x.slug || '') === slug || String(x.box || '').indexOf(slug) === 0))
-        .map((x) => ({ org: String(x.org || ''), org_display: String(x.org_display || ''),
-          tie: x.rel, status: String(x.status || 'active') }));
-      // E2 (2026-08-10 tie audit): never clobber a good ties.json with
-      // emptiness — an empty read is indistinguishable from a broken one.
-      // Only an explicit act (a leave) may clear the file.
-      if (!rows.length && !explicit) return;
-      const b64 = Buffer.from(JSON.stringify(rows), 'utf8').toString('base64');
-      await runCollect(host, MEMBER_VERBS['ties-write'].build({ content_b64: b64 }));
-    } catch { /* the next edges refresh retries */ }
-  };
-  const syncTiesToAll = (explicit) => {
-    let targets = [];
-    try { targets = (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { targets = []; }
-    targets.forEach((t) => { syncTiesToBox(t.host, explicit); });
-  };
-  // T5 (the account pass): the retained-token accessor. While a token is fresh
-  // it is used as-is (Google or crads alike); when it ages out, the disk
-  // session silently mints a new one, so the 50-minute ceiling stops being a
-  // wall a member can hit mid-session. No session = null = the honest
-  // sign-in-needed the routes already speak.
-  const communityToken = async () => {
-    const st = server._communityMine || (server._communityMine = {});
-    if (st.idToken && Date.now() - (st.tokenAt || 0) < 50 * 60 * 1000) return st.idToken;
-    // under the test runner only an INJECTED account mints (hermetic tests)
-    if (!opts.accountToken && process.env.NODE_TEST_CONTEXT) return null;
-    try {
-      const mint = opts.accountToken || (await import('./crads-account.mjs')).getAppToken;
-      const r = await mint({});
-      if (r && r.ok && r.idToken) { st.idToken = r.idToken; st.tokenAt = Date.now(); return r.idToken; }
-    } catch { /* sign-in-needed */ }
-    return null;
-  };
-  // The 10-minute silent edge repair, one body two callers (finding 201):
-  // /rock-mine has always run it (2026-08-09 lag audit; T5 lifted the
-  // 50-minute ceiling), and orgTopologyWorld now needs the same freshness
-  // because the rock's map draws the rock's own memberships from these
-  // retained edges. Stamped first so parallel calls do not stampede.
-  const ensureEdgesFresh = async () => {
-    const st = server._communityMine || (server._communityMine = {});
-    // SELF-HOST STRIP (2026-09-01): the central directory that held the edges
-    // is deleted. Without an injected far end (tests, or a future commons
-    // endpoint) there is nothing to refresh from: keep whatever edges are in
-    // memory and never dial the dead host.
-    if (!opts.directoryUrl && !opts.communityFetcher) return st;
-    if (Date.now() - (st.edgesAt || 0) <= 10 * 60 * 1000) return st;
-    st.edgesAt = Date.now();
-    try {
-      const tok = await communityToken();
-      const jf = opts.communityFetcher || fetch;
-      const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-      const email = (() => { try { return String(JSON.parse(Buffer.from(String(tok).split('.')[1], 'base64url').toString()).email || ''); } catch { return ''; } })();
-      if (tok && email) {
-        const eh = createHash('sha256').update(email.toLowerCase()).digest('hex');
-        const r = await jf(`${dir}/edges?e=${eh}`, { headers: { authorization: `Bearer ${tok}` } });
-        const eb = await r.json().catch(() => null);
-        if (eb && Array.isArray(eb.edges)) st.edges = eb.edges;
-        const n = await jf(`${dir}/rock-tie-notices`, { headers: { authorization: `Bearer ${tok}` } });
-        const nb = await n.json().catch(() => null);
-        if (nb && Array.isArray(nb.notices)) st.notices = nb.notices;
-        syncTiesToAll();   // R9: fresh edges reach the boxes' ties.json
-        wireAnchoredTies();   // T7: unwired anchors claim their bundle
-      }
-    } catch { /* stale edges beat a thrown route */ }
-    return st;
-  };
-  // T5: one refresh body, two callers — the Sign in button (interactive-capable
-  // signer) and app start (silent signer off the disk session). Everything the
-  // Rocks tab, the Library and the maps show flows from here.
-  const refreshCommunityMine = async (signer) => {
-    const st = {}; server._communityMine = st;
-    try {
-      // SELF-HOST STRIP (2026-09-01): with the central directory and account
-      // system deleted there are no edges to fetch and no reason to open a
-      // sign-in window. Injected far ends (tests / future commons) still run.
-      if (!opts.directoryUrl && !opts.communityFetcher) {
-        st.reason = 'community membership is moving to the commons model; the central directory has been retired';
-        return;
-      }
-      const signed = await signer({ nonce: randomBytes(12).toString('hex') });
-      if (server._communityMine !== st) return;
-      if (!signed.ok) { st.reason = signed.reason || 'sign-in did not complete'; return; }
-      // Retained for the community-install content fetch (audit R9): the
-      // directory tie-gates skill content, and re-signing-in for every
-      // install would be ceremony. Aged-out tokens now re-mint silently
-      // through communityToken() instead of dead-ending at 50 minutes.
-      st.idToken = signed.idToken; st.tokenAt = Date.now();
-      const email = (() => { try { return String(JSON.parse(Buffer.from(String(signed.idToken).split('.')[1], 'base64url').toString()).email || ''); } catch { return ''; } })();
-      if (!email) { st.reason = 'sign-in did not prove an email'; return; }
-      const eh = createHash('sha256').update(email.toLowerCase()).digest('hex');
-      st.ownerE = eh;
-      // The account this app is signed in as. The EMAIL is retained here (not
-      // just its hash) because a mineral records its holder in readable form:
-      // an ownership file that only a hash can explain is unauditable by the
-      // person who owns the machine. It never leaves this process except to
-      // the member's own minerals.
-      st.account = { email: email.toLowerCase(), account_id: '' };
-      try {
-        const claims = JSON.parse(Buffer.from(String(signed.idToken).split('.')[1], 'base64url').toString());
-        if (claims && claims.aid) st.account.account_id = String(claims.aid);
-      } catch { /* a token minted before account ids shipped carries no aid */ }
-      const jf = opts.communityFetcher || fetch;
-      const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-      const r = await jf(`${dir}/edges?e=${eh}`, { headers: { authorization: `Bearer ${signed.idToken}` } });
-      const eb = await r.json().catch(() => ({ edges: [] }));
-      if (server._communityMine !== st) return;
-      st.edges = Array.isArray(eb.edges) ? eb.edges : [];
-      st.edgesAt = Date.now();   // starts the 10-min silent-repair clock on /rock-mine
-      const n = await jf(`${dir}/rock-tie-notices`, { headers: { authorization: `Bearer ${signed.idToken}` } });
-      const nb = await n.json().catch(() => ({ notices: [] }));
-      if (server._communityMine !== st) return;
-      st.notices = Array.isArray(nb.notices) ? nb.notices : [];
-      syncTiesToAll();   // R9: a full refresh lands the ties on the boxes too
-      wireAnchoredTies();   // T7: and any unwired anchor claims its bundle
-      claimMinerals();   // the signed-in account records itself as holder on the minerals it can reach
-    } catch (e) { st.reason = String(e.message || e); }
-  };
-  // Once the account is known, tell every mineral this machine can reach who
-  // holds it (ownership model, 2026-08-10). The verb's own rules do the
-  // judging: first claim wins, a mineral already held by someone else refuses
-  // in words, and an unchanged re-claim is a no-op. Once per app run per host.
-  //
-  // This replaces armEnrolment, whose guard could never pass — it compared the
-  // account against an email field the profile schema does not have.
-  const claimMinerals = async () => {
-    if (edition !== 'member') return;
-    const st = server._communityMine || {};
-    const acct = st.account || {};
-    if (!acct.email) return;
-    let targets = [];
-    try { targets = (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { return; }
-    const done = server._mineralClaimed || (server._mineralClaimed = new Set());
-    const payload = Buffer.from(JSON.stringify({
-      account_id: String(acct.account_id || ''), email: String(acct.email || ''),
-    }), 'utf8').toString('base64');
-    for (const t of targets) {
-      if (done.has(t.host)) continue;
-      done.add(t.host);
-      try {
-        const r = await runCollect(t.host, MEMBER_VERBS['mineral-claim'].build({ content_b64: payload }));
-        const m = String(r.out || '').match(/^MINERAL (\{.*\})$/m);
-        if (m) { try { (server._minerals || (server._minerals = {}))[t.host] = JSON.parse(m[1]); } catch { /* shape drift */ } }
-      } catch { /* next launch */ }
-    }
-  };
-  // T7 (2026-08-10): the member side of anchor adoption. For every anchored
-  // edge with a mineral on this machine: if the mineral is already wired,
-  // re-relay its PUBLIC key halves (idempotent, covers a lost post); else
-  // claim the staged bundle from the directory ONCE, run the anchor-wire verb
-  // (keys minted on the mineral, private halves never leave), and relay the
-  // public halves up. Fires off the same cadence as the edges themselves;
-  // a per-(org,host) flag stops re-work once the relay has landed.
-  const wireAnchoredTies = async () => {
-    if (edition !== 'member') return;
-    // SELF-HOST STRIP (2026-09-01): the wire bundles this claimed were staged
-    // at the central directory, which is deleted. Nothing to claim, nowhere to
-    // relay; injected far ends (tests) still exercise the machinery.
-    if (!opts.directoryUrl && !opts.communityFetcher) return;
-    const st = server._communityMine || {};
-    if (!Array.isArray(st.edges)) return;
-    let targets = [];
-    try { targets = (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { return; }
-    const done = server._anchorWired || (server._anchorWired = new Set());
-    const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-    const jf = opts.communityFetcher || fetch;
-    const pubsOf = (out) => {
-      const m = String(out || '').match(/^PUBKEYS (\{.*\})$/m);
-      try { return m ? JSON.parse(m[1]) : null; } catch { return null; }
-    };
-    for (const x of st.edges) {
-      if (x.rel !== 'anchored' || String(x.status || 'active') !== 'active') continue;
-      const slug = String(x.slug || '');
-      // THE NAME BEATS THE ADDRESS, and it beats it ACROSS THE WHOLE LIST
-      // (2026-08-17, finding 152's last sibling). This was one find() ORing the
-      // two arms, so the FIRST host whose label prefixed the edge's box won
-      // before any later host was tried for an exact name. That matters because
-      // a member's second pebble inherits the first's `box` onto its edge:
-      // worker.js says so in edgeNamedBy, "the slug-scoped edge write copies
-      // `box` from the slug-less base row". With that state the second edge
-      // selected the FIRST mineral, and its bundle, channel repos and deploy
-      // keys were carried to the wrong metal. Same rule the directory settled
-      // on for the same reason: slug is the stronger claim and takes strict
-      // precedence, the box label is consulted only when no name matched.
-      const t = targets.find((tt) => tt.host.replace(/-box$/, '') === slug)
-        || targets.find((tt) => String(x.box || '').indexOf(tt.host.replace(/-box$/, '')) === 0);
-      if (!t) continue;
-      const flag = `${x.org}:${t.host}`;
-      if (done.has(flag)) continue;
-      try {
-        let pubs = pubsOf((await runCollect(t.host, MEMBER_VERBS['anchor-pubkeys'].build({ org: x.org }))).out);
-        if (!pubs) {
-          const tok = await communityToken();
-          if (!tok) return;
-          // SAY WHICH MINERAL IS CLAIMING (2026-08-17, finding 152's last
-          // sibling). This body was { org } and nothing else. The app
-          // authenticates as the MEMBER, so the worker's affCaller() hands the
-          // route an email hash and no box, and an email hash names a PERSON:
-          // with two bundles staged for one person the directory had no name to
-          // select on at all. Since a5fa22e it refuses that rather than guessing
-          // (409, "name yours with slug"), and this caller could never answer,
-          // so BOTH pebbles stayed unwired for good. Nothing showed it either,
-          // because the `continue` below reads a 409 exactly like "the rock has
-          // not adopted yet".
-          //
-          // Both names go, because the worker reads both and they fail
-          // differently. `slug` is the edge's own, which edges-reflect keeps
-          // equal to the rock's REGISTRY seat, so it is the name the staged
-          // bundle is filed under; it is matched exactly, and a miss is a 404 we
-          // retry on the next refresh. `box_host` is the softer fallback the
-          // worker uses when no slug came, which is what carries a legacy
-          // slug-less edge. Sent as the same t.host the /anchor-pubkeys relay
-          // below already sends, so the two halves of one wire name one mineral
-          // the same way.
-          const claim = (named) => jf(`${dir}/anchor-wire-claim`, {
-            method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${tok}` },
-            body: JSON.stringify({ org: x.org, box_host: t.host, ...named }),
-          });
-          let r = await claim(slug ? { slug } : {});
-          // A NAMED MISS IS NOT THE SAME AS NOTHING STAGED, and naming must not
-          // be able to make this caller worse than it was. An explicit slug is
-          // matched EXACTLY by the worker, and the two names can legitimately
-          // disagree for a while: the rock renames the REGISTRY seat on a slug
-          // collision (-2..-9) and stages the bundle under the renamed one,
-          // while this edge still carries the asked name until the rock's
-          // edges-reflect lands it. Finding 123 is the reminder that reflect is
-          // not guaranteed to be running. So a 404 falls back to the unnamed
-          // request, which is exactly what this code sent before today: it can
-          // only succeed when ONE bundle is staged, which the directory itself
-          // rules unambiguous, and it still gets the 409 when there are several.
-          // No guess is added; the retry cannot take another mineral's bundle.
-          if (r.status === 404 && slug) r = await claim({});
-          if (!r.ok) continue;   // nothing staged yet: the rock adopts on its own clock
-          const bundle = await r.json();
-          const b64 = Buffer.from(JSON.stringify(bundle), 'utf8').toString('base64');
-          const wired = await runCollect(t.host, MEMBER_VERBS['anchor-wire'].build({ content_b64: b64 }));
-          pubs = pubsOf(wired.out);
-          if (!pubs) continue;   // refused in words on the mineral; the rock re-stages in an hour
-        }
-        const tok2 = await communityToken();
-        if (!tok2) return;
-        // AND THE TWIN, five lines down (2026-08-17). box_host was the only
-        // name here, and the worker reduces it to a LABEL, so it lands on the
-        // edge's slug arm and then its box arm. Both arms refuse when ambiguous,
-        // and both are ambiguous in the state above: a rock renames the REGISTRY
-        // seat on a slug collision (-2..-9) and never the mineral, edges-reflect
-        // writes that renamed slug onto the edge, so the local host label stops
-        // matching any slug, and the box arm is already sharing one inherited
-        // host between two pebbles. The keys then post under 409 forever. The
-        // slug is the one name that survives the rename, so it goes too.
-        const pr = await jf(`${dir}/anchor-pubkeys`, {
-          method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${tok2}` },
-          body: JSON.stringify({ org: x.org, inbox_pub: pubs.inbox_pub, heartbeat_pub: pubs.heartbeat_pub, box_host: t.host, ...(slug ? { slug } : {}) }),
-        });
-        if (pr.ok) done.add(flag);
-      } catch { /* the next edges refresh retries */ }
-    }
-  };
   // transport banners can precede the CLI's JSON: parse the outermost object
   const jsonOut = (out) => {
     const a = out.indexOf('{'), b = out.lastIndexOf('}');
@@ -4661,71 +3676,26 @@ export function createPanelServer(opts = {}) {
   }
 
   // ---- the real world, for the topology page's read-only mode --------------
-  // The topology page ships four INVENTED example worlds (Acme CoLab, hosting
-  // mix, enterprise, fresh rock). They teach the model well, but a member asking
-  // to see THEIR network was landing in Acme CoLab. This composes the facts
-  // the box already reports into the same shape the page's node model wants, so
-  // the very same renderer can draw a real network instead of a story.
-  //
-  // Facts only, and only facts the box states about itself. The one rule that
-  // matters: ownership.json carries managed_by:"org" as a DEFAULT even on a
-  // standalone box in no rock (true of every self-serve pebble), so the
-  // ROCK NAME decides whether an org exists here, never managed_by.
-  // Inventing an org from a default would put a relationship on screen that the
-  // member does not have.
+  // Facts only, and only facts the box states about itself. The org/anchor/
+  // Mountain synthesis died with the hosted model (face collapse, 2026-09-01):
+  // nothing hosts a self-hosted mineral, so the world is the box, the devices
+  // that can open it, and any open support window. The map draws communities
+  // from the mineral's own community list, page-side.
   function worldFacts(state, devices, support) {
     const own = state.ownership || {};
-    const orgName = String((state.org || {}).name || '').trim();
     const lineage = state.lineage || null;
-    // R9 (2026-08-09): ALL rock ties draw, the anchor emphasised. ties.json is
-    // what the app wrote down from the directory; org-contact.json (the
-    // stamp-time seed) and the ownership anchor flag cover boxes the write has
-    // not reached yet, so an anchored box never draws wireless again.
-    const orgs = [];
-    const seen = new Set();
-    (Array.isArray(state.ties) ? state.ties : []).forEach((t) => {
-      const key = String((t || {}).org || '');
-      if (!key || seen.has(key)) return;
-      // A platform lane is not a rock (PLATFORM_LANES). syncTiesToBox no longer
-      // writes one, but a ties.json written before 2026-08-17 may still carry
-      // it, and E2 forbids clearing the file to fix that — so the reader holds
-      // the rule too, which is what keeps an already-poisoned box honest.
-      if (PLATFORM_LANES.has(key.toLowerCase())) return;
-      seen.add(key);
-      orgs.push({ label: String(t.org_display || '').trim() || key,
-        tie: t.tie === 'anchored' ? 'anchored' : 'joined', status: String(t.status || 'active') });
-    });
-    if (!orgs.some((o) => o.tie === 'anchored') && (orgName || state.anchored)) {
-      orgs.unshift({ label: orgName || 'Your rock', tie: 'anchored', status: 'active' });
-    }
-    const anchorOrg = orgs.find((o) => o.tie === 'anchored') || null;
     return {
-      // every tie, anchor first; the legacy single `org` stays one release so
-      // an old client still draws its one node
-      orgs,
       box: {
         label: String(state.name || '').trim() || 'Your mineral',
         tier: own.tier === 'rock' ? 'rock' : 'pebble',
-        // R22 (iteration 2): no anchored rock means the Mountain anchors this
-        // mineral; the map draws it. crads-ai is stripped above, so the hint
-        // is exactly "no rock remains".
-        mountain: !anchorOrg,
-        ownedByOrg: own.owner !== 'member',
-        runs: own.machinery_by === 'self' ? 'self' : own.machinery_by === 'owner' ? 'owner' : 'crads-ai',
         origin: lineage && lineage.origin === 'stamped' ? 'stamped' : 'self',
         framework: (lineage && lineage.framework_imprint) || '',
-        grafts: ((lineage && lineage.reframes) || []).map((r) => ({
-          from: String(r.from || ''), what: String(r.framework || ''),
-          state: r.outcome === 'accepted' ? 'accepted' : 'declined',
-        })),
       },
-      org: anchorOrg ? { label: anchorOrg.label } : (orgName ? { label: orgName } : null),
       // The map's own law is "exactly what can open this mineral right now", so a
       // sentinel row that can open nothing has no place on it. `usable !== false`
       // rather than `=== true`: a box on an engine older than that flag sends
       // none, and its real devices must still be drawn.
       devices: (devices || []).filter((d) => d.status === 'active' && d.usable !== false)
-        // slug rides along so the native map can key its chips to roster rows
         .map((d) => ({ slug: d.slug, label: d.label || d.slug, last_seen: d.last_seen || '' })),
       support: support && support.active
         ? { active: true, expires_at: String(support.active.expires_at || '') }
@@ -4752,95 +3722,6 @@ export function createPanelServer(opts = {}) {
     let support = null;
     try { support = jsonOut(r.out.split('__SUPPORT__')[1] || ''); } catch { /* drawn without it */ }
     return { ok: true, ...worldFacts(state, devices, support) };
-  }
-
-  // The rock's world (P3, ruling 2026-08-09 option 2): the same map, with the
-  // fleet drawn BELOW the rock. Captions stay truthful pre-ruling-3: an
-  // anchored pebble is "anchored here · hosted by this rock" (registry fact),
-  // never "can open" — the rock has no key into member boxes and enforcement
-  // still runs on the member's own machinery. Joined affiliates draw dashed:
-  // their box, their bill, directory state only. Every probe is additive: a
-  // leg that will not answer costs its nodes, never the map.
-  async function orgTopologyWorld(host) {
-    // Same batching law as topologyWorld: four probes, one exec (2026-08-09).
-    const r = await runCollect(host, verbs['org-topology-state'].build());
-    if (r.code !== 0) return { ok: false, reason: `could not read your box: ${r.out.slice(0, 200)}` };
-    const out = String(r.out);
-    let devices = [];
-    try { devices = jsonOut((out.split('__DEVICES__')[1] || '').split('__SUPPORT__')[0]).devices || []; } catch { /* drawn without them */ }
-    let support = null;
-    try { support = jsonOut((out.split('__SUPPORT__')[1] || '').split('__STALL__')[0]); } catch { /* drawn without it */ }
-    let index = [];
-    let fleetUnreadable = false;
-    const hbs = {};
-    const stallPart = (out.split('__STALL__')[1] || '').split('__ROCKSTATE__')[0];
-    // A registry probe that never reached its __INDEX__ marker is "unreadable",
-    // never "empty" (house rule) — same semantics the per-verb exit code carried.
-    if (stallPart.indexOf('__INDEX__') < 0) fleetUnreadable = true;
-    else {
-      const idxBlob = (stallPart.split('__INDEX__')[1] || '').split('__HEARTBEATS__')[0];
-      try { index = JSON.parse((idxBlob.match(/\[[\s\S]*\]/) || ['[]'])[0]); } catch { /* empty fleet */ }
-      const parts = (stallPart.split('__HEARTBEATS__')[1] || '').split(/^=== (.+)$/m);
-      for (let i = 1; i < parts.length; i += 2) { try { hbs[parts[i].trim()] = JSON.parse(parts[i + 1]); } catch { /* no presence */ } }
-    }
-    let ties = [];
-    {
-      const rsPart = out.split('__ROCKSTATE__')[1] || '';
-      const line = rsPart.split('\n').find((l) => l.startsWith('ROCK_STATE '));
-      if (line) { try { ties = JSON.parse(line.slice('ROCK_STATE '.length)).ties || []; } catch { /* none */ } }
-    }
-    const orgSlug = host.replace(/-rock$/, '');
-    const fleet = (Array.isArray(index) ? index : []).filter((m) => m && m.slug && m.status !== 'left')
-      .map((m) => ({ slug: m.slug, label: m.display_name || m.slug, tie: 'anchored', status: m.status || 'active',
-        last_seen: (hbs[m.slug] || {}).generated_at || '' }));
-    const seen = new Set(fleet.map((f) => f.slug));
-    // E4 (2026-08-10 tie audit): EVERY tie without a registry seat draws — a
-    // joined member as before, and an anchored one as "wiring" (the T6/T7
-    // adoption machinery builds its seat; until then hiding it was the bug
-    // Sam hit: an anchored pebble invisible on its own rock's map).
-    ties.filter((t) => t && (t.tie === 'joined' || t.tie === 'anchored')).forEach((t) => {
-      const slug = t.slug || String(t.e || '').slice(0, 8);
-      if (seen.has(slug)) return;
-      fleet.push({ slug, label: slug, tie: t.tie, status: t.status || 'active', last_seen: '',
-        ...(t.tie === 'anchored' ? { wiring: true } : {}) });
-    });
-    // The rock's OWN memberships draw on its map (finding 201, Sam 2026-08-17:
-    // "Institute of Shenanigans is joined to QA Run Two Gmail, but it's not
-    // showing in the network tab"). The world ended at Crads AI above and the
-    // fleet below; a rock this rock had JOINED lived only on the Organisations
-    // page. Same narrowing as /rock-mine's org face: the rock's own joined
-    // rows, keyed to this host's slug — a rock can never be anchored, and a
-    // platform lane is not a rock (PLATFORM_LANES).
-    // Including the same self-exclusion /rock-mine's org face carries (finding
-    // 202): the rock's own admin membership of its own org is an edge of
-    // exactly this shape, and without the org test it draws the rock as a
-    // community it has joined, hanging off itself on its own map.
-    const joinedRocks = ((await ensureEdgesFresh()).edges || [])
-      .filter((x) => x && x.rel === 'joined' && String(x.slug || '') === orgSlug
-        && String(x.org || '') !== orgSlug
-        && !PLATFORM_LANES.has(String(x.org || '').toLowerCase()))
-      .map((x) => ({ label: String(x.org_display || '').trim() || String(x.org || ''),
-        tie: 'joined', status: String(x.status || 'active') }));
-    return {
-      ok: true, rock: true,
-      box: { label: orgSlug, tier: 'rock', ownedByOrg: false, runs: 'crads-ai', mountain: true },
-      org: { label: 'Crads AI', anchor: true },
-      // anchor first, then memberships: the same orgs shape worldFacts sends,
-      // so netModel draws joined rocks above the rock exactly as it does above
-      // a pebble (the legacy single `org` above stays for an old client)
-      orgs: [{ label: 'Crads AI', tie: 'anchored', status: 'active' }, ...joinedRocks],
-      devices: (devices || []).filter((d) => d.status === 'active' && d.usable !== false)
-        .map((d) => ({ slug: d.slug, label: d.label || d.slug, last_seen: d.last_seen || '' })),
-      support: support && support.active
-        ? { active: true, expires_at: String(support.active.expires_at || '') }
-        : { active: false },
-      fleet,
-      // the shared counting oracle's read of the same data the fleet was
-      // built from, so a server-side consumer never re-derives the arithmetic
-      counts: tieCounts(ties, Array.isArray(index) ? index : []),
-      // honesty flag: a failed registry probe is "unreadable", never "empty"
-      fleet_unreadable: fleetUnreadable,
-    };
   }
 
   // The Devices page's own entry point to the above, so the list a member reads
@@ -5062,69 +3943,21 @@ export function createPanelServer(opts = {}) {
     // human is what these replace.
     // /account/devices + /account/enrol-device (T9's device relays) retired
     // with the self-host strip, 2026-09-01: they relayed staged enrolments
-    // through the central directory + crads account system, both deleted.
-    // Adding a computer is a LOCAL act now — the rock panel's device-add
-    // appends the key to the member door directly. Injected test modules
-    // (opts.deviceEnrolModule) still get the old relay so the machinery's own
-    // tests keep their subject until the account strip lands.
+    // through the central directory + crads account system, both deleted
+    // (crads-account.mjs and device-enrol.mjs are gone from the tree). The 410s
+    // stay as honest tombstones so an old page gets an answer, not a hang.
     if (req.method === 'GET' && path === '/account/devices') {
-      if (!opts.deviceEnrolModule) {
-        res.writeHead(410, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, retired: true, reason: 'the central account service has been retired; ask your rock admin to add this computer from the panel' }));
-        return;
-      }
-      (async () => {
-        try {
-          const acct = opts.accountModule || await import('./crads-account.mjs');
-          const mod = opts.deviceEnrolModule;
-          const r = await mod.listEnrollable({ getToken: acct.getAppToken,
-            ...(opts.accountFetcher ? { fetcher: opts.accountFetcher } : {}),
-            ...(opts.directoryUrl ? { directoryUrl: opts.directoryUrl } : {}) });
-          res.writeHead(r.ok ? 200 : 401, { 'content-type': 'application/json' });
-          res.end(JSON.stringify(r));
-        } catch (e) {
-          res.writeHead(500, { 'content-type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, reason: String((e && e.message) || e) }));
-        }
-      })();
+      res.writeHead(410, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, retired: true, reason: 'the central account service has been retired; add this computer from one that already opens the mineral (Map page)' }));
       return;
     }
     if (req.method === 'POST' && path === '/account/enrol-device') {
-      if (!opts.deviceEnrolModule) {
-        res.writeHead(410, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, retired: true, reason: 'the central account service has been retired; ask your rock admin to add this computer from the panel' }));
-        return;
-      }
-      let body = '';
-      req.on('data', (c) => { body += c; if (body.length > 1e5) req.destroy(); });
-      req.on('end', () => { (async () => {
-        let form;
-        try { form = JSON.parse(body); } catch { res.writeHead(400); res.end('bad json'); return; }
-        try {
-          const acct = opts.accountModule || await import('./crads-account.mjs');
-          const mod = opts.deviceEnrolModule;
-          const r = await mod.enrolThisDevice({
-            host: String(form.host || ''), deviceName: String(form.device_name || ''),
-            getToken: acct.getAppToken,
-            ...(opts.accountFetcher ? { fetcher: opts.accountFetcher } : {}),
-            ...(opts.directoryUrl ? { directoryUrl: opts.directoryUrl } : {}),
-            ...(opts.sshDir ? { sshDir: opts.sshDir } : {}),
-          });
-          res.writeHead(r.ok ? 200 : 400, { 'content-type': 'application/json' });
-          res.end(JSON.stringify(r));
-        } catch (e) {
-          res.writeHead(500, { 'content-type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, reason: String((e && e.message) || e) }));
-        }
-      })(); });
+      res.writeHead(410, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, retired: true, reason: 'the central account service has been retired; add this computer from one that already opens the mineral (Map page)' }));
       return;
     }
 
     if (req.method === 'GET' && (path === '/' || path === '/index.html' || path === '/panel.html')) {
-      const wzq = typeof opts.wizardUrl === 'function' ? opts.wizardUrl() : opts.wizardUrl;
-      if (url.searchParams.get('wizard') === '1' && wzq) {
-        res.writeHead(302, { location: wzq }); res.end(); return;
-      }
       // E7.1 REVERSED (upgraded-pebble ruling, 2026-08-09): the console-as-front-
       // face cutover (flipped ON 2026-07-28, member-exempted 2026-08-04) is over.
       // Both editions now land on THE ONE APP SHELL (member.html), which grows
@@ -5135,7 +3968,9 @@ export function createPanelServer(opts = {}) {
       // a body without the placeholder (old bakes, tests) is a no-op, and an
       // unstamped file behaves as the white-label member face.
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-      res.end(String(html()).replace("'__AIOS_EDITION__'", JSON.stringify(edition === 'member' ? 'member' : 'org')));
+      // The edition stamp is gone (face collapse, 2026-09-01): the shell has
+      // one face and ships unstamped.
+      res.end(String(html()));
       return;
     }
 
@@ -5143,41 +3978,18 @@ export function createPanelServer(opts = {}) {
     // the panel; the page is read-only except answering requests (console-answer,
     // admin-gated at the verb). Served only for the org edition: the member
     // console seat is the member app's (plan E6, remaining).
+    // The standalone member console retired with the face collapse
+    // (2026-09-01): the seat tab of the one app shell is the console. An old
+    // bookmark lands there rather than on a dead page. (member-console.html is
+    // removed from the tree by a sibling pass; this route stopped serving it.)
     if (req.method === 'GET' && path === '/console') {
-      // The ORG console retired with P3 (2026-08-09): its ten verbs live on the
-      // app's Rocks/Overview/Pebbles surfaces now, so an old bookmark lands on
-      // the app rather than a dead page. The MEMBER standalone seat survives.
-      if (edition !== 'member') { res.writeHead(302, { location: '/' }); res.end(); return; }
-      let body = opts.consoleHtml ?? null;
-      if (!body) {
-        try { body = readFileSync(join(HERE, 'member-console.html')); } catch { /* not shipped */ }
-      }
-      if (!body) { res.writeHead(404); res.end('this build has no console page'); return; }
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-      res.end(body);
-      return;
+      res.writeHead(302, { location: '/#seat' }); res.end(); return;
     }
 
-    // The topology sandbox: the model's reference diagram, served in every mineral's
-    // app rather than hand-forked per person (the harriet-copy pattern). One file
-    // for both editions; the console faces link it with ?open=/&seat= so each
-    // user lands on a sensible world for their seat. Static model, presets only:
-    // feeding it live registry data is the console epic (E6), not this route.
-    if (req.method === 'GET' && path === '/topology') {
-      let body = opts.topologyHtml ?? null;
-      if (!body) {
-        try { body = readFileSync(join(HERE, 'topology.html')); } catch { /* not shipped */ }
-      }
-      if (!body) { res.writeHead(404); res.end('this build has no topology page'); return; }
-      // Stamp the serving edition into the page so its app-link layer can point
-      // verbs at THIS face's real sections ("do it for real"). The placeholder
-      // is quoted in the file; JSON.stringify keeps the replacement a string
-      // literal. A body without the placeholder (tests, older bakes) is a no-op.
-      body = body.toString().replace("'__AIOS_EDITION__'", JSON.stringify(edition === 'member' ? 'member' : 'org'));
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-      res.end(body);
-      return;
-    }
+    // The topology sandbox page is DELETED (2026-09-01, one-face wave): the
+    // reference diagram showed the hosted pricing model's worked examples, and
+    // the Map section inside the shell draws the member's real world from
+    // POST /topology/world below. No GET /topology remains to serve.
 
     // Verb-interview ruling 2026-08-03: a rock can birth a member their own
     // community ("rock for a member"). Rides the creator-door concierge rails:
@@ -5188,12 +4000,8 @@ export function createPanelServer(opts = {}) {
     // /rock-request (the New-Rock concierge) DIED 2026-08-09 (second loop):
     // rocks can't create rocks (mountain-model ladder rule). New rocks are
     // born at the sign-up door, by the person who will own them.
-    if (req.method === 'GET' && path === '/wizard') {
-      const wu = typeof opts.wizardUrl === 'function' ? opts.wizardUrl() : opts.wizardUrl;
-      if (wu) { res.writeHead(302, { location: wu }); res.end(); }
-      else { res.writeHead(404); res.end('the setup wizard is not running in this session'); }
-      return;
-    }
+    // GET /wizard is GONE (2026-09-01): the org setup wizard was deleted with
+    // the hosted create flow; the door's own self-host flow is the create path.
 
     // The counting oracle, served to the page verbatim (2026-08-17). One
     // arithmetic for "how many members": member.html loads this, this server
@@ -5245,7 +4053,7 @@ export function createPanelServer(opts = {}) {
         try { form = JSON.parse(body); } catch { res.writeHead(400); res.end('bad json'); return; }
         const host = String(form.host ?? '');
         let targets = [];
-        try { targets = (bridge.targets() || []).filter((t) => (t.kind || 'rock') === targetKind); } catch { targets = []; }
+        try { targets = (bridge.targets() || []).filter(kindOk); } catch { targets = []; }
         if (!validTarget(host, targets)) {
           res.writeHead(400); res.end('host must be a configured target'); return;
         }
@@ -5312,19 +4120,15 @@ export function createPanelServer(opts = {}) {
       return;
     }
 
-    // D54: delete the WHOLE rock. The heaviest gun in the app, so the
-    // server re-verifies every guardrail independently of the UI: Admin role,
-    // the exact arming phrase, and a live registry read proving the rock
-    // has no members left (every registry record is status: left). One button
-    // never nukes members.
-    // The teardown itself runs LOCALLY via the engine (opts.orgTeardown from
-    // app.mjs) against the wizard's state file, with cloud tokens the admin
-    // re-pastes: they are never stored, so re-supplying them is both required
-    // and the final proof of infrastructure ownership. The GitHub brain repo
-    // is deliberately untouched (data outlives infrastructure).
-    if (req.method === 'POST' && path === '/org-teardown' && edition === 'org') {
-      if (role === 'support') { res.writeHead(403); res.end('deleting a rock needs an Admin login (you are signed in as Support)'); return; }
-      if (!opts.orgTeardown) { res.writeHead(501); res.end('this session cannot tear down a rock (no local engine)'); return; }
+    // Stop hosting (the face collapse's rework of the retire-this-rock flow,
+    // 2026-09-01): a mineral upgraded in place to host reverses that upgrade,
+    // mineral-locally. The server re-verifies every guardrail independently of
+    // the UI: Admin role, the exact arming phrase, and a live registry read
+    // proving no member row remains. Nothing is destroyed. (/org-teardown, the
+    // hosted era's whole-rock deletion with re-pasted cloud codes, is gone:
+    // a self-hosted server is deleted where it lives, at the hosting provider.)
+    if (req.method === 'POST' && path === '/demote') {
+      if (role === 'support') { res.writeHead(403); res.end('stopping hosting needs an Admin login (you are signed in as Support)'); return; }
       let body = '';
       req.on('data', (c) => { body += c; if (body.length > 1e5) req.destroy(); });
       req.on('end', () => {
@@ -5332,120 +4136,17 @@ export function createPanelServer(opts = {}) {
         try { form = JSON.parse(body); } catch { res.writeHead(400); res.end('bad json'); return; }
         const host = String(form.host ?? '');
         let targets = [];
-        try { targets = (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { targets = []; }
-        if (!hostShapeOk(host) || !targets.some((t) => t.host === host)) {
-          res.writeHead(400); res.end('host must be a configured rock'); return;
-        }
-        const org = host.replace(/-rock$/, '');
-        // Hosted rocks are refused BEFORE the token dance (2026-08-09): the
-        // platform owns their Hetzner/Cloudflare infrastructure, so the owner
-        // never held these codes and no pasteable value can make this work.
-        // Refusing here keeps the failure honest instead of letting deprovision
-        // die later on a state file this computer never had.
-        if (typeof opts.orgProvisioned === 'function' && !opts.orgProvisioned(org)) {
-          res.writeHead(400);
-          res.end(`this computer did not provision '${org}', so there is nothing here to tear down with. `
-            + 'If this rock is hosted for you, its infrastructure belongs to the platform: ask for deletion '
-            + 'through your rock (evict, then suspend, then delete, with a verified backup first). '
-            + 'Your brain repository stays in your own GitHub account either way.');
-          return;
-        }
-        if (String(form.confirm ?? '') !== `delete ${org} forever`) {
-          res.writeHead(400); res.end(`to arm this you must type exactly: delete ${org} forever`); return;
-        }
-        const tokens = {};
-        for (const [k, label] of [['hcloud_token', 'Hetzner'], ['cf_api_token', 'Cloudflare'], ['github_token', 'GitHub']]) {
-          const v = String(form[k] ?? '').trim();
-          if (!v || v.length > 300 || /[\x00-\x1f\x7f\s]/.test(v)) { res.writeHead(400); res.end(`the ${label} access code is missing or malformed; paste it exactly as issued`); return; }
-          tokens[k] = v;
-        }
-        // OPTIONAL fourth: the org's own directory token, which retires the
-        // handle so the name can be used again. Optional because an org that
-        // never registered has no handle to retire, and a missing token must
-        // never block a teardown; the engine says plainly when it skips.
-        const orgPull = String(form.org_pull_token ?? '').trim();
-        if (orgPull) {
-          if (orgPull.length > 300 || /[\x00-\x1f\x7f\s]/.test(orgPull)) { res.writeHead(400); res.end('the directory token is malformed; paste it exactly as issued, or leave it blank'); return; }
-          tokens.org_pull_token = orgPull;
-        }
-        if (busy) { res.writeHead(409); res.end('another action is still running: wait for it to finish, then try again'); return; }
-        busy = true;
-        res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
-        const send = (line) => { try { res.write(`data: ${JSON.stringify(line)}\n\n`); } catch { /* client gone */ } };
-        let done = false;
-        const finish = (code) => {
-          if (done) return; done = true; busy = false;
-          send(code === 0 ? '__DONE__' : `__FAIL__ exit ${code}`);
-          try { res.end(); } catch { /* closed */ }
-        };
-        // Guardrail re-check the UI cannot skip: read the live registry off the
-        // rock; any member that has not 'left' refuses the teardown. An
-        // unreachable rock (already half-dead org) proceeds with a loud
-        // warning: the teardown is driven from local state, not the box.
-        send('▸ verifying the rock has no members left…');
-        const lines = [];
-        let probe;
-        try {
-          probe = bridge.stream(host, VERBS['member-list'].build().command, {
-            onStdout: (l) => lines.push(l), onStderr: (l) => lines.push(l),
-          });
-        } catch (e) { send(`WARN: could not re-check the registry (${e.message || e}); proceeding from local state`); probe = null; }
-        const runTeardown = () => {
-          send('▸ tearing down the rock…');
-          Promise.resolve()
-            .then(() => opts.orgTeardown({ org, hcloudToken: tokens.hcloud_token, cfToken: tokens.cf_api_token, githubToken: tokens.github_token, ...(tokens.org_pull_token ? { orgPullToken: tokens.org_pull_token } : {}) }, send))
-            .then(() => finish(0))
-            .catch((e) => { send(`ERROR: ${e && e.message ? e.message : e}`); finish(1); });
-        };
-        if (!probe) { runTeardown(); return; }
-        probe.on('error', () => { send('WARN: rock unreachable; proceeding from local state'); runTeardown(); });
-        probe.on('close', (code) => {
-          if (code !== 0) { send('WARN: rock unreachable or registry unreadable; proceeding from local state'); runTeardown(); return; }
-          // Count member RECORDS, not just cleanly-parseable status lines.
-          // member-list emits one "=== <path>" marker per member yaml, so split
-          // on the markers and inspect each record. A member counts as still in
-          // the rock unless its top-level status is explicitly 'left':
-          // a missing or malformed status blocks too. "A rock can only
-          // be deleted once it has no members" must fail SAFE, an unreadable
-          // member never waves the teardown through.
-          const records = lines.join('\n').split(/^=== .*$/m).slice(1);
-          const remaining = records.filter((r) => !/^status:\s*"?left"?\s*$/m.test(r));
-          if (remaining.length) {
-            send(`REFUSED: this rock still has ${remaining.length} member${remaining.length === 1 ? '' : 's'}. A rock can only be deleted once every member has left.`);
-            send('Remove or tear down each remaining member first (Danger tab, one at a time) so no one loses their assistant by accident.');
-            finish(1);
-            return;
-          }
-          send('  the rock has no members; proceeding');
-          runTeardown();
-        });
-      });
-      return;
-    }
-
-    // ---- demote (promote ruling § 4, 2026-08-04): the org face of a PROMOTED box
-    // retires IN PLACE; the personal seat stays and the box keeps its address and
-    // alias. Inherits the teardown guard's member check but FAIL-CLOSED: demote
-    // flips a LIVE box, so an unreadable registry REFUSES (teardown may proceed
-    // from local state because its org can already be half-dead; a demote has no
-    // such excuse). Only probe-promoted -box hosts land here: a classic -rock
-    // rock is deleted via /org-teardown, not retired.
-    if (req.method === 'POST' && path === '/demote' && edition === 'org') {
-      if (role === 'support') { res.writeHead(403); res.end('retiring a rock needs an Admin login (you are signed in as Support)'); return; }
-      let body = '';
-      req.on('data', (c) => { body += c; if (body.length > 1e5) req.destroy(); });
-      req.on('end', () => {
-        let form;
-        try { form = JSON.parse(body); } catch { res.writeHead(400); res.end('bad json'); return; }
-        const host = String(form.host ?? '');
-        let targets = [];
-        try { targets = (bridge.targets() || []).filter((t) => (t.kind || 'rock') === 'rock'); } catch { targets = []; }
+        try { targets = (bridge.targets() || []).filter(kindOk); } catch { targets = []; }
         const t = targets.find((x) => x.host === host);
-        if (!t || !t.promoted) { res.writeHead(400); res.end('demote applies only to a rock started in place on a personal mineral; a full rock is deleted via teardown'); return; }
+        // Any connected mineral may ask; the box's own record decides whether
+        // there is a hosting role to retire (the member guard below and the
+        // demote script both refuse when there is not). The old promoted-flag
+        // gate depended on a face probe the one-face app no longer runs.
+        if (!t) { res.writeHead(400); res.end('host must be a mineral this app is connected to'); return; }
         // Case-folded to match the client gate: the panel renders the required
         // phrase uppercased, so both ends accept the phrase the user actually sees.
-        if (String(form.confirm ?? '').trim().toLowerCase() !== 'retire this rock') {
-          res.writeHead(400); res.end('to arm this you must type exactly: retire this rock'); return;
+        if (String(form.confirm ?? '').trim().toLowerCase() !== 'stop hosting') {
+          res.writeHead(400); res.end('to arm this you must type exactly: stop hosting'); return;
         }
         if (busy) { res.writeHead(409); res.end('another action is still running: wait for it to finish, then try again'); return; }
         busy = true;
@@ -5491,7 +4192,7 @@ export function createPanelServer(opts = {}) {
             // reporting a flat success over the top of it.
             const said = out.join(' ');
             const handleRetired = /retired the handle/i.test(said);
-            const msg = 'the rock is retired; this mineral is a pebble again and keeps its personal seat'
+            const msg = 'hosting is stopped; this mineral is a personal mineral again and keeps its seat'
               + (handleRetired
                 ? ', and its directory handle was retired so the name can be used again'
                 : '. Its directory handle is STILL REGISTERED: the name stays claimed and a rebuild under it would be refused');
@@ -5503,373 +4204,9 @@ export function createPanelServer(opts = {}) {
       return;
     }
 
-    // ---- promotion, member side (Mountain model + promote ruling, 2026-08-04) --------------
-    // Member edition only, and the panel never holds a platform credential (brokered
-    // ruling): /promote/start verifies the PRE-COPY on the box itself — a real push to
-    // the member's OWN backup remote, no remote means no promotion — then signs the
-    // caller in for an ID token and parks the request on the directory queue for the
-    // cockpit to fulfil operator-side. /promote/status proxies the watchable progress
-    // record. /promote/flip re-checks the worker's `done` SERVER-SIDE (the UI cannot
-    // assert it), then flips the box's own ownership record to tier rock, owner org —
-    // after which the face probe surfaces the org face beside the personal seat.
-    if (edition === 'member' && req.method === 'POST' && path === '/promote/start') {
-      let body = '';
-      req.on('data', (c) => { body += c; if (body.length > 1e5) req.destroy(); });
-      req.on('end', () => {
-        let form;
-        try { form = JSON.parse(body); } catch { res.writeHead(400); res.end('bad json'); return; }
-        const host = String(form.host ?? '');
-        let targets = [];
-        try { targets = (bridge.targets() || []).filter((t) => t.kind === 'member'); } catch { targets = []; }
-        if (!MEMBER_HOST_RE.test(host) || !targets.some((t) => t.host === host)) {
-          res.writeHead(400); res.end('host must be a configured <slug>-box target'); return;
-        }
-        const handle = String(form.org_handle ?? '').trim();
-        if (!ORG_RE.test(handle)) { res.writeHead(400); res.end('bad org handle'); return; }
-        if (String(form.consent ?? '') !== PROMOTE_CONSENT) {
-          res.writeHead(400); res.end(`promotion needs the consent sentence, exactly: "${PROMOTE_CONSENT}"`); return;
-        }
-        const slug = host.replace(/-box$/, '');
-        // AN ANCHORED PEBBLE PROMOTES AND UNANCHORS AS IT GOES (Sam's ruling
-        // 2026-08-10, replacing the 2026-08-04 refusal). A rock cannot be
-        // anchored to a rock, so the anchor is dropped as PART of the upgrade
-        // rather than being made the member's homework: the tie survives as a
-        // community join, which is a shape the model already has (a rock may
-        // join another rock, P3 2026-08-09), and the money follows the registry
-        // on its own (billing-sync derives a rock's seat count from the rows
-        // anchored to it, so the old rock stops paying for this seat while
-        // swapToRockTier starts the rock tier here).
-        //
-        // ORG-OWNED IS STILL A REFUSAL, and the model forces it rather than
-        // caution: an owning org must hold an edge to the box it owns
-        // (validateRow names an owner without one an "absentee owner") and
-        // owner-rock implies anchor-rock, so unanchoring an owned mineral would
-        // write exactly the row the rule calls illegal. The ownership has to
-        // move first, and that is the rock's act.
-        //
-        // Fail-closed throughout: an unreadable record refuses; a missing anchor
-        // field on an old solo box normalizes to the Mountain (the uniform-rule
-        // default) and passes with nothing to unanchor.
-        const ownLines = [];
-        let ownProbe;
-        // The rock this mineral is anchored to, if any, read off the box's own
-        // record and carried to the directory so the Mountain can demote the
-        // edge to a community join at fulfilment. It is never taken from the
-        // page: the box states its own anchor, or there is no promotion.
-        let unanchorFrom = '';
-        try {
-          ownProbe = bridge.stream(host, 'cat /state/ownership.json 2>/dev/null', { onStdout: (l) => ownLines.push(l), onStderr: (l) => ownLines.push(l) });
-        } catch (e) { res.writeHead(502); res.end(`could not read the mineral's ownership record (${e.message || e}); promotion refuses without it`); return; }
-        let ownSettled = false;
-        const ownFail = (code, msg) => { if (ownSettled) return; ownSettled = true; res.writeHead(code); res.end(msg); };
-        ownProbe.on('error', (e) => ownFail(502, `could not read the mineral's ownership record (${e.message || e}); promotion refuses without it`));
-        ownProbe.on('close', () => {
-          if (ownSettled) return;
-          const own = parseOwnership(ownLines.join('\n'));
-          if (!own) { ownFail(502, "could not read the mineral's ownership record; promotion refuses without it"); return; }
-          if (own.tier === 'rock') { ownFail(409, 'this mineral is already a rock'); return; }
-          const anchor = String(own.anchor || 'crads-ai');
-          const ownedBy = own.owner && own.owner !== 'member' ? String(own.owner_slug || anchor || own.owner) : '';
-          if (ownedBy) {
-            ownFail(409, `"${ownedBy}" owns this mineral, so it cannot become a rock: a rock owns itself, and an owned mineral must stay anchored to its owner. Ask them to hand it over to you first (their console, Hand over), then promote. Nothing has been changed here.`);
-            return;
-          }
-          unanchorFrom = anchor === 'crads-ai' ? '' : anchor;
-          ownSettled = true;
-          runPrecopy();
-        });
-        const runPrecopy = () => {
-        const lines = [];
-        let pre;
-        try {
-          pre = bridge.stream(host, PRECOPY_CMD, { onStdout: (l) => lines.push(l), onStderr: (l) => lines.push(l) });
-        } catch (e) { res.writeHead(502); res.end(`could not reach the mineral (${e.message || e})`); return; }
-        let settled = false;
-        const fail = (code, msg) => { if (settled) return; settled = true; res.writeHead(code); res.end(msg); };
-        pre.on('error', (e) => fail(502, `could not reach the mineral (${e.message || e})`));
-        pre.on('close', (code) => {
-          if (settled) return;
-          const out = lines.join('\n');
-          const okLine = out.split('\n').find((l) => l.startsWith('PRECOPY-OK '));
-          if (code !== 0 || !okLine) {
-            fail(409, /PRECOPY-NONE/.test(out)
-              ? 'no verified pre-promotion copy: connect your own GitHub backup first (Connect my GitHub), then try again'
-              : `pre-promotion copy failed (${out.slice(-160) || 'no output'}); promotion refused without it`);
-            return;
-          }
-          const repo = okLine.slice('PRECOPY-OK '.length).trim().slice(0, 200);
-          Promise.resolve()
-            .then(async () => {
-              const idToken = typeof opts.promoteIdToken === 'function' ? await opts.promoteIdToken() : '';
-              if (!idToken) { fail(501, 'this session cannot sign you in for promotion; open the app and try again'); return; }
-              const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-              const r = await fetch(`${dir}/promote-request`, {
-                method: 'POST',
-                headers: { authorization: 'Bearer ' + idToken, 'content-type': 'application/json' },
-                body: JSON.stringify({
-                  org_handle: handle, org_display: String(form.org_display || handle).slice(0, 80),
-                  slug, consent: PROMOTE_CONSENT, precopy: { repo, verified: true },
-                  ...(unanchorFrom ? { unanchor_from: unanchorFrom } : {}),
-                }),
-              });
-              const j = await r.json().catch(() => ({}));
-              if (!r.ok) { fail(r.status, String(j.error || 'the directory refused the request')); return; }
-              // Record the in-flight promotion ON THE BOX so the seat can pick
-              // the watch back up later (see promotePendingWriteCmd). Awaited so
-              // a returning member normally finds it, but never fatal: the
-              // request is already parked at the directory by this point, and
-              // failing the promotion over a marker would be the worse harm.
-              // The page's own watcher covers this session regardless.
-              if (/^[a-f0-9]{16,64}$/.test(String(j.id || ''))) {
-                await new Promise((resolve) => {
-                  let w;
-                  try { w = bridge.stream(host, promotePendingWriteCmd(String(j.id), handle)); }
-                  catch { resolve(); return; }
-                  w.on('error', () => resolve());
-                  w.on('close', () => resolve());
-                });
-              }
-              settled = true;
-              res.writeHead(200, { 'content-type': 'application/json' });
-              // `resume` means the directory recognised this as the caller's own
-              // half-finished promotion: already registered, already fulfilled,
-              // only the box-side flip missing. The card must not call that
-              // "registering" — nothing is being registered a second time.
-              res.end(JSON.stringify({ ok: true, id: j.id, already: !!j.already, resume: !!j.resume, precopy_repo: repo }));
-            })
-            .catch((e) => fail(502, `could not reach the directory (${e.message || e})`));
-        });
-        };
-      });
-      return;
-    }
-    // Drop the pending marker so the promote form comes back. This is the exit
-    // from a FAILED promotion, and it is deliberately not a general undo: it
-    // touches nothing but the marker, so it cannot unmake a rock. The flip
-    // clears its own marker on success, and a box that is already a rock never
-    // renders the button that reaches this.
-    if (edition === 'member' && req.method === 'POST' && path === '/promote/clear') {
-      let body = '';
-      req.on('data', (c) => { body += c; if (body.length > 1e5) req.destroy(); });
-      req.on('end', () => {
-        let form;
-        try { form = JSON.parse(body); } catch { res.writeHead(400); res.end('bad json'); return; }
-        const host = String(form.host ?? '');
-        let targets = [];
-        try { targets = (bridge.targets() || []).filter((t) => t.kind === 'member'); } catch { targets = []; }
-        if (!MEMBER_HOST_RE.test(host) || !targets.some((t) => t.host === host)) {
-          res.writeHead(400); res.end('host must be a configured <slug>-box target'); return;
-        }
-        let c;
-        try { c = bridge.stream(host, PROMOTE_PENDING_CLEAR_CMD); }
-        catch (e) { res.writeHead(502); res.end(`could not reach the mineral (${e.message || e})`); return; }
-        c.on('error', (e) => { res.writeHead(502); res.end(`could not reach the mineral (${e.message || e})`); });
-        c.on('close', (code) => {
-          if (code !== 0) { res.writeHead(500); res.end(`could not clear the pending promotion (exit ${code})`); return; }
-          res.writeHead(200, { 'content-type': 'application/json' });
-          res.end(JSON.stringify({ ok: true }));
-        });
-      });
-      return;
-    }
-    if (edition === 'member' && req.method === 'GET' && path === '/promote/status') {
-      const id = String(url.searchParams.get('id') || '');
-      if (!/^[a-f0-9]{16,64}$/.test(id)) { res.writeHead(400); res.end('bad id'); return; }
-      const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-      fetch(`${dir}/build-progress?id=${id}`)
-        .then(async (r) => { res.writeHead(r.status, { 'content-type': 'application/json' }); res.end(await r.text()); })
-        .catch((e) => { res.writeHead(502); res.end(`could not reach the directory (${e.message || e})`); });
-      return;
-    }
-    if (edition === 'member' && req.method === 'POST' && path === '/promote/flip') {
-      let body = '';
-      req.on('data', (c) => { body += c; if (body.length > 1e5) req.destroy(); });
-      req.on('end', () => {
-        let form;
-        try { form = JSON.parse(body); } catch { res.writeHead(400); res.end('bad json'); return; }
-        const host = String(form.host ?? '');
-        const id = String(form.id ?? '');
-        const handle = String(form.org_handle ?? '').trim();
-        let targets = [];
-        try { targets = (bridge.targets() || []).filter((t) => t.kind === 'member'); } catch { targets = []; }
-        if (!MEMBER_HOST_RE.test(host) || !targets.some((t) => t.host === host)) {
-          res.writeHead(400); res.end('host must be a configured <slug>-box target'); return;
-        }
-        if (!/^[a-f0-9]{16,64}$/.test(id) || !ORG_RE.test(handle)) {
-          res.writeHead(400); res.end('bad id or org handle'); return;
-        }
-        const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-        fetch(`${dir}/build-progress?id=${id}`)
-          .then((r) => r.json())
-          .then((rec) => {
-            if (!rec || rec.done !== true) { res.writeHead(409); res.end('the promotion is not fulfilled yet; the mineral stays a pebble until the org-side work finishes'); return; }
-            // A reconstructed record is NOT consent. `durable: true` means the
-            // worker rebuilt this from a 400-day "a mineral was once built here"
-            // marker, and the promote id is derived from (email, handle) alone —
-            // so after a retire and a re-promote to the same handle, that marker
-            // would silently approve a second, payment-gated promotion. Say so
-            // plainly instead of flipping.
-            if (rec.durable === true) {
-              res.writeHead(409);
-              res.end('this promotion was completed before and the record of it has aged; ask Crads AI to stage a fresh one. Your mineral stays exactly as it is.');
-              return;
-            }
-            const out = [];
-            let settled = false;
-            const fail = (code, msg) => { if (settled) return; settled = true; res.writeHead(code); res.end(msg); };
-            // SELF-REGISTRATION, the first leg (ruling 2026-08-17): the box
-            // mints and keeps its own org token, and the app claims the
-            // reserved handle with it before anything on the box changes. A
-            // refused claim leaves an honest pebble (plus one unused token in
-            // its .env, harmless and reused on retry); a crashed retry
-            // re-registers idempotently because the token is persisted FIRST
-            // and the worker answers already:true to the same token.
-            const registerThenContinue = async () => {
-              const ml = [];
-              const minted = await new Promise((resolve) => {
-                let m;
-                try { m = bridge.stream(host, PROMOTE_MINT_CMD, { onStdout: (l) => ml.push(l), onStderr: (l) => ml.push(l) }); }
-                catch (e) { resolve({ err: e.message || String(e) }); return; }
-                m.on('error', (e) => resolve({ err: e.message || String(e) }));
-                m.on('close', () => {
-                  const line = ml.find((l) => l.startsWith('PROMOTE_REG '));
-                  if (!line) { resolve({ err: ml.join(' ').slice(-160) || 'no output' }); return; }
-                  try { resolve(JSON.parse(line.slice('PROMOTE_REG '.length))); } catch { resolve({ err: 'unreadable mint output' }); }
-                });
-              });
-              if (minted.err || !minted.token) { fail(502, `the mineral could not mint its own key (${minted.err || 'empty token'}); nothing has been changed`); return; }
-              const idToken = typeof opts.promoteIdToken === 'function' ? await opts.promoteIdToken().catch(() => '') : '';
-              if (!idToken) { fail(501, 'this session cannot sign you in to claim your handle; open the app and try again. Nothing has been changed.'); return; }
-              const slug = host.replace(/-box$/, '');
-              const reg = await fetch(`${dir}/register`, {
-                method: 'POST',
-                headers: { authorization: 'Bearer ' + idToken, 'content-type': 'application/json' },
-                body: JSON.stringify({ org: handle, rock_ssh_host: `${slug}.${minted.domain || 'crads-ai.com'}`,
-                  org_display: handle, pull_token: minted.token }),
-              }).catch((e) => ({ ok: false, status: 0, _err: e.message || String(e) }));
-              if (!reg.ok) {
-                const detail = typeof reg.json === 'function' ? await reg.json().catch(() => ({})) : {};
-                fail(reg.status === 409 ? 409 : 502,
-                  `your handle could not be claimed (${detail.error || reg._err || reg.status}); the mineral stays a pebble and nothing has been changed`);
-                return;
-              }
-              unanchorThenFlip().catch((e) => fail(500, `promotion could not finish: ${e.message || e}`));
-            };
-            const runFlip = () => {
-              let flip;
-              try {
-                flip = bridge.stream(host, promoteFlipCmd(handle), { onStdout: (l) => out.push(l), onStderr: (l) => out.push(l) });
-              } catch (e) { fail(500, `flip failed: ${e.message || e}`); return; }
-              flip.on('error', (e) => fail(500, `flip failed: ${e.message || e}`));
-              flip.on('close', (code) => {
-                if (settled) return; settled = true;
-                if (code !== 0) { res.writeHead(500); res.end(`flip failed on the mineral (exit ${code}): ${out.join(' ').slice(0, 200)}`); return; }
-                try { if (typeof opts.onPromoted === 'function') opts.onPromoted(host, handle); } catch { /* face registry is best-effort */ }
-                res.writeHead(200, { 'content-type': 'application/json' });
-                res.end(JSON.stringify({ ok: true, host, org: handle, msg: 'this mineral is now your rock\'s rock, and your personal seat stays' }));
-              });
-            };
-            // THE ANCHOR COMES OFF BEFORE THE TIER GOES ON (ruling 2026-08-10),
-            // in an order that is not arbitrary:
-            //   1. downgrade the directory edge anchored -> joined, with the
-            //      MEMBER's own id token (their tie, their call, and the rock
-            //      already consented to the stronger version of it)
-            //   2. publish the leave + detach the channel on the box
-            //   3. flip the tier
-            // Reversing 1 and 2 loses the community join: the old rock's
-            // leave-reconcile reflects the row as `left`, and a `left` reflect
-            // prunes an edge that is still anchored. Downgraded first, it is a
-            // joined edge, which that path now deliberately keeps.
-            //
-            // Step 1 is FAIL-CLOSED. If the edge cannot be downgraded, nothing
-            // on the box is touched: a rock that still reads as anchored on the
-            // wire is the illegal state, and it is also the one where the old
-            // rock keeps being charged for a seat that no longer exists.
-            const unanchorThenFlip = async () => {
-              const anchoredTo = await new Promise((resolve) => {
-                const lines = [];
-                let probe;
-                try {
-                  probe = bridge.stream(host, 'cat /state/ownership.json 2>/dev/null', { onStdout: (l) => lines.push(l), onStderr: (l) => lines.push(l) });
-                } catch { resolve(null); return; }
-                probe.on('error', () => resolve(null));
-                probe.on('close', () => {
-                  const own = parseOwnership(lines.join('\n'));
-                  if (!own) { resolve(null); return; }
-                  const a = String(own.anchor || 'crads-ai');
-                  resolve(a === 'crads-ai' ? '' : a);
-                });
-              });
-              if (anchoredTo === null) { fail(502, "could not read the mineral's ownership record, so the anchor could not be checked; nothing has been changed"); return; }
-              if (!anchoredTo) { runFlip(); return; }
-              const idToken = typeof opts.promoteIdToken === 'function' ? await opts.promoteIdToken().catch(() => '') : '';
-              if (!idToken) { fail(501, 'this session cannot sign you in to end the anchor, and promotion cannot leave you anchored to a rock. Open the app and try again; nothing has been changed.'); return; }
-              // NAME THE MINERAL BEING PROMOTED (2026-08-16, finding 152's
-              // sibling). The body was org-only, so a member with two pebbles
-              // on that rock had the directory sort and pick: the promoting
-              // mineral could keep an anchor a rock may not hold, while the
-              // OTHER pebble quietly lost its anchor, its host and the seat its
-              // rock was paying for. `host` is a configured <slug>-box target,
-              // which the directory reduces to the same label it matches ties
-              // on — and it only ever selects among ties this signed-in member
-              // already holds, so it cannot reach anybody else's mineral. Sent
-              // as box_host rather than slug on purpose: a registry slug renamed
-              // by a collision still matches through the edge's box.
-              const dg = await fetch(`${dir}/rock-tie-downgrade`, {
-                method: 'POST',
-                headers: { authorization: 'Bearer ' + idToken, 'content-type': 'application/json' },
-                body: JSON.stringify({ org: anchoredTo, box_host: host }),
-              }).catch((e) => ({ ok: false, status: 0, _err: e.message || String(e) }));
-              if (!dg.ok) {
-                const detail = typeof dg.json === 'function' ? await dg.json().catch(() => ({})) : {};
-                fail(dg.status === 409 ? 409 : 502,
-                  `the anchor to "${anchoredTo}" could not be ended (${detail.error || dg._err || dg.status}), and a rock cannot stay anchored to a rock. Nothing has been changed on your mineral.`);
-                return;
-              }
-              const dl = [];
-              let det;
-              try {
-                det = bridge.stream(host, PROMOTE_UNANCHOR_CMD, { onStdout: (l) => dl.push(l), onStderr: (l) => dl.push(l) });
-              } catch (e) { fail(500, `the anchor could not be detached on the mineral (${e.message || e}); the join to "${anchoredTo}" is now a community one and the mineral is still a pebble`); return; }
-              det.on('error', (e) => fail(500, `the anchor could not be detached on the mineral (${e.message || e}); the join to "${anchoredTo}" is now a community one and the mineral is still a pebble`));
-              det.on('close', (c) => {
-                if (settled) return;
-                if (c !== 0) { fail(500, `the anchor could not be detached on the mineral (exit ${c}): ${dl.join(' ').slice(0, 200)}`); return; }
-                runFlip();
-              });
-            };
-            registerThenContinue().catch((e) => fail(500, `promotion could not finish: ${e.message || e}`));
-          })
-          .catch((e) => { res.writeHead(502); res.end(`could not reach the directory (${e.message || e})`); });
-      });
-      return;
-    }
-
-    // D52 cross-surface nav: every surface can jump back to the app's home
-    // screen (the door / identity picker) when it's running in this session.
-    // The console's route to the own-brain (GitHub backup) flow, which lives on the
-    // member-connect server. Added 2026-07-30: that flow was reachable ONLY from the
-    // claim page, so a member who skipped it, or whose box predates it, had no way
-    // back to it. Falls back to the door rather than 404ing, same no-cul-de-sac rule.
-    if (req.method === 'GET' && path === '/go/connect') {
-      const cu = typeof opts.connectUrl === 'function' ? opts.connectUrl() : opts.connectUrl;
-      const du = typeof opts.doorUrl === 'function' ? opts.doorUrl() : opts.doorUrl;
-      // Carry the box across the hop (2026-08-05). The own-brain form asks for a
-      // "short username" it describes as being on your invite, which a self-serve
-      // owner never had; the seat already knows the alias, so send the slug and let
-      // the landing page fill it in. Anything that is not a slug is dropped rather
-      // than passed on: this string lands in a URL fragment on another server.
-      // The #ownbrain fragment is gone (2026-08-09): GitHub backup lives in the
-      // box's own app, and the invite page was cut back to the invite claim, so
-      // there is no fold here to open. /go/connect stays as the honest route to
-      // the invite page itself (the door's "I have an invitation" and the
-      // #join= community hand-off both use it).
-      const to = cu || du;
-      if (to) { res.writeHead(302, { location: to }); res.end(); return; }
-      res.writeHead(503, { 'content-type': 'text/plain' });
-      res.end('The setup window is not running. Close and reopen the Crads-AI app, then try again.');
-      return;
-    }
+    // GET /go/connect is GONE (2026-09-01): the invite page it routed to left
+    // with the invitation system, and no page links the hop any more (backup
+    // moved in-app 2026-08-05; the door's invite card died in the third pass).
     if (req.method === 'GET' && path === '/door') {
       const du = typeof opts.doorUrl === 'function' ? opts.doorUrl() : opts.doorUrl;
       if (du) { res.writeHead(302, { location: du }); res.end(); }
@@ -5945,21 +4282,9 @@ export function createPanelServer(opts = {}) {
     }
     if (req.method === 'GET' && path === '/targets') {
       let targets = [];
-      try { targets = (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { targets = []; }
-      // Ownership of the hosting infrastructure (2026-08-09): a rock this
-      // computer provisioned has a local state record and its admin holds the
-      // cloud codes; a HOSTED rock does not, and its Danger tab must offer the
-      // platform's deletion ladder instead of demanding codes the owner never
-      // had. Only stamped for rock-kind targets; absent hook leaves the
-      // field off entirely (older app shells keep today's behaviour).
-      if (edition === 'org' && typeof opts.orgProvisioned === 'function') {
-        targets = targets.map((t) => (/-rock$/.test(String(t.host))
-          ? { ...t, provisioned: !!opts.orgProvisioned(String(t.host).replace(/-rock$/, '')) }
-          : t));
-      }
+      try { targets = (bridge.targets() || []).filter(kindOk); } catch { targets = []; }
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ targets, role, roleAssumed, edition,
-        wizardUrl: (typeof opts.wizardUrl === 'function' ? opts.wizardUrl() : opts.wizardUrl) || null,
+      res.end(JSON.stringify({ targets, role, roleAssumed,
         doorUrl: (typeof opts.doorUrl === 'function' ? opts.doorUrl() : opts.doorUrl) || null }));
       return;
     }
@@ -5979,9 +4304,7 @@ export function createPanelServer(opts = {}) {
     // history, which they have on GitHub anyway if they use it, and buys the guarantee
     // that a secret committed once in the past cannot ride out inside a zip in their
     // Downloads folder. The card says so rather than leaving them to assume.
-    if (edition === 'member' && path.startsWith('/own-brain/') && ownBrainRoute(req, res, path)) return;
-    // The rock's own GitHub, org edition only: a member has no factory to arm.
-    if (edition === 'org' && path.startsWith('/org-github/') && orgGitHubRoute(req, res, path)) return;
+    if (path.startsWith('/own-brain/') && ownBrainRoute(req, res, path)) return;
     // Not awaited: this dispatcher is not async, and the handler owns its own
     // response. A rejection must still answer, or the page waits forever on a
     // request that already failed.
@@ -6004,11 +4327,11 @@ export function createPanelServer(opts = {}) {
       return;
     }
 
-    if (req.method === 'GET' && path === '/brain-download' && edition === 'member') {
+    if (req.method === 'GET' && path === '/brain-download') {
       (async () => {
         const want = String(url.searchParams.get('box') || '');
         let targets = [];
-        try { targets = (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { targets = []; }
+        try { targets = (bridge.targets() || []).filter(kindOk); } catch { targets = []; }
         const t = want ? targets.find((x) => x.host === want) : targets[0];
         if (!t) { res.writeHead(400, { 'content-type': 'text/plain' }); res.end('no mineral to download from'); return; }
         const EXCL = ['.git', '.env', '.env.*', 'secrets', '*.key', '*.pem', '.ssh', 'ssh',
@@ -6040,561 +4363,7 @@ export function createPanelServer(opts = {}) {
       })();
       return;
     }
-    // A6: relay the member's hand-over ask to the directory. Done server-side rather
-    // than from the page so the page never needs the directory's address, and so the
-    // slug is taken from the CONFIGURED target rather than anything the page typed:
-    // a member can only ever ask on behalf of a box this machine actually holds a key
-    // for. The ask moves no custody; the org must agree and the member must then
-    // accept on the box itself.
-    if (req.method === 'POST' && path === '/handover-ask' && edition === 'member') {
-      let body = '';
-      req.on('data', (c) => { body += c; if (body.length > 8192) req.destroy(); });
-      req.on('end', () => {
-        (async () => {
-          let form;
-          try { form = JSON.parse(body); } catch { res.writeHead(400); res.end(JSON.stringify({ error: 'bad json' })); return; }
-          const json = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
-          const host = String(form.host || '');
-          let targets = [];
-          try { targets = (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { targets = []; }
-          const t = targets.find((x) => x.host === host) || targets[0];
-          if (!t) { json(400, { error: 'no mineral on this computer to hand over' }); return; }
-          const org = String(form.org || '').trim().toLowerCase();
-          if (!ORG_RE.test(org)) { json(400, { error: 'that does not look like a rock handle' }); return; }
-          const slug = t.host.replace(/-box$/, '');
-          const who = await (opts.handoverIdentity || (async () => ({})))(t).catch(() => ({}));
-          const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-          // The directory now demands a verified identity for this ask, because
-          // it used to take none at all and an admin's console rendered whatever
-          // arrived as "they ask you to own their mineral". Local key-possession
-          // (checked above) proves the box; it cannot prove the PERSON, and the
-          // person is what the admin acts on. Same sign-in the join flow uses.
-          // It also retires the placeholder address this route used to send
-          // (`<slug>@crads-ai.com`), which put a fabricated email on that card.
-          const signIn = opts.handoverSignIn || (await import('./crads-account.mjs')).signInWithCrads;
-          // BIND THE SIGN-IN TO THIS ORG, with the same deterministic nonce the join
-          // flow uses: the OIDC nonce commits the signed token to the handle, so a
-          // token captured for org A cannot be replayed as an ask at org B.
-          //
-          // It is also REQUIRED: signInWithGoogle refuses outright without a nonce
-          // ("a nonce (the device fingerprint) is required"). The first cut of this
-          // called signIn({}), so every real member pressing "Ask them" got a 401
-          // and the whole handover path was dead. The tests did not catch it
-          // because they stub handoverSignIn, which is exactly what a stub hides.
-          const { joinNonce } = await import('./member-connect.mjs');
-          let signed;
-          try { signed = await signIn({ nonce: joinNonce(org) }); } catch (e) { signed = { ok: false, reason: String(e && e.message || e) }; }
-          if (!signed || !signed.ok) {
-            json(401, { error: 'sign in to ask a rock to take this box: they need to know who is asking. ' + (signed && signed.reason ? '(' + signed.reason + ')' : '') });
-            return;
-          }
-          try {
-            const r = await fetch(`${dir}/handover-request`, {
-              method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${signed.idToken}` },
-              body: JSON.stringify({ org, slug, name: who.name || slug, note: String(form.note || '').slice(0, 400) }),
-            });
-            const b = await r.json().catch(() => ({}));
-            if (!r.ok) { json(r.status === 404 ? 404 : 400, { error: b.error || `that rock did not accept the ask (${r.status})` }); return; }
-            json(200, { ok: true, id: b.id, org });
-          } catch {
-            json(502, { error: 'could not reach the directory just now. Try again in a moment.' });
-          }
-        })();
-      });
-      return;
-    }
-    // ---- rock ties (rulings 2026-08-05 + 2026-08-09): the board, the two asks
-    // (JOIN moves nothing; ANCHOR moves hosting + platform billing onto the rock,
-    // never ownership), the leave, and the member's own ties. Same server-side
-    // posture as /handover-ask: the page never learns the directory's address,
-    // and the slug always comes from the CONFIGURED box, never the page.
-    // Transfer CONSENT (Harriet's audit 2026-08-19, point 3). Accepting a
-    // transfer-to-org used to be one verb that ran a script on the box, and a
-    // support session could run that script. Now the app, signed in as the
-    // member, records the consent at the directory first (nonce-bound to the
-    // anchoring rock, bound to this box's holder), and only the RECEIPT goes to
-    // the box script, which refuses without one. The invitation date and the
-    // rock come from the BOX (its own inbox + ownership record), never the page:
-    // a page cannot consent for a box this machine does not hold a key for.
-    if (req.method === 'POST' && path === '/transfer-consent' && edition === 'member') {
-      let body = '';
-      req.on('data', (c) => { body += c; if (body.length > 4096) req.destroy(); });
-      req.on('end', () => {
-        (async () => {
-          let form;
-          try { form = JSON.parse(body || '{}'); } catch { res.writeHead(400); res.end(JSON.stringify({ error: 'bad json' })); return; }
-          const json = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
-          const host = String(form.host || '');
-          let targets = [];
-          try { targets = (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { targets = []; }
-          const t = targets.find((x) => x.host === host) || targets[0];
-          if (!t) { json(400, { error: 'no mineral on this computer to accept a transfer for' }); return; }
-          const slug = t.host.replace(/-box$/, '');
-          // what the box knows: the invitation it holds and the rock that anchors it
-          const probe = opts.transferProbe || runSsh;
-          let inv = null, own = null;
-          try {
-            const r = await probe(t.host, 'node -e \'const fs=require("fs");const j=(p)=>{try{return JSON.parse(fs.readFileSync(p,"utf8"))}catch{return null}};console.log("TRANSFER_STATE "+JSON.stringify({inv:j("/state/org-inbox/transfer/to-org.json"),own:j("/state/ownership.json")}))\'');
-            const line = String(r && r.stdout || '').split('\n').find((l) => l.startsWith('TRANSFER_STATE '));
-            if (line) { const st = JSON.parse(line.slice('TRANSFER_STATE '.length)); inv = st.inv; own = st.own; }
-          } catch { /* unreachable box: handled below */ }
-          if (!inv || !/^\d{4}-\d{2}-\d{2}$/.test(String(inv.invited || ''))) { json(409, { error: 'your mineral holds no transfer invitation from your rock; there is nothing to accept' }); return; }
-          const org = String(inv.org_slug || (own && own.anchor) || '').trim().toLowerCase();
-          if (!org || org === 'crads-ai' || !ORG_RE.test(org)) { json(409, { error: 'this mineral is not anchored to a rock, so no rock can take custody of it' }); return; }
-          const signIn = opts.handoverSignIn || (await import('./crads-account.mjs')).signInWithCrads;
-          const { joinNonce } = await import('./member-connect.mjs');
-          let signed;
-          try { signed = await signIn({ nonce: joinNonce(org) }); } catch (e) { signed = { ok: false, reason: String(e && e.message || e) }; }
-          if (!signed || !signed.ok) { json(401, { error: 'sign in to accept: your own sign-in is what makes this transfer yours to give. ' + (signed && signed.reason ? '(' + signed.reason + ')' : '') }); return; }
-          const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-          try {
-            const r = await fetch(`${dir}/transfer-consent`, {
-              method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${signed.idToken}` },
-              body: JSON.stringify({ org, slug, host: t.host, invited: String(inv.invited) }),
-            });
-            const b = await r.json().catch(() => ({}));
-            if (!r.ok || !/^[0-9a-f]{32}$/.test(String(b.receipt || ''))) { json(r.status === 404 ? 404 : 400, { error: b.error || `the directory did not record the consent (${r.status})` }); return; }
-            json(200, { ok: true, receipt: b.receipt, org, invited: String(inv.invited) });
-          } catch {
-            json(502, { error: 'could not reach the directory just now. Try again in a moment.' });
-          }
-        })();
-      });
-      return;
-    }
-    if (req.method === 'GET' && path === '/rocks-board') {   // both faces read the public board (P3)
-      const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-      (async () => {
-        try {
-          const r = await (opts.communityFetcher || fetch)(`${dir}/rocks`);
-          const b = await r.json().catch(() => ({}));
-          res.writeHead(r.ok ? 200 : 502, { 'content-type': 'application/json' });
-          res.end(JSON.stringify(r.ok ? { rocks: Array.isArray(b.rocks) ? b.rocks : [] } : { error: 'the rock board did not answer' }));
-        } catch {
-          res.writeHead(502, { 'content-type': 'application/json' });
-          res.end(JSON.stringify({ error: 'could not reach the directory just now. Try again in a moment.' }));
-        }
-      })();
-      return;
-    }
-    if (req.method === 'POST' && (path === '/rock-join-ask' || (path === '/rock-anchor-ask' && edition === 'member'))) {
-      if (edition !== 'member' && role === 'support') { res.writeHead(403); res.end(JSON.stringify({ error: 'this action needs an Admin login' })); return; }
-      let body = '';
-      req.on('data', (c) => { body += c; if (body.length > 8192) req.destroy(); });
-      req.on('end', () => {
-        (async () => {
-          let form;
-          try { form = JSON.parse(body); } catch { res.writeHead(400); res.end(JSON.stringify({ error: 'bad json' })); return; }
-          const json = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
-          const host = String(form.host || '');
-          let targets = [];
-          try { targets = (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { targets = []; }
-          const t = targets.find((x) => x.host === host) || targets[0];
-          if (!t) { json(400, { error: 'no mineral on this computer to ask with' }); return; }
-          const org = String(form.org || '').trim().toLowerCase();
-          if (!ORG_RE.test(org)) { json(400, { error: 'that does not look like a rock handle' }); return; }
-          const tie = path === '/rock-anchor-ask' ? 'anchored' : 'joined';
-          const slug = t.host.replace(/-(box|rock)$/, '');
-          // A ROCK CANNOT JOIN ITSELF (Sam, 2026-08-10). The worker's cycle
-          // guard already says "a mineral cannot join itself", but it is wired
-          // to the org-to-org /requests family and never ran on this route, so
-          // the Rocks page happily offered a rock its own handle. Refused here
-          // as well as there: this is the surface that can tell the person why
-          // in the same breath, and it ships without a worker deploy.
-          if (org === slug) {
-            json(400, { error: 'That is this rock. A rock cannot join itself; pick another rock\u2019s handle.' });
-            return;
-          }
-          const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-          // Same verified identity the handover ask demands, nonce-bound to the
-          // handle, because the org admin acts on the PERSON asking.
-          const signIn = opts.communitySignIn || (await import('./crads-account.mjs')).signInWithCrads;
-          const { joinNonce } = await import('./member-connect.mjs');
-          let signed;
-          try { signed = await signIn({ nonce: joinNonce(org) }); } catch (e) { signed = { ok: false, reason: String(e && e.message || e) }; }
-          if (!signed || !signed.ok) {
-            json(401, { error: 'sign in to ask: the rock needs to know who is asking. ' + (signed && signed.reason ? '(' + signed.reason + ')' : '') });
-            return;
-          }
-          try {
-            const r = await (opts.communityFetcher || fetch)(`${dir}/rock-tie-request`, {
-              method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${signed.idToken}` },
-              body: JSON.stringify({ org, slug, tie, note: String(form.note || '').slice(0, 400), ...(form.share_contact === true ? { share_contact: true } : {}), ...(edition === 'member' ? {} : { tier: 'rock' }) }),
-            });
-            const b = await r.json().catch(() => ({}));
-            // 409s carry the model's own words (anchored elsewhere / owner-rock) — pass them through.
-            if (!r.ok) { json(r.status === 404 ? 404 : r.status === 409 ? 409 : 400, { error: b.error || `that rock did not accept the ask (${r.status})` }); return; }
-            json(200, { ok: true, id: b.id, org, tie });
-          } catch {
-            json(502, { error: 'could not reach the directory just now. Try again in a moment.' });
-          }
-        })();
-      });
-      return;
-    }
-    // R23 (panel iteration 2, 2026-08-23): "Change to join" on the anchored
-    // row. Member-initiated, member-authenticated, exactly the worker leg the
-    // promotion flow already drives: the anchor becomes a join, hosting and
-    // billing return to Crads AI. Same sign-in and forwarding shape as
-    // /rock-anchor-ask; 4xx bodies pass through in the directory's own words.
-    // On success the cached edge flips and the box's ties.json is rewritten so
-    // the Map stops drawing an anchor the directory no longer holds.
-    if (req.method === 'POST' && path === '/rock-tie-downgrade' && edition === 'member') {
-      let body = '';
-      req.on('data', (c) => { body += c; if (body.length > 4096) req.destroy(); });
-      req.on('end', () => {
-        (async () => {
-          let form;
-          try { form = JSON.parse(body); } catch { res.writeHead(400); res.end(JSON.stringify({ error: 'bad json' })); return; }
-          const json = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
-          const host = String(form.host || '');
-          let targets = [];
-          try { targets = (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { targets = []; }
-          const t = targets.find((x) => x.host === host) || targets[0];
-          if (!t) { json(400, { error: 'no mineral on this computer to change' }); return; }
-          const org = String(form.org || '').trim().toLowerCase();
-          if (!ORG_RE.test(org)) { json(400, { error: 'that does not look like a rock handle' }); return; }
-          const slug = t.host.replace(/-(box|rock)$/, '');
-          const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-          const signIn = opts.communitySignIn || (await import('./crads-account.mjs')).signInWithCrads;
-          const { joinNonce } = await import('./member-connect.mjs');
-          let signed;
-          try { signed = await signIn({ nonce: joinNonce(org) }); } catch (e) { signed = { ok: false, reason: String(e && e.message || e) }; }
-          if (!signed || !signed.ok) {
-            json(401, { error: 'sign in to change the tie: it is keyed to your verified email. ' + (signed && signed.reason ? '(' + signed.reason + ')' : '') });
-            return;
-          }
-          try {
-            // box_host names the mineral, as the promotion leg does: a slug
-            // renamed by a collision still matches through the edge's box.
-            const r = await (opts.communityFetcher || fetch)(`${dir}/rock-tie-downgrade`, {
-              method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${signed.idToken}` },
-              body: JSON.stringify({ org, box_host: t.host }),
-            });
-            const b = await r.json().catch(() => ({}));
-            if (!r.ok) { json(r.status >= 400 && r.status < 500 ? r.status : 502, { error: b.error || `the directory refused (${r.status})` }); return; }
-            const st = server._communityMine;
-            if (st && Array.isArray(st.edges)) {
-              for (const x of st.edges) {
-                if (x.org === org && x.rel === 'anchored'
-                  && (String(x.slug || '') === slug || String(x.box || '').indexOf(slug) === 0)) x.rel = 'joined';
-              }
-            }
-            // The box-side half (R23): the directory now says joined and
-            // anchored-to-the-Mountain; the box must stop feeding its old
-            // anchor (heartbeat + inbox confs and keys) and record the Mountain
-            // in its own ownership.json, exactly as the promotion leg does.
-            // Retryable: the command exits 0 with nothing done when the confs
-            // are already gone.
-            const dl = [];
-            let detach = 'UNANCHOR-SKIPPED';
-            try {
-              await bridge.stream(t.host, unanchorCmd('downgrade'), { onStdout: (l) => dl.push(l), onStderr: (l) => dl.push(l) });
-              detach = dl.find((l) => /^UNANCHOR-/.test(l)) || dl.slice(-1)[0] || 'UNANCHOR-OK';
-            } catch (e) { detach = 'UNANCHOR-FAILED: ' + String(e && e.message || e); }
-            await syncTiesToBox(t.host, true);
-            json(200, { ...b, ok: true, org, host: t.host, detach });
-          } catch {
-            json(502, { error: 'could not reach the directory just now. Try again in a moment.' });
-          }
-        })().catch(() => { try { res.writeHead(500); res.end(JSON.stringify({ error: 'request failed' })); } catch { /* answered */ } });
-      });
-      return;
-    }
-    if (req.method === 'POST' && path === '/rock-leave') {   // a rock leaves a joined rock the same way (P3)
-      if (edition !== 'member' && role === 'support') { res.writeHead(403); res.end(JSON.stringify({ error: 'this action needs an Admin login' })); return; }
-      let body = '';
-      req.on('data', (c) => { body += c; if (body.length > 4096) req.destroy(); });
-      req.on('end', () => {
-        (async () => {
-          let form;
-          try { form = JSON.parse(body); } catch { res.writeHead(400); res.end(JSON.stringify({ error: 'bad json' })); return; }
-          const json = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
-          const org = String(form.org || '').trim().toLowerCase();
-          if (!ORG_RE.test(org)) { json(400, { error: 'that does not look like a rock handle' }); return; }
-          const tie = String(form.tie || '');
-          if (tie !== 'joined' && tie !== 'anchored') { json(400, { error: 'tie must be joined or anchored' }); return; }
-          // WHICH MINERAL LEAVES (2026-08-16, finding 152's sibling). A tie kind
-          // is not a mineral name: since one person may hold two pebbles on one
-          // rock, org+tie can match two rows, and the directory used to sort and
-          // delete the newest. Every row the Rocks page draws comes from
-          // /rock-mine, which returns the slug, so the page says which one. The
-          // directory refuses (409) when nothing is named and two match, and its
-          // words are already passed straight through below.
-          const slug = String(form.slug || '');
-          if (slug && !MINERAL_RE.test(slug)) { json(400, { error: 'that does not look like a mineral name' }); return; }
-          const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-          const signIn = opts.communitySignIn || (await import('./crads-account.mjs')).signInWithCrads;
-          const { joinNonce } = await import('./member-connect.mjs');
-          let signed;
-          try { signed = await signIn({ nonce: joinNonce(org) }); } catch (e) { signed = { ok: false, reason: String(e && e.message || e) }; }
-          if (!signed || !signed.ok) {
-            json(401, { error: 'sign in to leave: the tie is keyed to your verified email. ' + (signed && signed.reason ? '(' + signed.reason + ')' : '') });
-            return;
-          }
-          try {
-            const r = await (opts.communityFetcher || fetch)(`${dir}/rock-tie-leave`, {
-              method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${signed.idToken}` },
-              body: JSON.stringify({ org, tie, ...(slug ? { slug } : {}) }),
-            });
-            const b = await r.json().catch(() => ({}));
-            // a 409 is the ownership refusal (an owned box never leaves by
-            // walking away) OR the two-ties-and-no-name refusal; both carry the
-            // directory's own words, which is why they are passed through
-            if (!r.ok) { json(r.status === 409 ? 409 : 400, { error: b.error || `the directory refused (${r.status})` }); return; }
-            // refresh the cached ties so the section repaints honestly, and
-            // land the drop on the boxes' ties.json too (R9: the map must not
-            // keep drawing a wire the directory has already cut)
-            //
-            // SLUG-SCOPED, for the same reason the call above is (2026-08-16).
-            // Blind to it, this took the FIRST (org, tie) row as `gone` — so the
-            // T8 detach below could strip the channel confs and keys off the
-            // mineral whose tie still stands — and the filter dropped BOTH rows
-            // from the cache, repainting the Rocks page as if two ties ended.
-            const st = server._communityMine;
-            const isGone = (x) => x.org === org && x.rel === tie && (!slug || String(x.slug || '') === slug);
-            const gone = st && Array.isArray(st.edges) ? st.edges.find(isGone) : null;
-            if (st && Array.isArray(st.edges)) st.edges = st.edges.filter((x) => !(gone ? x === gone : isGone(x)));
-            syncTiesToAll(true);   // a leave is the one act allowed to write an empty ties.json
-            // T8 symmetry: an ANCHORED leave detaches the mineral too. The
-            // directory edge is already cut (above); leave-org publishes the
-            // leave marker up the still-open heartbeat, removes the channel
-            // confs + keys, and re-anchors the mineral to the Mountain — the
-            // exact reverse of the T6/T7 wire. Best-effort: an offline mineral
-            // leaves the channel behind, and the rock's leave-reconcile +
-            // the worker's live-edge check on /anchor-wire keep every side
-            // honest until it comes back.
-            if (edition === 'member' && tie === 'anchored' && gone) {
-              (async () => {
-                try {
-                  let targets = [];
-                  try { targets = (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { targets = []; }
-                  const slug = String(gone.slug || '');
-                  const t = targets.find((tt) => {
-                    const h = tt.host.replace(/-box$/, '');
-                    return h === slug || String(gone.box || '').indexOf(h) === 0;
-                  });
-                  if (!t) return;
-                  if (server._anchorWired) server._anchorWired.delete(`${org}:${t.host}`);
-                  await runCollect(t.host, MEMBER_VERBS['leave-org'].build({ confirm: 'leave' }));
-                } catch { /* the mineral detaches when it can */ }
-              })();
-            }
-            // A JOINED leave has a box side too (2026-08-23): tie-claim.mjs
-            // gave the mineral an inbox conf, a heartbeat conf and two keys for
-            // that rock, and they must go with the edge or org-sync keeps
-            // pulling and heartbeat-push keeps pushing to a rock that ended the
-            // tie. Best-effort for the same reason as the anchored leg above.
-            if (edition === 'member' && tie === 'joined' && gone) {
-              (async () => {
-                try {
-                  let targets = [];
-                  try { targets = (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { targets = []; }
-                  const slug = String(gone.slug || '');
-                  const t = targets.find((tt) => {
-                    const h = tt.host.replace(/-box$/, '');
-                    return h === slug || String(gone.box || '').indexOf(h) === 0;
-                  }) || (targets.length === 1 ? targets[0] : null);
-                  if (!t) return;
-                  await runCollect(t.host, MEMBER_VERBS['tie-drop'].build({ org }));
-                } catch { /* the mineral drops the channel when it can */ }
-              })();
-            }
-            json(200, { ok: true, noop: b.noop === true });
-          } catch {
-            json(502, { error: 'could not reach the directory just now. Try again in a moment.' });
-          }
-        })();
-      });
-      return;
-    }
-    // The member's own ties + any removal notices, cached server-side after one
-    // sign-in (the /my-orgs pattern): token and email never reach the page.
-    // rel arrives normalized from /edges (joined/anchored); owner rides along so
-    // the page can state the ownership binary in one plain line.
-    if (req.method === 'GET' && path === '/rock-mine') {   // both faces: ties are keyed to the signed-in email
-      (async () => {
-      // Silent staleness repair (2026-08-09 lag audit; T5 lifted the 50-minute
-      // ceiling): edges older than 10 minutes re-fetch with NO interactive
-      // sign-in — a tie approved on the rock shows up on the next tab-open
-      // instead of waiting for a manual refresh. communityToken() re-mints an
-      // aged token silently off the disk session, so the repair runs for as
-      // long as the account session lives (~60 days), not 50 minutes. The
-      // body lives in ensureEdgesFresh since finding 201, shared with the
-      // rock face's Network map.
-      const st = await ensureEdgesFresh();
-      // The sign-in proves the OPERATOR's email, and their edges include any
-      // personal pebbles they own. On the rock face only the ROCK's own rows
-      // may render — an operator pressing Leave here must never end their own
-      // pebble's tie (found by review 2026-08-09) — and a rock can never be
-      // anchored, so an anchored row here is by definition not the rock's.
-      // A platform lane is not a rock (see PLATFORM_LANES): the edge stays in
-      // st.edges for the wiring machinery, but the Rocks page must not draw it.
-      // Scoped to THIS route on purpose — /rock-brains and /community-catalogs
-      // keep the unfiltered view, so platform-lane content (if any ever ships
-      // through those channels) is not silently cut off by a display rule.
-      let mine = (st.edges || []).filter((x) => (x.rel === 'joined' || x.rel === 'anchored')
-        && !PLATFORM_LANES.has(String(x.org || '').toLowerCase()));
-      let notices = st.notices || [];
-      if (edition !== 'member') {
-        let targetsR = [];
-        try { targetsR = (bridge.targets() || []).filter((t) => (t.kind || 'rock') === 'rock'); } catch { targetsR = []; }
-        // AND A ROCK IS NOT ITS OWN COMMUNITY MEMBER (finding 202, Sam
-        // 2026-08-17, seen on qa-r2-gmail). The slug test answers one question
-        // only: is this edge held by the ROCK, or by the operator's personal
-        // pebble. It never asks who is at the other end. So the operator's own
-        // admin membership of this very rock (org qa-r2-gmail, slug
-        // qa-r2-gmail, rel joined) sailed through and drew the rock under its
-        // own "Your rocks" with a JOINED chip, on the page whose first line
-        // says these are the ones this rock has joined. One-mineral-one-name is
-        // what makes slug and org the same string on a rock, so the slug test
-        // cannot tell the two apart and the org has to be excluded by name.
-        // This is finding 111's rule ("you are not open to yourself"), which
-        // reached the board half of this page on 2026-08-13 and not this half.
-        //
-        // BUT "EXCLUDED BY NAME" MUST MEAN THIS FACE'S NAME, NOT EVERY NAME
-        // THIS MACHINE KNOWS (2026-08-18, Sam, flat-earth-society-of-america →
-        // qa-r2-gmail). The exclusion above shipped as "drop any row whose org
-        // is one of the CONNECTED rocks", and on a machine that drives both
-        // ends of a tie that erased the tie itself: rock A's joined row names
-        // org B, B is also wired here, row gone. A's Organisations page said
-        // nothing was joined while B's member page showed A, and the directory
-        // held the edge the whole time. The self-row's real signature is
-        // org === slug (one-mineral-one-name), so that is the exclusion; and
-        // the page now says WHICH face is asking (?host=), the same per-face
-        // scoping orgTopologyWorld has carried since finding 201 — the map
-        // half of this same one-way-tie symptom, found a day earlier.
-        const qHost = String(url.searchParams.get('host') || '');
-        const face = targetsR.find((t) => t.host === qHost);
-        const faceSlugs = (face ? [face] : targetsR)
-          .map((t) => String(t.org || String(t.host).replace(/-rock$/, '')));
-        mine = mine.filter((x) => x.rel === 'joined' && faceSlugs.includes(String(x.slug || ''))
-          && String(x.org || '') !== String(x.slug || ''));
-        notices = notices.filter((n) => n && faceSlugs.includes(String(n.slug || '')));
-      }
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({
-        signedIn: !!st.edges, reason: st.reason,
-        mine: mine.map((x) => ({ org: x.org, tie: x.rel, slug: x.slug, status: x.status, ...(x.owner ? { owner: x.owner } : {}) })),
-        notices,
-      }));
-      })();
-      return;
-    }
-    if (req.method === 'POST' && path === '/rock-mine/refresh') {
-      res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true }));
-      (async () => {
-        // under the test runner only an INJECTED signer runs — the real one
-        // opens a browser and waits 180s, which is a hung suite, not a test
-        const signIn = opts.communitySignIn
-          || (process.env.NODE_TEST_CONTEXT ? async () => ({ ok: false, reason: 'sign-in stubbed out under the test runner' })
-            : (await import('./crads-account.mjs')).signInWithCrads);
-        await refreshCommunityMine(signIn);
-      })();
-      return;
-    }
-    // Community catalogues (2026-08-09 audit, R9): the manifests of every rock
-    // this person is tied to. Public reads at the directory; cached a minute so
-    // page refreshes are not fan-out fetches.
-    // ---- the public brain, member side (S9): manifests + pages for every
-    // tied rock that shares one, proxied with the retained sign-in token (the
-    // /community-item pattern) so the tie check runs on the member's identity
-    // and neither token nor email ever reaches the page.
-    if (req.method === 'GET' && (path === '/rock-brains' || path === '/rock-brain-page')) {
-      (async () => {
-        const send = (obj) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
-        const st = server._communityMine || {};
-        const token = await communityToken();   // T5: silently re-mints past the old 50-min wall
-        if (!token) { send({ signedIn: false, error: 'sign-in-needed' }); return; }
-        const jf = opts.communityFetcher || fetch;
-        const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-        if (path === '/rock-brain-page') {
-          const org = String(url.searchParams.get('org') || '');
-          const id = String(url.searchParams.get('id') || '');
-          try {
-            const r = await jf(`${dir}/rock-brain-page?org=${encodeURIComponent(org)}&id=${encodeURIComponent(id)}`,
-              { headers: { authorization: `Bearer ${token}` } });
-            send(await r.json().catch(() => ({ error: 'unreadable reply' })));
-          } catch { send({ error: 'could not reach the directory just now' }); }
-          return;
-        }
-        const mine = (st.edges || []).filter((x) => x.rel === 'joined' || x.rel === 'anchored');
-        const orgs = [...new Set(mine.map((x) => String(x.org || '')).filter(Boolean))];
-        const rocks = [];
-        for (const org of orgs) {
-          try {
-            const r = await jf(`${dir}/rock-brain?org=${encodeURIComponent(org)}`, { headers: { authorization: `Bearer ${token}` } });
-            if (!r.ok) continue;   // 403 = not shared (or tie gone): honestly absent, never an error row
-            const b = await r.json().catch(() => null);
-            if (b && Array.isArray(b.items)) rocks.push({ org, rock: b.rock || org, updated: b.updated || 0, items: b.items });
-          } catch { /* that rock simply does not list this time */ }
-        }
-        send({ signedIn: true, rocks });
-      })();
-      return;
-    }
-    // The rock's OWN published manifest, proxied server-side: the live worker's
-    // CORS headers cannot be assumed from the app origin, and a strength-card
-    // truth must not depend on them (found by the shots rig, S4).
-    if (req.method === 'GET' && path === '/own-catalog') {
-      (async () => {
-        const org = String(url.searchParams.get('org') || '').replace(/-rock$/, '');
-        if (!/^[a-z0-9][a-z0-9-]{0,30}$/.test(org)) {
-          res.writeHead(400, { 'content-type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, reason: 'bad org' })); return;
-        }
-        const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-        try {
-          const jf = opts.communityFetcher || fetch;
-          const r = await jf(`${dir}/community-catalog?org=${encodeURIComponent(org)}`);
-          const b = await r.json().catch(() => ({ items: [] }));
-          res.writeHead(200, { 'content-type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, items: (b.items || []).length }));
-        } catch {
-          res.writeHead(200, { 'content-type': 'application/json' });
-          res.end(JSON.stringify({ ok: false }));
-        }
-      })();
-      return;
-    }
-    if (req.method === 'GET' && path === '/community-catalogs') {
-      (async () => {
-        const st = server._communityMine || {};
-        let mine = (st.edges || []).filter((x) => x.rel === 'joined' || x.rel === 'anchored');
-        if (edition !== 'member') {
-          // same narrowing as /rock-mine: only the ROCK's own joined ties here
-          let slugs = [];
-          try { slugs = (bridge.targets() || []).filter((t) => (t.kind || 'rock') === 'rock')
-            .map((t) => String(t.org || String(t.host).replace(/-rock$/, ''))); } catch { slugs = []; }
-          mine = mine.filter((x) => x.rel === 'joined' && slugs.includes(String(x.slug || '')));
-        }
-        const orgs = [...new Set(mine.map((x) => String(x.org || '')).filter(Boolean))];
-        const dir = opts.directoryUrl || 'https://directory.crads-ai.com';
-        const jf = opts.communityFetcher || fetch;
-        const now = Date.now();
-        const cache = server._communityCatalogs || (server._communityCatalogs = {});
-        const out = [];
-        for (const org of orgs) {
-          try {
-            if (!cache[org] || now - cache[org].at > 60000) {
-              const r = await jf(`${dir}/community-catalog?org=${encodeURIComponent(org)}`);
-              cache[org] = { at: now, data: await r.json().catch(() => ({ org, items: [] })) };
-            }
-            if (cache[org].data) out.push(cache[org].data);
-          } catch { /* directory unreachable: this rock's section just doesn't render */ }
-        }
-        res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ signedIn: !!st.edges, catalogs: out.filter((c) => c && (c.items || []).length) }));
-      })();
-      return;
-    }
-    // /community-item is GONE with the directory route behind it (one-inbox,
-    // 2026-08-17). It fetched a package from the directory so the app could
-    // write it to the box. Packages now reach a box one way: the rock
-    // materialises them into inbox-<slug> and org-sync mirrors them down.
-    // /community-catalogs above survives and is unchanged: browsing a rock's
-    // shop window is not acquiring from it.
-    if (req.method === 'POST' && path === '/retrust' && edition === 'member') {
+    if (req.method === 'POST' && path === '/retrust') {
       let body = '';
       req.on('data', (c) => { body += c; if (body.length > 4096) req.destroy(); });
       req.on('end', () => {
@@ -6602,7 +4371,7 @@ export function createPanelServer(opts = {}) {
         try { form = JSON.parse(body); } catch { res.writeHead(400); res.end('bad json'); return; }
         const host = String(form.host ?? '');
         let targets = [];
-        try { targets = (bridge.targets() || []).filter((t) => matchesKind(t, targetKind)); } catch { targets = []; }
+        try { targets = (bridge.targets() || []).filter(kindOk); } catch { targets = []; }
         const t = targets.find((x) => x.host === host);
         if (!hostShapeOk(host) || !t) { res.writeHead(400); res.end('host must be a configured <slug>-box target'); return; }
         // known_hosts keys on the ADDRESS, not the alias, and TWO files matter:
@@ -6635,12 +4404,12 @@ export function createPanelServer(opts = {}) {
         try { form = JSON.parse(body); } catch { res.writeHead(400); res.end('bad json'); return; }
         const host = String(form.host ?? '');
         let targets = [];
-        try { targets = (bridge.targets() || []).filter((t) => (t.kind || 'rock') === targetKind); } catch { targets = []; }
+        try { targets = (bridge.targets() || []).filter(kindOk); } catch { targets = []; }
         if (!validTarget(host, targets)) {
-          res.writeHead(400); res.end(`host must be a configured ${edition === 'member' ? '<slug>-box' : '<org>-rock'} target`); return;
+          res.writeHead(400); res.end('host must be a configured <slug>-box (or legacy <org>-rock) target'); return;
         }
         if (path === '/topology/world') {
-          (edition === 'member' ? topologyWorld(host) : orgTopologyWorld(host)).then((r) => {
+          topologyWorld(host).then((r) => {
             res.writeHead(200, { 'content-type': 'application/json' });
             res.end(JSON.stringify(r));
           }, (e) => {
@@ -6687,9 +4456,9 @@ export function createPanelServer(opts = {}) {
         }
         const host = String(form.host ?? '');
         let targets = [];
-        try { targets = (bridge.targets() || []).filter((t) => (t.kind || 'rock') === targetKind); } catch { targets = []; }
+        try { targets = (bridge.targets() || []).filter(kindOk); } catch { targets = []; }
         if (!validTarget(host, targets)) {
-          res.writeHead(400); res.end(`host must be a configured ${edition === 'member' ? '<slug>-box' : '<org>-rock'} target`); return;
+          res.writeHead(400); res.end('host must be a configured <slug>-box (or legacy <org>-rock) target'); return;
         }
         let built;
         try { built = spec.build(form.args || {}); }
@@ -6754,22 +4523,5 @@ export function createPanelServer(opts = {}) {
   });
 
   server.listen(opts.port ?? 0, opts.host || '127.0.0.1');
-  // T5: the amnesia fix. A disk session means the app KNOWS who it is before
-  // any button is pressed: seed the identity and pull edges silently at start,
-  // so the Rocks tab, the Library and both maps are populated on first paint
-  // and the ties land on the boxes (R9) with no sign-in ceremony. The silent
-  // mint NEVER opens a browser: a machine with no session keeps exactly the
-  // old behaviour (the tab offers Sign in).
-  // (under the test runner only an INJECTED account seeds — a developer's own
-  // ~/.crads-ai-session.json must never leak network calls into a test run)
-  if (edition === 'member' && (opts.accountToken || !process.env.NODE_TEST_CONTEXT)) {
-    (async () => {
-      try {
-        const mint = opts.accountToken || (await import('./crads-account.mjs')).getAppToken;
-        const probe = await mint({});
-        if (probe && probe.ok && probe.idToken) await refreshCommunityMine(async () => probe);
-      } catch { /* the tab offers Sign in */ }
-    })();
-  }
   return server;
 }

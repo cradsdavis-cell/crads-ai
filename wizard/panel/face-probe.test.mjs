@@ -1,5 +1,11 @@
 // face-probe.test.mjs — the box says what it is (promote ruling § 3, 2026-08-04).
 // Run: node --test wizard/panel/face-probe.test.mjs
+//
+// The probe SURVIVES the face collapse (2026-09-01): there is no org edition
+// to route to any more, but the door still asks a -box alias whether it is a
+// rock so its tier chip tells the truth, and the registry keeps that answer
+// across restarts. What died is the two-faces server behaviour the probe used
+// to feed; the host-gate section below pins the one-server truth instead.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
@@ -13,7 +19,7 @@ import { tmpDir } from '../../tests/tmp-dir.mjs';
 process.env.AIOS_BOX_KINDS_PATH = join(tmpDir('fp-kinds-'), 'box-kinds.json');
 import { parseOwnership, probePromotedHosts } from './face-probe.mjs';
 import { listPanelTargets, registerPromotedHost, unregisterPromotedHost } from './ssh-bridge.mjs';
-import { createPanelServer, VERBS } from './panel-server.mjs';
+import { createPanelServer, VERBS, MEMBER_VERBS } from './panel-server.mjs';
 
 // ---------------------------------------------------------------- parsing
 test('parseOwnership: takes the outermost object, survives transport banners', () => {
@@ -75,7 +81,12 @@ async function post(server, path, body) {
   return { status: res.status, text: await res.text() };
 }
 
-test('org edition /run: accepts a promoted -box host, still refuses an unpromoted one', async (t) => {
+test('ONE server, ONE verb table (2026-09-01): member verbs serve every alias kind, org verbs are gone', async (t) => {
+  // The face collapse ended the org-edition /run: the served table is the
+  // member verbs plus the Catalogue dozen, and it answers for the -box alias,
+  // the legacy -rock alias AND the probe-set promoted flag alike. The old
+  // test's subject (org verbs gated to the org face) is now the stronger
+  // truth that org verbs are not reachable ANYWHERE.
   const { EventEmitter } = await import('node:events');
   const bridge = {
     targets: () => [
@@ -92,16 +103,27 @@ test('org edition /run: accepts a promoted -box host, still refuses an unpromote
   const server = createPanelServer({ port: 0, host: '127.0.0.1', bridge, htmlText: '<html></html>' });
   await new Promise((r) => server.on('listening', r));
   t.after(() => server.close());
-  const verb = Object.keys(VERBS).find((v) => !VERBS[v].mutating && !VERBS[v].adminOnly) || 'brain-list';
-  const okPromoted = await post(server, '/run', { verb, host: 'promo2-box', args: {} });
-  assert.notEqual(okPromoted.status, 400, `promoted host must pass the gate (got ${okPromoted.status}: ${okPromoted.text})`);
-  const noPlain = await post(server, '/run', { verb, host: 'plain2-box', args: {} });
-  assert.equal(noPlain.status, 400, 'an ordinary member box must NOT reach org verbs');
+  const verb = Object.keys(MEMBER_VERBS).find((v) => !MEMBER_VERBS[v].mutating && !MEMBER_VERBS[v].adminOnly);
+  for (const host of ['plain2-box', 'acme-rock', 'promo2-box']) {
+    const r = await post(server, '/run', { verb, host, args: {} });
+    assert.notEqual(r.status, 400, `${host} must pass the one gate (got ${r.status}: ${r.text})`);
+  }
   const noGhost = await post(server, '/run', { verb, host: 'ghost2-box', args: {} });
   assert.equal(noGhost.status, 400, 'an unknown host must NOT pass');
+  // an org-table verb that never made the served table is unknown everywhere,
+  // even on a rock-alias target that would once have carried it
+  const orgVerb = 'people-list';
+  assert.ok(VERBS[orgVerb] && !MEMBER_VERBS[orgVerb], 'the fixture verb is org-only, or this pin tests nothing');
+  const noOrg = await post(server, '/run', { verb: orgVerb, host: 'acme-rock', args: {} });
+  assert.equal(noOrg.status, 400, 'an org verb is refused even on a rock alias');
+  assert.match(noOrg.text, /unknown verb/, 'as unknown, because it is not served at all');
 });
 
-test('org teardown stays STRICT: a promoted -box host cannot reach /org-teardown (demote owns that path)', async (t) => {
+test('/org-teardown is RETIRED (2026-09-01): 404 for everyone; stop-hosting (/demote) is the only retire path', async (t) => {
+  // The hosted era deleted whole rocks through this route with re-pasted cloud
+  // codes. A self-hosted server is deleted where it lives, at the hosting
+  // provider, so the route is gone rather than gated: even a promoted target
+  // and an injected orgTeardown hook get a 404.
   const { EventEmitter } = await import('node:events');
   const bridge = {
     targets: () => [{ host: 'promo3-box', org: 'promo3-org', kind: 'rock', promoted: true }],
@@ -111,7 +133,7 @@ test('org teardown stays STRICT: a promoted -box host cannot reach /org-teardown
   await new Promise((r) => server.on('listening', r));
   t.after(() => server.close());
   const r = await post(server, '/org-teardown', { host: 'promo3-box', confirm: 'delete promo3-box forever' });
-  assert.equal(r.status, 400, 'teardown must refuse the promoted alias outright');
+  assert.equal(r.status, 404, 'the route must stay gone, not merely refuse');
 });
 
 // ---------------------------------------------------------------- persistence

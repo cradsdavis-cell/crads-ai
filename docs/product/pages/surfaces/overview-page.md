@@ -119,8 +119,10 @@ The "What your pebble can do" card has two halves. The left is three rungs, in
 order: **"Sign in to Claude on your mineral"**, **"Onboard your brain"**,
 **"Make your first backup"**. The right is what those rungs open: run scheduled
 tasks, join a community and install what it shares, add another device,
-connect email and calendar, message it on Telegram, and start a community of
-your own.
+connect email and calendar, and message it on Telegram. (Starting a community
+of your own is not on the ladder while the pebble-to-rock upgrade is being
+rebuilt for the commons era; [start a community](/docs/become-a-rock) has
+where that stands.)
 
 Every capability row is in exactly one of three states. **Open**, with the way
 in on the row itself. **Locked**, marked "Not yet", with the reason spelled out

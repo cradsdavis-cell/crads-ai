@@ -690,18 +690,17 @@ test('199: a refused host answers an error, and no flow starts', async () => {
   assert.deepEqual(calls, [], 'and neither GitHub nor any box is touched');
 });
 
-test('199: the page names the mineral on both calls, and panel-server refuses rather than swaps', () => {
+test('199 page half is RETIRED (2026-09-01): panel-server no longer mounts /org-github/*', () => {
+  // The page's connect and backup cards died with the org face, and the panel
+  // server no longer mounts createOrgGitHubRoutes at all, which is the
+  // stronger form of the finding-199 fix: with no mounted route there is no
+  // host to swap. The module keeps its own contract (host named, refused when
+  // unmanaged) pinned by the tests above, for the day a commons-era caller
+  // mounts it again.
   const html = _read(_join(_dirname(_furl(import.meta.url)), 'member.html'), 'utf8');
-  assert.match(html, /fetch\('\/org-github\/start',[^)]*body: JSON\.stringify\(\{ host: state\.host \}\)/,
-    'connect names the mineral the card is showing');
-  assert.match(html, /fetch\('\/org-github\/backup',[^)]*body: JSON\.stringify\(\{ host: state\.host \}\)/,
-    'and so does the backup half');
+  assert.ok(!html.includes("'/org-github/"), 'no page fetch aims at the dead mount');
   const server = _read(_join(_dirname(_furl(import.meta.url)), 'panel-server.mjs'), 'utf8');
-  assert.match(server, /if \(want\) return validTarget\(want, t\) \? want : null;/,
-    'a named host is validated by the same gate every box-addressed route uses');
-  assert.doesNotMatch(server.slice(server.indexOf('createOrgGitHubRoutes({')),
-    /host: \(\) => \{ const t = ownBrainTargets\(\); return t\.length \? t\[0\]\.host : null; \},/,
-    'the unconditional first-rock pick is gone');
+  assert.ok(!server.includes('createOrgGitHubRoutes'), 'the mount stays out of panel-server');
 });
 
 // ==========================================================================

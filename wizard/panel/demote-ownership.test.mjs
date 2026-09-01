@@ -15,13 +15,19 @@
 // file). There is no rock left to ask, and no other route to custody,
 // so take-ownership dead-ends permanently on a box the person owns outright.
 //
-// Retire exists only for "a rock started in place on a personal box"
-// — the Danger-zone copy says exactly that — so the box was a personal pebble
-// before, and a pebble is member-owned by definition. demote.test.mjs never
-// caught it because every fixture it seeds already says owner:'member'.
+// Stop hosting exists only for a mineral upgraded in place on a personal box,
+// so the box was a personal pebble before, and a pebble is member-owned by
+// definition. demote.test.mjs never caught it because every fixture it seeds
+// already says owner:'member'.
+//
+// The face collapse (2026-09-01): DEMOTE_CMD survives as the box-side half of
+// stop hosting, so its truths below still hold. promoteFlipCmd, the write it
+// reverses, is deleted with the whole promote machinery; its round-trip test
+// became a retirement pin.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEMOTE_CMD, promoteFlipCmd } from './panel-server.mjs';
+import * as panel from './panel-server.mjs';
+const { DEMOTE_CMD } = panel;
 import { execFileSync } from 'node:child_process';
 import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -46,16 +52,16 @@ test('demote gives ownership back to the member, not just the tier', () => {
   assert.ok(!rec.owner_slug, 'and it must not still point at the retired handle');
 });
 
-test('it exactly reverses what promotion wrote', () => {
-  const before = { tier: 'pebble', owner: 'member', owner_slug: '', managed_by: 'org', machinery_by: 'crads-ai', anchor: 'crads-ai' };
-  const { rec: up } = runOn(promoteFlipCmd('acme'), before);
-  assert.deepEqual({ tier: up.tier, owner: up.owner, owner_slug: up.owner_slug }, { tier: 'rock', owner: 'org', owner_slug: 'acme' });
-  const { rec: down } = runOn(DEMOTE_CMD, up);
-  assert.deepEqual(
-    { tier: down.tier, owner: down.owner, owner_slug: down.owner_slug || '' },
-    { tier: before.tier, owner: before.owner, owner_slug: before.owner_slug },
-    'a promote then a demote must land back where it started',
-  );
+test('the promote flip is RETIRED (2026-09-01): nothing mints a rock in place any more', () => {
+  // The round-trip test (promote then demote lands back where it started) lost
+  // its first half: promoteFlipCmd and the rest of the promote constants left
+  // with the hosted model. The stronger truth is that the panel no longer
+  // exports any of them, so no code path can write owner:"org" again; the
+  // fixtures above stand in for boxes promoted in the hosted era.
+  for (const name of ['promoteFlipCmd', 'PROMOTE_CONSENT', 'PRECOPY_CMD', 'PROMOTE_MINT_CMD',
+    'promotePendingWriteCmd', 'PROMOTE_PENDING_CLEAR_CMD', 'PROMOTE_UNANCHOR_CMD', 'unanchorCmd']) {
+    assert.equal(panel[name], undefined, `${name} must stay unexported`);
+  }
 });
 
 test('the facts demote has no business touching survive', () => {

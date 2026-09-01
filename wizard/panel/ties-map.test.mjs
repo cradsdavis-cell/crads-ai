@@ -1,8 +1,11 @@
-// ties-map.test.mjs — R9 (2026-08-09 grilling): the Network map draws ties
-// made AFTER stamp time. The structural gap it closes: the map's org node came
-// only from /state/org-contact.json (written once, at stamp), ties lived in
-// directory KV and never landed on the box, and worldFacts ignored the
-// anchored flag it already had — so a later-made tie could never render.
+// ties-map.test.mjs — what R9 (2026-08-09) left behind after the face
+// collapse (2026-09-01). The box-side ties store survives: ties-write still
+// validates and lands /state/ties.json atomically, and member-console-state
+// still carries the rows, because a box's own record of what it joined is a
+// box-local fact. What died is everything that PUSHED ties from the directory
+// (syncTiesToBox and friends) and everything the map drew above the box from
+// them (Mountain, anchor wires, fleet): the map now draws only the mineral
+// itself and the communities it chose, read page-side from the community list.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -46,39 +49,41 @@ test('ties-write refuses a malformed payload and writes nothing', () => {
   }
 });
 
-test('console-state carries ties, and worldFacts draws every tie with the anchor first', () => {
+test('console-state still carries the box-local facts, and worldFacts states only them', () => {
   const cmd = MEMBER_VERBS['member-console-state'].build().command;
   assert.ok(cmd.includes('ties.json'), 'console-state reads the ties file');
   // field-wise, not adjacency-wise: see the note in panel.test.mjs (2026-08-13)
   for (const f of ['anchored', 'name:nm', 'backup', 'ties']) {
     assert.ok(new RegExp('[{,]' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[,}]').test(cmd), `${f} rides the state line`);
   }
-  assert.match(server, /orgs\.some\(\(o\) => o\.tie === 'anchored'\) && \(orgName \|\| state\.anchored\)/,
-    'the anchored flag + the stamp-time seed still cover a box the write has not reached');
-  assert.match(server, /org: anchorOrg \? \{ label: anchorOrg\.label \}/, 'the legacy single org field survives one release');
+  // worldFacts no longer synthesises an org row: the world is the box, its
+  // devices and any open support window, nothing more.
+  assert.match(server, /return \{\s*box: \{/, 'worldFacts opens with the box');
+  assert.ok(!/org: anchorOrg/.test(server), 'the legacy single org field is gone for good');
+  assert.ok(!server.includes('anchorFacts'), 'no anchor synthesis remains server-side');
 });
 
-test('the app writes ties down whenever fresh edges land, filtered per box', () => {
-  assert.match(server, /const syncTiesToBox = async \(host, explicit\)/);
-  assert.match(server, /String\(x\.slug \|\| ''\) === slug \|\| String\(x\.box \|\| ''\)\.indexOf\(slug\) === 0/,
-    'slug first, box host as the T6 slug-reconciliation fallback; one owner’s several pebbles never wear each other’s ties');
-  // E2 (2026-08-10): emptiness never clobbers a good ties.json — only an
-  // explicit act (a leave) may clear the file.
-  assert.match(server, /if \(!rows\.length && !explicit\) return;/, 'the no-clobber guard');
-  assert.match(server, /syncTiesToAll\(true\);\s+\/\/ a leave is the one act/, 'leave is the explicit path');
-  const calls = (server.match(/syncTiesToAll\(/g) || []).length;
-  assert.ok(calls >= 3, `full refresh + silent repair + leave all sync (${calls} call sites)`);
+test('the directory tie push is RETIRED: nothing syncs ties down from above any more', () => {
+  // syncTiesToBox / syncTiesToAll wrote directory edges into /state/ties.json
+  // on every fresh pull. The directory is gone; the file is now written only
+  // by explicit box-local acts (ties-write via join and leave flows), so the
+  // push machinery must stay out of the server.
+  assert.ok(!server.includes('syncTiesToBox'), 'the per-box push must stay gone');
+  assert.ok(!server.includes('syncTiesToAll'), 'and the fleet-wide sweep with it');
+  assert.ok(!server.includes('ensureEdgesFresh'), 'and the edge-freshness machinery it rode on');
 });
 
-test('the map renders orgs: anchor emphasised on top, joined rocks dashed beside it', () => {
-  // Rebuilt 2026-08-10. R9 still holds (every rock tie draws, the anchor
-  // emphasised) but joined rocks are no longer satellites off the box's
-  // shoulder: they sit on the TOP ROW beside the anchor, because the map's
-  // rule is now "above you is whatever has a claim on you, below you is what
-  // you anchor" — and a community you joined anchors nothing of yours.
-  assert.match(html, /Array\.isArray\(w\.orgs\) && w\.orgs\.length \? w\.orgs/, 'new shape preferred, legacy org still draws');
-  assert.match(html, /tag: 'joined rock'/, 'joined rocks are labelled');
-  assert.match(html, /role: 'joinedAbove'/, 'and they are placed above, never below');
-  assert.match(html, /stroke-dasharray="4 4"/, 'joined wires draw dashed');
-  assert.match(html, /'anchor' : 'anchor rock'/, 'the anchor node names its role');
+test('the map draws the mineral and its chosen communities, dashed, and nothing above that', () => {
+  const model = html.slice(html.indexOf('function netModel('), html.indexOf('function netLayout('));
+  assert.match(model, /id: 'you', me: true/, 'the you card is the root fact');
+  assert.match(model, /You own this mineral/, 'and says whose the mineral is');
+  assert.match(model, /role: 'joinedAbove', kind: 'rock', tie: 'joined', tag: 'community'/,
+    'each joined community draws as an informational card');
+  assert.match(model, /state\.communities \|\| \[\]/, 'read from the mineral\'s own community list');
+  assert.match(html, /stroke-dasharray="4 4"/, 'joined wires still draw dashed');
+  assert.ok(!model.includes('anchor'), 'no anchor node is modelled');
+  assert.ok(!html.includes("'anchor' : 'anchor rock'"), 'the anchor label is gone from the page');
+  // The Mountain survives only as an orphaned CSS rule and its comment;
+  // nothing models a node that would wear data-kind="mountain" any more.
+  assert.ok(!/kind: ['"]mountain['"]/.test(html), 'no script draws a Mountain node');
 });
