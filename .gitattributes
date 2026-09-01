@@ -1,0 +1,13 @@
+# Anything that becomes a file ON a box must be LF, whatever checked it out.
+#
+# The Windows exe is built on windows-latest, where git ships core.autocrlf=true.
+# The cloud-init host scripts ride into user-data as gz+b64, which no YAML parser
+# normalises, so a CRLF checkout puts `#!/bin/bash\r` on the box and every SSH
+# dies in the sshd ForceCommand. Found live 2026-09-01 (test-mineral-4).
+# selfhost-cloudinit.mjs normalises too; this stops it at the source.
+provisioning/host/*                        text eol=lf
+provisioning/managed/cloud-init.template.yaml  text eol=lf
+
+# Shell and node the box executes, wherever it is built or checked out.
+*.sh   text eol=lf
+*.mjs  text eol=lf

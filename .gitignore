@@ -1,0 +1,46 @@
+# Secrets — never commit
+.env
+.env.*
+*.key
+*.pem
+secrets/
+**/secrets/
+
+# Per-box state — lives OUTSIDE this repo, never baked into the image
+state/
+pebbles/
+clients/
+**/pebble-state/
+provisioning/**/state/
+
+# Runtime / build
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+# …except the host-update bundles: both Dockerfiles COPY this dir, so an
+# ignored-away dir breaks the image build in CI.
+!provisioning/host-updates/dist/
+build/
+*.log
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Claude Code session state
+.claude/
+
+# Desktop-app dev harness (local-only artefacts)
+wizard/dev-harness/node_modules/
+wizard/dev-harness/node_modules
+wizard/assets/win-host/crads-ai.ico
+
+# docs screenshot rig output: build artefacts, regenerated per release
+docs/product/shots/
+
+# docs site publish output (when no --out/CRADS_SITE_DIR is given)
+docs/product/site-out/
