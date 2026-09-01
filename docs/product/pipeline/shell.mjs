@@ -65,7 +65,6 @@ const FOOTER = `
   <span class="wordmark">crads-<span class="accent">ai</span></span>
   <div><a href="mailto:cradsdavis@gmail.com">cradsdavis@gmail.com</a></div>
   <div><a href="https://linkedin.com/in/samuel-davis4" target="_blank" rel="noopener">linkedin.com/in/samuel-davis4</a></div>
-  <div>+61 0493 302 154</div>
   <div><a href="/book">Book a 30-minute call →</a></div>
   <div><a href="/account/login">Sign in</a></div>
   <div class="location">Coogee, Sydney.</div>

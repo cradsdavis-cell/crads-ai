@@ -48,7 +48,7 @@ function rockFixture({ done = true } = {}) {
   names.forEach((n, i) => w(path.join(brain, 'wiki', '_layers', `${n}.md`),
     `# ${n}\n\nSee [[people/harriet]] for the network.\n`));
   w(path.join(brain, 'wiki', 'people', 'harriet.md'), '# Harriet\n\ntier: core\n\nBacked by [[_layers/4-network]].\n');
-  w(path.join(brain, 'wiki', 'people', 'lockie.md'), '# Lockie\n\ntier: live\n');
+  w(path.join(brain, 'wiki', 'people', 'logan.md'), '# Logan\n\ntier: live\n');
 
   // The three pages a rock had BEFORE this fix, and the only ones it showed.
   w(path.join(brain, 'CLAUDE.md'), '# CLAUDE\n');
