@@ -1,0 +1,59 @@
+name: suite
+
+# THE SUITE GATE (2026-08-20 audit).
+#
+# Until this existed, running the tests was a side effect of the workflow that
+# packages the Windows exe: wizard-app.yml fired only on pushes touching
+# `wizard/**` (plus the rock cloud-init template and its own file), and only on
+# hardening-loop and main. Everything else gated on nothing.
+#
+# What that meant in practice:
+#   - `directory/**` triggered NO workflow at all, so the ~30 test files covering
+#     the multi-tenant directory Worker never ran in CI on the directory-only
+#     commits that introduced the T10 create gate, the rate-limit guard and the
+#     admin topology token. That Worker is hand-deployed with `wrangler deploy`,
+#     so CI was the only thing that could have caught a regression before it
+#     reached every tenant.
+#   - `engine/**` and `scripts/**` triggered only docker-publish.yml, which runs
+#     clean-gate, the image bake and a boot smoke, and no `node --test` at all.
+#   - no `pull_request` trigger existed anywhere, and feature branches were out
+#     of scope, so work merged from a branch had never had its suite run.
+#
+# A test gate should not inherit the trigger conditions of a packaging job. This
+# runs the same command on every push and every pull request, whatever changed
+# and whatever branch it is on. wizard-app.yml keeps its own `test` job, because
+# the exe build depends on it; this is the floor under everything else.
+on:
+  workflow_dispatch: {}
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  # A newer push to the same ref makes the older run irrelevant.
+  group: suite-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # build-changelog.test.mjs walks real history and `git cat-file -e`s
+          # every sha in docs/member-notes.md, so a shallow clone fails it rather
+          # than skipping. Same reason wizard-app.yml checks out full depth.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Clean-checkout suite
+        run: |
+          set -euo pipefail
+          # `wizard/panel/qa-*` stays excluded exactly as CLAUDE.md documents:
+          # those need a gitignored local playwright install and bind fixed
+          # ports, so they fail on a clean checkout and must run serially.
+          node --test $(git ls-files '*.test.mjs' | grep -v 'wizard/panel/qa-')

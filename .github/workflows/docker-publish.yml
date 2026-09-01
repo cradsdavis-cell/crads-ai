@@ -1,0 +1,134 @@
+name: publish-image
+
+# Two-image split (2026-07-16): build the shared base once, then the member + rock variants
+# FROM it (multi-arch), and push to GHCR. PINNED TAGS (D30): every bake publishes one immutable
+# version tag only; :latest / :v1 / the legacy ai-os:latest alias move ONLY by explicit human
+# promotion after the canary passes (see docker-bake.hcl header). Live boxes cannot be moved by
+# a push. See client-deliverables .../TWO-IMAGE-ARCHITECTURE.md for the full design.
+#
+# Gates (D30): nothing publishes unless the `gates` job passes first:
+#   1. clean-gate  : scripts/clean-gate.sh, no personal or org-specific content in baked code
+#   2. build       : single-arch bake of all three targets
+#   3. boot-smoke  : member image guards hold; rock refuses without deployment.yaml and
+#                    boots to code-server with a staged fictional one
+# Gate 4 (a skill run headless) is NOT wired yet: it needs a Claude auth decision for CI
+# (subscription OAuth token as a repo secret vs no live-model gate; metered API keys are
+# banned). Until then the skill gate runs on the member-zero canary, not here.
+
+on:
+  workflow_dispatch: {}            # manual "Run workflow" button
+  push:
+    branches: [main]
+    paths:
+      - 'engine/**'
+      - 'config/**'
+      - 'provisioning/**'
+      - 'rock-machinery/**'
+      # the vendored rock brain control plane bakes into the rock image
+      # (2026-08-26); found missing 2026-09-01 when a vendor-only bump built
+      # nothing, so the promote would have shipped a stale brain.
+      - 'brain-control/**'
+      - 'scripts/**'
+      - 'Dockerfile.base'
+      - 'Dockerfile.member'
+      - 'Dockerfile.rock'
+      - 'docker-bake.hcl'
+      - '.dockerignore'
+      - '.github/workflows/docker-publish.yml'
+      # ...but NOT test files. They live beside the code they test (engine/**),
+      # so every test-only push was triggering a ~13 minute image build for
+      # something that never enters the image. On 2026-08-09 this repo spent 141
+      # minutes on 13 image builds in one day and hit the private-repo Actions
+      # limit, which blocked every deploy; several of those builds were
+      # test-only. Negation is evaluated in order, so this must stay last.
+      - '!**/*.test.mjs'
+      # DELIBERATELY NOT '!**/*.md': engine/skills/*.md IS product content that
+      # ships in the image (that is how /connect reaches a box), so excluding
+      # markdown would silently stop skill changes from ever being delivered.
+
+permissions:
+  contents: read
+  packages: write                  # lets GITHUB_TOKEN push to ghcr.io/<owner>/*
+
+env:
+  # ghcr.io requires a lowercase namespace; the owner name may not be. Derived
+  # once here so a fork publishes to its own namespace with no edits.
+  REG: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: clean-gate (no personal/org content bakes)
+        run: bash scripts/clean-gate.sh
+      - uses: docker/setup-buildx-action@v3
+      - name: Build all three targets (single-arch, local)
+        uses: docker/bake-action@v5
+        env:
+          REG: ${{ env.REG }}
+        with:
+          files: docker-bake.hcl
+          targets: default
+          push: false
+          load: true
+          set: |
+            *.platform=linux/amd64
+      - name: Boot-smoke the member image (guards hold)
+        run: |
+          docker run --rm --entrypoint sh "$REG/crads-pebble:v2" -c '
+            set -e
+            test ! -e /app/provisioning && echo "no factory: OK"
+            ! command -v jq >/dev/null && echo "no jq: OK"
+            command -v claude >/dev/null && echo "claude present: OK"
+            command -v code-server >/dev/null && echo "code-server present: OK"'
+      - name: Boot-smoke the rock image (staged-config contract)
+        run: |
+          set -e
+          S="$RUNNER_TEMP/rock-smoke"; mkdir -p "$S/state/acme-brain"
+          # 1) no deployment.yaml -> must refuse, non-zero
+          if docker run --rm -v "$S/state":/state "$REG/crads-rock:v2" >/dev/null 2>&1; then
+            echo "rock booted WITHOUT deployment.yaml (should refuse)"; exit 1
+          fi
+          echo "refuses unstaged: OK"
+          # 2) staged fictional deployment -> must reach code-server
+          printf '%s\n' 'deployment_name: acme-ci' 'operator_emails:' '  - ops@acme.example' \
+            'domain: acme.example' 'brain_root: /state/acme-brain' 'persona_name: Gate' \
+            'default_region: hel1' > "$S/state/deployment.yaml"
+          OUT="$(timeout 45 docker run --rm -v "$S/state":/state "$REG/crads-rock:v2" 2>&1 || true)"
+          # STRUCTURAL HOOK, NOT COPIED COPY (2026-08-20 audit, trap 5: "a smoke
+          # asserts structural hooks, never copied strings; a smoke exists in ONE
+          # place"). This used to grep the human boot banner and a code-server
+          # startup log line, so rewording the banner or upgrading code-server
+          # failed every image publish while the rock was healthy, and the same
+          # two strings were pinned again in provisioning/rock/test-rock.sh.
+          # boot-rock.sh now prints one deliberate contract line immediately
+          # before the code-server handoff; it carries the staged deployment name,
+          # so reaching it proves the boot got to the end WITH the right config.
+          echo "$OUT" | grep -q 'AIOS-BOOT-OK rock deployment=acme-ci' \
+            || { echo "rock did not reach the end of its boot with the staged deployment"; echo "$OUT" | tail -20; exit 1; }
+          echo "boots staged: OK"
+
+  build-and-push:
+    needs: gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3        # arm64 emulation on the amd64 runner
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build + push base, member, rock (amd64 + arm64)
+        uses: docker/bake-action@v5
+        env:
+          REG: ${{ env.REG }}
+          TAG: sha-${{ github.sha }}   # immutable per-commit tag; :v2 moves ONLY via promote.yml
+          BUILD_SHA: ${{ github.sha }}   # baked to /etc/aios-build; what a box reports as its engine version
+        with:
+          files: docker-bake.hcl
+          targets: default          # base + member + rock (the `default` group)
+          push: true

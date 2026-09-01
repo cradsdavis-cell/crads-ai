@@ -1,0 +1,633 @@
+name: wizard-app
+
+# D41 phase 2: package the Practice Partner setup wizard as a downloadable Windows .exe.
+# Node single-executable application (SEA): esbuild inlines wizard/app.mjs +
+# wizard/ui/server-lib.mjs + wizard/engine.mjs into one CJS bundle, `node
+# --experimental-sea-config` bakes it plus the two assets (index.html, the cloud-init
+# rock template) into a blob, and postject injects the blob into a copy of node.exe.
+# esbuild + postject are BUILD tools only; the shipped exe has zero runtime deps.
+#
+# import.meta.url note: the engine derives paths from import.meta.url, which does not
+# exist in a CJS bundle, so the esbuild step defines it to a banner-provided
+# pathToFileURL(__filename) (inside the exe that is the exe's own path; every path the
+# app actually uses is passed explicitly, so this only has to be non-throwing).
+#
+# The exe is unsigned: Windows SmartScreen warns on first run (More info -> Run anyway).
+
+on:
+  workflow_dispatch: {}            # manual "Run workflow" button
+  push:
+    branches: [main]
+    paths:
+      - 'wizard/**'
+      - 'provisioning/rock/cloud-init.rock.template.yaml'
+      - '.github/workflows/wizard-app.yml'
+
+permissions:
+  contents: write                  # lets the release step create/update the prerelease
+
+jobs:
+  # Until 2026-08-18 this workflow was the ONLY gate on a release and it never
+  # ran the suite: `node --test` appeared in this file exactly once, inside a
+  # comment. A red suite could not stop a build, and build 1270 shipped with
+  # one. The PowerShell smokes in the build job prove the exe boots and serves;
+  # they cannot prove behaviour.
+  #
+  # Deliberately ubuntu, not the windows build runner: a dozen of these files
+  # reach for POSIX paths (/bin/bash, /usr/bin, process.platform), so gating on
+  # windows would trade a suite that never runs for a release that never builds.
+  # Linux is where the suite is developed and known green.
+  #
+  # The `wizard/panel/qa-*` files are excluded, exactly as CLAUDE.md documents:
+  # they need a gitignored local playwright install and bind fixed ports, so
+  # they fail on a clean checkout (trap 15) and must run one process at a time.
+  # Wiring them in needs a browser install plus serial execution; they stay a
+  # human-run suite, which is the gap trap 21 is about. This closes the larger
+  # half of it.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history, same as both build jobs. checkout defaults to depth 1,
+          # and build-changelog.test.mjs walks real history: it `git cat-file -e`s
+          # every sha in docs/member-notes.md to catch a mistyped one, which looks
+          # identical to a sha that has simply aged out of the changelog window.
+          # In a shallow clone every one of those shas is "not a commit here". The
+          # test skips a tree with no git dir at all (a `git archive` export) but a
+          # shallow clone HAS a git dir, so it fails instead of skipping.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Clean-checkout suite
+        run: |
+          set -euo pipefail
+          node --test $(git ls-files '*.test.mjs' | grep -v 'wizard/panel/qa-')
+
+  build-windows-exe:
+    needs: test
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # version identity: `git rev-list --count` needs full history
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install build tools (CI-only; the exe has zero runtime deps)
+        run: |
+          npm i -g esbuild postject
+          npm i --no-save rcedit   # JS library (no CLI bin); driven via its node API below
+
+      - name: Bundle the app (esbuild -> dist/app.cjs)
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          esbuild wizard/app.mjs --bundle --platform=node --format=cjs --outfile=dist/app.cjs `
+            "--define:import.meta.url=__IMPORT_META_URL" `
+            "--banner:js=const __IMPORT_META_URL = require('node:url').pathToFileURL(__filename).href;"
+
+      - name: Build the window host (WebView2 shell; owns the taskbar icon)
+        # The --app= Edge window belongs to msedge.exe, so the taskbar showed
+        # Edge's icon regardless of favicon. The host (wizard/assets/win-host/)
+        # is a static-linked Win32+WebView2 exe carrying the mark in its own
+        # resources; it ships as a SEA asset and selfInstall writes it next to
+        # the installed exe. --probe is the deterministic gate (loader resolves
+        # the evergreen runtime); the windowed --smoke is non-fatal per the
+        # 2026-07-30 no-flaky-release-gates rule.
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          node wizard/assets/make-icon.mjs dist/crads-ai.ico
+          nuget install Microsoft.Web.WebView2 -Version 1.0.2592.51 -OutputDirectory packages -NonInteractive | Out-Null
+          $pkg = (Resolve-Path 'packages/Microsoft.Web.WebView2*').Path
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          Import-Module (Join-Path $vs 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll')
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          Copy-Item dist/crads-ai.ico wizard/assets/win-host/crads-ai.ico
+          rc /nologo /fo dist\host.res wizard\assets\win-host\host.rc
+          cl /nologo /O1 /MT /EHsc /DUNICODE /D_UNICODE /I "$pkg\build\native\include" `
+            wizard\assets\win-host\host.cpp /Fo:dist\host.obj /Fe:dist\crads-ai-window.exe `
+            /link /SUBSYSTEM:WINDOWS /ENTRY:wWinMainCRTStartup "$pkg\build\native\x64\WebView2LoaderStatic.lib" `
+            user32.lib gdi32.lib shell32.lib ole32.lib oleaut32.lib advapi32.lib version.lib shlwapi.lib dist\host.res
+          if (-not (Test-Path dist\crads-ai-window.exe)) { throw 'host exe did not build' }
+          .\dist\crads-ai-window.exe --probe
+          if ($LASTEXITCODE -ne 0) { throw "window host probe failed (exit $LASTEXITCODE): WebView2 loader/runtime unresolvable" }
+          Write-Host 'window host built + probe OK'
+          $p = Start-Process -FilePath .\dist\crads-ai-window.exe -ArgumentList '--smoke','about:blank' -PassThru
+          if (-not $p.WaitForExit(45000)) { Stop-Process -Id $p.Id -Force; Write-Host '::warning::window host --smoke timed out (non-fatal: probe passed)' }
+          elseif ($p.ExitCode -ne 0) { Write-Host "::warning::window host --smoke exited $($p.ExitCode) (non-fatal: probe passed)" }
+          else { Write-Host 'window host --smoke OK (window opened, navigated, closed)' }
+          # Regression guard for the 2026-08-03 invisible-window break: spawn the
+          # host with SW_HIDE (what node's windowsHide:true did) and require the
+          # window to force itself visible anyway. Warn-only (GUI probing on a
+          # runner can flake); the fatal layers remain --probe + the exe build.
+          Add-Type -Namespace W -Name U -MemberDefinition '[DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr FindWindow(string c, string t); [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);'
+          $p2 = Start-Process -FilePath .\dist\crads-ai-window.exe -ArgumentList 'about:blank' -WindowStyle Hidden -PassThru
+          $visible = $false
+          foreach ($i in 1..30) {
+            Start-Sleep -Milliseconds 500
+            $h = [W.U]::FindWindow('CradsAIWindow', $null)
+            if ($h -ne [IntPtr]::Zero -and [W.U]::IsWindowVisible($h)) { $visible = $true; break }
+          }
+          Stop-Process -Id $p2.Id -Force -ErrorAction SilentlyContinue
+          if ($visible) { Write-Host 'host window forces itself visible even when spawned SW_HIDE' }
+          else { Write-Host '::warning::host window NOT visible when spawned SW_HIDE (invisible-window regression?)' }
+
+      - name: Build the SEA blob (bundle + embedded assets)
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          # build identity: baked into the exe AND published as version.json so
+          # installed apps can self-detect a newer rolling release (updater.mjs).
+          # Human version (2026-08-09, Sam: "understand where we're up to"):
+          # calver names the day, `build` is the monotonic commit count — one
+          # climbing number that answers "which is newer" at a glance.
+          $count = [int](git rev-list --count HEAD)
+          # AEST, not runner-UTC: the operator lives in Sydney, and a release cut
+          # on a Saturday morning must not be named for Friday
+          $aest = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId((Get-Date).ToUniversalTime(), 'AUS Eastern Standard Time')
+          $ver = 'v' + $aest.ToString('yyyy.M.d')
+          @{ version = $ver; build = $count; sha = "${{ github.sha }}"; built_at = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ') } | ConvertTo-Json -Compress | Set-Content -Encoding utf8 dist/build-info.json
+          Copy-Item dist/build-info.json dist/version.json
+          # what's new: the last 25 commits, published beside the exe so the app can
+          # show where it is up to without any server of ours. Moved out of inline
+          # PowerShell 2026-08-13 (scripts/build-changelog.mjs, tested): it now also
+          # lifts a `notes:` trailer out of each commit body, which is what lets a
+          # release read in plain words instead of in commit subjects.
+          node scripts/build-changelog.mjs dist/changelog.json
+          @'
+          {
+            "main": "dist/app.cjs",
+            "output": "dist/sea-prep.blob",
+            "disableExperimentalSEAWarning": true,
+            "assets": {
+              "crads-ai.ico": "dist/crads-ai.ico",
+              "crads-ai-window.exe": "dist/crads-ai-window.exe",
+              "index.html": "wizard/ui/index.html",
+              "member.html": "wizard/panel/member.html",
+              "member-connect.html": "wizard/panel/member-connect.html",
+              "door.html": "wizard/panel/door.html",
+              "member-console.html": "wizard/panel/member-console.html",
+              "topology.html": "wizard/panel/topology.html",
+              "xterm.js": "wizard/panel/vendor/xterm.js",
+              "xterm.css": "wizard/panel/vendor/xterm.css",
+              "xterm-addon-fit.js": "wizard/panel/vendor/xterm-addon-fit.js",
+              "tokens.css": "wizard/panel/vendor/tokens.css",
+              "inter/inter.css": "wizard/panel/vendor/inter/inter.css",
+              "inter/InterVariable.woff2": "wizard/panel/vendor/inter/InterVariable.woff2",
+              "marks/index.mjs": "wizard/panel/vendor/marks/index.mjs",
+              "build-info.json": "dist/build-info.json",
+              "cloud-init.rock.template.yaml": "provisioning/rock/cloud-init.rock.template.yaml",
+              "cloud-init.template.yaml": "provisioning/managed/cloud-init.template.yaml",
+              "aios-host-update": "provisioning/host/aios-host-update",
+              "enter-aios": "provisioning/host/enter-aios"
+            }
+          }
+          '@ | Set-Content -Encoding utf8 sea-config.json
+          node --experimental-sea-config sea-config.json
+
+      - name: Brand a copy of node.exe (icon + metadata), then inject the blob
+        run: |
+          Copy-Item (Get-Command node).Source dist/crads-ai.exe
+          # rcedit BEFORE postject: resource edits after blob injection can corrupt the SEA
+          node -e "require('rcedit')('dist/crads-ai.exe', { icon: 'dist/crads-ai.ico', 'version-string': { ProductName: 'Crads-AI', FileDescription: 'Crads-AI', CompanyName: 'crads-ai.com' } }).then(() => console.log('branded')).catch((e) => { console.error(e); process.exit(1); })"
+          postject dist/crads-ai.exe NODE_SEA_BLOB dist/sea-prep.blob `
+            --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+
+      - name: Smoke the exe (boots, serves the embedded wizard page)
+        run: |
+          $env:AIOS_NO_LAUNCH = '1'
+          $env:AIOS_NO_INSTALL = '1'
+          $p = Start-Process -FilePath .\dist\crads-ai.exe -PassThru -NoNewWindow `
+            -RedirectStandardOutput dist\smoke-out.log -RedirectStandardError dist\smoke-err.log
+          Start-Sleep -Seconds 6
+          $out = Get-Content dist\smoke-out.log -Raw
+          if ($out -notmatch 'http://127\.0\.0\.1:(\d+)') {
+            if (Test-Path dist\smoke-err.log) { Get-Content dist\smoke-err.log -Raw | Write-Host }
+            throw "exe did not print its URL; stdout was: $out"
+          }
+          $html = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$($Matches[1])/").Content
+          Stop-Process -Id $p.Id -Force
+          if ($html -notmatch 'Crads-AI') { throw 'door HTML not served from the SEA assets' }
+          # Assert the STRUCTURAL hook, not the button prose. This check used to
+          # read 'Set up an organisation'; then the pebble/rock creator cards,
+          # which left with the self-host strip (2026-09-01). data-make is what
+          # door.html's own click handler and door.test.mjs bind to, so it cannot
+          # drift without breaking the app for real.
+          if ($html -notmatch 'data-make="selfhost"') { throw 'door is missing the self-host path (data-make="selfhost")' }
+          Write-Host 'smoke OK: exe boots and serves the embedded wizard page'
+
+      - name: Smoke the panel mode (D43; a fake Host block flips the exe to the control panel)
+        run: |
+          $fakeHome = Join-Path $env:RUNNER_TEMP 'pp-panel-home'
+          New-Item -ItemType Directory -Force (Join-Path $fakeHome '.ssh') | Out-Null
+          Set-Content -Encoding ascii (Join-Path $fakeHome '.ssh\config') "Host fake-rock`n  HostName 192.0.2.1`n  User aios-op`n"
+          $env:AIOS_NO_LAUNCH = '1'
+          $env:AIOS_NO_INSTALL = '1'
+          $env:USERPROFILE = $fakeHome
+          $p = Start-Process -FilePath .\dist\crads-ai.exe -PassThru -NoNewWindow `
+            -RedirectStandardOutput dist\smoke-panel-out.log -RedirectStandardError dist\smoke-panel-err.log
+          Start-Sleep -Seconds 6
+          $env:USERPROFILE = $null
+          $out = Get-Content dist\smoke-panel-out.log -Raw
+          if ($out -notmatch 'Crads-AI panel: http://127\.0\.0\.1:(\d+)') {
+            if (Test-Path dist\smoke-panel-err.log) { Get-Content dist\smoke-panel-err.log -Raw | Write-Host }
+            throw "exe did not open in panel mode; stdout was: $out"
+          }
+          $port = $Matches[1]
+          # E7.1 REVERSED (upgraded-pebble, 2026-08-09): '/' serves the ONE app
+          # shell, edition-stamped org. The legacy console survives at /console
+          # until P3 re-homes its verbs. Greps pinned by door.test.mjs anti-drift.
+          $front = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$port/").Content
+          if ($front -notmatch 'var AIOS_EDITION = "org"') { throw "org '/' did not serve the edition-stamped shell" }
+          if ($front -match '<title>Console</title>') { throw "org '/' bounced to the console; the cutover reversal regressed" }
+          # Invoke-WebRequest cannot express "do not follow it, just tell me the
+          # 3xx". -MaximumRedirection 0 makes PS7 THROW ("The maximum redirection
+          # count has been exceeded") the moment the redirect arrives, and
+          # -SkipHttpErrorCheck only suppresses 4xx/5xx, not that, so this
+          # assertion failed on the redirect it was written to prove. curl.exe
+          # ships in System32 on every Windows runner and does not follow
+          # redirects unless asked, so it reports the status the check wants.
+          $consoleCode = (curl.exe -s -o NUL -w '%{http_code}' "http://127.0.0.1:$port/console")
+          if ($consoleCode -ne '302') { throw "org /console should redirect home since the console retired (P3), got $consoleCode" }
+          $html = $front
+          $st = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$port/update-status").Content
+          $xt = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$port/vendor/xterm.js").Content
+          $tk = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$port/vendor/tokens.css"
+          $ic = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$port/vendor/inter/inter.css"
+          # The connector marks module. It shipped once with the assets in the tree
+          # but in NEITHER the SEA map nor app.mjs's vendor list, so the packaged exe
+          # 404ed it, member.html's `import { markFor }` failed, and every connector
+          # rendered as an initial disc. Nothing here noticed, because this smoke
+          # asserted xterm and tokens.css and stopped. A vendor asset the panel
+          # IMPORTS is exactly what a packaging smoke has to fetch: the disk
+          # fallback in server-lib.mjs hides the whole class of failure in a dev
+          # checkout, so the exe is the only place it can be seen.
+          $mk = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$port/vendor/marks/index.mjs").Content
+          if ($mk -notmatch 'export const MARKS') { throw "/vendor/marks/index.mjs did not serve the marks module: every connector would fall back to an initial disc" }
+          if ($mk -notmatch 'export function markFor') { throw "/vendor/marks/index.mjs served but has no markFor export, which is the symbol member.html imports" }
+          Stop-Process -Id $p.Id -Force
+          # rock sections live in the shell under the ruled names (2026-08-09)
+          # orgbrain retired in S5 (2026-08-10): the org brain rides the shared
+          # data-sec="brain" graph viewer. rockbrain retired the same day with the
+          # Rocks rebuild: a rock's shared pages were a nav tab of their own while
+          # the page named Rocks carried no rock, so they became a block inside the
+          # rock's own row and the reader they open is data-sec="rockreader".
+          #
+          # This list is the reason that rename failed CI twice. It is a pinned
+          # string in workflow YAML, so `node --test` over every *.test.mjs in the
+          # repo cannot see it and neither can the qa-* sweep: the first signal was
+          # the exe build going red AFTER the merge had landed. If you rename a
+          # section, this list is the third place to change.
+          # R17 (2026-08-23): the Claude Code tab and the help modal merged into
+          # the data-sec="help" page, carried on both faces.
+          foreach ($sec in 'data-sec="pebbles"','data-sec="decisions"','data-sec="yourrock"','data-sec="publish"','data-sec="brain"','data-sec="rockreader"','data-sec="rocks"','data-sec="terminal"','data-sec="help"','id="openFolderName"') {
+            if ($html -notmatch [regex]::Escape($sec)) { throw "org shell is missing the $sec section" }
+          }
+          foreach ($gone in 'data-sec="operators"','Stall board','data-sec="chat"','data-sec="members"','data-sec="rockbrain"','data-sec="claudecode"','helpModal') {
+            if ($html -match [regex]::Escape($gone)) { throw "org shell still carries the removed $gone surface" }
+          }
+          if ($st -notmatch '"sha"') { throw "update-status is missing the baked build identity: $st" }
+          if ($xt.Length -lt 100000) { throw 'vendored xterm.js not served from the SEA assets' }
+          # UI-overhaul: panel/member link /vendor/tokens.css + /vendor/inter/inter.css with no
+          # inline copy, so the SEA MUST serve them or the app ships unstyled.
+          if ($tk.StatusCode -ne 200 -or $tk.Content -notmatch '--paper') { throw 'vendored tokens.css not served from the SEA assets' }
+          if ($ic.StatusCode -ne 200 -or $ic.Content -notmatch 'font-family') { throw 'vendored inter/inter.css not served from the SEA assets' }
+          Write-Host 'smoke OK: panel serves all sections + baked build identity + vendored terminal + design tokens'
+
+      - name: Smoke the member mode (D44; a <slug>-box Host block alone flips the exe to the member companion)
+        run: |
+          $fakeHome = Join-Path $env:RUNNER_TEMP 'pp-member-home'
+          New-Item -ItemType Directory -Force (Join-Path $fakeHome '.ssh') | Out-Null
+          Set-Content -Encoding ascii (Join-Path $fakeHome '.ssh\config') "Host jane01-box`n  HostName 192.0.2.2`n  User member`n"
+          $env:AIOS_NO_LAUNCH = '1'
+          $env:AIOS_NO_INSTALL = '1'
+          $env:USERPROFILE = $fakeHome
+          $p = Start-Process -FilePath .\dist\crads-ai.exe -PassThru -NoNewWindow `
+            -RedirectStandardOutput dist\smoke-member-out.log -RedirectStandardError dist\smoke-member-err.log
+          Start-Sleep -Seconds 6
+          $env:USERPROFILE = $null
+          $out = Get-Content dist\smoke-member-out.log -Raw
+          if ($out -notmatch 'Crads-AI member: http://127\.0\.0\.1:(\d+)') {
+            if (Test-Path dist\smoke-member-err.log) { Get-Content dist\smoke-member-err.log -Raw | Write-Host }
+            throw "exe did not open in member mode; stdout was: $out"
+          }
+          $mport = $Matches[1]
+          # The member front face is the APP itself, opening on Overview (2026-08-04:
+          # the E7.1 console redirect is the ORG edition's; a member landing on the
+          # standalone seat page was the bug, not the contract). The standalone
+          # console stays reachable at /console as the pre-app surface. These greps
+          # are pinned by door.test.mjs's anti-drift tests, so a surface rename
+          # fails at desk-time instead of ten minutes into a release.
+          $front = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$mport/").Content
+          if ($front -notmatch '<title>Your Brain</title>') { throw "member '/' did not serve the app" }
+          if ($front -notmatch 'data-sec="dashboard" class="on"') { throw "the member app did not open on Overview" }
+          $console = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$mport/console").Content
+          if ($console -notmatch '<title>Your mineral</title>') { throw "the standalone member console left /console" }
+          $html = $front
+          Stop-Process -Id $p.Id -Force
+          # Customise died in the S6 one-designed-grid ruling (2026-08-10); the
+          # strength card replaced its purpose, then died into the capability
+          # ladder (2026-08-17), whose card is now the member surface pinned here.
+          foreach ($sec in 'Dashboard','Brain','What your pebble can do') {
+            if ($html -notmatch $sec) { throw "member HTML is missing the $sec surface" }
+          }
+          # ONE shell serves both faces since 2026-08-09, so the org sections DO
+          # exist in the member-served HTML; what protects the member is the
+          # edition wall, and that is what this smoke pins: the serve is stamped
+          # member, the org chrome is orgonly-classed, and the CSS wall hides it.
+          if ($front -notmatch 'var AIOS_EDITION = "member"') { throw "member '/' was not edition-stamped member" }
+          if ($front -notmatch [regex]::Escape('class="orgonly" data-sec="yourrock"')) { throw 'the org chrome lost its orgonly marking' }
+          if ($front -notmatch [regex]::Escape('body:not([data-edition="org"]) .orgonly{display:none')) { throw 'the CSS edition wall is gone' }
+          Write-Host 'smoke OK: member app on / (Overview), standalone console at /console, edition wall intact'
+
+      - name: Smoke the self-install (first run installs to LOCALAPPDATA + creates shortcuts)
+        run: |
+          $env:AIOS_NO_LAUNCH = '1'
+          $env:AIOS_NO_INSTALL = $null
+          $p = Start-Process -FilePath .\dist\crads-ai.exe -PassThru -NoNewWindow `
+            -RedirectStandardOutput dist\smoke-install-out.log -RedirectStandardError dist\smoke-install-err.log
+          Start-Sleep -Seconds 8
+          Stop-Process -Id $p.Id -Force
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\Crads-AI\Crads-AI.exe'
+          $ico = Join-Path $env:LOCALAPPDATA 'Programs\Crads-AI\crads-ai.ico'
+          $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Crads-AI.lnk'
+          if (-not (Test-Path $exe)) {
+            Get-Content dist\smoke-install-out.log -Raw | Write-Host
+            throw "self-install did not copy the exe to $exe"
+          }
+          # Fatal (unlike the shortcut): the .ico write is a plain file copy from a
+          # SEA asset, so a miss here means the asset fell out of sea-config, and
+          # every shortcut silently degrades to the stale-cache exe icon.
+          if (-not (Test-Path $ico)) { throw "self-install did not write crads-ai.ico next to the exe (asset missing from sea-config?)" }
+          # versioned name (crads-ai-window-<sha8>.exe): a fixed name lost the
+          # file-lock race against the very window the user clicks update in
+          $hostExe = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs\Crads-AI') -Filter 'crads-ai-window*.exe' -ErrorAction SilentlyContinue
+          if (-not $hostExe) { throw "self-install did not write a crads-ai-window*.exe next to the exe (asset missing from sea-config?)" }
+          if ($hostExe.Name -notmatch '^crads-ai-window-[0-9a-f]{8}\.exe$') { throw "host exe name '$($hostExe.Name)' is not build-versioned" }
+          # The shortcut is BEST-EFFORT in the app itself: selfInstall() wraps the whole
+          # WScript.Shell COM call in a try/catch and says so ("an app that fails to
+          # install still runs fine from anywhere"). Asserting it as fatal here was
+          # stricter than the code's own contract, and it is flaky on the runner: this
+          # step failed on c559dd3 with the exe copied correctly and only the shortcut
+          # missing, then passed unchanged on the next commit. A flaky gate on the
+          # release path is worse than no gate, and it already blocked delivery once
+          # today (the artifact quota did the same). So: the exe copy stays fatal
+          # because that IS the install, and the shortcut warns. 2026-07-30.
+          if (-not (Test-Path $lnk)) {
+            Write-Host "::warning::self-install did not create the Start-menu shortcut (best-effort in selfInstall; the exe installed correctly)"
+          } else {
+            $iconLoc = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).IconLocation
+            if ($iconLoc -notmatch 'crads-ai\.ico') {
+              Write-Host "::warning::Start-menu shortcut IconLocation is '$iconLoc', not the branded .ico"
+            } else {
+              Write-Host 'shortcut created, branded icon wired'
+            }
+          }
+          Write-Host 'smoke OK: first run self-installs to LOCALAPPDATA'
+
+      # A debugging convenience, deliberately NON-BLOCKING (2026-07-30): when the
+      # account's artifact storage filled up, this step failed and SKIPPED both the
+      # release publish and the public mirror, so finished builds could not ship.
+      # Nothing downstream reads this artifact; the release asset is the deliverable.
+      # Short retention so it stops refilling the quota.
+      - name: Upload the exe as a workflow artifact
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: crads-ai
+          path: dist/crads-ai.exe
+          if-no-files-found: error
+          retention-days: 5
+
+      - name: Publish / update the rolling prerelease (tag wizard-app)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: wizard-app
+          name: Crads-AI (Windows + Mac, rolling)
+          prerelease: true
+          make_latest: false
+          # ONE source of truth for the release prose, shared with the public
+          # mirror step below. It was inline here and absent there, which is how
+          # the page members actually read drifted three weeks behind this one.
+          body_path: wizard/assets/release-notes.md
+          files: |
+            dist/crads-ai.exe
+            dist/version.json
+
+      - name: Mirror to the public app repo (crads-ai-app, tag wizard-app)
+        # Installed apps poll the public app-release repo (RELEASE_BASE in
+        # wizard/panel/updater.mjs), not this repo's release. Cross-repo, so the
+        # default GITHUB_TOKEN can't write it; needs the CRADS_AI_APP_TOKEN secret
+        # plus the CRADS_AI_APP_REPO repository variable (owner/name). Forks that
+        # set neither simply skip the mirror and keep this repo's own release.
+        # bash, not pwsh: -e aborts before the version.json upload if the exe
+        # upload fails, so a half-failed run keeps the OLD sha advertised
+        # (fail-safe) instead of pairing a new sha with an old exe.
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.CRADS_AI_APP_TOKEN }}
+          MIRROR_REPO: ${{ vars.CRADS_AI_APP_REPO }}
+        run: |
+          if [ -z "$GH_TOKEN" ] || [ -z "$MIRROR_REPO" ]; then
+            echo "::warning::CRADS_AI_APP_TOKEN secret / CRADS_AI_APP_REPO variable not set: the public mirror was NOT updated. Installed apps keep seeing the previous build until the mirror is refreshed or the secret+variable are set."
+            exit 0
+          fi
+          gh release upload wizard-app dist/crads-ai.exe --clobber --repo "$MIRROR_REPO"
+          gh release upload wizard-app dist/changelog.json --clobber --repo "$MIRROR_REPO"
+          gh release upload wizard-app dist/version.json --clobber --repo "$MIRROR_REPO"
+          # The mirror release is what a MEMBER actually lands on, and until
+          # 2026-08-18 this step uploaded assets and never touched its title or
+          # body, so the public page still read "Crads-AI (Windows)" and gave
+          # Windows-only instructions three weeks after the Mac build started
+          # shipping into that very release. Sync the prose with the assets.
+          gh release edit wizard-app --repo "$MIRROR_REPO" \
+            --title 'Crads-AI (Windows + Mac, rolling)' \
+            --notes "$(cat wizard/assets/release-notes.md)"
+
+  build-macos-app:
+    # Same SEA build as Windows, packaged as a Crads-AI.app bundle and zipped.
+    # Runs after the Windows job so the rolling release exists to upload into
+    # (and version.json, shared by both platforms, is already published).
+    needs: build-windows-exe
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # same version identity as the Windows build
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install build tools (CI-only; the app has zero runtime deps)
+        run: npm i -g esbuild postject
+
+      # The suite on the OS members actually run it on (2026-08-19, out of the
+      # Harriet walkthrough). NON-GATING, same reasoning as the windowed --smoke:
+      # the suite's home is ubuntu (the test job above), and a mac-runner flake
+      # must not be able to stop a release. But a mac-only breakage should be
+      # SEEN here rather than on a member's laptop.
+      - name: Clean-checkout suite on macOS (signal, not a gate)
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          node --test $(git ls-files '*.test.mjs' | grep -v 'wizard/panel/qa-')
+
+      - name: Bundle the app (esbuild -> dist/app.cjs)
+        run: |
+          mkdir -p dist
+          esbuild wizard/app.mjs --bundle --platform=node --format=cjs --outfile=dist/app.cjs \
+            "--define:import.meta.url=__IMPORT_META_URL" \
+            "--banner:js=const __IMPORT_META_URL = require('node:url').pathToFileURL(__filename).href;"
+
+      - name: Build the SEA blob (bundle + embedded assets)
+        run: |
+          count="$(git rev-list --count HEAD)"
+          ver="v$(TZ=Australia/Sydney date +%Y.%-m.%-d)"   # AEST, matching the Windows stamp
+          printf '{ "version": "%s", "build": %s, "sha": "%s", "built_at": "%s" }' \
+            "$ver" "$count" "${{ github.sha }}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > dist/build-info.json
+          cat > sea-config.json <<'EOF'
+          {
+            "main": "dist/app.cjs",
+            "output": "dist/sea-prep.blob",
+            "disableExperimentalSEAWarning": true,
+            "assets": {
+              "index.html": "wizard/ui/index.html",
+              "member.html": "wizard/panel/member.html",
+              "member-connect.html": "wizard/panel/member-connect.html",
+              "door.html": "wizard/panel/door.html",
+              "member-console.html": "wizard/panel/member-console.html",
+              "topology.html": "wizard/panel/topology.html",
+              "xterm.js": "wizard/panel/vendor/xterm.js",
+              "xterm.css": "wizard/panel/vendor/xterm.css",
+              "xterm-addon-fit.js": "wizard/panel/vendor/xterm-addon-fit.js",
+              "tokens.css": "wizard/panel/vendor/tokens.css",
+              "inter/inter.css": "wizard/panel/vendor/inter/inter.css",
+              "inter/InterVariable.woff2": "wizard/panel/vendor/inter/InterVariable.woff2",
+              "build-info.json": "dist/build-info.json",
+              "cloud-init.rock.template.yaml": "provisioning/rock/cloud-init.rock.template.yaml",
+              "cloud-init.template.yaml": "provisioning/managed/cloud-init.template.yaml",
+              "aios-host-update": "provisioning/host/aios-host-update",
+              "enter-aios": "provisioning/host/enter-aios"
+            }
+          }
+          EOF
+          node --experimental-sea-config sea-config.json
+
+      - name: Inject the blob into a node binary (macOS SEA dance)
+        run: |
+          cp "$(command -v node)" dist/crads-ai
+          codesign --remove-signature dist/crads-ai
+          npx postject dist/crads-ai NODE_SEA_BLOB dist/sea-prep.blob \
+            --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 \
+            --macho-segment-name NODE_SEA
+          codesign -s - dist/crads-ai
+
+      - name: Assemble the Crads-AI.app bundle (icon + plist + ad-hoc sign)
+        run: |
+          node wizard/assets/make-icon.mjs --iconset dist/crads-ai.iconset
+          iconutil -c icns dist/crads-ai.iconset -o dist/crads-ai.icns
+          APP=dist/Crads-AI.app
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp dist/crads-ai "$APP/Contents/MacOS/crads-ai"
+          chmod +x "$APP/Contents/MacOS/crads-ai"
+          cp dist/crads-ai.icns "$APP/Contents/Resources/crads-ai.icns"
+          cat > "$APP/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>Crads-AI</string>
+            <key>CFBundleDisplayName</key><string>Crads-AI</string>
+            <key>CFBundleIdentifier</key><string>com.crads-ai.app</string>
+            <key>CFBundleExecutable</key><string>crads-ai</string>
+            <key>CFBundleIconFile</key><string>crads-ai</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>1.0.${{ github.run_number }}</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+            <!-- D58 P2.2: claim the crads-ai:// scheme so invite links open the app
+                 (Windows twin: HKCU registration in wizard/panel/protocol.mjs) -->
+            <key>CFBundleURLTypes</key><array><dict>
+              <key>CFBundleURLName</key><string>com.crads-ai.app.invite</string>
+              <key>CFBundleURLSchemes</key><array><string>crads-ai</string></array>
+            </dict></array>
+          </dict></plist>
+          EOF
+          codesign -s - --force "$APP"
+
+      - name: Smoke the app (boots, serves the embedded wizard page)
+        run: |
+          AIOS_NO_LAUNCH=1 AIOS_NO_INSTALL=1 ./dist/Crads-AI.app/Contents/MacOS/crads-ai > dist/smoke-out.log 2> dist/smoke-err.log &
+          PID=$!
+          sleep 6
+          URL="$(grep -oE 'http://127\.0\.0\.1:[0-9]+/' dist/smoke-out.log | head -1)"
+          if [ -z "$URL" ]; then cat dist/smoke-err.log; echo "app did not print its URL"; kill $PID || true; exit 1; fi
+          HTML="$(curl -s "$URL")"
+          kill $PID || true
+          echo "$HTML" | grep -q 'Crads-AI' || { echo 'door HTML not served from the SEA assets'; exit 1; }
+          # Structural hook, not button prose: see the same check in the Windows
+          # job above. This is the SECOND copy of the assertion, and it is why
+          # fixing only the Windows one still shipped no Mac app.
+          echo "$HTML" | grep -q 'data-make="selfhost"' || { echo 'door is missing the self-host path (data-make="selfhost")'; exit 1; }
+          echo 'smoke OK: mac app boots and serves the embedded wizard page'
+
+      # Gatekeeper truth (2026-08-19, out of the Harriet walkthrough). The app is
+      # ad-hoc signed and NOT notarized, so a member's Mac shows the hard block:
+      # "Crads-AI can't be opened because Apple cannot check it for malicious
+      # software" — no Open Anyway on the dialog itself, and Harriet spent the
+      # first ten minutes of the 2026-08-18 walkthrough re-downloading against
+      # it. Money, not code: notarization needs the $99/yr Apple Developer
+      # membership. Until it is paid, the join page and the beta invite carry
+      # the bypass instructions, and THIS STEP PINS THE STATE so the two cannot
+      # drift: the day a notarized build ships, the assertions flip, this step
+      # goes red, and whoever flipped it must also update the join-page copy
+      # and the invite step-card before shipping.
+      - name: Pin the Gatekeeper state (ad-hoc today; goes red the day we notarize)
+        run: |
+          set -euo pipefail
+          APP=dist/Crads-AI.app
+          codesign --verify --deep --strict "$APP" || { echo 'the ad-hoc signature itself is broken — the bundle would not even launch via the bypass'; exit 1; }
+          codesign -dv "$APP" 2>&1 | tee dist/codesign-state.txt
+          grep -q 'Signature=adhoc' dist/codesign-state.txt || {
+            echo '::error::The app is no longer ad-hoc signed. If this is the paid Developer ID landing: update the join page (drop the bypass instructions) and the beta invite step-card, then update these assertions.'; exit 1; }
+          # what a member's Chrome download actually faces: quarantined + assessed
+          cp -R "$APP" dist/Crads-AI-quarantined.app
+          xattr -w com.apple.quarantine '0083;00000000;Chrome;' dist/Crads-AI-quarantined.app
+          if spctl --assess --type execute dist/Crads-AI-quarantined.app 2> dist/spctl-state.txt; then
+            echo '::error::Gatekeeper ACCEPTED the app. If notarization landed: update the join page and invite step-card, then update these assertions.'; exit 1
+          fi
+          cat dist/spctl-state.txt
+          echo 'Gatekeeper state pinned: ad-hoc + rejected, exactly what the join-page bypass instructions are written for'
+
+      - name: Zip the bundle
+        run: ditto -ck --keepParent dist/Crads-AI.app dist/crads-ai-mac.zip
+
+      # Same rule as the Windows job (2026-07-30): a debug artifact must never be
+      # able to skip the release + mirror steps that actually deliver the app.
+      - name: Upload the zip as a workflow artifact
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: crads-ai-mac
+          path: dist/crads-ai-mac.zip
+          if-no-files-found: error
+          retention-days: 5
+
+      - name: Attach to the rolling prerelease + mirror to the public repo
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MIRROR_TOKEN: ${{ secrets.CRADS_AI_APP_TOKEN }}
+          MIRROR_REPO: ${{ vars.CRADS_AI_APP_REPO }}
+        run: |
+          gh release upload wizard-app dist/crads-ai-mac.zip --clobber --repo "$GITHUB_REPOSITORY"
+          if [ -z "$MIRROR_TOKEN" ] || [ -z "$MIRROR_REPO" ]; then
+            echo "::warning::CRADS_AI_APP_TOKEN secret / CRADS_AI_APP_REPO variable not set: the public mirror did not get the Mac build."
+            exit 0
+          fi
+          GH_TOKEN="$MIRROR_TOKEN" gh release upload wizard-app dist/crads-ai-mac.zip --clobber --repo "$MIRROR_REPO"

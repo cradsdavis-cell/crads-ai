@@ -1,0 +1,356 @@
+
+name: promote
+
+# Repoint the live :v2 tag (what client boxes pull) at an already-pushed immutable
+# sha tag. The ONLY way :v2 moves since 2026-07-23. Two explicit triggers:
+#   1. workflow_dispatch (the "Run workflow" button) needs a token with actions:write,
+#      which the box PATs don't have, hence:
+#   2. pushing a git tag named promote-<source_tag>, e.g. promote-sha-<40-hex-commit>.
+#      A deploy-key push can do this, so the factory/operator boxes can promote without
+#      an actions-scoped PAT. The tag in git history IS the audit record of the promote.
+#
+# ALL SIX NAMES MOVE, OR NOTHING MOVES (2026-08-20 audit).
+#
+# Until this rewrite the six `imagetools create` calls ran as one sequential step
+# under `set -e`, and the two loops disagreed about what a failure meant. The
+# canonical loop (crads-*) warned and CONTINUED when a source tag was missing,
+# while the alias loop (ai-os-*) had no guard at all, so a promote had two ways to
+# finish half done:
+#   a) source tags missing for the canonical names: every crads-*:v2 stayed on the
+#      OLD digest and all three ai-os-*:v2 moved to the new one;
+#   b) any registry error in the alias loop: the canonical names had already moved
+#      and the aliases never did, and the step aborted mid-way through.
+# Either way the two families disagree about what ":v2" means, and that is not a
+# cosmetic split, because THE TWO BIRTH PATHS RESOLVE DIFFERENT NAMES:
+#   provisioning/managed/lib.sh  : IMAGE="${AIOS_IMAGE:-ghcr.io/.../crads-pebble:v2}"
+#   provisioning/rock/provision-rock.sh : PEBBLE_IMAGE="${IMAGE/ai-os-parent/ai-os-member}"
+# so a pebble stamped by hand pulls crads-pebble:v2 while a pebble stamped by the
+# live rock pulls ai-os-member:v2, and scripts/verify-release.sh records the alias
+# as what the live rock was OBSERVED staging on 2026-08-16. Half a promote means
+# two boxes born the same afternoon run different code, with nothing on either box
+# saying so. It has already happened once for real: QA finding 62 (2026-08-12), a
+# hand-dispatched promote that ran the default branch's older copy of this file,
+# moved the three aliases, left the three canonical tags behind, and reported
+# success.
+#
+# So the promote is now three phases with a job boundary in the middle:
+#   gate    : resolve the source tag, prove the sha passed CI, then resolve ALL SIX
+#             source digests and refuse the whole promote if any one is unreadable.
+#   promote : needs the gate, creates each :v2 FROM THE RESOLVED DIGEST, then
+#             re-reads all six and fails unless every one is the digest we resolved.
+# A registry that dies between create three and create four can still leave the
+# fleet split (nothing outside a registry transaction can prevent that, and GHCR
+# offers none), but that state can no longer be reported as a success: the verify
+# step runs `if: always()` and names exactly which names moved and which did not,
+# with the command to finish the job.
+#
+# The warn-and-continue was written for source shas that predate the 2026-08-09
+# dual-publish, which have no crads-* tags at all. Refusing those is the correct
+# answer now, not a regression: promoting such a sha is a ROLLBACK, and a rollback
+# that can only move half the names does not roll anything back, it just points
+# the two birth paths at two different releases. Roll back to a sha from
+# 2026-08-09 onward, which has both families published (docker-bake.hcl tags both
+# on every bake).
+#
+# THE SHA MUST HAVE PASSED ITS GATES.
+# This workflow used to verify nothing whatsoever about the code it was shipping to
+# every client box: no `needs:`, no check-run query, no CI lookup. Any push of a
+# promote-* tag moved production, which is the capability the deploy-key path
+# exists for and is deliberately preserved, but "no PAT required" was never meant
+# to mean "no tests required". The gate job now asks the Actions API whether the
+# workflows that gate a merge actually succeeded for that exact commit. The two
+# it asks about are named by FILE, not by title, because the file path is the
+# identity the API accepts and a retitled workflow must not silently disable the
+# gate.
+#
+# The escape hatch, used deliberately and loudly: push `promote-force-<source_tag>`
+# (or tick skip_ci_gate on a dispatch). It skips ONLY the CI lookup, for the case
+# the lookup cannot answer rather than answers no: an emergency rollback to a sha
+# whose runs have aged out of Actions retention. It does NOT skip the six-digest
+# preflight or the post-verify, because a split fleet is never the right answer to
+# an incident.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_tag:
+        description: "immutable tag to promote, e.g. sha-<40-hex-commit>"
+        required: true
+      skip_ci_gate:
+        description: "skip the CI lookup (rollback older than Actions retention). The six-digest preflight still applies."
+        type: boolean
+        default: false
+  push:
+    tags: ['promote-*']
+
+permissions:
+  contents: read
+  packages: write
+  actions: read          # reading whether suite / publish-image passed for the sha
+
+concurrency:
+  # Two promotes interleaving their creates is another way to end up with the two
+  # families on different digests. cancel-in-progress is deliberately FALSE:
+  # cancelling a promote part way through its create loop IS the split state this
+  # file exists to prevent.
+  group: promote
+  cancel-in-progress: false
+
+env:
+  # The registry namespace follows whoever owns the fork; images publish to
+  # ghcr.io/<owner>/* via docker-publish.yml with the same derivation.
+  REG: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.src.outputs.tag }}
+      pairs: ${{ steps.resolve.outputs.pairs }}
+    steps:
+      - name: Resolve source tag (dispatch input, or the pushed promote-* tag name)
+        id: src
+        env:
+          # Read through env, never pasted into the script body. A ${{ }} expansion is
+          # substituted as TEXT before bash parses the line, so a dispatch input holding
+          # a quote or a semicolon would run as script. Dispatch already needs
+          # actions:write so the exposure is small, but the shape check below is the
+          # real point and it needs the value in a variable to check it.
+          INPUT_TAG: ${{ inputs.source_tag }}
+          INPUT_SKIP: ${{ inputs.skip_ci_gate }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ -n "$INPUT_TAG" ]; then
+            tag="$INPUT_TAG"
+            skip="${INPUT_SKIP:-false}"
+          else
+            # The deploy-key path has no inputs, so the tag NAME is its only channel:
+            # promote-<source_tag>, or promote-force-<source_tag> for the escape hatch.
+            rest="${REF_NAME#promote-}"
+            case "$rest" in
+              force-*) tag="${rest#force-}"; skip=true ;;
+              *)       tag="$rest";          skip=false ;;
+            esac
+          fi
+          case "$tag" in
+            '' | *[!A-Za-z0-9._-]*)
+              echo "::error::refusing source tag '${tag}': a docker tag here is [A-Za-z0-9._-] only, and anything else reached this workflow as text rather than as a tag"
+              exit 1 ;;
+          esac
+          # The commit the tag NAMES, which is the thing CI gated. Deliberately not
+          # github.sha: the documented promote is `git tag promote-sha-<CAND>` run from
+          # a checkout whose HEAD is the tip, so the tag OBJECT frequently sits on a
+          # different commit from the one it names, and scripts/verify-release.sh
+          # prints exactly that command. The name is the honest source.
+          commit=""
+          case "$tag" in
+            sha-*)
+              c="${tag#sha-}"
+              case "$c" in
+                *[!0-9a-f]*) ;;
+                *) [ "${#c}" -eq 40 ] && commit="$c" ;;
+              esac ;;
+          esac
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "commit=${commit}" >> "$GITHUB_OUTPUT"
+          echo "skip_ci_gate=${skip}" >> "$GITHUB_OUTPUT"
+          echo "promoting ${tag} (commit ${commit:-unmapped}, ci gate skipped: ${skip})"
+
+      - name: The sha must have passed the gates a merge passes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT: ${{ steps.src.outputs.commit }}
+          TAG: ${{ steps.src.outputs.tag }}
+          SKIP: ${{ steps.src.outputs.skip_ci_gate }}
+        run: |
+          set -uo pipefail
+          # set +e ON PURPOSE, and it has to be its own line. GitHub runs every `run:`
+          # block as `bash --noprofile --norc -e -o pipefail {0}`, so errexit is already
+          # ON before the first line of this script, and `set -uo pipefail` does not
+          # turn it off. Without it, `body=$(curl ...)` failing aborts the step where it
+          # stands, so the "could not read" branch below could never run and an
+          # unreadable Actions API would end the promote with a bare exit 1 carrying no
+          # explanation. Verified against `bash -e`. The three later steps that collect
+          # results before deciding need the same line for the same reason.
+          set +e
+          # Named by FILE, not by `name:`. The file path is the identity the Actions API
+          # takes, so a workflow someone retitles keeps being checked, and a workflow
+          # someone deletes 404s here loudly instead of quietly checking nothing.
+          REQUIRED_WORKFLOWS="suite.yml docker-publish.yml"
+          if [ "$SKIP" = "true" ]; then
+            echo "::warning::CI gate SKIPPED for ${TAG} by explicit request. Nothing in this run proves the suite or the boot smokes passed for this code. The six-digest preflight and the post-verify below still apply."
+            exit 0
+          fi
+          if [ -z "$COMMIT" ]; then
+            echo "::error::cannot gate '${TAG}': only a sha-<40-hex-commit> tag maps to a commit, and a tag whose gates cannot be looked up must not move what every client box pulls. Promote the sha- tag CI published, or push promote-force-${TAG} if you mean to ship without that proof."
+            exit 1
+          fi
+          fail=0
+          for wf in $REQUIRED_WORKFLOWS; do
+            body=$(curl -fsS --max-time 30 \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/${wf}/runs?head_sha=${COMMIT}&per_page=100" 2>/dev/null)
+            if [ -z "$body" ]; then
+              # A CHECK THAT COULD NOT RUN IS NOT A CHECK THAT PASSED. The same rule
+              # scripts/verify-release.sh had to learn on its digest legs, where an
+              # unreadable registry warned and the run still exited 0.
+              echo "::error::could not read ${wf} runs for ${COMMIT}: the gate did not run, so it says nothing about this sha"
+              fail=1
+            else
+              ok=$(printf '%s' "$body" | jq -r '[(.workflow_runs // [])[] | select(.conclusion == "success")] | length')
+              url=$(printf '%s' "$body" | jq -r '[(.workflow_runs // [])[] | select(.conclusion == "success")] | last | .html_url // ""')
+              seen=$(printf '%s' "$body" | jq -r '[(.workflow_runs // [])[] | "\(.event):\(.status):\(.conclusion // "pending")"] | join(", ")')
+              if [ "${ok:-0}" -gt 0 ]; then
+                echo "  ok ${wf} passed for ${COMMIT} (${url})"
+              else
+                # "cancelled" is the likely one and it has a specific cause: suite.yml
+                # sets cancel-in-progress per ref, so pushing again quickly kills the
+                # older commit's suite run while docker-publish still finishes building
+                # its image. That sha then owns an image nothing ever tested. Re-run the
+                # suite for it, or promote a sha whose suite completed.
+                echo "::error::${wf} has no successful run for ${COMMIT}. Runs seen: ${seen:-none at all}. Re-run it for that sha, promote a sha whose gates completed, or push promote-force-${TAG} to ship without this proof."
+                fail=1
+              fi
+            fi
+          done
+          [ "$fail" -eq 0 ] || exit 1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve every source digest FIRST, or refuse the whole promote
+        id: resolve
+        env:
+          TAG: ${{ steps.src.outputs.tag }}
+        run: |
+          set -uo pipefail
+          # set +e on its own line, for the reason spelled out in the CI-gate step above:
+          # the default shell is `bash -e`, so without it this loop aborts on the first
+          # name it cannot read instead of finishing and reporting the whole picture.
+          set +e
+          # THE LIST, one line, all six names together, canonical (crads-*, the product
+          # vocabulary since 2026-08-09) and published alias (ai-os-*, what live boxes
+          # and the live rock's staged PEBBLE_IMAGE still pull by name). They are one
+          # set, not two loops with two failure policies, because the two birth paths
+          # each resolve a different member of it. scripts/published-image-aliases.test.mjs
+          # parses this very line and asserts docker-bake.hcl really tags every name on
+          # it; tests/promote-integrity.test.mjs asserts the set is EQUAL to what the
+          # bake publishes and that it covers both birth paths.
+          missing=""
+          pairs=""
+          for img in crads-base crads-pebble crads-rock ai-os-base ai-os-member ai-os-parent; do
+            ref="${REG}/${img}:${TAG}"
+            d=$(docker buildx imagetools inspect "$ref" --format '{{.Manifest.Digest}}' 2>/dev/null)
+            # Fall back to the plain report rather than trusting one template: a buildx
+            # that does not know the field prints NOTHING and exits zero, and an empty
+            # digest would read here as "the source tag is missing" and refuse a
+            # perfectly good promote. Only the top-level Digest line is unindented, so
+            # the anchor picks the index digest and not a per-platform child.
+            [ -n "$d" ] || d=$(docker buildx imagetools inspect "$ref" 2>/dev/null | awk '/^Digest:/{print $2; exit}')
+            if [ -n "$d" ]; then
+              echo "  ${img}:${TAG} is ${d}"
+              pairs="${pairs} ${img}=${d}"
+            else
+              echo "::error::${img}:${TAG} has no readable manifest on GHCR"
+              missing="${missing} ${img}"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::REFUSING THE WHOLE PROMOTE for ${TAG}: no source digest for${missing}. Nothing has moved. Moving the rest would leave the two birth paths on two different releases (lib.sh pulls crads-pebble:v2, a live rock stamps ai-os-member:v2). If ${TAG} predates the 2026-08-09 dual-publish it has no crads-* tags at all: pick a sha from 2026-08-09 onward, which docker-bake.hcl tags under both names."
+            exit 1
+          fi
+          echo "pairs=${pairs# }" >> "$GITHUB_OUTPUT"
+
+  promote:
+    # The job boundary IS the gate. A later edit can reorder steps inside a job by
+    # accident; it cannot accidentally make this job run when `gate` failed.
+    needs: gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Point every :v2 at the digest the gate resolved
+        env:
+          PAIRS: ${{ needs.gate.outputs.pairs }}
+          TAG: ${{ needs.gate.outputs.tag }}
+        run: |
+          set -uo pipefail
+          # set +e on its own line, for the reason spelled out in the CI-gate step above:
+          # the default shell is `bash -e`, so without it this loop aborts on the first
+          # name it cannot read instead of finishing and reporting the whole picture.
+          set +e
+          # By DIGEST, not by tag: this is the exact manifest the gate read and the exact
+          # thing the verify step below compares against, so "what we promoted" is never
+          # a second lookup that could answer differently.
+          #
+          # Why it must not stop at the first error: with the missing-source case
+          # preflighted away, the remaining way to fail here is a transient registry
+          # error, and stopping on the first one leaves the earlier names moved and the
+          # later ones behind while also skipping the report that would say which. Try
+          # every name, retry a couple of times, and let the verify step be the single
+          # arbiter of what actually landed.
+          rc=0
+          for pair in $PAIRS; do
+            img="${pair%%=*}"; digest="${pair#*=}"
+            moved=0
+            for attempt in 1 2 3; do
+              if docker buildx imagetools create -t "${REG}/${img}:v2" "${REG}/${img}@${digest}"; then moved=1; break; fi
+              echo "::warning::${img}:v2 create attempt ${attempt} failed; retrying"
+              sleep 5
+            done
+            if [ "$moved" -eq 1 ]; then echo "  moved ${img}:v2 to ${digest} (${TAG})"; else rc=1; fi
+          done
+          exit "$rc"
+
+      - name: Prove every name actually moved
+        # always(), so the move step aborting or half succeeding still produces the
+        # per-name picture. A promote that moved four of six names must never be a red
+        # X with no statement of which four.
+        if: always()
+        env:
+          PAIRS: ${{ needs.gate.outputs.pairs }}
+          TAG: ${{ needs.gate.outputs.tag }}
+        run: |
+          set -uo pipefail
+          # set +e on its own line, for the reason spelled out in the CI-gate step above:
+          # the default shell is `bash -e`, so without it this loop aborts on the first
+          # name it cannot read instead of finishing and reporting the whole picture.
+          set +e
+          bad=""
+          for pair in $PAIRS; do
+            img="${pair%%=*}"; want="${pair#*=}"
+            # Re-read a few times before calling it stale. This is trap 9, never read your
+            # own write: the tag was created seconds ago and a registry is allowed to serve
+            # a read from a replica that has not caught up. Announcing SPLIT FLEET because
+            # GHCR was a second behind would be a false alarm on the loudest line this
+            # workflow can print, and the promote is what people trust it about.
+            for attempt in 1 2 3; do
+              got=$(docker buildx imagetools inspect "${REG}/${img}:v2" --format '{{.Manifest.Digest}}' 2>/dev/null)
+              [ -n "$got" ] || got=$(docker buildx imagetools inspect "${REG}/${img}:v2" 2>/dev/null | awk '/^Digest:/{print $2; exit}')
+              [ "$got" = "$want" ] && break
+              [ "$attempt" -lt 3 ] && sleep 5
+            done
+            if [ "$got" = "$want" ]; then
+              echo "  ok ${img}:v2 is ${want}"
+            else
+              echo "  NOT MOVED ${img}:v2 wanted ${want} got ${got:-unreadable}"
+              bad="${bad} ${img}"
+            fi
+          done
+          if [ -n "$bad" ]; then
+            echo "::error::SPLIT FLEET:${bad} did not reach ${TAG} while the others did. Boxes born now would run two different releases depending on which birth path stamped them. Re-run this workflow (it is idempotent: every create is by resolved digest), and until it is green treat BOTH birth paths as unshipped."
+            exit 1
+          fi
+          echo "all six names are ${TAG}"
