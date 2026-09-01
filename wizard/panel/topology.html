@@ -1,0 +1,2711 @@
+<meta charset="utf-8">
+<title>Crads AI Topology</title>
+<!-- Product copy of the model's reference implementation
+     (docs/superpowers/ui-overhaul/mockups/topology-sandbox.html on feat/ui-overhaul).
+     TWO intended divergences, nothing else: the query-string boot block at
+     "Served in the app at /topology", and the APP-LINK LAYER appended at the very
+     end of the file. Keep the two files in step: a model change lands in the
+     mockup first, then is re-copied here with both divergences preserved. -->
+
+
+<style>
+/* ============================================================================
+   CRADS AI TOPOLOGY - the box-network console, seats only.
+   There is no god view: you are always somebody. Crads AI is the landing
+   seat: it sees almost everything and can do almost nothing. Every mineral is a
+   seat with three dials (Ownership / Management / Hosting), a short row of
+   verbs, and an inbox: anything needing another party's yes is a request
+   answered from their seat.
+   Light platform register: white chrome on cool paper, colour only where it
+   means something: green = the member/self, amber = an owning/managing rock,
+   violet = the platform, indigo = the product's own voice.
+   ========================================================================== */
+:root{
+  --bg:#F6F8FB; --bg2:#FFFFFF; --canvas:#F7F9FC;
+  --panel:#FFFFFF; --panel2:#F6F8FB;
+  --line:#E9EDF3; --line2:#D6DEE8;
+  --ink:#1A1F36; --soft:#4F566B; --faint:#8792A2;
+  --accent:#5457D6;
+  --self:#0E9F6E; --rock:#C2700D; --plat:#7C5CE0;
+  --bad:#DF3B57; --warn:#B7791F; --good:#0E9F6E;
+  --shadow-s:0 1px 2px rgba(26,31,54,.05), 0 1px 6px rgba(26,31,54,.05);
+  --shadow-m:0 1px 2px rgba(26,31,54,.06), 0 6px 18px rgba(26,31,54,.09);
+  --shadow-l:0 2px 6px rgba(26,31,54,.08), 0 14px 40px rgba(26,31,54,.14);
+  --ui:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--ui);
+  font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased; overflow:hidden}
+
+/* ---------------------------------------------------------------- shell --- */
+.app{display:grid; height:100vh;
+  grid-template-columns:58px 1fr 348px;
+  grid-template-rows:54px 1fr;
+  grid-template-areas:"top top top" "rail canvas insp"}
+@media (max-width:980px){
+  body{overflow:auto}
+  .app{display:block; height:auto}
+  .rail{display:flex !important; flex-direction:row !important; width:auto !important;
+    height:auto !important; border-right:none !important; border-bottom:1px solid var(--line)}
+  .canvas-vp{height:60vh}
+  .insp{width:auto !important; max-height:none !important; border-left:none !important;
+    border-top:1px solid var(--line)}
+}
+
+/* ---------------------------------------------------------------- topbar --- */
+.top{grid-area:top; display:flex; align-items:center; gap:10px; padding:0 16px;
+  background:var(--panel); border-bottom:1px solid var(--line); z-index:30}
+.brand{display:flex; align-items:center; gap:9px; margin-right:8px; white-space:nowrap}
+.brand .mark{width:11px; height:11px; border-radius:3px; background:var(--accent);
+  box-shadow:0 1px 4px rgba(84,87,214,.4)}
+.brand .nm1{font-size:13.5px; font-weight:650; letter-spacing:-.01em; color:var(--ink)}
+.brand .nm2{font-size:13.5px; font-weight:500; color:var(--faint)}
+.tdiv{width:1px; height:20px; background:var(--line); flex:none}
+/* real mode (?real=1). Empty in the sandbox, so neither takes space there. */
+.realnote{font-family:var(--ui); font-size:12px; color:var(--soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:38ch}
+.realnote:empty{display:none}
+/* display, not opacity: at opacity 0 it still held toolbar width in the sandbox,
+   where real mode never runs and the note has nothing to say */
+.freezenote{display:none; font-family:var(--ui); font-size:12px; color:var(--accent); white-space:nowrap; pointer-events:none}
+.freezenote[data-show="1"]{display:inline}
+.tgrow{flex:1}
+button.tb, .tb{font-family:var(--ui); font-size:12px; font-weight:500;
+  background:var(--panel); color:var(--soft);
+  border:1px solid var(--line2); border-radius:8px; padding:6px 12px; cursor:pointer;
+  transition:color 120ms, border-color 120ms, box-shadow 120ms; white-space:nowrap}
+button.tb:hover:not(:disabled){color:var(--ink); border-color:#B9C4D4; box-shadow:var(--shadow-s)}
+button.tb:disabled{opacity:.4; cursor:not-allowed}
+button.tb[aria-pressed="true"]{color:var(--accent); border-color:var(--accent); background:#F3F4FE}
+button.tb:focus-visible{outline:none; box-shadow:0 0 0 3px rgba(84,87,214,.28)}
+button.tb .cara{color:var(--faint); margin-left:5px; font-size:10px}
+.pill{display:inline-flex; align-items:center; gap:7px; font-family:var(--ui);
+  font-size:12px; font-weight:500; color:var(--soft);
+  border:1px solid var(--line2); border-radius:99px; padding:5px 13px; cursor:pointer;
+  background:var(--panel); transition:border-color 120ms, box-shadow 120ms}
+.pill:hover{border-color:#B9C4D4; box-shadow:var(--shadow-s)}
+.pill .dotp{width:8px; height:8px; border-radius:50%; background:var(--good)}
+.pill[data-worst="blocked"] .dotp{background:var(--bad)}
+.pill[data-worst="false"] .dotp{background:var(--warn)}
+.pill[data-worst="dead"] .dotp, .pill[data-worst="unbuilt"] .dotp{background:var(--plat)}
+.kbd{font-family:var(--mono); font-size:9.5px; color:var(--faint);
+  border:1px solid var(--line2); border-radius:4px; padding:1px 5px; background:var(--panel2)}
+.inb{display:inline-block; min-width:15px; border-radius:8px; background:var(--accent);
+  color:#fff; font-size:9.5px; font-weight:650; text-align:center; padding:0 4px}
+
+/* ---------------------------------------------------------------- rail --- */
+.rail{grid-area:rail; display:flex; flex-direction:column; align-items:center; gap:5px;
+  padding:12px 0; background:var(--panel); border-right:1px solid var(--line); z-index:20}
+.rv{width:46px; padding:8px 0 6px; display:flex; flex-direction:column; align-items:center;
+  gap:4px; background:transparent; border:1px solid transparent; border-radius:9px;
+  color:var(--faint); cursor:pointer; transition:color 120ms, background 120ms}
+.rv svg{width:17px; height:17px; display:block}
+.rv span{font-family:var(--ui); font-size:8.5px; font-weight:600; letter-spacing:.04em;
+  text-transform:uppercase}
+.rv:hover{color:var(--soft); background:var(--panel2)}
+.rv[aria-pressed="true"]{color:var(--accent); background:#F3F4FE}
+.rv:focus-visible{outline:none; box-shadow:0 0 0 3px rgba(84,87,214,.28)}
+.rgrow{flex:1}
+
+/* ---------------------------------------------------------------- canvas --- */
+.canvas-vp{grid-area:canvas; position:relative; overflow:hidden; background:var(--canvas);
+  background-image:radial-gradient(#DFE6EF 1px, transparent 1px);
+  background-size:24px 24px; cursor:grab}
+.canvas-vp.panning{cursor:grabbing}
+.world{position:absolute; left:0; top:0; transform-origin:0 0; width:max-content}
+.world svg.tree{position:absolute; inset:0; pointer-events:none; overflow:visible}
+
+.bx{position:absolute; width:212px; padding:0; cursor:pointer; text-align:left;
+  background:var(--panel); border:1px solid var(--line2); border-radius:11px;
+  font-family:var(--ui); color:var(--ink); box-shadow:var(--shadow-m);
+  transition:border-color 130ms, box-shadow 130ms}
+.bx:hover{border-color:#B9C4D4}
+.bx:focus-visible{outline:none; border-color:var(--accent)}
+.bx[data-sel="1"]{border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(84,87,214,.22), var(--shadow-m)}
+.bx[data-me="1"]{border-color:var(--self)}
+.bx[data-me="1"][data-sel="1"]{box-shadow:0 0 0 3px rgba(14,159,110,.25), var(--shadow-m)}
+.bx[data-status="paused"]{border-style:dashed}
+.bx[data-status="left"]{border-style:dashed; opacity:.5; box-shadow:none}
+.bx[data-kind="pebble"]{border-radius:20px}
+.bx .hd{display:flex; align-items:center; gap:6px; padding:9px 13px 0}
+.bx .kind{flex:none; font-size:9px; font-weight:650; letter-spacing:.05em;
+  text-transform:uppercase; border-radius:5px; padding:2px 7px;
+  color:#6B7280; background:var(--panel2)}
+.bx[data-kind="rock"] .kind{color:#A05E0B; background:#FBF1E2}
+.bx .rel{margin-left:auto; flex:none; font-size:8.5px; font-weight:650;
+  letter-spacing:.05em; text-transform:uppercase; color:#fff;
+  background:var(--accent); border-radius:5px; padding:2px 7px}
+.bx[data-me="1"] .rel{background:var(--self)}
+.bx .rq{position:absolute; top:-8px; left:-8px; min-width:17px; height:17px; border-radius:9px;
+  background:var(--accent); color:#fff; font-size:9.5px; font-weight:650; line-height:17px;
+  text-align:center; padding:0 4px; border:2.5px solid var(--canvas); box-shadow:var(--shadow-s)}
+.bx .dot{position:absolute; top:-5px; right:-5px; width:12px; height:12px; border-radius:50%;
+  border:2.5px solid var(--canvas); box-shadow:var(--shadow-s)}
+.bx .dot[data-sev="blocked"]{background:var(--bad)}
+.bx .dot[data-sev="false"]{background:var(--warn)}
+.bx .dot[data-sev="dead"]{background:var(--faint)}
+.bx .dot[data-sev="unbuilt"]{background:var(--plat)}
+.bx .bd{display:block; padding:4px 13px 11px}
+.bx .nm{font-size:14.5px; font-weight:650; display:block; letter-spacing:-.012em;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.bx .meta{font-size:11px; color:var(--faint); display:block; margin-top:3px; line-height:1.45}
+.bx .meta .val{font-weight:600}
+.bx .meta .val[data-v="self"]{color:var(--self)}
+.bx .meta .val[data-v="rock"]{color:var(--rock)}
+.bx .meta .val[data-v="crads"]{color:var(--plat)}
+.bx .netb{display:block; margin-top:4px; padding-top:4px; border-top:1px dashed var(--line);
+  font-size:11px; font-weight:650; font-variant-numeric:tabular-nums}
+.bx .netb[data-t="pos"]{color:var(--good)}
+.bx .netb[data-t="neg"]{color:var(--bad)}
+.bx .netb[data-t="cost"]{color:var(--faint); font-weight:600}
+/* the grow strip: a sibling of the card, never a pebble (cards are <button>s) */
+.simc{position:absolute; width:212px; z-index:2; display:flex; align-items:center; gap:7px;
+  padding:4px 11px; box-sizing:border-box; background:rgba(255,255,255,.94);
+  border:1px solid var(--line); border-radius:9px; font-size:9.5px; font-weight:650;
+  letter-spacing:.04em; text-transform:uppercase; color:var(--faint);
+  box-shadow:0 1px 4px rgba(15,23,42,.07)}
+.simc input[type="range"]{flex:1; height:14px; margin:0; accent-color:var(--rock);
+  cursor:ew-resize}
+.simc b{min-width:20px; text-align:right; font-size:11px; color:var(--soft);
+  font-variant-numeric:tabular-nums}
+.bx .xtra{display:block; font-size:10.5px; color:var(--soft);
+  margin-top:7px; padding-top:7px; border-top:1px solid var(--line);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.bx.crads{border-color:#DCD2F6; background:linear-gradient(180deg,#FBFAFF,#F6F3FE)}
+.bx.crads[data-sel="1"]{border-color:var(--plat);
+  box-shadow:0 0 0 3px rgba(124,92,224,.2), var(--shadow-m)}
+.bx.crads[data-me="1"]{border-color:var(--plat)}
+.bx.crads .nm{color:var(--plat)}
+
+/* ---- HUD ---- */
+.hud-bl{position:absolute; left:16px; bottom:16px; display:flex; flex-direction:column;
+  gap:6px; align-items:flex-start; z-index:5; pointer-events:none}
+.chip{font-size:11px; color:var(--soft); background:rgba(255,255,255,.9);
+  backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:8px;
+  padding:6px 11px; max-width:62ch; box-shadow:var(--shadow-s)}
+.zoomer{position:absolute; right:16px; bottom:16px; display:flex; gap:6px; z-index:5}
+.zoomer .tb{background:rgba(255,255,255,.92); backdrop-filter:blur(8px)}
+
+/* ---------------------------------------------------------------- inspector --- */
+.insp{grid-area:insp; background:var(--panel); border-left:1px solid var(--line);
+  overflow-y:auto; padding:18px 18px 28px; z-index:10}
+.insp h2{font-size:10.5px; font-weight:650; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--faint); margin:0 0 6px}
+.insp .sect{font-size:10.5px; font-weight:650; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--faint); margin:20px 0 9px; padding-top:16px; border-top:1px solid var(--line)}
+.who-edit{font-family:var(--ui); font-size:17px; font-weight:650; letter-spacing:-.014em;
+  color:var(--ink); background:transparent; border:none; border-bottom:1.5px dashed transparent;
+  padding:0 0 3px; margin:3px 0 8px; width:100%; outline:none}
+.who-edit:hover{border-bottom-color:var(--line2)}
+.who-edit:focus{border-bottom-color:var(--accent)}
+.idrow{display:flex; gap:5px; align-items:center; flex-wrap:wrap; margin-bottom:2px}
+.tagc{font-size:9px; font-weight:650; letter-spacing:.05em; text-transform:uppercase;
+  border-radius:5px; padding:2px 8px; color:#6B7280; background:var(--panel2)}
+.tagc[data-t="rock"]{color:#A05E0B; background:#FBF1E2}
+.tagc[data-t="paused"]{color:var(--warn); background:#FBF4E4}
+.tagc[data-t="left"]{color:var(--bad); background:#FDF0F2}
+.tagc[data-t="active"]{color:var(--good); background:#E9F8F1}
+.tagc[data-t="you"]{color:#fff; background:var(--self)}
+.tagc[data-t="plat"]{color:var(--plat); background:#F0EAFC}
+/* the three dials */
+.dial{display:grid; grid-template-columns:88px 1fr max-content; gap:10px; align-items:center;
+  padding:9px 0; border-top:1px solid var(--line)}
+.dial:first-pebble{border-top:none}
+.dial label{font-size:10px; font-weight:600; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--faint)}
+.dial .dv{font-size:12.5px; color:var(--ink); font-weight:600; overflow-wrap:anywhere}
+.dial .dv small{display:block; font-size:10.5px; color:var(--faint); font-weight:400}
+.dial .dv .c-self{color:var(--self)} .dial .dv .c-rock{color:var(--rock)}
+.dial .dv .c-plat{color:var(--plat)}
+.frow{display:grid; grid-template-columns:88px 1fr; gap:10px; padding:6px 0;
+  border-top:1px solid var(--line); align-items:baseline}
+.frow:first-pebble{border-top:none}
+.frow label{font-size:10px; font-weight:600; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--faint)}
+.frow .fv{font-size:12px; color:var(--soft); line-height:1.5; overflow-wrap:anywhere}
+.frow .fv b{color:var(--ink); font-weight:650}
+.ledrows{display:grid; gap:4px}
+.ledr{font-size:11.5px; line-height:1.5; color:var(--soft); font-variant-numeric:tabular-nums}
+.ledr[data-k="model"]{color:var(--warn)}
+.ledr[data-k="licence"], .ledr[data-k="hosted"], .ledr[data-k="plat"]{color:var(--plat)}
+.ledr[data-k="membership"], .ledr[data-k="in"]{color:var(--self)}
+.ledr[data-k="none"], .ledr[data-k="seat"]{color:var(--faint)}
+.ledr[data-k="net"]{color:var(--good); font-weight:600}
+.ledr[data-k="neg"]{color:var(--bad); font-weight:600}
+.ledr[data-k="cost"]{color:var(--soft); font-weight:600}
+.ledr[data-k="born"]{color:var(--rock)}
+.ledr[data-k="graft"], .ledr[data-k="self"]{color:var(--self)}
+.ledr[data-k="decl"]{color:var(--faint)}
+.verbs{display:flex; flex-wrap:wrap; gap:7px}
+/* real mode: read-only EXCEPT the links that go to the real thing (Sam,
+   2026-08-03). A frozen button that still looks pressable is a lie told once
+   per click, so the sandbox verbs stop being controls here: they stay legible,
+   because they are how this page explains what can happen to a mineral, but they
+   are visibly not offering to do it. The "in app" link beside each is the live
+   path, and it is the only thing still clickable. */
+html.ro .vb{pointer-events:none; opacity:.45; box-shadow:none}
+html.ro #newBtn, html.ro #fileBtn, html.ro #undoBtn, html.ro #redoBtn{display:none}
+html.ro .applink{pointer-events:auto; opacity:1}
+button.vb{font-family:var(--ui); font-size:12px; font-weight:550;
+  background:var(--panel); color:var(--soft); border:1px solid var(--line2);
+  border-radius:8px; padding:7px 13px; cursor:pointer;
+  transition:color 120ms, border-color 120ms, box-shadow 120ms}
+button.vb:hover:not(:disabled){color:var(--accent); border-color:var(--accent);
+  box-shadow:var(--shadow-s)}
+button.vb:disabled{opacity:.38; cursor:not-allowed}
+button.vb:focus-visible{outline:none; box-shadow:0 0 0 3px rgba(84,87,214,.28)}
+button.vb.danger{color:var(--bad); border-color:#F3CBD3}
+button.vb.danger:hover:not(:disabled){color:var(--bad); border-color:var(--bad);
+  background:#FDF2F4; box-shadow:none}
+button.vb.mini{padding:4px 10px; font-size:11px}
+.change{margin:12px 0 6px; border:1px solid #DBDCF5; border-left:3px solid var(--accent);
+  border-radius:0 9px 9px 0; padding:10px 12px; display:grid; gap:4px; background:#F7F7FE}
+.chg-a{font-size:10px; font-weight:650; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--accent)}
+.chg-d{font-size:11.5px; color:var(--soft); line-height:1.45}
+.leaver{margin-top:16px; padding-top:13px; border-top:1px solid var(--line);
+  font-size:11.5px; color:var(--soft); line-height:1.55}
+.leaver b{color:var(--ink); font-weight:650}
+.empty{color:var(--faint); font-size:12px}
+.actnote{font-size:11.5px; color:var(--soft); background:var(--panel2); border-radius:9px;
+  padding:9px 12px; margin:8px 0 0; line-height:1.5}
+.actnote b{color:var(--rock); font-weight:650}
+.reqc{border:1px solid var(--line2); border-radius:9px; padding:9px 12px; margin:0 0 8px;
+  background:var(--panel); box-shadow:var(--shadow-s)}
+.reqc[data-dir="in"]{border-left:3px solid var(--accent)}
+.reqc[data-dir="out"]{border-left:3px solid var(--line2)}
+.rqt{font-size:12px; color:var(--ink); font-weight:550; line-height:1.4}
+.rqs{font-size:10.5px; color:var(--faint); margin-top:2px}
+.rqa{display:flex; gap:6px; margin-top:8px}
+.rqa .vb{padding:5px 11px; font-size:11.5px}
+
+/* ---------------------------------------------------------------- menus --- */
+.menu{position:fixed; z-index:80; min-width:210px; max-width:320px; max-height:340px;
+  overflow-y:auto; background:var(--panel); border:1px solid var(--line); border-radius:11px;
+  box-shadow:var(--shadow-l); padding:6px}
+.menu .mi{display:block; width:100%; text-align:left; background:transparent; border:none;
+  border-radius:7px; padding:8px 11px; cursor:pointer; color:var(--ink);
+  font-family:var(--ui); font-size:12.5px; font-weight:500}
+.menu .mi:hover:not(:disabled){background:#F3F4FE; color:var(--accent)}
+.menu .mi:disabled{opacity:.4; cursor:not-allowed}
+.menu .mi[aria-pressed="true"]{color:var(--accent)}
+.menu .mi .note{display:block; font-size:10.5px; font-weight:400; color:var(--faint); margin-top:1px}
+.menu .msep{height:1px; background:var(--line); margin:5px 9px}
+.menu .mhead{font-size:9.5px; font-weight:650; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--faint); padding:7px 11px 3px}
+
+/* ---------------------------------------------------------------- drawer --- */
+.drawer{position:absolute; left:0; right:0; bottom:0; max-height:46%; z-index:8;
+  background:rgba(255,255,255,.96); backdrop-filter:blur(10px);
+  border-top:1px solid var(--line2); box-shadow:0 -8px 30px rgba(26,31,54,.1);
+  transform:translateY(102%); transition:transform 200ms ease-out;
+  display:flex; flex-direction:column}
+.drawer[data-open="1"]{transform:translateY(0)}
+@media (prefers-reduced-motion:reduce){ .drawer{transition:none} }
+.dhead{display:flex; align-items:center; gap:12px; padding:10px 18px;
+  border-bottom:1px solid var(--line)}
+.dhead h3{font-size:10.5px; font-weight:650; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--faint); margin:0}
+.dhead .fcount{font-size:11.5px; color:var(--soft)}
+.dhead .x{margin-left:auto}
+.dbody{overflow-y:auto; padding:2px 18px 16px}
+.v{display:grid; grid-template-columns:78px 1fr; gap:14px; padding:11px 0;
+  border-top:1px solid var(--line); cursor:pointer; align-items:start}
+.v:first-pebble{border-top:none}
+.v:hover .vmsg{color:var(--ink)}
+.sev{font-size:9.5px; font-weight:650; letter-spacing:.07em; text-transform:uppercase;
+  color:var(--faint); padding-top:2px}
+.sev[data-s="blocked"]{color:var(--bad)}
+.sev[data-s="false"]{color:var(--warn)}
+.sev[data-s="unbuilt"]{color:var(--plat)}
+.vmsg{font-size:12.5px; color:var(--soft); transition:color 120ms; max-width:100ch}
+.vmsg b{color:var(--ink); font-weight:650}
+.vrule{font-size:10.5px; color:var(--faint); display:block; margin-top:3px}
+.clean{font-size:12.5px; color:var(--good); padding:13px 0}
+
+/* ---------------------------------------------------------------- cmd-k --- */
+.ckwrap{position:fixed; inset:0; z-index:90; display:none; align-items:flex-start;
+  justify-content:center; padding-top:14vh;
+  background:rgba(26,31,54,.32); backdrop-filter:blur(3px)}
+.ckwrap[data-open="1"]{display:flex}
+.ck{width:min(480px, 92vw); background:var(--panel); border:1px solid var(--line);
+  border-radius:13px; box-shadow:var(--shadow-l); overflow:hidden}
+.ck input{width:100%; background:transparent; border:none; outline:none; color:var(--ink);
+  font-family:var(--ui); font-size:14.5px; padding:14px 17px; border-bottom:1px solid var(--line)}
+.ck .list{max-height:300px; overflow-y:auto; padding:6px}
+.ck .mi{display:flex; gap:9px; align-items:baseline; width:100%; text-align:left;
+  background:transparent; border:none; border-radius:8px; padding:9px 12px; cursor:pointer;
+  color:var(--ink); font-size:13px; font-weight:500}
+.ck .mi .k2{font-size:10px; font-weight:500; color:var(--faint)}
+.ck .mi[data-hot="1"], .ck .mi:hover{background:#F3F4FE}
+.ioin{width:100%; background:var(--panel2); border:1px solid var(--line2); border-radius:8px;
+  padding:10px 12px; color:var(--ink); font-family:var(--ui); font-size:13px; outline:none}
+.ioin:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(84,87,214,.18)}
+
+/* ---------------------------------------------------------------- legend --- */
+.legend{position:absolute; left:16px; top:16px; z-index:7; width:min(440px, 80%);
+  max-height:calc(100% - 32px); overflow-y:auto; overscroll-behavior:contain;
+  background:rgba(255,255,255,.96); backdrop-filter:blur(10px);
+  border:1px solid var(--line); border-radius:11px; padding:15px 17px; display:none;
+  box-shadow:var(--shadow-m)}
+.legend[data-open="1"]{display:block}
+.legend h3{font-size:10.5px; font-weight:650; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--faint); margin:0 0 9px}
+.kr{display:grid; grid-template-columns:max-content 1fr; gap:10px; align-items:baseline;
+  font-size:11.5px; color:var(--faint); line-height:1.45; padding:3px 0}
+.kr .m{display:flex; align-items:center; height:12px; min-width:30px}
+.kr b{color:var(--soft); font-weight:600}
+.kchip{font-size:8.5px; font-weight:650; letter-spacing:.06em; text-transform:uppercase;
+  border:1px solid currentColor; border-radius:4px; padding:1px 5px; color:var(--faint)}
+.sw{width:26px; height:0; border-top:2.5px solid var(--line2); border-radius:2px}
+.sw[data-t="rock"]{border-color:var(--rock)}
+.sw[data-t="self"]{border-color:var(--self)}
+.sw[data-t="plat"]{border-color:var(--plat)}
+.sw[data-d="dash"]{border-top-style:dashed}
+.pd{width:9px; height:9px; border-radius:50%; background:var(--rock)}
+.pd[data-t="self"]{background:var(--self)}
+.pd[data-h="1"]{background:none; border:1.5px solid var(--rock)}
+.legend .note{font-size:11px; color:var(--faint); line-height:1.55; margin-top:10px;
+  padding-top:10px; border-top:1px solid var(--line)}
+/* ------------------------------------------------------------ rates card ---
+   the pricing layer's one control surface: every figure the Value view
+   derives is edited here, and nothing else in the sheet is hard-coded.     */
+.rates{margin-top:11px; padding-top:10px; border-top:1px solid var(--line)}
+.rates h4{font-size:9.5px; font-weight:650; letter-spacing:.07em; text-transform:uppercase;
+  color:var(--faint); margin:10px 0 4px}
+.rates h4:first-pebble{margin-top:0}
+.rates .rr{display:grid; grid-template-columns:1fr max-content; gap:2px 10px; align-items:center;
+  font-size:11.5px; color:var(--faint); line-height:1.4; padding:2px 0 6px; cursor:default}
+.rates .rr b{color:var(--soft); font-weight:600}
+.rates .rr.ro input{opacity:.5; cursor:not-allowed; background:transparent}
+.rates .rr.ro input[type=range]{display:none}   /* a slider you cannot drag is a lie */
+.rates .rwho{font-size:11px; color:var(--faint); line-height:1.45; margin:2px 0 10px; font-style:italic}
+.rates input{width:78px; font:inherit; font-size:11.5px; text-align:right; color:var(--soft);
+  background:rgba(0,0,0,.025); border:1px solid var(--line); border-radius:5px;
+  padding:3px 7px; font-variant-numeric:tabular-nums}
+.rates input:focus{outline:none; border-color:var(--plat); background:#fff}
+.rates input[type="range"]{grid-column:1 / -1; width:100%; height:16px; margin:0; padding:0;
+  background:transparent; border:none; accent-color:var(--plat); cursor:ew-resize}
+.rates input[type="range"]:focus{border:none; background:transparent}
+/* the Pricing drawer body: the same row idiom, laid out in columns */
+.rates.rgrid{margin:0; padding:14px 0 6px; border:none;
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:2px 30px}
+.rates .lim{width:46px; padding:2px 5px; font-size:11px; margin:0 2px}
+.rates .rr span{line-height:1.9}
+</style>
+
+<div class="app">
+  <header class="top">
+    <span class="brand"><span class="mark"></span><span class="nm1">CRADS&nbsp;AI</span><span class="nm2">TOPOLOGY</span></span>
+    <span class="tdiv"></span>
+    <!-- real mode only: says whose network this is, and answers the click that
+         did nothing. Both stay empty and inert in the sandbox. -->
+    <span id="realNote" class="realnote"></span>
+    <span id="freezeNote" class="freezenote">This is your real network, read from your mineral. Nothing here changes it.</span>
+    <button class="tb" id="fileBtn" title="new, save, load, examples">File<span class="cara">&#9662;</span></button>
+    <button class="tb" id="seatBtn" title="every view is a seat; Crads AI is the overview seat">Seat<span class="cara">&#9662;</span></button>
+    <span class="tgrow"></span>
+    <button class="tb" id="newBtn" title="stamp or invite, from a rock's seat">New<span class="cara">&#9662;</span></button>
+    <span class="tdiv"></span>
+    <button class="tb" id="undoBtn" title="undo (Ctrl+Z)" disabled>&#8630;</button>
+    <button class="tb" id="redoBtn" title="redo (Ctrl+Shift+Z)" disabled>&#8631;</button>
+    <span class="tdiv"></span>
+    <button class="tb" id="ckBtn" title="find a mineral">Find <span class="kbd">&#8984;K</span></button>
+    <button class="tb" id="ratesBtn" title="the universal price list: every figure on the sheet derives from it">Rates</button>
+    <button class="pill" id="findingsPill" data-worst="clean" title="model findings, visible from the platform seat"><span class="dotp"></span><span id="pillTxt">Clean</span></button>
+  </header>
+
+  <nav class="rail" id="rail">
+    <button class="rv" data-layer="own" aria-pressed="true" title="who owns and runs each mineral">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M2.5 6.5h11"/></svg>
+      <span>Own</span></button>
+    <button class="rv" data-layer="data" aria-pressed="false" title="what flows where">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M8 2v8M8 14v0"/><path d="M4.5 6.5 8 10l3.5-3.5"/><circle cx="8" cy="13.4" r=".9" fill="currentColor" stroke="none"/></svg>
+      <span>Data</span></button>
+    <button class="rv" data-layer="access" aria-pressed="false" title="who reaches a mineral, and how far">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="6" cy="6" r="3.2"/><path d="M8.4 8.4 13 13M11 13h2v-2"/></svg>
+      <span>Access</span></button>
+    <button class="rv" data-layer="value" aria-pressed="false" title="who pays whom, and for what">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="8" cy="8" r="5.6"/><path d="M8 4.8v6.4M10 6.3c0-.9-.9-1.5-2-1.5s-2 .6-2 1.5c0 2 4 1.3 4 3.3 0 .9-.9 1.5-2 1.5s-2-.6-2-1.5"/></svg>
+      <span>Value</span></button>
+    <button class="rv" data-layer="origin" aria-pressed="false" title="who stamped whom: frozen lineage">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="8" cy="3.5" r="1.7"/><circle cx="4" cy="12.5" r="1.7"/><circle cx="12" cy="12.5" r="1.7"/><path d="M7.2 5 4.6 11M8.8 5l2.6 6"/></svg>
+      <span>Origin</span></button>
+    <span class="rgrow"></span>
+    <button class="rv" id="legendBtn" aria-pressed="false" title="what the marks mean">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="8" cy="8" r="5.6"/><path d="M6.3 6.2c.2-1 1-1.6 1.9-1.6 1 0 1.8.7 1.8 1.6 0 1.3-1.8 1.4-1.8 2.6"/><circle cx="8" cy="11.4" r=".7" fill="currentColor" stroke="none"/></svg>
+      <span>Key</span></button>
+  </nav>
+
+  <main class="canvas-vp" id="vp">
+    <div class="world" id="canvas"></div>
+    <div class="legend" id="legend"></div>
+    <div class="hud-bl">
+      <span class="chip" id="fleetChip"></span>
+      <span class="chip" id="horizon"></span>
+    </div>
+    <div class="zoomer">
+      <button class="tb" id="zoomOut" title="zoom out">&#8722;</button>
+      <button class="tb" id="zoomIn" title="zoom in">+</button>
+      <button class="tb" id="zoomFit" title="fit everything">Fit</button>
+      <button class="tb" id="zoom100" title="actual size">100%</button>
+    </div>
+    <div class="drawer" id="drawer" data-open="0">
+      <div class="dhead"><h3>Findings</h3><span class="fcount" id="fcount"></span>
+        <button class="tb x" id="drawerX">Close</button></div>
+      <div class="dbody" id="violations"></div>
+    </div>
+    <div class="drawer" id="ratesDrawer" data-open="0">
+      <div class="dhead"><h3>Pricing</h3>
+        <span class="fcount">One universal list; every figure on the sheet derives from it</span>
+        <button class="tb" id="rateReset">Reset</button>
+        <button class="tb x" id="ratesX">Close</button></div>
+      <div class="dbody" id="ratesBody"></div>
+    </div>
+  </main>
+
+  <aside class="insp" id="inspector"></aside>
+</div>
+
+<div class="ckwrap" id="ckwrap" data-open="0">
+  <div class="ck">
+    <input id="ckInput" placeholder="Jump to a mineral&hellip;" spellcheck="false" autocomplete="off">
+    <div class="list" id="ckList"></div>
+  </div>
+</div>
+
+<div class="ckwrap" id="iowrap" data-open="0">
+  <div class="ck" style="width:min(560px,94vw)">
+    <div id="ioHead" style="padding:14px 17px; border-bottom:1px solid var(--line); font-weight:650; font-size:13.5px"></div>
+    <div style="padding:14px 17px; display:grid; gap:11px">
+      <input id="ioName" class="ioin" placeholder="Name this world&hellip;" spellcheck="false" style="display:none">
+      <textarea id="ioText" class="ioin" spellcheck="false" style="display:none; height:200px;
+        font-family:var(--mono); font-size:11px; line-height:1.5; resize:vertical"></textarea>
+      <div style="display:flex; gap:8px; justify-content:flex-end">
+        <button class="tb" id="ioCancel">Cancel</button>
+        <button class="tb" id="ioOk" style="color:var(--accent); border-color:var(--accent)">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===========================================================================
+   MODEL. Three separate WHO relationships per box, each its own dial:
+     owner: 'self' | rockId  - brain, bills, final authority. MOVABLE pointer
+            (both owners consent; an owning rock must hold an edge). Decoupled
+            from lineage, exactly as home was.
+     home:  rockId | null    - MANAGEMENT: the rock carrying seat, registry,
+            installs, imprint. Movable, receiving rock consents. Rocks: none.
+     runs:  'crads-ai' | 'self' | 'owner' - HOSTING: whose metal. Crads AI by
+            default; own metal by approved request; the owner's metal is
+            enterprise-only (rock-owned boxes).
+   stampedBy/origin stay FROZEN lineage. status/kind/consent/support as ruled
+   26-28 Jul. No god mode: every view is a seat; Crads AI is the overview
+   seat, contracts-only.
+   ========================================================================= */
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* ?real=1: this page is showing THIS box's own network, read-only. Declared
+   up here because the File menu consults it, and a const read before its
+   declaration is a ReferenceError, not a falsy default. */
+const REAL = new URLSearchParams(location.search).get('real') === '1';
+if (REAL) document.documentElement.classList.add('ro');
+
+const mk = (id, rock, label, over = {}) => {
+  const o = { id, rocks: rock === null ? [] : (Array.isArray(rock) ? rock : [rock]),
+    label, origin: rock === null ? 'self' : 'stamped', grafts: [],
+    owner: 'self', runs: 'crads-ai', consent: true, support: false,
+    pebbles: false, status: 'active', ...over };
+  o.stampedBy = o.origin === 'stamped' ? (o.rocks[0] || null) : null;
+  /* a rock is born homeless: rocks hold community access only (ruled) */
+  o.home = o.pebbles ? null : (o.home !== undefined ? o.home : o.stampedBy);
+  o.birthKind = o.pebbles ? 'rock' : 'pebble';
+  return o;
+};
+
+const PRESETS = {
+  ic: () => ([
+    mk('ic',  null, 'Acme CoLab', { pebbles:true, framework:'the five pillars' }),
+    mk('m8',  ['ic','cb'], 'In two communities',
+      { grafts:[{ from:'Second community', what:'their framework', state:'declined' }] }),
+    mk('dept','ic', 'Programme team', { owner:'ic' }),
+    mk('co',  'ic', 'Member with a company', { pebbles:true, origin:'self', runs:'self',
+      grafts:[{ from:'Acme CoLab', what:'five pillars', state:'accepted' }] }),
+    mk('co1', 'co', 'Staff mineral A', { owner:'co', runs:'owner' }),
+    mk('co2', 'co', 'Staff mineral B', { owner:'co' }),
+    mk('cb',  null, 'Second community', { pebbles:true, framework:'their framework' })
+  ]),
+  hostmix: () => ([
+    mk('hub', null,  'Community rock', { pebbles:true, framework:'its method' }),
+    mk('hm',  'hub', 'Hosted member'),
+    mk('ss',  null,  'Self-started, hosted', { rocks:['hub'] }),
+    mk('om',  'hub', 'Member on own metal', { runs:'self' })
+  ]),
+  enterprise: () => ([
+    mk('co', null, 'Acme', { pebbles:true, runs:'self' }),
+    mk('e1', 'co', 'Staff mineral, company metal', { owner:'co', runs:'owner' }),
+    mk('e2', 'co', 'Staff mineral, company metal 2', { owner:'co', runs:'owner' }),
+    mk('e3', 'co', 'Contractor mineral, Crads-hosted', { owner:'co' })
+  ]),
+  fresh: () => ([
+    mk('you', null, 'Your rock', { pebbles:true, framework:'your method' })
+  ])
+};
+const PRESET_INFO = {
+  ic:         { label:'Acme CoLab', note:'the worked example: two communities, a work mineral, a company' },
+  hostmix:    { label:'Hosting mix', note:'every hosting shape on one sheet' },
+  enterprise: { label:'Enterprise metal', note:'a company on its own infrastructure' },
+  fresh:      { label:'Fresh rock', note:'start empty: stamp and invite from scratch' }
+};
+
+/* Served in the app at /topology. The opening world and seat come from the
+   query string so each face can land its user somewhere sensible without
+   forking this file (the harriet-copy pattern this replaces):
+     ?open=<preset>   one of PRESETS (ic | hostmix | enterprise | fresh)
+     ?seat=<id>       CRADS or a box id IN that preset
+   Anything missing or unrecognised falls back to the reference default
+   (the Acme CoLab worked example, seen from the platform seat). */
+const BOOT_Q = new URLSearchParams(location.search);
+const BOOT_PRESET = PRESETS[BOOT_Q.get('open')] ? BOOT_Q.get('open') : 'ic';
+let nodes = PRESETS[BOOT_PRESET]();
+let sel = nodes[0] ? nodes[0].id : 'CRADS', layer = 'own', seq = 0, preset = BOOT_PRESET;
+/* every view is a seat. 'CRADS' = the platform: sees almost everything,
+   contracts only. A box id = that box's seat. */
+let actingAs = (() => {
+  const s = BOOT_Q.get('seat');
+  return (s === 'CRADS' || (s && nodes.some(n => n.id === s))) ? s : 'CRADS';
+})();
+let requests = [], reqSeq = 0;
+
+const byId = (id) => nodes.find(n => n.id === id);
+const rocksAll = (n) => (n.rocks || []).map(id => byId(id)).filter(Boolean);
+const chOf = (n) => nodes.filter(x => (x.rocks || []).includes(n.id));
+/* every box below n (its pebbles, their pebbles, ...). Joining a rock that
+   is one of your descendants would loop (rock -> pebble -> rock), so the
+   join/invite flows exclude these. */
+function descendantsOf(n){
+  const set = new Set(), stack = [n.id];
+  while (stack.length){ const id = stack.pop();
+    nodes.filter(c => (c.rocks || []).includes(id)).forEach(c => {
+      if (!set.has(c.id)){ set.add(c.id); stack.push(c.id); } }); }
+  return set;
+}
+/* can box `pebble` join rock `rock`? not itself, not already joined, not a loop */
+function canJoin(pebble, rock){
+  return rock && rock.pebbles && rock.id !== pebble.id
+    && !(pebble.rocks || []).includes(rock.id)
+    && !descendantsOf(pebble).has(rock.id);
+}
+const layoutRock = (n) => rocksAll(n)[0] || null;
+function ownerOf(n){ return n.owner === 'self' ? n : (byId(n.owner) || null); }
+function stamperOf(n){ return n.stampedBy ? (byId(n.stampedBy) || null) : null; }
+function homeOf(n){ return n.home ? (byId(n.home) || null) : null; }
+function homeConnected(n){
+  if (n.pebbles) return null;
+  const h = homeOf(n);
+  if (!h || h.status === 'left' || n.status === 'left') return null;
+  return (n.rocks || []).includes(h.id) ? h : null;
+}
+function ownerConnected(n){
+  if (n.owner === 'self') return n;
+  const o = ownerOf(n);
+  if (!o || o.status === 'left' || n.status === 'left') return null;
+  return (n.rocks || []).includes(o.id) ? o : null;
+}
+function runnerOf(n){
+  if (n.runs === 'self') return n;
+  if (n.runs === 'owner') return n.owner === 'self' ? null : ownerConnected(n);
+  return null;   /* crads-ai */
+}
+function hostedPayerOf(n){
+  if (n.runs !== 'crads-ai') return null;
+  const h = homeConnected(n);
+  if (h) return h;                       /* the home rock carries its pebbles */
+  if (n.owner === 'self') return n;      /* self-owned + homeless: own bill */
+  return ownerConnected(n);              /* rock-owned: the owner's bill */
+}
+/* the seat that ANSWERS for a box: itself when self-owned, its owner's seat */
+const answerSeat = (n) => n.owner === 'self' ? n.id : n.owner;
+const seatName = (key) => key === 'CRADS' ? 'Crads AI' : (byId(key) || {}).label || 'a gone mineral';
+const inboxOf = (key) => requests.filter(r => r.status === 'pending' && r.to === key);
+const sentBy = (key) => requests.filter(r => r.status === 'pending' && r.from === key);
+
+/* what one box may see: itself, its rocks, its direct pebbles */
+function seenFrom(id){
+  const me = byId(id);
+  if (!me) return { list: nodes, rel: {}, hidden: 0 };
+  const rel = { [id]: 'you' };
+  (me.rocks || []).forEach(pid => { if (byId(pid)) rel[pid] = 'your rock'; });
+  chOf(me).forEach(c => { if (!rel[c.id]) rel[c.id] = 'your pebble'; });
+  const list = nodes.filter(n => rel[n.id]);
+  return { list, rel, hidden: nodes.length - list.length };
+}
+
+/* flows: content + installs down, pulse up. Home delivery-pause (hpause) and
+   the O6 consent gate close the downward channels; pulse follows liveness. */
+function flows(n, p){
+  if (!p) return null;
+  const live = n.status === 'active' && p.status === 'active';
+  const stopped = live ? null : (n.status !== 'active' ? `this mineral ${n.status}` : `rock ${p.status}`);
+  const gated = n.owner === 'self' && n.consent === false;
+  const contentOnly = p !== homeOf(n);
+  const hp = !!n.hpause && p === homeOf(n);
+  return {
+    content: { on: live && !hp, why: stopped || (hp ? 'home paused delivery' : null) },
+    infra:   { on: live && !hp && !gated && !contentOnly,
+               why: stopped || (hp ? 'home paused delivery'
+                 : contentOnly ? 'content-only rock' : gated ? 'installs refused (O6)' : null) },
+    up:      { on: live, why: stopped }
+  };
+}
+
+function reaches(n){
+  const out = [];
+  const own = ownerOf(n);
+  for (const p of rocksAll(n)){
+    const f = flows(n, p);
+    const rows = [];
+    rows.push({ label:'sends content down', state: f.content.on ? 'open' : 'stopped', why: f.content.why });
+    rows.push({ label:'installs skills + cadence', state: f.infra.on ? 'open' : 'stopped', why: f.infra.why });
+    rows.push({ label:'reads this brain',
+      state: own === p ? 'open' : (n.support ? 'temp' : 'stopped'),
+      why: own === p ? 'it owns it' : (n.support ? 'granted, expires' : 'not its repo') });
+    if (own === p)
+      rows.push({ label:'can shut the door', state:'open',
+        why:'ownership: the operator executes its order' });
+    if (n.runs === 'owner' && own === p){
+      rows.push({ label:'operates the machine', state:'open', why:'enterprise metal' });
+      rows.push({ label:'sees host telemetry', state:'open', why:'it operates the VM' });
+    }
+    if (homeOf(n) === p){
+      rows.push({ label:'receives heartbeats', state:'open', why:'liveness + version, never content' });
+      rows.push({ label:'holds the registry row', state:'open', why:'it manages this mineral' });
+    } else {
+      rows.push({ label:'knows membership + identity', state:'open', why:'its edge' });
+      rows.push({ label:'sees machine metadata', state:'stopped', why:'community tier' });
+    }
+    out.push({ name: p.label,
+      sub: [own === p ? 'owner' : '', homeOf(n) === p ? 'manager' : 'community'].filter(Boolean).join(' + ') + ' rock',
+      tone:'rock', arrows: rows });
+  }
+  {
+    const arrows = [{ label:'ships machine updates', state:'open', why:'the machinery layer, every mineral' }];
+    if (n.runs === 'crads-ai'){
+      arrows.push({ label:'operates the machine', state:'open', why:'provision, update, restart. Ops only' });
+      arrows.push({ label:'sees host telemetry', state:'open', why:'it operates the VM' });
+    } else {
+      arrows.push({ label:'sees host telemetry', state:'stopped', why:'not the operator here' });
+    }
+    arrows.push({ label:'can shut the door', state:'stopped',
+      why:'operator, not owner: it executes the owner\u2019s order' });
+    arrows.push({ label:'reads this brain', state:'stopped', why:'never: operating is ops only' });
+    out.push({ name:'Crads AI', sub:'the platform', tone:'plat', arrows });
+  }
+  const person = [{ label:'opens it', state:'open', why:'their own device key' }];
+  if (n.owner === 'self') person.push({ label:'can shut the door', state:'open',
+    why:'ownership: shutdown is theirs to order' });
+  if (n.runs === 'self') person.push({ label:'operates the machine', state:'open', why:'their own metal' });
+  out.push({ name:'Whoever uses it', sub:'the device key', tone:'self', arrows: person });
+  return out;
+}
+
+/* --------------------------------------------------------------- money ---
+   The pricing layer. Every rate lives in PRICE and nothing else hard-codes a
+   figure, so the Value view is a live model: change a rate in the Key panel
+   and every ledger, net line and the fleet chip re-derive from it.
+
+   Three layers, per the value-model audit (2026-07-26) + its addenda: owners
+   pay Anthropic for brains, rocks pay Crads AI for seats and platform, members
+   pay rocks. A managed pebble pays Crads AI nothing.                        */
+const PRICE_DEFAULTS = {
+  brain:      100,  /* Anthropic, per owned brain, paid by the owner         */
+  hosted:      49,  /* a seat Crads AI runs, carried by the managing rock    */
+  standalone: 199,  /* a box carrying its own seat: no rock, so no tier one  */
+  machinery:   29,  /* self-run or owner-run: machinery only, we host none   */
+  hostCost:    15,  /* CRADS AI OVERHEAD: what one hosted machine costs to run
+                       (VM + backups + tunnel). Cost, not revenue: it burdens
+                       every machine Crads AI operates, paid seat or not.     */
+  homeMember: 249,  /* ROCK RETAIL: what a rock charges a member it manages  */
+  commMember:  99,  /* ROCK RETAIL: content-only membership in another rock  */
+  /* the platform SUBSCRIPTION: a flat monthly fee per rock, tiered by its
+     member MIX (simplified 2026-08-04: NOTHING is charged per head — anchor
+     and community counts only press against the band, and crossing it means
+     a tier upgrade). A rock lands in the first tier covering both counts;
+     the top tier is open-ended. */
+  /* ceilings mirror cockpit/config/crads-bands.json (placeholders until the
+     pricing work); the LIVE gates exist on Stripe at $0 under lookup keys
+     crads-rock-tier-1..3 / crads-rock-hosted-seat / crads-hosted-pebble-direct,
+     so arming any of this is a dashboard edit + the migrate tool, never code */
+  tiers: [
+    { home: 10,       comm: 50,       fee: 149 },
+    { home: 25,       comm: 150,      fee: 449 },
+    { home: 60,       comm: 400,      fee: 1199 },
+    { home: Infinity, comm: Infinity, fee: 2499 }
+  ]
+};
+const cloneRates = (src) => ({ ...src, tiers: src.tiers.map(t => ({ ...t })) });
+let PRICE = cloneRates(PRICE_DEFAULTS);
+const money = (v) => '$' + Math.round(v).toLocaleString('en-AU');
+const tierIndex = (home, comm) => {
+  const i = PRICE.tiers.findIndex(t => home <= t.home && comm <= t.comm);
+  return i === -1 ? PRICE.tiers.length - 1 : i;
+};
+const platformFee = (home, comm) =>
+  (home || comm) ? PRICE.tiers[tierIndex(home, comm)].fee : 0;
+/* the standalone premium is for a box ALONE: carrying its own seat with nobody
+   above it and no members below it, so nobody is doing tier one for it. A rock
+   carrying its own seat is already on a platform licence and pays the rock rate */
+const seatRate = (box, payer) =>
+  (box === payer && !chOf(box).some(c => c.status !== 'left')) ? PRICE.standalone : PRICE.hosted;
+
+const RATE_KEY = 'crads-topology-rates';
+function saveRates(){ try { localStorage.setItem(RATE_KEY, JSON.stringify(PRICE)); } catch (e) {} }
+function resetRates(){ PRICE = cloneRates(PRICE_DEFAULTS); saveRates(); }
+function loadRates(){
+  try {
+    const r = JSON.parse(localStorage.getItem(RATE_KEY) || 'null');
+    if (!r || typeof r.brain !== 'number') return;
+    PRICE = cloneRates(PRICE_DEFAULTS);
+    Object.keys(PRICE_DEFAULTS).forEach(k => { if (typeof r[k] === 'number') PRICE[k] = r[k]; });
+    if (Array.isArray(r.tiers) && r.tiers.length === PRICE.tiers.length)
+      r.tiers.forEach((t, i) => ['home', 'comm', 'fee'].forEach(f => {
+        if (typeof t[f] === 'number') PRICE.tiers[i][f] = t[f]; }));
+    /* Infinity does not survive JSON: the top tier is always open-ended */
+    const top = PRICE.tiers[PRICE.tiers.length - 1];
+    top.home = Infinity; top.comm = Infinity;
+  } catch (e) {}
+}
+function ledger(n){
+  const rows = [];
+  const live = (b) => b.status !== 'left';
+  const ps = live(n) ? rocksAll(n).filter(live) : [];
+  const ch = live(n) ? chOf(n).filter(live) : [];
+  const ownedKids = ch.filter(c => c.owner === n.id);
+  const ownedBrains = (n.owner === 'self' ? 1 : 0) + ownedKids.length;
+  const runSeats = nodes.filter(b => runnerOf(b) === n);
+  const hostedBoxes = nodes.filter(b => hostedPayerOf(b) === n);
+  const paying = ch.filter(c => c.owner === 'self' || (c.owner !== n.id && ownerOf(c)));
+  /* the grow slider: simulated members are self-owned, anchor-fee-paying,
+     Crads-AI-hosted pebbles at list rates, the default product shape */
+  const simK = (n.pebbles && live(n)) ? (n.sim || 0) : 0;
+  const out = (k, t, amt) => rows.push({ k, t, amt, dir:'out' });
+
+  if (ownedBrains) out('model',
+    `pays Anthropic ~${money(ownedBrains * PRICE.brain)}/mo, ${ownedBrains} brain${ownedBrains > 1 ? 's' : ''}`,
+    ownedBrains * PRICE.brain);
+  if (runSeats.length) out('licence',
+    `pays Crads AI ${money(runSeats.length * PRICE.machinery)}/mo machinery, ${
+      runSeats.length} seat${runSeats.length > 1 ? 's' : ''} it runs`,
+    runSeats.length * PRICE.machinery);
+  /* the platform SUBSCRIPTION: flat per tier, the tier set by the member mix */
+  const homeKids = ch.filter(c => c.home === n.id && !c.pebbles).length;
+  const commKids = ch.length - homeKids;
+  if (ch.length + simK){
+    const h = homeKids + simK;
+    out('plat',
+      `pays Crads AI ${money(platformFee(h, commKids))}/mo platform, tier ${
+        tierIndex(h, commKids) + 1}: ${
+        [h ? `${h} anchor${simK ? ` (${simK} sim)` : ''}` : '',
+         commKids ? `${commKids} community` : ''].filter(Boolean).join(' + ')}`,
+      platformFee(h, commKids));
+  }
+  if (hostedBoxes.length + simK){
+    const amt = hostedBoxes.reduce((s, b) => s + seatRate(b, n), 0) + simK * PRICE.hosted;
+    out('hosted', hostedBoxes.length === 1 && hostedBoxes[0] === n && !simK
+      ? `pays Crads AI ${money(amt)}/mo, carries its own seat${
+          amt === PRICE.standalone ? ': alone, no rock behind it' : ''}`
+      : `pays Crads AI ${money(amt)}/mo, ${hostedBoxes.length + simK} hosted seat${
+          hostedBoxes.length + simK > 1 ? 's' : ''}${simK ? ` (${simK} sim)` : ''}`,
+      amt);
+  }
+  if (n.owner === 'self') ps.forEach(pp => {
+    const isHome = !n.pebbles && homeOf(n) === pp;
+    const amt = isHome ? PRICE.homeMember : PRICE.commMember;
+    out('membership', isHome ? `pays ${money(amt)}/mo anchor fee to ${pp.label}`
+                             : `pays ${money(amt)}/mo community fee to ${pp.label}`, amt);
+  });
+  /* keystone 4: an owned box's fees are the owner's */
+  ownedKids.forEach(c => (c.rocks || []).filter(id => id !== n.id)
+    .map(id => byId(id)).filter(p => p && live(p))
+    .forEach(p => out('membership',
+      `pays ${money(PRICE.commMember)}/mo community fee to ${p.label} for ${c.label}`, PRICE.commMember)));
+  if (n.owner !== 'self' && ownerOf(n)) rows.push({ k:'none', dir:'out', amt:0,
+    t:`pays nothing, ${ownerOf(n).label} owns it` });
+  if (paying.length + simK){
+    const inHome = paying.filter(c => c.home === n.id && !c.pebbles).length + simK;
+    const inComm = paying.length - (inHome - simK);
+    const amt = inHome * PRICE.homeMember + inComm * PRICE.commMember;
+    rows.push({ k:'in', dir:'in', amt,
+      t:`gets ${money(amt)}/mo from ${[inHome ? `${inHome} home` : '', inComm ? `${inComm} community` : '']
+        .filter(Boolean).join(' + ')} member${paying.length + simK > 1 ? 's' : ''}${
+        simK ? ` (${simK} sim)` : ''}` });
+  }
+  /* the rock's own P&L: does carrying members leave it a business? */
+  const paid = rows.reduce((s, r) => s + (r.dir === 'out' ? (r.amt || 0) : 0), 0);
+  const got  = rows.reduce((s, r) => s + (r.dir === 'in'  ? (r.amt || 0) : 0), 0);
+  if (got) rows.push({ k: got >= paid ? 'net' : 'neg', dir:'net', amt: got - paid, got,
+    /* a margin percentage of a loss is noise: name the deficit and both sides */
+    t: got >= paid ? `net +${money(got - paid)}/mo, ${Math.round((got - paid) / got * 100)}% margin`
+                   : `net \u2212${money(paid - got)}/mo: ${money(got)} in, ${money(paid)} out` });
+  else if (paid) rows.push({ k:'cost', dir:'net', amt: -paid, got: 0,
+    t:`costs ${money(paid)}/mo all in, nothing coming back` });
+  rows.push({ k:'seat', dir:'note', amt:0, t: (() => {
+    if (!live(n) && n.owner !== 'self') return `seat: none, decommissioned, brain absorbed into ${
+      ownerOf(n) ? ownerOf(n).label : 'its owner'}`;
+    if (n.runs === 'self') return `seat: its own licence, ${money(PRICE.machinery)}/mo machinery (self-run, by approved request)`;
+    if (n.runs === 'owner'){
+      const r = runnerOf(n);
+      return r ? `seat: ${r.label}'s metal, ${money(PRICE.machinery)}/mo machinery` : 'seat: nobody\u2019s, unrun';
+    }
+    const pay = hostedPayerOf(n);
+    return pay ? `seat: hosted ${money(seatRate(n, pay))}/mo, ${
+      pay === n ? 'this mineral' : pay.label} pays` : 'seat: hosted, nobody pays';
+  })() });
+  return rows;
+}
+function lineage(n){
+  const rows = [];
+  const st = stamperOf(n);
+  rows.push(n.origin === 'self'
+    ? { k:'self', t:'born: self-started, nobody\u2019s seed' }
+    : { k:'born', t:`born: seeded by ${st ? st.label : 'a gone rock'}, imprint + all` });
+  (n.grafts || []).forEach(g => rows.push(
+    g.state === 'accepted' ? { k:'graft', t:`graft: ${g.what} from ${g.from}, accepted` }
+    : g.state === 're-offered' ? { k:'graft', t:`graft re-offered by ${g.from} on re-home: pending` }
+    : { k:'decl',  t:`graft offered by ${g.from}: declined` }));
+  if (n.origin === 'self' && !(n.grafts || []).length)
+    rows.push({ k:'decl', t:'no imprint: its foundations are its own' });
+  return rows;
+}
+function fleetTotals(){
+  const all = nodes;
+  const licences = all.filter(n => all.some(b => runnerOf(b) === n)).length;
+  const hosted = all.filter(n => hostedPayerOf(n)).length;
+  const brains = all.reduce((s, b) => s + (b.owner === 'self' ? 1
+    : (b.status !== 'left' && ownerOf(b) && ownerOf(b).status !== 'left') ? 1 : 0), 0);
+  /* simulated members count as real boxes: self-owned brains on hosted seats */
+  const sim = simTotal();
+  /* Crads AI's MRR: every line on every ledger that is payable to the platform */
+  const crads = all.reduce((s, n) => s + ledger(n).reduce((t, r) =>
+    t + (['licence', 'hosted', 'plat'].includes(r.k) ? (r.amt || 0) : 0), 0), 0);
+  /* the overhead side: every machine Crads AI operates costs hostCost to run,
+     whether or not anyone is paying its seat */
+  const machines = all.filter(b => b.runs === 'crads-ai').length + sim;
+  const cost = machines * PRICE.hostCost;
+  return { boxes: all.length + sim, sim, anthropic: (brains + sim) * PRICE.brain,
+    licences, hosted: hosted + sim, crads, machines, cost, net: crads - cost };
+}
+const simTotal = () => nodes.reduce((s, n) =>
+  s + ((n.pebbles && n.status !== 'left') ? (n.sim || 0) : 0), 0);
+/* the break-even read a box wears on its card in the Value view */
+function netBadge(n){
+  const r = ledger(n).find(x => x.dir === 'net');
+  if (!r) return null;
+  if (r.k === 'cost') return { tone:'cost', t:`${money(-r.amt)}/mo all-in` };
+  if (r.amt >= 0) return { tone:'pos',
+    t:`net +${money(r.amt)}/mo${r.got ? ` · ${Math.round(r.amt / r.got * 100)}%` : ''}` };
+  return { tone:'neg', t:`net −${money(-r.amt)}/mo under` };
+}
+
+/* ------------------------------------------------------------ validity ----
+   The backstop for states reached sideways (destroys, presets). Direct
+   controls prevent; requests choreograph; these flag whatever slips past. */
+function validate(){
+  const out = [];
+  const add = (node, sev, msg, rule) => out.push({ node:node.id, sev, msg, rule });
+  for (const n of nodes){
+    const ps = rocksAll(n);
+    const ch = chOf(n);
+    const own = ownerOf(n);
+    const orphaned = (n.rocks || []).some(id => !byId(id));
+    if (n.owner !== 'self' && !own)
+      add(n, 'blocked', `<b>${n.label}</b> is owned by a rock that no longer exists.`,
+        'owner pointer dangling');
+    if (n.owner !== 'self' && own && !(n.rocks || []).includes(own.id))
+      add(n, 'blocked', `<b>${n.label}</b> is owned by ${own.label} without an edge to it. Ownership requires the relationship.`,
+        'ruling 2026-07-28: no absentee owners');
+    if (n.owner !== 'self' && n.runs === 'self')
+      add(n, 'blocked', `<b>${n.label}</b> is rock-owned but run by whoever uses it. The factory and the panel both reject this.`,
+        'D60 invariant 6 / keystone 8');
+    if (n.owner !== 'self'){
+      add(n, 'false', `<b>${n.label}</b> ships membership.md written for a mineral its user owns. Its promises (your brain, no read-back, it goes with you) are false here.`,
+        'pebble-template membership.md, unbranched, vs D60');
+      if (n.consent === false)
+        add(n, 'dead', `<b>${n.label}</b> refuses installs, which does nothing: the O6 gate only exists on a self-owned mineral.`,
+          'D60 O6 verb narrowing');
+      if (n.support === true)
+        add(n, 'dead', `<b>${n.label}</b> has a read grant, which changes nothing: owning already includes reading.`,
+          'D60 keystone 3');
+    }
+    ps.filter(p => p.status !== 'active').forEach(p => {
+      if (n.status === 'active')
+        add(n, 'dead', `<b>${n.label}</b> is active, but its rock <b>${p.label}</b> is ${p.status}. Nothing reaches it from there.`,
+          'delivery flows only while status is active');
+    });
+    if (orphaned)
+      add(n, 'dead', `<b>${n.label}</b> points at a rock that no longer exists.`, 'orphan');
+    if (n.status === 'left' && ch.length)
+      add(n, 'dead', `<b>${n.label}</b> has left but still supplies ${ch.length} mineral${ch.length>1?'es':''}.`,
+        'no defined behaviour for a departed rock');
+    if (ch.length && !n.pebbles)
+      add(n, 'blocked', `<b>${n.label}</b> is a pebble supplying ${ch.length} mineral${ch.length>1?'es':''}. A pebble has no factory.`,
+        'rocks and pebbles: only a rock supplies minerals');
+    if (n.pebbles && ps.length)
+      add(n, 'unbuilt', `<b>${n.label}</b> is a rock inside another rock\u2019s tree. Nesting is specced as a successor, not built.`,
+        'D60 scope: federated nesting');
+    if ((n.pebbles ? 'rock' : 'pebble') !== n.birthKind)
+      add(n, 'unbuilt', `<b>${n.label}</b> was born a ${n.birthKind}. Promotion pricing is automatic; the re-stamp mechanics are open.`,
+        'rocks and pebbles: mutability open');
+    if (n.pebbles && n.runs === 'owner')
+      add(n, 'blocked', `<b>${n.label}</b> is a rock on its owner\u2019s metal: another customer\u2019s registry would sit on that infrastructure.`,
+        'value audit F5');
+    if (ps.length > 1)
+      add(n, 'unbuilt', `<b>${n.label}</b> takes delivery from ${ps.length} rocks. Cross-org delivery is a D58 P5 policy toggle no code reads yet.`,
+        'D58 P5 deferred');
+    if (n.runs === 'owner' && n.owner === 'self')
+      add(n, 'blocked', `<b>${n.label}</b> is set to its owner\u2019s metal but owns itself. Owner-metal is enterprise-only.`,
+        'ruling 2026-07-27: enterprise-only');
+    if (n.runs === 'owner' && own && own.runs !== 'self')
+      add(n, 'dead', `<b>${n.label}</b> runs on ${own.label}\u2019s metal, but ${own.label} has no metal: it is hosted itself. Nothing actually runs this machine.`,
+        'coherence 2026-07-28: owner-metal requires the owner to be self-run');
+    if (n.pebbles && n.home)
+      add(n, 'dead', `<b>${n.label}</b> is a rock with a manager set. Rocks carry themselves.`,
+        'ruling 2026-07-27: rocks hold community access only');
+    if (n.home && n.home !== n.stampedBy)
+      add(n, 'unbuilt', `<b>${n.label}</b> ${n.stampedBy ? 'moved its management away from its stamper' : 'adopted a manager'}. Re-homing is designed, not built.`,
+        'membership tiers spec');
+  }
+  return out;
+}
+
+/* --------------------------------------------------------------- gating ---
+   guard: would this dial-turn or verb break a ratified rule? */
+function guard(n, key, val){
+  if (key === 'pebbles' && val === false && chOf(n).length)
+    return 'it supplies minerals: move or delete its pebbles first';
+  if (key === 'runs'){
+    if (val === 'self' && n.owner !== 'self')
+      return 'a rock-owned mineral cannot run on the user\u2019s metal (D60)';
+    if (val === 'owner'){
+      if (n.owner === 'self') return 'owner-metal is enterprise-only: a rock must own it';
+      if (n.pebbles) return 'a rock is never run on its owner\u2019s metal (F5)';
+      const o = ownerOf(n);
+      if (o && o.runs !== 'self')
+        return `the owner has no metal: ${o.label} is hosted itself. Move the owner to its own metal first`;
+    }
+  }
+  if (key === 'support' && val === true && n.owner !== 'self')
+    return 'does nothing: owning already includes reading (D60)';
+  if (key === 'consent' && val === false && n.owner !== 'self')
+    return 'does nothing: the O6 gate only exists on a self-owned mineral';
+  if (key === 'hpause'){
+    if (n.pebbles) return 'rocks have no manager to pause them';
+    if (!homeConnected(n)) return 'no connected manager: nothing carried to pause';
+  }
+  return null;
+}
+/* ruled consequences applied WITH a change, and said aloud */
+function cascade(n, key, val){
+  const notes = [];
+  if (key === 'pebbles' && val === true && !n.pebbles){
+    const h = homeOf(n);
+    if (h) notes.push(`management by ${h.label} ends: rocks carry themselves`);
+    n.home = null;
+    if (n.runs === 'owner'){ n.runs = 'crads-ai'; notes.push('a rock never runs on its owner\u2019s metal: Crads AI hosts it now'); }
+    if (n.runs === 'crads-ai') notes.push(n.owner === 'self'
+      ? 'its hosted seat moves onto its own bill'
+      : 'its hosted seat moves onto its owner\u2019s bill (an owned rock is billed to its owner)');
+    notes.push('factory + registry enabled; pricing re-tiers automatically');
+  }
+  if (key === 'pebbles' && val === false && n.pebbles)
+    notes.push('factory + registry disabled; unmanaged until a rock takes it on');
+  if (key === 'status'){
+    if (val === 'paused') notes.push('delivery and flows stop; every contract persists');
+    if (val === 'active' && n.status === 'paused') notes.push('delivery and flows resume');
+    if (val === 'active' && n.status === 'left') notes.push('rejoin: ties and bills resume as they were');
+  }
+  if (key === 'owner'){
+    if (val !== 'self' && n.runs === 'self'){ n.runs = 'crads-ai';
+      notes.push('rock ownership: self-run ends, Crads AI hosts (D60)'); }
+    if (val === 'self' && n.runs === 'owner'){ n.runs = 'crads-ai';
+      notes.push('member ownership: owner-metal ends, Crads AI hosts'); }
+    if (homeOf(n)) notes.push(`management stays with ${homeOf(n).label} unless you change that dial`);
+  }
+  if (key === 'hpause') notes.push(val
+    ? 'content and installs stop from the manager; seat, registry, heartbeats persist; the mineral keeps running'
+    : 'delivery resumes from the manager');
+  return notes;
+}
+function verbFor(n, key, v){
+  if (key === 'pebbles') return v ? 'promote to rock' : 'demote to pebble';
+  if (key === 'owner') return v === 'self' ? 'ownership to the member' : `ownership to ${seatName(v)}`;
+  if (key === 'status') return v === 'left' ? (n.owner !== 'self' ? 'decommission' : 'go dark')
+    : v === 'paused' ? 'pause' : n.status === 'left' ? 'rejoin' : 'resume';
+  if (key === 'runs') return v === 'self' ? 'move to own metal'
+    : v === 'owner' ? 'move to owner\u2019s metal' : 'move to Crads AI hosting';
+  if (key === 'support') return v ? 'grant read access' : 'revoke read access';
+  if (key === 'consent') return v ? 'allow installs' : 'refuse installs';
+  if (key === 'hpause') return v ? 'manager pauses delivery' : 'manager resumes delivery';
+  return key;
+}
+let lastChange = null;
+function moneySnap(n){
+  return { seat: (ledger(n).find(r => r.k === 'seat') || {}).t || '',
+    fees: ledger(n).filter(r => r.k === 'membership' || r.k === 'none').map(r => r.t),
+    owner: n.owner,
+    reads: n.owner !== 'self' ? 'the owner, always' : (n.support ? 'granted, expires' : 'nobody above'),
+    installs: n.owner !== 'self' ? 'the owner decides' : (n.consent ? 'by consent' : 'refused') };
+}
+function announce(n, action, before, notes){
+  const after = moneySnap(n);
+  const d = (notes || []).slice();
+  if (before.owner !== after.owner)
+    d.push(`owner: ${before.owner === 'self' ? 'the member' : seatName(before.owner)} -> ${
+      after.owner === 'self' ? 'the member' : seatName(after.owner)}`);
+  if (before.seat !== after.seat)
+    d.push(`${before.seat.replace('seat: ', 'seat was ')} -> ${after.seat.replace('seat: ', '')}`);
+  before.fees.filter(x => !after.fees.includes(x)).forEach(x => d.push(`ended: ${x}`));
+  after.fees.filter(x => !before.fees.includes(x)).forEach(x => d.push(`now: ${x}`));
+  if (before.reads !== after.reads) d.push(`brain read: ${before.reads} -> ${after.reads}`);
+  if (before.installs !== after.installs) d.push(`skill installs: ${before.installs} -> ${after.installs}`);
+  lastChange = d.length ? { id: n.id, action, d } : null;
+}
+
+/* ----------------------------------------------------------- history ----- */
+let undoStack = [], redoStack = [];
+const snapState = () => JSON.stringify({ nodes, sel, seq, preset, actingAs,
+  requests: requests.map(r => ({ ...r })), reqSeq });
+function pushHistory(){
+  undoStack.push(snapState());
+  if (undoStack.length > 100) undoStack.shift();
+  redoStack = [];
+}
+function restoreState(s){
+  const o = JSON.parse(s);
+  nodes = o.nodes; sel = o.sel; seq = o.seq; preset = o.preset;
+  actingAs = o.actingAs || 'CRADS'; requests = o.requests || []; reqSeq = o.reqSeq || 0;
+  lastChange = null;
+  render();
+}
+function doUndo(){ if (!undoStack.length) return;
+  redoStack.push(snapState()); restoreState(undoStack.pop()); }
+function doRedo(){ if (!redoStack.length) return;
+  undoStack.push(snapState()); restoreState(redoStack.pop()); }
+
+function runVerb(n, key, val){
+  if (guard(n, key, val)) return;
+  pushHistory();
+  const before = moneySnap(n);
+  const notes = cascade(n, key, val);
+  n[key] = val;
+  announce(n, verbFor(n, key, val), before, notes);
+  render();
+}
+
+/* ----------------------------------------------------------- requests ----
+   Two-consent, real: sending queues; the answering seat decides. Data-only
+   so undo carries it. Kinds: apply, invite, rehome, xfer (owner pointer to
+   `newOwner`), rejoin, graft, askRead, askInstall, ownMetal. */
+function sendReq(kind, from, to, subject, extra, label, note){
+  pushHistory();
+  requests.push({ id: 'q' + (++reqSeq), kind, from, to, subject,
+    extra: extra || null, label, note: note || '', status: 'pending' });
+  lastChange = { id: subject, action: 'request sent',
+    d: [`${label}: waiting for ${seatName(to)}. Sit in that seat to answer`] };
+  render();
+}
+function chainGraft(rock, n){
+  if (rock && rock.framework)
+    requests.push({ id: 'q' + (++reqSeq), kind: 'graft', from: rock.id,
+      to: answerSeat(n), subject: n.id, extra: rock.id,
+      label: `${rock.label} offers its framework: ${rock.framework}`,
+      note: 'namespaced + attributed, never baked in', status: 'pending' });
+}
+function applyRequest(r, accept){
+  pushHistory();
+  r.status = accept ? 'accepted' : 'declined';
+  const n = byId(r.subject);
+  if (!n){ render(); return; }
+  const before = moneySnap(n);
+  const notes = [];
+  if (accept) switch (r.kind){
+    case 'apply': case 'invite': {
+      const rock = byId(r.extra);
+      if (canJoin(n, rock)){
+        n.rocks = (n.rocks || []).concat(rock.id);
+        if (n.owner !== 'self' && ownerOf(n) && ownerOf(n) !== rock)
+          notes.push(`${ownerOf(n).label} consents and pays the community fee (keystone 4)`);
+        chainGraft(rock, n);
+      } else {
+        notes.push(`refused: ${n.label} cannot join ${rock ? rock.label : 'that rock'} (already in, or it would loop)`);
+      }
+      break; }
+    case 'rehome': {
+      const rock = byId(r.extra);
+      if (rock){
+        const had = homeOf(n);
+        n.home = rock.id;
+        notes.push(had ? `${had.label} drops to community tier` : 'managed for the first time');
+        (n.grafts || []).filter(g => g.from === rock.label && g.state === 'declined')
+          .forEach(g => { g.state = 're-offered'; chainGraft(rock, n); });
+      }
+      break; }
+    case 'xfer': {
+      notes.push(...cascade(n, 'owner', r.extra));
+      n.owner = r.extra;
+      break; }
+    case 'rejoin': notes.push(...cascade(n, 'status', 'active')); n.status = 'active'; break;
+    case 'graft': {
+      const rock = byId(r.extra);
+      const g = (n.grafts || []).find(x => rock && x.from === rock.label && x.state === 're-offered');
+      if (g) g.state = 'accepted';
+      else n.grafts = (n.grafts || []).concat({ from: rock ? rock.label : '?',
+        what: rock && rock.framework || 'its framework', state: 'accepted' });
+      notes.push('graft installed: namespaced, attributed forever');
+      break; }
+    case 'askRead': n.support = true; notes.push('read granted: temporary, revocable'); break;
+    case 'askInstall': n.consent = true; notes.push('install consent granted (O6 open)'); break;
+    case 'ownMetal': notes.push(...cascade(n, 'runs', 'self')); n.runs = 'self';
+      notes.push('Crads AI approved: machinery fee begins, the hosted seat ends'); break;
+  }
+  if (!accept && r.kind === 'graft'){
+    const rock = byId(r.extra);
+    const g = (n.grafts || []).find(x => rock && x.from === rock.label && x.state === 're-offered');
+    if (g) g.state = 'declined';
+    else if (rock) n.grafts = (n.grafts || []).concat({ from: rock.label,
+      what: rock.framework || 'its framework', state: 'declined' });
+  }
+  announce(n, `${accept ? 'accepted' : 'declined'}: ${r.label}`, before, notes);
+  requests = requests.filter(x => x.status === 'pending');
+  render();
+}
+
+/* --------------------------------------------------------------- layout --- */
+let NW = 212, NH = 100, VGAP = 92;
+const HGAP = 38;
+function measure(id, w = {}, kidsOf){
+  const ch = kidsOf(id);
+  if (!ch.length){ w[id] = NW; return w; }
+  ch.forEach(c => measure(c.id, w, kidsOf));
+  w[id] = Math.max(NW, ch.reduce((s,c) => s + w[c.id], 0) + HGAP*(ch.length-1));
+  return w;
+}
+function place(id, left, depth, w, pos, kidsOf){
+  pos[id] = { x: left + w[id]/2 - NW/2, y: depth*(NH+VGAP) };
+  const fixed = byId(id);
+  if (fixed && fixed.fx != null) pos[id] = { x: fixed.fx, y: fixed.fy };
+  let x = left;
+  kidsOf(id).forEach(c => { place(c.id, x, depth+1, w, pos, kidsOf); x += w[c.id] + HGAP; });
+  return pos;
+}
+const curve = (x1,y1,x2,y2) => `M${x1} ${y1} C${x1} ${y1+44}, ${x2} ${y2-44}, ${x2} ${y2}`;
+function bez(x1,y1,x2,y2,t){
+  const c1y = y1+44, c2y = y2-44, m = 1-t;
+  return [(m*m*m*x1 + 3*m*m*t*x1 + 3*m*t*t*x2 + t*t*t*x2).toFixed(1),
+          (m*m*m*y1 + 3*m*m*t*c1y + 3*m*t*t*c2y + t*t*t*y2).toFixed(1)];
+}
+
+/* --------------------------------------------------------------- render --- */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+function ownerLbl(n){ return n.owner === 'self' ? n.label : (ownerOf(n) ? ownerOf(n).label : 'a gone owner'); }
+function runnerLbl(n){ return n.runs === 'crads-ai' ? 'Crads AI'
+  : n.runs === 'self' ? n.label : (runnerOf(n) ? runnerOf(n).label : 'nobody'); }
+function ownerTone(n){ return n.owner === 'self' ? 'self' : 'rock'; }
+function runTone(n){ return n.runs === 'crads-ai' ? 'crads' : n.runs === 'self' ? 'self' : 'rock'; }
+
+const KEYS = {
+  own: [
+    ['<span class="kchip" style="border-radius:8px">pebble</span>', '<b>Rounded:</b> a leaf. No factory, supplies nobody'],
+    ['<span class="kchip" style="color:var(--rock)">rock</span>', '<b>Squared:</b> can supply minerals; pays platform per member'],
+    ['<span class="sw" data-t="self"></span>', '<b>Green</b> the member/self fills a role'],
+    ['<span class="sw" data-t="rock"></span>', '<b>Amber</b> a rock fills it'],
+    ['<span class="sw" data-t="plat"></span>', '<b>Violet</b> Crads AI fills it'],
+    ['<span class="sw" data-d="dash"></span>', '<b>Dashed card</b> paused or gone']
+  ],
+  data: [
+    ['<span class="pd"></span>', '<b>Filled, down</b> content packs and drops'],
+    ['<span class="pd" data-h="1"></span>', '<b>Hollow, down</b> installs the manager pushes'],
+    ['<span class="pd" data-t="self"></span>', '<b>Green, up</b> pulse to communities, heartbeats to the manager'],
+    ['<span class="sw" data-d="dash"></span>', '<b>Still wire</b> nothing moving; the label says why']
+  ],
+  access: [
+    ['<span class="kchip" style="color:var(--good)">ALLOWED</span>', 'the arrow lands on the mineral'],
+    ['<span class="kchip" style="color:var(--bad)">REFUSED</span>', 'the arrow stops at a bar'],
+    ['<span class="kchip" style="color:var(--warn)">TEMPORARY</span>', 'granted now, expires, revocable']
+  ],
+  value: [
+    ['<span class="kchip" style="color:var(--warn)">Anthropic</span>', 'per brain, paid by whoever owns it'],
+    ['<span class="kchip" style="color:var(--plat)">hosting/platform</span>', 'managers carry their pebbles\u2019 seats; every rock pays a platform subscription, tiered by its member mix'],
+    ['<span class="kchip" style="color:var(--self)">membership</span>', 'anchor fee to your anchor; community fee to other rocks'],
+    ['<span class="kchip" style="color:var(--good)">net</span>', 'each mineral wears its own P&amp;L; red = underwater at these rates'],
+    ['<span class="kchip" style="color:var(--rock)">grow</span>', 'drag a rock’s slider to add simulated members at list rates']
+  ],
+  origin: [
+    ['<span class="kchip" style="color:var(--rock)">seeded by</span>', 'the stamper\u2019s imprint, frozen forever'],
+    ['<span class="kchip" style="color:var(--self)">self-started</span>', 'nobody\u2019s seed'],
+    ['<span class="kchip" style="color:var(--self)">graft</span>', 'a framework adopted by consent, attributed forever']
+  ]
+};
+const KEYNOTE = {
+  own:'Every view is a seat. Crads AI sees almost everything and can only answer platform requests; a mineral\u2019s seat holds only its own verbs, and anything two-consent waits in the other seat\u2019s inbox.',
+  data:'The two downward channels gate separately, so one can stop while the other runs.',
+  access:'One mineral at a time: a permission is something a party does toward a mineral.',
+  value:'Three layers: Anthropic is paid by owners, Crads AI almost exclusively by rocks, rocks by members. Every figure derives from the price list in the Pricing drawer (Rates, top bar): change one and watch the fleet move.',
+  origin:'Lineage is frozen: who stamped you never changes, whatever the dials do.'
+};
+
+/* opts.keepLegend: redraw everything EXCEPT the legend, so editing a rate does
+   not rip the focused input out from under the cursor mid-keystroke */
+function render(opts){
+  syncRatesAuthority();   /* redraws the pricing drawer only when WHO MAY EDIT changes */
+  NH = layer === 'value' ? 134 : layer === 'origin' ? 116 : 100;
+  VGAP = layer === 'value' ? 130 : layer === 'origin' ? 100 : 92;
+  const vio = validate();
+  if (layer === 'access') renderFocus(); else renderTree(vio);
+  drawInspector();
+  drawViolations(vio);
+  if (!(opts && opts.keepLegend)) drawLegend();
+  drawChrome(vio);
+}
+
+function drawChrome(vio){
+  $('undoBtn').disabled = !undoStack.length;
+  $('redoBtn').disabled = !redoStack.length;
+  const plat = actingAs === 'CRADS';
+  $('fleetChip').style.display = plat ? '' : 'none';
+  $('findingsPill').style.display = plat ? '' : 'none';
+  if (plat){
+    const t = fleetTotals();
+    $('fleetChip').textContent =
+      `${t.boxes} minerals${t.sim ? ` (${t.sim} sim)` : ''} = ${t.boxes} seats \u00b7 ${
+        t.licences} machinery \u00b7 ${t.hosted} hosted \u00b7 ${money(t.crads)}/mo in \u2212 ${
+        money(t.cost)} hosting = net ${t.net < 0 ? '\u2212' : ''}${money(Math.abs(t.net))} \u00b7 ~${
+        money(t.anthropic)} to Anthropic`;
+    const worst = ['blocked','false','dead','unbuilt'].find(s => vio.some(v => v.sev === s));
+    $('findingsPill').dataset.worst = worst || 'clean';
+    $('pillTxt').textContent = vio.length ? `${vio.length} finding${vio.length>1?'s':''}` : 'clean';
+  }
+  const myInbox = inboxOf(actingAs).length;
+  $('seatBtn').innerHTML = `Seat: ${esc(seatName(actingAs))}${
+    myInbox ? ` <span class="inb">${myInbox}</span>` : ''}<span class="cara">&#9662;</span>`;
+  /* New is always live: a from-nowhere arrival needs no factory. The menu adds
+     stamp/invite only when you are a rock. */
+  $('newBtn').disabled = false;
+  $('newBtn').title = 'bring a mineral into the world';
+}
+
+function renderTree(vio){
+  const view = actingAs !== 'CRADS' ? seenFrom(actingAs) : null;
+  const list = view ? view.list : nodes;
+  const REL = view ? view.rel : {};
+  const inList = (n) => list.some(x => x.id === n.id);
+  const kidsOf = (id) => list.filter(n => { const lp = layoutRock(n); return lp && lp.id === id && inList(lp); });
+  const roots = list.filter(n => !(layoutRock(n) && inList(layoutRock(n))));
+  const w = {}; roots.forEach(r => measure(r.id, w, kidsOf));
+  const pos = {}; let ox = NW + 84;
+  roots.forEach(r => { place(r.id, ox, 0, w, pos, kidsOf); ox += w[r.id] + HGAP*2; });
+  const maxX = Math.max(NW, ...Object.values(pos).map(p => p.x + NW));
+
+  const edges = [];
+  list.forEach(n => rocksAll(n).forEach(p => {
+    if (pos[p.id] && pos[n.id]) edges.push({ n, p });
+  }));
+  const buildWires = (bottom) => edges.map(({ n, p }) => {
+    const a = pos[p.id], b = pos[n.id];
+    const x1 = a.x + NW/2, y1 = a.y + bottom(p), x2 = b.x + NW/2, y2 = b.y;
+    const f = flows(n, p);
+    if (layer === 'value'){
+      const dead = n.status === 'left' || p.status === 'left';
+      const own = n.owner !== 'self' ? ownerOf(n) : null;
+      const paid = !dead && (n.owner === 'self' || (own && own !== p));
+      const lbl = dead ? 'no fee, left'
+        : n.owner === 'self' ? ((!n.pebbles && homeOf(n) === p) ? 'anchor fee' : 'community fee')
+        : (own && own !== p) ? `${own.label} pays the fee` : 'no fee, owned';
+      const tone = paid ? 'var(--self)' : 'var(--rock)';
+      const mx = (x1+x2)/2, my = (y1+y2)/2 + 3, w2 = lbl.length*5.6+14;
+      const path = paid
+        ? `<path d="${curve(x2,y2,x1,y1)}" fill="none" stroke="${tone}" stroke-width="1.3"
+            marker-end="url(#arw-pay)"/>`
+        : `<path d="${curve(x1,y1,x2,y2)}" fill="none" stroke="${tone}" stroke-width="1.2"
+            stroke-dasharray="5 4" opacity=".7"/>`;
+      return path + `<rect x="${mx-w2/2}" y="${my-10}" width="${w2}" height="15" rx="3" fill="var(--canvas)"/>
+        <text x="${mx}" y="${my+1}" text-anchor="middle" font-family="system-ui,sans-serif"
+          font-size="9" fill="${tone}">${esc(lbl)}</text>`;
+    }
+    if (layer === 'origin'){
+      const isStamp = n.origin !== 'self' && p === stamperOf(n);
+      const lbl = isStamp ? `stamped by ${p.label}` : 'joined later, no seed';
+      const tone = isStamp ? 'var(--rock)' : 'var(--faint)';
+      const mx = (x1+x2)/2, my = (y1+y2)/2 + 3, w2 = lbl.length*5.6+14;
+      return `<path d="${curve(x1,y1,x2,y2)}" fill="none" stroke="${tone}"
+          stroke-width="${isStamp ? 1.5 : 1.1}" ${isStamp ? '' : 'stroke-dasharray="2 5"'}/>
+        <rect x="${mx-w2/2}" y="${my-10}" width="${w2}" height="15" rx="3" fill="var(--canvas)"/>
+        <text x="${mx}" y="${my+1}" text-anchor="middle" font-family="system-ui,sans-serif"
+          font-size="9" fill="${tone}">${esc(lbl)}</text>`;
+    }
+    if (layer !== 'data'){
+      const tone = n.owner !== 'self' && ownerOf(n) === p ? 'var(--rock)' : 'var(--self)';
+      return `<path d="${curve(x1,y1,x2,y2)}" fill="none" stroke="${tone}" stroke-width="1.3"
+        ${f.content.on ? 'opacity=".75"' : 'stroke-dasharray="3 5" opacity=".35"'}/>`;
+    }
+    const wid = `w-${n.id}-${p.id}`;
+    const moving = f.content.on || f.infra.on || f.up.on;
+    let out = `<path id="${wid}" d="${curve(x1,y1,x2,y2)}" fill="none" stroke="var(--line2)"
+      stroke-width="1.25" ${moving ? '' : 'stroke-dasharray="3 5" opacity=".55"'}/>`;
+    const shape = (r, col, hollow) => hollow
+      ? `r="${r}" fill="none" stroke="${col}" stroke-width="1.4"` : `r="${r}" fill="${col}"`;
+    const mover = (r, col, hollow, dur, begin, rev) =>
+      `<circle ${shape(r,col,hollow)}><animateMotion dur="${dur}s" repeatCount="indefinite"
+        begin="${begin}s" ${rev ? 'keyPoints="1;0" keyTimes="0;1" calcMode="linear"' : ''}>
+        <mpath href="#${wid}"/></animateMotion></circle>`;
+    const still = (t, r, col, hollow) => {
+      const [px,py] = bez(x1,y1,x2,y2,t);
+      return `<circle ${shape(r,col,hollow)} cx="${px}" cy="${py}"/>`;
+    };
+    if (REDUCED){
+      if (f.content.on) out += [0.28,0.52,0.76].map(t => still(t,2.7,'var(--rock)',false)).join('');
+      if (f.infra.on)   out += [0.40,0.64].map(t => still(t,2.5,'var(--rock)',true)).join('');
+      if (f.up.on)      out += [0.34,0.66].map(t => still(t,2.5,'var(--self)',false)).join('');
+    } else {
+      if (f.content.on) out += [0,0.9,1.8].map(b2 => mover(2.7,'var(--rock)',false,2.7,b2,false)).join('');
+      if (f.infra.on)   out += [0.45,1.8].map(b2 => mover(2.5,'var(--rock)',true,2.7,b2,false)).join('');
+      if (f.up.on)      out += [0.2,1.9].map(b2 => mover(2.5,'var(--self)',false,3.4,b2,true)).join('');
+    }
+    const why = !f.content.on ? `content: ${f.content.why}`
+              : !f.infra.on ? `installs: ${f.infra.why}` : null;
+    if (why){
+      const lx = (x1+x2)/2, ly = (y1+y2)/2 + 4;
+      out += `<rect x="${lx - (why.length*2.9 + 8)}" y="${ly-10}" width="${why.length*5.8 + 16}"
+        height="14" rx="3" fill="var(--canvas)"/><text x="${lx}" y="${ly}" text-anchor="middle"
+        font-family="system-ui,sans-serif" font-size="9" fill="var(--soft)">${esc(why)}</text>`;
+    }
+    return out;
+  }).join('');
+
+  const sevOrder = ['blocked','false','dead','unbuilt'];
+  const cards = list.map(n => {
+    const mine = vio.filter(v => v.node === n.id);
+    const worst = sevOrder.find(s => mine.some(v => v.sev === s));
+    const p = pos[n.id] || { x:0, y:0 };
+    const rq = inboxOf(n.id).length;
+    const nb = layer === 'value' ? netBadge(n) : null;
+    const xtra = layer === 'value'
+      ? `<span class="xtra">${esc((ledger(n).find(r => r.k === 'seat') || {}).t || '')}</span>${
+          nb ? `<span class="netb" data-netb="${n.id}" data-t="${nb.tone}">${esc(nb.t)}</span>` : ''}`
+      : layer === 'origin'
+      ? `<span class="xtra">${esc((lineage(n)[0] || {}).t || '')}</span>`
+      : '';
+    return `<button class="bx" data-id="${n.id}" data-sel="${n.id === sel ? 1 : 0}"
+      data-me="${actingAs === n.id ? 1 : 0}"
+      data-status="${n.status}" data-kind="${n.pebbles ? 'rock' : 'pebble'}"
+      title="${actingAs === n.id ? 'you are in this seat' : 'double-click to take this seat'}"
+      style="left:${p.x}px; top:${p.y}px">
+      ${rq ? `<span class="rq" title="${rq} request${rq>1?'s':''} waiting for this seat">${rq}</span>` : ''}
+      ${worst && actingAs === 'CRADS' ? `<span class="dot" data-sev="${worst}" title="worst ${worst}"></span>` : ''}
+      <span class="hd"><span class="kind">${n.pebbles ? 'rock' : 'pebble'}</span>${
+        REL[n.id] ? `<span class="rel">${REL[n.id]}</span>`
+        : actingAs === n.id ? '<span class="rel">you</span>' : ''}</span>
+      <span class="bd"><span class="nm">${esc(n.label)}</span>
+      <span class="meta">owner <span class="val" data-v="${ownerTone(n)}">${esc(ownerLbl(n))}</span>
+        &nbsp;&#183;&nbsp; run <span class="val" data-v="${runTone(n)}">${esc(runnerLbl(n))}</span></span>
+      ${xtra}</span>
+    </button>`;
+  }).join('');
+
+  const hosted = nodes.filter(n => hostedPayerOf(n)).length;
+  const crq = inboxOf('CRADS').length;
+  const crads = `<button class="bx crads" data-id="CRADS" data-sel="${sel === 'CRADS' ? 1 : 0}"
+      data-me="${actingAs === 'CRADS' ? 1 : 0}"
+      title="${actingAs === 'CRADS' ? 'you are in the overview seat' : 'double-click for the overview (Crads AI) seat'}"
+      data-status="active" data-kind="rock" style="left:0px; top:0px">
+      ${crq ? `<span class="rq" title="${crq} waiting for the platform">${crq}</span>` : ''}
+      <span class="hd"><span class="kind" style="color:var(--plat);background:#F0EAFC">platform</span>${
+        actingAs === 'CRADS' ? '<span class="rel">you</span>' : ''}</span>
+      <span class="bd"><span class="nm">Crads AI</span>
+      <span class="meta">the operator: machinery + hosting</span>
+      ${layer === 'value' ? (() => { const t = fleetTotals();
+        return `<span class="xtra">${money(t.crads)}/mo in · runs ${t.machines} machine${
+            t.machines === 1 ? '' : 's'} at ${money(PRICE.hostCost)}</span><span
+          class="netb" data-t="${t.net >= 0 ? 'pos' : 'neg'}" data-netb="CRADS">net ${
+            t.net >= 0 ? '+' : '−'}${money(Math.abs(t.net))}/mo${
+            t.crads ? ` · ${Math.round(t.net / t.crads * 100)}%` : ''}</span>`; })() : ''}
+      </span></button>`;
+
+  const cv = $('canvas');
+  cv.innerHTML = crads + cards;
+  const hbox = {};
+  cv.querySelectorAll('.bx').forEach(b => { hbox[b.dataset.id] = b.offsetHeight; });
+  /* the grow sliders: one per live rock, a sibling strip under the card (the
+     card is a <button>, so interactive pebbles cannot live inside it) */
+  let strips = '', stripY = 0;
+  if (layer === 'value') list.filter(n => n.pebbles && n.status !== 'left').forEach(n => {
+    const P = pos[n.id]; if (!P) return;
+    const y = P.y + (hbox[n.id] || NH) + 5;
+    stripY = Math.max(stripY, y + 30);
+    strips += `<div class="simc" style="left:${P.x}px; top:${y}px"
+      title="grow this rock: each simulated member is a self-owned brain on a rock-carried hosted seat, paying the anchor fee at list rates">
+      <span>grow</span>
+      <input type="range" min="0" max="100" step="1" value="${n.sim || 0}" data-simrange="${n.id}">
+      <b data-simcount="${n.id}">${n.sim || 0}</b></div>`;
+  });
+  const realY = Math.max(NH, stripY,
+    ...list.map(n => (pos[n.id] ? pos[n.id].y : 0) + (hbox[n.id] || NH)));
+  const wires = buildWires(pp => hbox[pp.id] || NH);
+  let platWires = '';
+  if (layer === 'value'){
+    const chH = hbox['CRADS'] || 84;
+    list.filter(n => actingAs === 'CRADS' ? true : n.id === sel || n.id === actingAs).forEach(n => {
+      const P = pos[n.id]; if (!P) return;
+      const kinds = [];
+      const hostedPaid = nodes.filter(b => hostedPayerOf(b) === n).length;
+      if (hostedPaid) kinds.push(hostedPaid > 1 ? `${hostedPaid} hosted seats` : 'hosted seat');
+      if (n.runs === 'self') kinds.push('machinery');
+      if (n.status !== 'left' && chOf(n).some(c => c.status !== 'left')) kinds.push('platform');
+      if (!kinds.length) return;
+      const x1 = P.x + 4, y1 = P.y + (hbox[n.id] || NH)/2, x2 = NW - 2, y2 = chH/2 + 8;
+      const lbl = 'pays Crads AI: ' + kinds.join(' + ');
+      const w2 = lbl.length * 5.2 + 12;
+      const lx = x2 + (x1 - x2) * 0.3, ly = y2 + (y1 - y2) * 0.3 - 4;
+      platWires += `<path d="M${x1} ${y1} L${x2} ${y2}" fill="none" stroke="var(--plat)"
+          stroke-width="1.1" stroke-dasharray="2 5" opacity=".8"/>
+        <rect x="${lx - w2/2}" y="${ly - 9}" width="${w2}" height="14" rx="3" fill="var(--canvas)"/>
+        <text x="${lx}" y="${ly + 2}" text-anchor="middle" font-family="system-ui,sans-serif"
+          font-size="8.5" fill="var(--plat)">${esc(lbl)}</text>`;
+    });
+  }
+  cv.innerHTML = `<svg class="tree" width="${maxX}" height="${realY}"><defs>
+    <marker id="arw-pay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+      orient="auto"><path d="M0 1 L9 5 L0 9 z" fill="var(--self)"/></marker>
+    </defs>${wires}${platWires}</svg>${crads}${cards}${strips}`;
+  cv.style.width = maxX + 'px';
+  cv.style.height = realY + 'px';
+  WORLD = { w: maxX, h: realY };
+  $('horizon').textContent = actingAs === 'CRADS'
+    ? 'the platform sees every mineral and machine; never a brain, never the fees between rocks and members'
+    : (view && view.hidden > 0
+      ? `${view.hidden} mineral${view.hidden > 1 ? 'es' : ''} beyond your sight: never siblings, never grandpebbles`
+      : 'everything that exists is within your sight');
+}
+
+function renderFocus(){
+  const n = actingAs === 'CRADS' ? byId(sel) : byId(actingAs);
+  const cv = $('canvas');
+  if (!n || sel === 'CRADS' && actingAs === 'CRADS' && !byId(sel)){
+    cv.style.width = '460px'; cv.style.height = '80px';
+    cv.innerHTML = `<p class="empty" style="padding:20px">Pick a mineral to see who reaches it.</p>`;
+    WORLD = { w: 460, h: 80 };
+    return;
+  }
+  const W = 700, AX = 4, AW = 172, BX = 486, BW = 206, GAP = 26, ROW = 42;
+  const groups = reaches(n);
+  let y = 14, rows = '';
+  groups.forEach(g => {
+    const h = Math.max(56, g.arrows.length * ROW + 14);
+    rows += `<rect x="${AX}" y="${y}" width="${AW}" height="${h}" rx="8" fill="var(--panel)"
+      stroke="var(--${g.tone})" stroke-width="1"/>
+      <text x="${AX+14}" y="${y+24}" font-family="system-ui,sans-serif" font-size="12.5"
+        font-weight="650" fill="var(--ink)">${esc(g.name)}</text>
+      <text x="${AX+14}" y="${y+40}" font-family="system-ui,sans-serif" font-size="8.6"
+        letter-spacing=".05em" fill="var(--faint)">${esc(g.sub.toUpperCase())}</text>`;
+    g.arrows.forEach((a, i) => {
+      const ay = y + 28 + i*ROW;
+      const endX = a.state === 'stopped' ? BX - 44 : BX - 3;
+      rows += `<path d="M${AX+AW+6} ${ay} H${endX}" stroke="var(--${g.tone})" stroke-width="1.25"
+        fill="none" ${a.state === 'temp' ? 'stroke-dasharray="5 4"' : ''}
+        ${a.state === 'stopped' ? 'opacity=".45"' : `marker-end="url(#in-${g.tone})"`}/>`;
+      if (a.state === 'stopped')
+        rows += `<path d="M${endX} ${ay-9} V${ay+9}" stroke="var(--bad)" stroke-width="2.25"
+          stroke-linecap="round"/>`;
+      const [vword, vtone] = a.state === 'stopped' ? ['REFUSED','var(--bad)']
+        : a.state === 'temp' ? ['TEMPORARY','var(--warn)'] : ['ALLOWED','var(--good)'];
+      rows += `<text x="${AX+AW+16}" y="${ay-8}" font-family="system-ui,sans-serif" font-size="10"
+        fill="var(--soft)">${esc(a.label)}</text>
+        <text x="${BX-10}" y="${ay-8}" text-anchor="end" font-family="system-ui,sans-serif"
+          font-size="9" letter-spacing=".08em" font-weight="650" fill="${vtone}">${vword}</text>`;
+      if (a.why)
+        rows += `<text x="${AX+AW+16}" y="${ay+15}" font-family="system-ui,sans-serif"
+          font-size="10.5" fill="var(--faint)">${esc(a.why)}</text>`;
+    });
+    y += h + GAP;
+  });
+  const H = Math.max(y, 210), bh = H - 28;
+  const markers = ['rock','self','plat'].map(t =>
+    `<marker id="in-${t}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+      orient="auto"><path d="M0 1 L9 5 L0 9 z" fill="var(--${t})"/></marker>`).join('');
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  cv.innerHTML = `<svg class="tree" width="${W}" height="${H}" style="position:relative">
+    <defs>${markers}</defs>${rows}
+    <rect x="${BX}" y="14" width="${BW}" height="${bh}" rx="8" fill="var(--panel)"
+      stroke="var(--accent)" stroke-width="1.4"/>
+    <text x="${BX+17}" y="${14+27}" font-family="system-ui,sans-serif" font-size="8.5"
+      letter-spacing=".14em" fill="var(--faint)">THIS MINERAL</text>
+    <text x="${BX+17}" y="${14+52}" font-family="system-ui,sans-serif" font-size="15"
+      font-weight="650" fill="var(--ink)">${esc(n.label)}</text>
+    <text x="${BX+17}" y="${14+72}" font-family="system-ui,sans-serif" font-size="9"
+      fill="var(--faint)">owner ${esc(ownerLbl(n))} / run ${esc(runnerLbl(n))}</text>
+  </svg>`;
+  WORLD = { w: W, h: H };
+  $('horizon').textContent = 'who reaches this mineral, arrow by arrow';
+}
+
+/* ------------------------------------------------------------ inspector --- */
+function factRow(l, v){ return `<div class="frow"><label>${l}</label><span class="fv">${v}</span></div>`; }
+function vb(attrs, label, why, cls, gate){
+  return `<button class="vb${cls ? ' ' + cls : ''}" ${attrs}
+    ${why ? `disabled title="${esc(why)}" aria-label="${esc(why)}"`
+          : gate ? `title="${esc(gate)}"` : ''}>${label}</button>`;
+}
+function reqCard(r){
+  const mine = r.to === actingAs;
+  return `<div class="reqc" data-dir="${mine ? 'in' : 'out'}">
+    <div class="rqt">${esc(r.label)}</div>
+    <div class="rqs">${mine ? `from ${esc(seatName(r.from))}` : `waiting for ${esc(seatName(r.to))}`}${
+      r.note ? ` \u00b7 ${esc(r.note)}` : ''}</div>
+    ${mine ? `<div class="rqa">
+      <button class="vb" data-req-answer="${r.id}" data-yes="1">Accept</button>
+      <button class="vb" data-req-answer="${r.id}" data-yes="0">Decline</button></div>`
+    : `<div class="rqa"><button class="vb mini" data-req-cancel="${r.id}">Withdraw</button></div>`}</div>`;
+}
+function reqSections(key){
+  const inb = inboxOf(key), out = sentBy(key);
+  return (inb.length ? `<div class="sect">Inbox</div>${inb.map(reqCard).join('')}` : '')
+    + (out.length ? `<div class="sect">Sent</div>${out.map(reqCard).join('')}` : '');
+}
+/* the three dials, for a box I have authority over (mine, or one I own) */
+function dials(n, canTurn){
+  const ownHold = n.owner === 'self'
+    ? `<span class="c-self">${n.id === actingAs ? 'You (the member)' : 'The member'}</span>`
+    : `<span class="c-rock">${esc(ownerLbl(n))}</span>`;
+  const mgrHold = n.pebbles ? '<small>rocks carry themselves</small>'
+    : homeOf(n) ? `<span class="c-rock">${esc(homeOf(n).label)}</span>` : 'Nobody (carries itself)';
+  const hostHold = n.runs === 'crads-ai' ? '<span class="c-plat">Crads AI</span>'
+    : n.runs === 'self' ? '<span class="c-self">Own metal</span>'
+    : `<span class="c-rock">${esc(ownerLbl(n))}\u2019s metal</span>`;
+  return `<div class="dials">
+    <div class="dial"><label>Ownership</label><span class="dv">${ownHold}</span>
+      ${canTurn ? vb(`data-dial="owner" data-target="${n.id}"`, 'Transfer\u2026', null, 'mini',
+        'both owners consent; an owning rock needs an edge') : ''}</div>
+    <div class="dial"><label>Management</label><span class="dv">${mgrHold}</span>
+      ${canTurn && !n.pebbles ? vb(`data-dial="home" data-target="${n.id}"`, 'Change\u2026', null, 'mini',
+        'a connected rock (it consents) or carry yourself') : ''}</div>
+    <div class="dial"><label>Hosting</label><span class="dv">${hostHold}</span>
+      ${canTurn ? vb(`data-dial="runs" data-target="${n.id}"`, 'Change\u2026', null, 'mini',
+        'Crads AI by default; own metal by approved request; owner\u2019s metal is enterprise-only') : ''}</div>
+  </div>`;
+}
+/* the full verb set for a box you have OWNER authority over: your own
+   self-owned seat, or any box you own. Every button targets n.id, so an owner
+   runs them on its owned boxes without leaving its seat. */
+function ownerVerbSet(n){
+  const owned = n.owner !== 'self';   /* n is a work box (a rock owns it) */
+  const ps = rocksAll(n);
+  const joinCands = nodes.filter(x => canJoin(n, x));
+  const st = stamperOf(n);
+  const list = [];
+  if (n.status !== 'left')
+    list.push(vb(`data-menu="joinSeat" data-target="${n.id}"`, 'Join a rock&hellip;',
+      joinCands.length ? null : 'no rock it can join (not itself, its pebbles, or one it is already in)', '',
+      owned ? 'apply on its behalf: the rock answers and you pay (keystone 4)' : 'apply: you knock, the rock answers'));
+  if (ps.length)
+    list.push(vb(`data-menu="leaveSeat" data-target="${n.id}"`, 'Leave\u2026', null, '',
+      'leaving never needs permission'));
+  if (n.status === 'active')
+    list.push(vb(`data-seat-verb="status" data-val="paused" data-target="${n.id}"`, 'Pause', null));
+  else if (n.status === 'paused')
+    list.push(vb(`data-seat-verb="status" data-val="active" data-target="${n.id}"`, 'Resume', null));
+  if (n.status !== 'left')
+    list.push(vb(`data-seat-verb="status" data-val="left" data-target="${n.id}"`,
+      owned ? 'Decommission' : 'Go dark', null, owned ? 'danger' : '',
+      owned ? 'the brain absorbs into you' : 'every tie and bill severs live'));
+  else
+    list.push(vb(`data-req-send="rejoin" data-to="${st ? st.id : (ps[0] ? ps[0].id : '')}"
+      data-subject="${n.id}" data-label="Rejoin request from ${esc(n.label)}"`,
+      'Rejoin\u2026', st || ps.length ? null : 'nobody to rejoin', '', 'two-consent: their acceptance completes it'));
+  if (!owned){
+    list.push(n.support
+      ? vb(`data-seat-verb="support" data-val="false" data-target="${n.id}"`, 'Revoke read', null)
+      : vb(`data-seat-verb="support" data-val="true" data-target="${n.id}"`, 'Grant read', null, '',
+          'rocks may read the brain: temporary, revocable'));
+    list.push(n.consent
+      ? vb(`data-seat-verb="consent" data-val="false" data-target="${n.id}"`, 'Refuse installs', null, '', 'the O6 gate closes')
+      : vb(`data-seat-verb="consent" data-val="true" data-target="${n.id}"`, 'Allow installs', null));
+  }
+  list.push(n.pebbles
+    ? vb(`data-seat-verb="pebbles" data-val="false" data-target="${n.id}"`, 'Demote', guard(n,'pebbles',false))
+    : vb(`data-seat-verb="pebbles" data-val="true" data-target="${n.id}"`, 'Promote', null, '',
+        'owner-led: pricing re-tiers automatically'));
+  list.push(vb(`data-seat-destroy="${n.id}"`, 'Destroy', null, 'danger',
+    owned ? 'the owner\u2019s alone' : 'yours alone; carried minerals fall onto their own bills'));
+  return list.filter(Boolean);
+}
+function drawInspector(){
+  const box = $('inspector');
+  if (actingAs === 'CRADS'){
+    const t = fleetTotals();
+    const opsSel = sel && sel !== 'CRADS' && byId(sel) ? (() => { const n = byId(sel);
+      const joinable = n.owner === 'self' && n.status === 'active'
+        && nodes.some(x => canJoin(n, x));
+      const unattached = n.owner === 'self' && !(n.rocks || []).length && !n.pebbles;
+      return `<div class="sect">Selected: ${esc(n.label)}${
+          unattached ? ' <span style="color:var(--accent)">(unattached)</span>' : ''}</div>
+        <input class="who-edit rename2" data-target="${n.id}" spellcheck="false"
+          value="${esc(n.label).replace(/"/g,'&quot;')}">
+        <div class="verbs" style="margin:0 0 8px">
+          ${vb(`data-actas="${n.id}"`, 'Act as this mineral', null, '', 'sit in its seat, with all its verbs')}
+          ${joinable ? vb(`data-join-as="${n.id}"`, 'Request to join a rock&hellip;', null, '',
+            'apply to a rock; it answers from its own seat') : ''}</div>
+        ${unattached ? '<p class="actnote">A self-started mineral, connected to nobody. Request to join a rock to wire it into a community, or Act as this mineral for its full verb set.</p>' : ''}
+        ${factRow('machine', n.runs === 'crads-ai' ? 'you operate it: provision, update, restart' : 'hosted elsewhere: updates only')}
+        ${factRow('status', `${n.status}, ${n.pebbles ? 'rock' : 'pebble'}`)}
+        ${factRow('platform money', esc(((ledger(n).find(r => r.k === 'seat') || {}).t || '').replace('seat: ', '')))}
+        ${factRow('you never see', 'its brain, its grafts, or the fees between rocks and members')}`; })() : '';
+    box.innerHTML = `<h2>Your seat</h2>
+      <div class="idrow"><span class="tagc" data-t="you">you</span><span class="tagc" data-t="plat">the platform</span></div>
+      <p class="who-edit" style="border:none">Crads AI</p>
+      ${factRow('you get', `${money(t.crads)}/mo: ${t.hosted} hosted seat${t.hosted===1?'':'s'} \u00b7 ${
+        t.licences} machinery licence${t.licences===1?'':'s'} \u00b7 platform fees from every rock`)}
+      ${factRow('you spend', `${money(t.cost)}/mo hosting: ${t.machines} machine${
+        t.machines===1?'':'s'} at ${money(PRICE.hostCost)} each, paid seat or not`)}
+      ${factRow('net', `${t.net < 0 ? '\u2212' : '+'}${money(Math.abs(t.net))}/mo${
+        t.crads ? ` (${Math.round(t.net / t.crads * 100)}% margin)` : ''}`)}
+      ${factRow('you can', 'answer own-metal requests. Nothing else: no membership, ownership, or lifecycle verb is yours')}
+      ${factRow('you execute', 'owner-ordered shutdowns and the nightly machinery updates')}
+      ${reqSections('CRADS') || '<p class="blurb" style="font-size:11.5px;color:var(--faint);margin-top:10px">Nothing waiting. Own-metal requests land here.</p>'}
+      ${opsSel}`;
+    return;
+  }
+  const m = byId(actingAs);
+  if (!m){ actingAs = 'CRADS'; return drawInspector(); }
+  const owned = m.owner !== 'self';
+  const ps = rocksAll(m);
+  const chg = (lastChange && lastChange.id === m.id)
+    ? `<div class="change"><span class="chg-a">${esc(lastChange.action)}</span>${
+        lastChange.d.map(x => `<span class="chg-d">${esc(x)}</span>`).join('')}</div>` : '';
+  let verbs = '';
+  if (owned){
+    verbs = `<p class="actnote"><b>${esc(ownerLbl(m))}</b> owns this mineral: the dials are its to
+      turn from its seat, and no notice is owed. Your one lever:</p>
+      <div class="verbs" style="margin-top:9px">${m.status === 'left' ? ''
+        : vb(`data-seat-verb="status" data-val="left" data-target="${m.id}"`, 'Quit', null, 'danger',
+            'quitting: the owner decommissions, the brain absorbs into it')}</div>`;
+  } else {
+    verbs = `<div class="verbs">${ownerVerbSet(m).join('')}</div>`;
+  }
+  /* selected other box: what my position may know + hold toward it */
+  let other = '';
+  if (sel === 'CRADS'){
+    const direct = ledger(m).filter(r => ['licence','hosted','plat'].includes(r.k)).map(r => r.t);
+    const pay = hostedPayerOf(m);
+    other = `<div class="sect">Selected: Crads AI</div>
+      ${factRow('toward you', m.runs === 'crads-ai' ? 'operates your machine. Ops only, never content' : 'ships machine updates only')}
+      ${factRow('you pay it', direct.length ? direct.map(esc).join('<br>')
+        : pay && pay !== m ? `nothing directly: ${esc(pay.label)} pays your hosted seat` : 'nothing directly')}`;
+  } else if (sel && sel !== m.id && byId(sel)){
+    const n = byId(sel);
+    const isRock = (m.rocks || []).includes(n.id);
+    const isPebble = (n.rocks || []).includes(m.id);
+    const iOwn = n.owner === m.id;
+    const iManage = isPebble && n.home === m.id && !n.pebbles;
+    if (isRock){
+      const home = homeOf(m) === n;
+      const ownsMe = m.owner === n.id;
+      other = `<div class="sect">Selected: ${esc(n.label)}</div>
+        ${factRow('relationship', [ownsMe ? '<b>owns you</b>' : '', home ? '<b>your manager</b>: seat, registry, installs' : 'a community rock'].filter(Boolean).join(' \u00b7 '))}
+        ${factRow('you pay', m.owner !== 'self' ? 'nothing: your owner pays' : home ? 'the anchor fee' : 'a community fee')}`;
+    } else if (isPebble && iOwn){
+      /* you own this box: its dials AND its full verb set are yours, right here */
+      other = `<div class="sect">Selected: ${esc(n.label)} <span style="color:var(--rock)">(you own it)</span></div>
+        <input class="who-edit rename2" data-target="${n.id}" spellcheck="false"
+          value="${esc(n.label).replace(/"/g,'&quot;')}">
+        ${factRow('relationship', '<b>you own it</b>: every dial and action below is yours, no notice owed')}
+        ${factRow('registry', `status ${n.status}, heartbeats hourly`)}
+        ${factRow('its brain', 'yours to read: owning includes reading')}
+        ${dials(n, true)}
+        <div class="sect">Its actions (yours)</div>
+        <div class="verbs">${ownerVerbSet(n).join('')}</div>`;
+    } else if (isPebble){
+      const tv = [];
+      if (iManage) tv.push(n.hpause
+        ? vb(`data-seat-verb="hpause" data-val="false" data-target="${n.id}"`, 'Resume delivery', null)
+        : vb(`data-seat-verb="hpause" data-val="true" data-target="${n.id}"`, 'Pause delivery', null, '',
+            'your call as manager: you go quiet, the mineral keeps running'));
+      if (m.framework && !(n.grafts || []).some(g => g.from === m.label && g.state !== 'declined'))
+        tv.push(vb(`data-req-send="graft" data-to="${answerSeat(n)}" data-subject="${n.id}" data-extra="${m.id}"
+          data-label="${esc(m.label)} offers its framework: ${esc(m.framework)}"`,
+          'Offer framework', null, '', 'their consent installs it'));
+      if (n.owner === 'self'){
+        if (!n.support) tv.push(vb(`data-req-send="askRead" data-to="${n.id}" data-subject="${n.id}" data-extra="${m.id}"
+          data-label="${esc(m.label)} asks to read ${esc(n.label)}\u2019s brain"`,
+          'Ask read', null, '', 'the owner answers from their seat'));
+        if (!n.consent) tv.push(vb(`data-req-send="askInstall" data-to="${n.id}" data-subject="${n.id}" data-extra="${m.id}"
+          data-label="${esc(m.label)} asks ${esc(n.label)} to allow installs"`,
+          'Ask installs', null, '', 'the owner answers from their seat'));
+      }
+      if (n.status === 'left') tv.push(vb(`data-req-send="rejoin" data-to="${answerSeat(n)}" data-subject="${n.id}" data-extra="${m.id}"
+        data-label="${esc(m.label)} re-invites ${esc(n.label)}"`,
+        'Re-invite', null, '', 'they accept from their seat'));
+      other = `<div class="sect">Selected: ${esc(n.label)}</div>
+        ${factRow('relationship', iManage ? '<b>you manage it</b>: seat, registry, heartbeats'
+          : 'a community member: it pays you, you deliver')}
+        ${factRow('registry', iManage ? `status ${n.status}, heartbeats hourly` : 'no row: community tier')}
+        ${factRow('its brain', n.support ? 'read granted, expires' : 'not yours to read')}
+        ${tv.length ? `<div class="verbs" style="margin-top:9px">${tv.join('')}</div>` : ''}`;
+    }
+  }
+  box.innerHTML = `<h2>Your seat</h2>
+    <div class="idrow">
+      <span class="tagc" data-t="you">you</span>
+      <span class="tagc" data-t="${m.pebbles ? 'rock' : 'pebble'}">${m.pebbles ? 'rock' : 'pebble'}</span>
+      <span class="tagc" data-t="${m.status}">${m.status}</span>
+    </div>
+    <input class="who-edit" id="rename" spellcheck="false" aria-label="Rename this mineral"
+      value="${esc(m.label).replace(/"/g,'&quot;')}">
+    ${chg}
+    ${dials(m, !owned)}
+    ${REAL ? '' : `<div class="sect">Actions</div>${verbs}`}
+    ${REAL ? '' : reqSections(actingAs)}
+    ${other}
+    <div class="sect">Your ledger</div><div class="ledrows">${
+      ledger(m).map(r => `<span class="ledr" data-k="${r.k}">${esc(r.t)}</span>`).join('')}</div>
+    <div class="sect">Lineage</div><div class="ledrows">${
+      lineage(m).map(r => `<span class="ledr" data-k="${r.k}">${esc(r.t)}</span>`).join('')}</div>
+    <p class="leaver">${m.owner !== 'self'
+      ? 'Whoever uses this mineral keeps <b>nothing</b> on leaving: the brain is the owner\u2019s.'
+      : 'Whoever uses this mineral keeps <b>the whole brain</b> on leaving: it lives in their own account.'}</p>`;
+}
+
+function drawViolations(vio){
+  $('fcount').textContent = vio.length ? `${vio.length} finding${vio.length>1?'s':''}` : 'clean';
+  if (!vio.length){
+    $('violations').innerHTML = '<p class="clean">Nothing crossed. Every mineral is in a state the model allows.</p>';
+    return;
+  }
+  const order = { blocked:0, false:1, dead:2, unbuilt:3 };
+  $('violations').innerHTML = vio.sort((a,b) => order[a.sev] - order[b.sev]).map(v =>
+    `<div class="v" data-goto="${v.node}"><span class="sev" data-s="${v.sev}">${v.sev}</span>
+      <span class="vmsg">${v.msg}<span class="vrule">${esc(v.rule)}</span></span></div>`).join('');
+}
+function drawLegend(){
+  const lg = $('legend');
+  lg.innerHTML = `<h3>Key: ${{own:'Ownership',data:'Data',access:'Access',value:'Value',origin:'Origin'}[layer]} view</h3>`
+    + KEYS[layer].map(([m2, t]) =>
+      `<span class="kr"><span class="m">${m2}</span><span>${t}</span></span>`).join('')
+    + (KEYNOTE[layer] ? `<p class="note">${KEYNOTE[layer]}</p>` : '');
+}
+/* the Pricing drawer. One UNIVERSAL price list (ruled 2026-07-28): no
+   per-contract deals. The platform fee is a SUBSCRIPTION, tiered by the rock's
+   member MIX (a home ceiling + a community ceiling per tier). Grouped by WHO
+   IS PAID. Every price is a slider + number, dual-bound; tier ceilings are
+   editable numbers. */
+const RATE_MAX = { brain:300, hosted:200, standalone:500, machinery:150,
+  hostCost:100, homeMember:600, commMember:300 };
+const TIER_FEE_MAX = [600, 1500, 3000, 6000];
+/* ---- who may set what (Sam, 2026-08-03) ----------------------------------
+   Rates are not a free-for-all dial. Each figure has an owner in the real
+   business, and the sheet now says so instead of letting any seat move any
+   number:
+     · Crads AI sets what is paid TO Crads AI: seats, its own hosting overhead,
+       and the platform subscription tiers.
+     · A COMMUNITY sets its own membership retail. If a box is part of one, by
+       home or by community membership, that community prices it, not us. So
+       these two are editable only from a community's seat, and only ever by
+       that community for its own members.
+     · The Anthropic per-brain price is nobody's dial here. It is a published
+       cost an owner pays, so it is shown and never edited.
+   Real mode edits nothing at all: it is a reading of a live network, and the
+   sheet beside it is a reference, not a control panel. */
+const CRADS_RATES = new Set(['hosted', 'standalone', 'machinery', 'hostCost']);
+const COMMUNITY_RATES = new Set(['homeMember', 'commMember']);
+const actingIsCommunity = () => { const n = byId(actingAs); return !!(n && n.pebbles); };
+function rateEditable(key){
+  if (REAL) return false;
+  if (COMMUNITY_RATES.has(key)) return actingIsCommunity();
+  if (CRADS_RATES.has(key) || key === '__tier') return actingAs === 'CRADS';
+  return false;   /* 'brain', and anything added later, until it is placed above */
+}
+/* The drawer is deliberately NOT re-rendered by render(): that would tear the
+   control out from under a drag. But changing seat changes who may edit, so
+   redraw on exactly that, and only that. */
+let ratesAuth = null;
+function syncRatesAuthority(){
+  const sig = REAL ? 'real' : actingAs === 'CRADS' ? 'crads' : actingIsCommunity() ? 'community' : 'none';
+  if (sig === ratesAuth) return;
+  ratesAuth = sig;
+  drawRates();
+}
+
+function drawRates(){
+  const rr = (label, key, hint) => {
+    const on = rateEditable(key);
+    const d = on ? '' : ' disabled';
+    return `<div class="rr${on ? '' : ' ro'}" title="${esc(hint)}">
+    <span>${label}</span><input type="number" min="0" step="1" data-rate="${key}" value="${PRICE[key]}"${d}>
+    <input type="range" min="0" max="${RATE_MAX[key]}" step="1" data-rate="${key}" value="${PRICE[key]}"${d}></div>`;
+  };
+  const tier = (t, i) => {
+    const last = i === PRICE.tiers.length - 1;
+    const d = rateEditable('__tier') ? '' : ' disabled';
+    return `<div class="rr${d ? ' ro' : ''}" title="${esc(last
+      ? 'the open-ended top tier: everything larger lands here'
+      : 'a rock lands in the first tier that covers BOTH its counts')}">
+      <span>Tier ${i + 1}${last ? ' · everything larger'
+        : ` · up to <input class="lim" type="number" min="0" step="1" data-tier="${i}" data-tf="home"
+            value="${t.home}"${d}> home · <input class="lim" type="number" min="0" step="1" data-tier="${i}"
+            data-tf="comm" value="${t.comm}"${d}> community`}</span>
+      <input type="number" min="0" step="1" data-tier="${i}" data-tf="fee" value="${t.fee}"${d}>
+      <input type="range" min="0" max="${TIER_FEE_MAX[i] || 6000}" step="1" data-tier="${i}" data-tf="fee" value="${t.fee}"${d}></div>`;
+  };
+  /* one line per group saying WHOSE number it is, so a greyed-out field reads
+     as someone else's decision rather than a broken control */
+  const whose = (yes, who) => `<div class="rwho">${yes ? 'Yours to set.' : who}</div>`;
+  const isC = actingIsCommunity(), isCrads = actingAs === 'CRADS' && !REAL;
+  $('ratesBody').innerHTML = `<div class="rates rgrid">
+    <div class="rg"><h4>Paid to Anthropic, by owners</h4>
+      ${rr('per owned brain', 'brain', 'whoever owns a brain pays for the model that fills it')}
+      ${whose(false, 'Anthropic&rsquo;s published price. Nobody sets it here.')}
+      <h4>Membership, set by the community</h4>
+      ${rr('anchor fee', 'homeMember', 'what a rock charges a member it anchors (rate key unchanged so saved rates survive)')}
+      ${rr('community fee', 'commMember', 'content-only membership in a second community')}
+      ${whose(isC && !REAL, REAL ? 'Read-only: this is your real network.'
+        : 'A community prices its own membership. Take that community&rsquo;s seat to set these.')}</div>
+    <div class="rg"><h4>Seats, paid to Crads AI</h4>
+      ${rr('hosted seat, rock-carried', 'hosted', 'a managing rock carries the seats of its pebbles')}
+      ${rr('hosted seat, standalone', 'standalone', 'no rock behind it, so no tier one: it costs more alone')}
+      ${rr('machinery seat, self-run', 'machinery', 'they host themselves; machinery, registry and updates only')}
+      <h4>Crads AI overhead, per machine</h4>
+      ${rr('hosting cost', 'hostCost', 'what one hosted mineral costs Crads AI to run: VM + backups + tunnel. Burdens every machine it operates, paid seat or not')}
+      ${whose(isCrads, REAL ? 'Read-only: this is your real network.'
+        : 'Only Crads AI sets what is paid to Crads AI.')}</div>
+    <div class="rg"><h4>Platform subscription, tiered by member mix</h4>
+      ${PRICE.tiers.map((t, i) => tier(t, i)).join('')}
+      ${whose(isCrads, REAL ? 'Read-only: this is your real network.'
+        : 'Only Crads AI sets the platform subscription.')}</div>
+  </div>`;
+  const rst = $('rateReset');
+  if (rst){
+    /* Reset is a rate change too: it may only restore what this seat may set */
+    const can = isCrads || (isC && !REAL);
+    rst.disabled = !can;
+    rst.title = can ? 'restore the figures this seat sets' : 'only the seat that sets a figure can restore it';
+  }
+}
+
+/* ------------------------------------------------------------ pan + zoom --- */
+let PX = 20, PY = 20, Z = 1, WORLD = { w: 800, h: 500 };
+const vp = $('vp'), world = $('canvas');
+function applyView(){ world.style.transform = `translate(${PX}px, ${PY}px) scale(${Z})`; }
+function fitView(){
+  const r = vp.getBoundingClientRect();
+  const pad = 44;
+  Z = Math.min(1, Math.max(0.48,
+    Math.min((r.width - pad*2) / Math.max(WORLD.w, 1), (r.height - pad*2) / Math.max(WORLD.h, 1))));
+  PX = Math.max(pad/2, (r.width - WORLD.w * Z) / 2);
+  PY = Math.max(pad/2, (r.height - WORLD.h * Z) / 2.2);
+  applyView();
+}
+function zoomAt(cx, cy, dz){
+  const r = vp.getBoundingClientRect();
+  const mx = cx - r.left, my = cy - r.top;
+  const z2 = Math.min(2.2, Math.max(0.3, Z * dz));
+  PX = mx - (mx - PX) * (z2 / Z);
+  PY = my - (my - PY) * (z2 / Z);
+  Z = z2; applyView();
+}
+vp.addEventListener('wheel', e => {
+  /* panels scroll natively; the canvas owns the wheel everywhere else */
+  if (e.target.closest('.legend, .drawer')) return;
+  e.preventDefault();
+  if (e.ctrlKey || Math.abs(e.deltaY) > Math.abs(e.deltaX)){
+    zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0016));
+  } else { PX -= e.deltaX; applyView(); }
+}, { passive:false });
+$('zoomIn').addEventListener('click', () => {
+  const r = vp.getBoundingClientRect(); zoomAt(r.left + r.width/2, r.top + r.height/2, 1.25); });
+$('zoomOut').addEventListener('click', () => {
+  const r = vp.getBoundingClientRect(); zoomAt(r.left + r.width/2, r.top + r.height/2, 0.8); });
+$('zoomFit').addEventListener('click', fitView);
+$('zoom100').addEventListener('click', () => { Z = 1; applyView(); });
+
+/* ---------------------------------------------------------------- events --- */
+let drag = null, pan = null, suppressClick = false;
+vp.addEventListener('pointerdown', e => {
+  const b = e.target.closest('.bx');
+  if (b && b.dataset.id !== 'CRADS'){
+    drag = { id: b.dataset.id, el: b, sx: e.clientX, sy: e.clientY,
+      ox: parseFloat(b.style.left) || 0, oy: parseFloat(b.style.top) || 0, moved: false };
+    try { b.setPointerCapture(e.pointerId); } catch {}
+    return;
+  }
+  if (!b && !e.target.closest('.drawer, .zoomer, .legend, .hud-bl, .simc')){
+    pan = { sx: e.clientX, sy: e.clientY, ox: PX, oy: PY };
+    vp.classList.add('panning');
+  }
+});
+/* grow sliders: while dragging, patch the money surfaces in place (a full
+   render would swap the slider out from under the pointer); settle on release */
+function patchMoney(){
+  document.querySelectorAll('[data-netb]').forEach(el => {
+    if (el.dataset.netb === 'CRADS'){
+      const t = fleetTotals();
+      el.dataset.t = t.net >= 0 ? 'pos' : 'neg';
+      el.textContent = `net ${t.net >= 0 ? '+' : '−'}${money(Math.abs(t.net))}/mo${
+        t.crads ? ` · ${Math.round(t.net / t.crads * 100)}%` : ''}`;
+      return;
+    }
+    const n = byId(el.dataset.netb); if (!n) return;
+    const b = netBadge(n);
+    if (b){ el.dataset.t = b.tone; el.textContent = b.t; }
+  });
+  drawChrome(validate());
+  drawInspector();
+}
+vp.addEventListener('input', e => {
+  const r = e.target.closest('[data-simrange]'); if (!r) return;
+  const n = byId(r.dataset.simrange); if (!n) return;
+  n.sim = Math.max(0, Math.round(+r.value) || 0);
+  const c = vp.querySelector(`[data-simcount="${n.id}"]`);
+  if (c) c.textContent = n.sim;
+  patchMoney();
+});
+vp.addEventListener('change', e => {
+  if (e.target.closest('[data-simrange]')) render();
+});
+vp.addEventListener('pointermove', e => {
+  if (drag){
+    const dx = (e.clientX - drag.sx) / Z, dy = (e.clientY - drag.sy) / Z;
+    if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+    drag.moved = true;
+    drag.el.style.left = Math.max(0, drag.ox + dx) + 'px';
+    drag.el.style.top = Math.max(0, drag.oy + dy) + 'px';
+    return;
+  }
+  if (pan){ PX = pan.ox + (e.clientX - pan.sx); PY = pan.oy + (e.clientY - pan.sy); applyView(); }
+});
+vp.addEventListener('pointerup', () => {
+  if (drag){
+    if (drag.moved){
+      const n = byId(drag.id);
+      if (n){ n.fx = Math.max(0, parseFloat(drag.el.style.left) || 0);
+              n.fy = Math.max(0, parseFloat(drag.el.style.top) || 0); }
+      suppressClick = true;
+      setTimeout(() => { suppressClick = false; }, 0);
+      render();
+    }
+    drag = null;
+  }
+  pan = null; vp.classList.remove('panning');
+});
+/* single click selects; a second click on the same box within 350ms TAKES its
+   seat. We detect this by hand rather than with the native dblclick event,
+   because the first click re-renders the canvas and swaps out the element, so
+   the browser never sees two clicks on one node. */
+let lastClickId = null, lastClickT = 0;
+vp.addEventListener('click', e => {
+  if (suppressClick){ suppressClick = false; return; }
+  const b = e.target.closest('.bx'); if (!b) return;
+  const id = b.dataset.id, now = performance.now();
+  if (id === lastClickId && now - lastClickT < 350){
+    lastClickId = null; lastClickT = 0;
+    actingAs = id; sel = id; render(); fitView();
+    return;
+  }
+  lastClickId = id; lastClickT = now;
+  sel = id; render();
+});
+
+/* ---- popover menu ---- */
+let menuEl = null;
+function closeMenu(){ if (menuEl){ menuEl.remove(); menuEl = null; } }
+function openMenu(anchor, items){
+  closeMenu();
+  menuEl = document.createElement('div');
+  menuEl.className = 'menu';
+  menuEl.innerHTML = items.map(it => it.sep ? '<div class="msep"></div>'
+    : it.head ? `<div class="mhead">${esc(it.head)}</div>`
+    : `<button class="mi" data-mid="${esc(it.id)}" ${it.disabled ? `disabled title="${esc(it.reason || '')}"` : ''}
+        aria-pressed="${it.pressed ? 'true' : 'false'}">${esc(it.label)}${
+        it.note ? `<span class="note">${esc(it.note)}</span>` : ''}</button>`).join('');
+  document.body.appendChild(menuEl);
+  const r = anchor.getBoundingClientRect();
+  let x = Math.min(r.left, innerWidth - menuEl.offsetWidth - 8);
+  let y = r.bottom + 6;
+  if (y + menuEl.offsetHeight > innerHeight - 8) y = r.top - menuEl.offsetHeight - 6;
+  menuEl.style.left = x + 'px'; menuEl.style.top = Math.max(8, y) + 'px';
+  menuEl.addEventListener('click', e => {
+    const mi = e.target.closest('.mi'); if (!mi || mi.disabled) return;
+    const pick = items.find(it => it.id === mi.dataset.mid);
+    closeMenu();
+    if (pick && pick.go) pick.go();
+  });
+}
+document.addEventListener('pointerdown', e => {
+  if (menuEl && !menuEl.contains(e.target)
+    && !e.target.closest('[data-menu],[data-dial],#fileBtn,#seatBtn,#newBtn')) closeMenu();
+});
+
+/* ------------------------------------------------------------ save/load ---
+   Worlds live in the browser (localStorage) plus copy/paste JSON for
+   portability. New starts from a single fresh rock you are seated in. */
+const SAVE_KEY = 'cradsTopoSaves_v1';
+function loadSaves(){ try { return JSON.parse(localStorage.getItem(SAVE_KEY) || '[]'); } catch { return []; } }
+function writeSaves(a){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(a)); } catch {} }
+function loadWorld(state){ pushHistory(); restoreState(state); fitView(); }
+function newBlank(){
+  pushHistory();
+  nodes = [mk('r0', null, 'Your rock', { pebbles:true, framework:'' })];
+  preset = 'blank'; actingAs = 'r0'; sel = 'r0'; requests = []; reqSeq = 0; seq = 10; lastChange = null;
+  render(); fitView();
+}
+let ioOnOk = null;
+function openIO(head, opts){
+  opts = opts || {};
+  $('ioHead').textContent = head;
+  const inp = $('ioName'), ta = $('ioText');
+  inp.style.display = opts.input ? '' : 'none'; inp.value = opts.inputValue || '';
+  ta.style.display = opts.textarea ? '' : 'none'; ta.value = opts.textValue || '';
+  $('ioOk').textContent = opts.okLabel || 'OK';
+  $('iowrap').dataset.open = '1';
+  if (opts.input) setTimeout(() => inp.focus(), 0);
+  else if (opts.textarea && !opts.textValue) setTimeout(() => ta.focus(), 0);
+}
+function closeIO(){ $('iowrap').dataset.open = '0'; ioOnOk = null; }
+function doSaveDialog(){
+  openIO('Save this world', { input:true, inputValue:'', okLabel:'Save' });
+  ioOnOk = () => {
+    const name = $('ioName').value.trim() || ('Save ' + new Date().toLocaleString());
+    const saves = loadSaves();
+    saves.unshift({ name, at: Date.now(), state: snapState() });
+    writeSaves(saves.slice(0, 30));
+    closeIO();
+  };
+}
+function openExport(){
+  openIO('Export this world (copy the JSON)', { textarea:true, textValue: snapState(), okLabel:'Copy' });
+  ioOnOk = () => { $('ioText').select(); try { document.execCommand('copy'); } catch {} closeIO(); };
+}
+function openImport(){
+  openIO('Import a world (paste JSON)', { textarea:true, okLabel:'Load' });
+  ioOnOk = () => {
+    try { JSON.parse($('ioText').value.trim()); loadWorld($('ioText').value.trim()); closeIO(); }
+    catch { $('ioHead').textContent = 'That is not a valid world. Check the JSON and try again.'; }
+  };
+}
+/* name a box at birth: the creator types its name, then we make it */
+function openName(head, defaultName, cb){
+  openIO(head, { input:true, inputValue: defaultName, okLabel:'Create' });
+  setTimeout(() => { $('ioName').select(); }, 0);
+  ioOnOk = () => { const nm = $('ioName').value.trim() || defaultName; closeIO(); cb(nm); };
+}
+$('ioCancel').addEventListener('click', closeIO);
+$('ioOk').addEventListener('click', () => { if (ioOnOk) ioOnOk(); });
+$('iowrap').addEventListener('click', e => { if (e.target === $('iowrap')) closeIO(); });
+$('ioName').addEventListener('keydown', e => { if (e.key === 'Enter' && ioOnOk) ioOnOk(); });
+
+$('fileBtn').addEventListener('click', e => {
+  const saves = loadSaves();
+  const items = [
+    { id:'new', label:'New blank world', note:'one fresh rock, seated in it', go: newBlank },
+    { id:'save', label:'Save this world\u2026', note:'store it in this browser', go: doSaveDialog },
+    { sep:true }, { head: saves.length ? 'Saved worlds' : 'No saved worlds yet' }
+  ];
+  saves.forEach((s, i) => items.push({ id:'ld'+i, label: s.name,
+    note: new Date(s.at).toLocaleString(), go: () => loadWorld(s.state) }));
+  if (saves.length) items.push({ id:'del', label:'Delete a saved world\u2026',
+    go: () => setTimeout(() => openMenu($('fileBtn'), loadSaves().map((s, i) =>
+      ({ id:'d'+i, label:'\u2715 ' + s.name, go: () => { const a = loadSaves(); a.splice(i,1); writeSaves(a); } }))), 0) });
+  /* real mode shows ONE world, the member's own. Offering Acme CoLab from a
+     picture of your actual network is how a member ends up believing their box
+     lives in a community it has never heard of. */
+  if (!REAL) items.push({ sep:true }, { head:'Examples' });
+  if (!REAL) Object.keys(PRESETS).forEach(k => items.push({ id:'ex'+k, label: PRESET_INFO[k].label,
+    note: PRESET_INFO[k].note, go: () => { pushHistory(); nodes = PRESETS[k](); preset = k;
+      actingAs = 'CRADS'; requests = []; reqSeq = 0;
+      sel = nodes[0] ? nodes[0].id : 'CRADS'; seq = 10; lastChange = null; render(); fitView(); } }));
+  items.push({ sep:true },
+    { id:'exp', label:'Export\u2026', note:'copy this world as JSON', go: openExport },
+    { id:'imp', label:'Import\u2026', note:'paste a world from JSON', go: openImport });
+  openMenu(e.currentTarget, items);
+});
+$('seatBtn').addEventListener('click', e => openMenu(e.currentTarget,
+  [{ id:'CRADS', label:`Crads AI${inboxOf('CRADS').length ? ` (${inboxOf('CRADS').length} waiting)` : ''}`,
+     note:'the overview seat: sees almost everything, contracts only',
+     pressed: actingAs === 'CRADS',
+     go: () => { actingAs = 'CRADS'; sel = 'CRADS'; render(); fitView(); } }]
+  .concat(nodes.map(n => ({ id: n.id,
+     label: `${n.label}${inboxOf(n.id).length ? ` (${inboxOf(n.id).length} waiting)` : ''}`,
+     note: n.owner !== 'self' ? `owned by ${ownerLbl(n)}: dials live in that seat` : undefined,
+     pressed: actingAs === n.id,
+     go: () => { actingAs = n.id; sel = n.id; render(); fitView(); } })))));
+/* verb: start (Birth). A from-nowhere box: nobody\u2019s seed, self-owned, hosted
+   by Crads AI on its own bill, connected to nobody. Unilateral, needs no yes;
+   it only needs consent later, to JOIN a rock. You are seated in it. Until it
+   joins something it has no edges, so the sight mask hides it from every other
+   box: only Crads AI (its host) and its own seat see it. */
+function arrive(isRock, name){
+  pushHistory();
+  const id = 'n' + (++seq);
+  nodes.push(mk(id, null, name || ((isRock ? 'New rock ' : 'New pebble ') + seq),
+    { pebbles: isRock, framework: isRock ? '' : undefined }));
+  /* land on the OVERVIEW seat with the newcomer selected, so the world you were
+     building stays on screen and the box visibly ARRIVES into it. Acting AS it
+     is one click away (Act as this box, or the Seat switcher). */
+  actingAs = 'CRADS'; sel = id;
+  lastChange = { id, action: `arrived: self-started ${isRock ? 'rock' : 'pebble'}`,
+    d: ['nobody\u2019s seed: its foundations are its own, no imprint',
+        'hosted by Crads AI on its own bill, connected to nobody',
+        isRock ? 'a fresh community: seat into it to stamp and invite'
+               : 'seat into it and Join a rock; only Crads AI sees it until then'] };
+  render(); fitView();
+}
+/* New: from-nowhere arrivals always; stamp + invite when you are a rock.
+   Stamping asks KIND and OWNERSHIP (ruled 2026-07-28); invites go by mail. */
+$('newBtn').addEventListener('click', e => {
+  const m = actingAs !== 'CRADS' ? byId(actingAs) : null;
+  const items = [
+    { head: 'New arrival (from nowhere, self-started)' },
+    { id:'ap', label:'Pebble', note:'nobody\u2019s seed; hosted by Crads AI, connected to nobody. Then Join a rock',
+      go: () => openName('Name your new pebble', 'New pebble', nm => arrive(false, nm)) },
+    { id:'ar', label:'Rock', note:'a fresh community from scratch; carries its own seat',
+      go: () => openName('Name your new rock', 'New rock', nm => arrive(true, nm)) }
+  ];
+  if (m && m.pebbles && m.status === 'active'){
+    items.push({ sep: true }, { head: `Stamp from ${m.label} (your factory)` },
+      { id:'pm', label:'Pebble, for a member', note:'they own it: brain in their account, they pay Anthropic',
+        go: () => openName('Name the new pebble', 'New pebble', nm => stamp(m, false, 'self', nm)) },
+      { id:'pw', label:'Pebble, as a work mineral', note:`${m.label} owns it: your brain, your bills, every verb yours`,
+        go: () => openName('Name the new work mineral', 'New work mineral', nm => stamp(m, false, m.id, nm)) },
+      { id:'rm', label:'Rock, for a member', note:'their community: born homeless, carries its own seat',
+        go: () => openName('Name the new rock', 'New rock', nm => stamp(m, true, 'self', nm)) },
+      { id:'rw', label:'Rock, as a work rock', note:`${m.label} owns it`,
+        go: () => openName('Name the new work rock', 'New work rock', nm => stamp(m, true, m.id, nm)) },
+      { sep: true }, { head: 'Invite an existing mineral' });
+    /* invite x to join m: x joins m, so exclude anything that would loop
+       (x is m itself, already in m, or an ancestor of m) */
+    nodes.filter(x => canJoin(x, m))
+      .forEach(x => items.push({ id: 'inv-' + x.id, label: `Invite ${x.label}`,
+        note: x.owner !== 'self' ? 'its owner answers and pays (keystone 4)' : 'they answer from their seat',
+        go: () => sendReq('invite', actingAs, answerSeat(x), x.id, m.id,
+          `${m.label} invites ${x.label} to join`) }));
+  }
+  openMenu(e.currentTarget, items);
+});
+function stamp(rockN, isRock, owner, name){
+  pushHistory();
+  const id = 'n' + (++seq);
+  nodes.push(mk(id, rockN.id, name || ((isRock ? 'New rock ' : 'New pebble ') + seq),
+    { pebbles: isRock, owner }));
+  sel = id;
+  lastChange = { id, action: `stamped: ${isRock ? 'rock' : 'pebble'}, ${owner === 'self' ? 'member-owned' : 'work mineral'}`,
+    d: [`seeded by ${rockN.label}: imprint at birth, lineage frozen`,
+        owner === 'self'
+          ? (isRock ? 'born homeless: it carries its own seat' : `${rockN.label} manages it and pays its seat`)
+          : `${rockN.label} owns it: its brain, its bills, its dials`] };
+  render();
+}
+function destroyBox(id){
+  const n = byId(id); if (!n) return;
+  pushHistory();
+  const d = [];
+  nodes.filter(c => (c.rocks || []).includes(n.id)).forEach(c => {
+    c.rocks = c.rocks.filter(x => x !== n.id);
+    if (c.home === n.id){ c.home = null;
+      d.push(`${c.label}: manager gone, its seat falls onto its own bill`); }
+    if (c.owner === n.id){ c.owner = 'self';
+      d.push(`${c.label}: its owner is gone; it owns itself now (flagged for review)`); }
+    if (!d.some(x => x.startsWith(c.label))) d.push(`${c.label}: community tie ended`);
+  });
+  nodes = nodes.filter(x => x.id !== n.id);
+  requests = requests.filter(r => r.subject !== n.id && r.from !== n.id && r.to !== n.id);
+  if (actingAs === n.id) actingAs = 'CRADS';
+  sel = actingAs === 'CRADS' ? 'CRADS' : actingAs;
+  lastChange = { id: sel, action: `destroyed ${n.label}`,
+    d: d.length ? d : ['nothing was attached to it'] };
+  render();
+}
+
+/* inspector interactions */
+$('inspector').addEventListener('click', e => {
+  const aa = e.target.closest('[data-actas]');
+  if (aa){ actingAs = aa.dataset.actas; sel = actingAs; render(); fitView(); return; }
+  const ja = e.target.closest('[data-join-as]');
+  if (ja){
+    /* seat into the box, then open its Join picker in one move: joining is the
+       box's own act, initiated from wherever you spotted it. */
+    actingAs = ja.dataset.joinAs; sel = actingAs; render();
+    const jb = $('inspector').querySelector('[data-menu="joinSeat"]');
+    if (jb) jb.click();
+    return;
+  }
+  const ra = e.target.closest('[data-req-answer]');
+  if (ra){
+    const r = requests.find(x => x.id === ra.dataset.reqAnswer);
+    if (r && r.status === 'pending' && r.to === actingAs) applyRequest(r, ra.dataset.yes === '1');
+    return;
+  }
+  const rc = e.target.closest('[data-req-cancel]');
+  if (rc){
+    pushHistory();
+    requests = requests.filter(x => x.id !== rc.dataset.reqCancel);
+    render(); return;
+  }
+  const rs = e.target.closest('[data-req-send]');
+  if (rs && !rs.disabled){
+    sendReq(rs.dataset.reqSend, actingAs, rs.dataset.to, rs.dataset.subject,
+      rs.dataset.extra || null, rs.dataset.label, rs.dataset.note || '');
+    return;
+  }
+  const dial = e.target.closest('[data-dial]');
+  if (dial && !dial.disabled){
+    const n = byId(dial.dataset.target); if (!n) return;
+    const which = dial.dataset.dial;
+    if (which === 'owner'){
+      const targets = [];
+      if (n.owner !== 'self')
+        targets.push({ id:'self', label:'The member', note:'they accept from the mineral\u2019s own seat',
+          go: () => sendReq('xfer', actingAs, n.id, n.id, 'self',
+            `Ownership of ${n.label} to its member`) });
+      rocksAll(n).filter(p => p.pebbles && p.id !== n.owner).forEach(p =>
+        targets.push({ id: p.id, label: p.label, note:'that rock accepts from its seat (edge exists)',
+          go: () => sendReq('xfer', actingAs, p.id, n.id, p.id,
+            `Ownership of ${n.label} to ${p.label}`) }));
+      openMenu(dial, targets.length ? targets
+        : [{ id:'__none', label:'No eligible new owner', note:'an owning rock needs an edge: join one first', go(){} }]);
+    }
+    if (which === 'home'){
+      const targets = rocksAll(n).filter(p => p.pebbles && homeOf(n) !== p)
+        .map(p => ({ id: p.id, label: p.label, note:'it consents, then takes seat, registry, heartbeats',
+          go: () => sendReq('rehome', actingAs, p.id, n.id, p.id,
+            `${n.label} asks ${p.label} to manage it`) }));
+      if (homeOf(n)) targets.push({ id:'__none', label:'Nobody: carry itself',
+        note:'your call, no consent needed; the bill lands here',
+        go: () => { pushHistory(); const before = moneySnap(n);
+          const had = homeOf(n); n.home = null;
+          announce(n, 'management ended', before, [`${had.label} no longer manages it`]);
+          render(); } });
+      openMenu(dial, targets.length ? targets
+        : [{ id:'__none2', label:'No connected rock', note:'join a rock first', go(){} }]);
+    }
+    if (which === 'runs'){
+      openMenu(dial, [
+        { id:'crads', label:'Crads AI hosts', note:'the default: a hosted seat', pressed: n.runs === 'crads-ai',
+          disabled: n.runs === 'crads-ai', go: () => runVerb(n, 'runs', 'crads-ai') },
+        { id:'self', label:'Own metal', note:'by approved request to the platform', pressed: n.runs === 'self',
+          disabled: n.runs === 'self' || !!guard(n, 'runs', 'self'), reason: guard(n, 'runs', 'self') || '',
+          go: () => sendReq('ownMetal', actingAs, 'CRADS', n.id, null,
+            `${n.label} requests its own metal`) },
+        { id:'owner', label:'Owner\u2019s metal', note:'enterprise-only: the owning rock operates it',
+          pressed: n.runs === 'owner',
+          disabled: n.runs === 'owner' || !!guard(n, 'runs', 'owner'), reason: guard(n, 'runs', 'owner') || '',
+          go: () => runVerb(n, 'runs', 'owner') }
+      ]);
+    }
+    return;
+  }
+  const vm = e.target.closest('[data-menu]');
+  if (vm && !vm.disabled && actingAs !== 'CRADS'){
+    const tgt = byId(vm.dataset.target || actingAs); if (!tgt) return;
+    const onBehalf = tgt.id !== actingAs;
+    if (vm.dataset.menu === 'joinSeat'){
+      openMenu(vm, nodes.filter(x => canJoin(tgt, x))
+        .map(x => ({ id: x.id, label: x.label, note: 'apply: the rock answers from its seat',
+          go: () => sendReq('apply', actingAs, x.id, tgt.id, x.id,
+            `${tgt.label} applies to join ${x.label}`) })));
+    }
+    if (vm.dataset.menu === 'leaveSeat'){
+      openMenu(vm, rocksAll(tgt).map(p => ({ id: p.id, label: `Leave ${p.label}`,
+        note: homeOf(tgt) === p ? 'its manager: the tie ends, the bill moves' : 'community tie ends',
+        go: () => { pushHistory();
+          const before = moneySnap(tgt);
+          const notes = onBehalf ? [`${tgt.label} left ${p.label} (your call as owner)`] : [];
+          tgt.rocks = (tgt.rocks || []).filter(id => id !== p.id);
+          if (tgt.home === p.id){ tgt.home = null; notes.push('that was its manager: the tie ends with the edge'); }
+          if (tgt.owner === p.id){ tgt.owner = 'self';
+            notes.push('you left as an OWNED box: ownership falls back to the member (an owner needs an edge)'); }
+          announce(tgt, `left ${p.label}`, before, notes);
+          sel = tgt.id; render(); } })));
+    }
+    return;
+  }
+  const sv = e.target.closest('[data-seat-verb]');
+  if (sv && !sv.disabled){
+    const tgt = byId(sv.dataset.target); if (!tgt) return;
+    const v0 = sv.dataset.val;
+    runVerb(tgt, sv.dataset.seatVerb, v0 === 'true' ? true : v0 === 'false' ? false : v0);
+    return;
+  }
+  const sd = e.target.closest('[data-seat-destroy]');
+  if (sd){ destroyBox(sd.dataset.seatDestroy); return; }
+});
+$('inspector').addEventListener('change', e => {
+  if (e.target.classList && e.target.classList.contains('rename2')){
+    const t = byId(e.target.dataset.target); if (!t) return;
+    const v = e.target.value.trim();
+    if (v && v !== t.label){ pushHistory(); t.label = v; render(); }
+    return;
+  }
+  const n = actingAs !== 'CRADS' ? byId(actingAs) : null; if (!n) return;
+  if (e.target.id === 'rename'){
+    const v = e.target.value.trim();
+    if (v && v !== n.label){ pushHistory(); n.label = v; render(); }
+  }
+});
+
+/* findings drawer (platform seat only) */
+$('findingsPill').addEventListener('click', () => {
+  const dr = $('drawer');
+  dr.dataset.open = dr.dataset.open === '1' ? '0' : '1';
+  if (dr.dataset.open === '1') $('ratesDrawer').dataset.open = '0'; });
+$('drawerX').addEventListener('click', () => { $('drawer').dataset.open = '0'; });
+$('violations').addEventListener('click', e => {
+  const v = e.target.closest('[data-goto]'); if (!v) return;
+  sel = v.dataset.goto; render();
+});
+
+/* views */
+document.querySelectorAll('[data-layer]').forEach(b =>
+  b.addEventListener('click', () => {
+    const was = layer;
+    layer = b.dataset.layer;
+    document.querySelectorAll('[data-layer]').forEach(x =>
+      x.setAttribute('aria-pressed', String(x === b)));
+    /* the Pricing drawer is the Value view's control surface: surface it on
+       entry, put it away when the money view is left */
+    if (layer === 'value' && was !== 'value') openRates(true);
+    else if (layer !== 'value') openRates(false);
+    render(); fitView();
+  }));
+$('legendBtn').addEventListener('click', e => {
+  const lg = $('legend');
+  const open = lg.dataset.open === '1';
+  lg.dataset.open = open ? '0' : '1';
+  e.currentTarget.setAttribute('aria-pressed', String(!open));
+});
+$('undoBtn').addEventListener('click', doUndo);
+$('redoBtn').addEventListener('click', doRedo);
+
+/* cmd-k */
+let ckHot = 0;
+function openCK(){
+  $('ckwrap').dataset.open = '1';
+  $('ckInput').value = ''; ckHot = 0; fillCK('');
+  $('ckInput').focus();
+}
+function closeCK(){ $('ckwrap').dataset.open = '0'; }
+function fillCK(q){
+  const ql = q.toLowerCase();
+  const hits = nodes.filter(n => n.label.toLowerCase().includes(ql)).slice(0, 12);
+  ckHot = Math.min(ckHot, Math.max(0, hits.length - 1));
+  $('ckList').innerHTML = hits.map((n, i) =>
+    `<button class="mi" data-ck="${n.id}" data-hot="${i === ckHot ? 1 : 0}">
+      <span>${esc(n.label)}</span>
+      <span class="k2">${n.pebbles ? 'rock' : 'pebble'} \u00b7 owner ${esc(ownerLbl(n))}</span></button>`).join('')
+    || '<p class="empty" style="padding:10px 12px">No mineral by that name.</p>';
+}
+function pickCK(id){
+  closeCK(); sel = id; render();
+  const r = vp.getBoundingClientRect();
+  const el = world.querySelector(`.bx[data-id="${id}"]`);
+  if (el){
+    const bx = parseFloat(el.style.left) || 0, by = parseFloat(el.style.top) || 0;
+    PX = r.width/2 - (bx + NW/2) * Z;
+    PY = r.height/2.4 - by * Z;
+    applyView();
+  }
+}
+$('ckBtn').addEventListener('click', openCK);
+$('ckInput').addEventListener('input', e => { ckHot = 0; fillCK(e.target.value); });
+$('ckInput').addEventListener('keydown', e => {
+  const hits = [...$('ckList').querySelectorAll('[data-ck]')];
+  if (e.key === 'ArrowDown'){ e.preventDefault(); ckHot = Math.min(ckHot+1, hits.length-1); fillCK(e.target.value); }
+  if (e.key === 'ArrowUp'){ e.preventDefault(); ckHot = Math.max(ckHot-1, 0); fillCK(e.target.value); }
+  if (e.key === 'Enter' && hits[ckHot]) pickCK(hits[ckHot].dataset.ck);
+  if (e.key === 'Escape') closeCK();
+});
+$('ckList').addEventListener('click', e => {
+  const b = e.target.closest('[data-ck]'); if (b) pickCK(b.dataset.ck);
+});
+$('ckwrap').addEventListener('click', e => { if (e.target === $('ckwrap')) closeCK(); });
+
+/* keyboard */
+document.addEventListener('keydown', e => {
+  const tag = (document.activeElement || {}).tagName || '';
+  const typing = /INPUT|SELECT|TEXTAREA/.test(tag);
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'){
+    e.preventDefault(); openCK(); return; }
+  if (typing) return;
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z'){
+    e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y'){
+    e.preventDefault(); doRedo(); return; }
+  if (e.key === 'Escape'){
+    if (menuEl){ closeMenu(); return; }
+    if ($('iowrap').dataset.open === '1'){ closeIO(); return; }
+    if ($('ckwrap').dataset.open === '1'){ closeCK(); return; }
+    if ($('ratesDrawer').dataset.open === '1'){ openRates(false); return; }
+    if ($('drawer').dataset.open === '1'){ $('drawer').dataset.open = '0'; return; }
+  }
+});
+
+/* ------------------------------------------------------------ rates wiring ---
+   The Pricing drawer edits PRICE in place; the drawer body itself is never
+   re-rendered by render(), so a drag or keystroke keeps its control. Rates are
+   settings, not sheet state: no undo, persisted locally. */
+$('ratesBody').addEventListener('input', e => {
+  const t = e.target;
+  const v = Math.max(0, Math.round(+t.value) || 0);
+  let twin = null;
+  /* Authority is enforced HERE as well as by the disabled attribute. Disabled
+     is the affordance; this is the rule. They can drift apart for one frame
+     after a seat change, and a disabled attribute is a suggestion to anyone
+     with a devtools console. */
+  if (t.dataset.tier !== undefined){
+    if (!rateEditable('__tier')) return;
+    PRICE.tiers[+t.dataset.tier][t.dataset.tf] = v;
+    if (t.dataset.tf === 'fee') twin = `[data-tier="${t.dataset.tier}"][data-tf="fee"]`;
+  } else if (t.dataset.rate){
+    if (!rateEditable(t.dataset.rate)) return;
+    PRICE[t.dataset.rate] = v;
+    twin = `[data-rate="${t.dataset.rate}"]`;
+  } else return;
+  /* dual-bound price controls: dragging the slider moves the number, and back */
+  if (twin) $('ratesBody').querySelectorAll(twin).forEach(x => { if (x !== t) x.value = v; });
+  saveRates();
+  render();
+});
+/* Reset restores only the figures THIS seat sets, so a community cannot
+   reset the platform's prices by pressing a button labelled Reset, and
+   vice versa. */
+$('rateReset').addEventListener('click', () => {
+  const keys = actingAs === 'CRADS' ? [...CRADS_RATES] : actingIsCommunity() ? [...COMMUNITY_RATES] : [];
+  if (REAL || !keys.length) return;
+  keys.forEach(k => { PRICE[k] = PRICE_DEFAULTS[k]; });
+  if (actingAs === 'CRADS') PRICE.tiers = cloneRates(PRICE_DEFAULTS).tiers;
+  saveRates(); drawRates(); render();
+});
+const openRates = (on) => {
+  $('ratesDrawer').dataset.open = on ? '1' : '0';
+  if (on) $('drawer').dataset.open = '0';   /* one drawer at a time */
+};
+$('ratesBtn').addEventListener('click', () =>
+  openRates($('ratesDrawer').dataset.open !== '1'));
+$('ratesX').addEventListener('click', () => openRates(false));
+
+seq = 10;
+loadRates();
+drawRates();
+render();
+fitView();
+
+/* =========================== REAL MODE (2026-08-03) ========================
+   ?real=1 replaces the example world with THIS box's own network, read from
+   /topology/world, and freezes every verb. Same page, same renderer, same
+   model: the member gets the thing we actually built, showing their network
+   instead of Acme CoLab's.
+
+   Frozen rather than hidden. The verbs stay visible because they are how this
+   page explains what CAN happen to a box, and the app-link layer already says
+   where each one happens for real. What they must not do is imply that
+   clicking here changed anything: the world on screen is a reading of a real
+   box, and this page has no authority over it. */
+function frozen(){
+  if (!REAL) return false;
+  const b = $('freezeNote');
+  if (b) { b.dataset.show = '1'; clearTimeout(frozen._t); frozen._t = setTimeout(() => { b.dataset.show = ''; }, 4000); }
+  return true;
+}
+if (REAL) {
+  let lastWorld = '';
+  /* every entry point that mutates the world. Kept as an explicit list rather
+     than a flag inside render(), so a NEW mutator added later fails loudly in
+     review instead of silently becoming writable in real mode. */
+  const freeze = (name) => { const f = window[name]; if (typeof f === 'function') window[name] = function(){ if (frozen()) return; return f.apply(this, arguments); }; };
+  ['runVerb', 'sendReq', 'arrive', 'stamp', 'destroyBox'].forEach(freeze);
+
+  const worldNote = (msg) => { const s = $('realNote'); if (s) s.textContent = msg; };
+  fetch('/topology/world', { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ host: new URLSearchParams(location.search).get('host') || '' }) })
+    .then(r => r.json())
+    .then(w => {
+      if (!w || !w.ok) { worldNote(w && w.reason ? w.reason : 'Your mineral could not be read, so this is not your network.'); return; }
+      const built = [];
+      /* the rock exists only if the box named one: see worldFacts in
+         panel-server.mjs for why managed_by must never decide this */
+      if (w.org) built.push(mk('org', null, w.org.label, { pebbles: true, framework: w.box.framework || '' }));
+      built.push(mk('you', w.org ? 'org' : null, w.box.label, {
+        pebbles: w.box.tier === 'rock',
+        owner: w.box.ownedByOrg && w.org ? 'org' : 'self',
+        runs: w.box.runs,
+        origin: w.box.origin,
+        grafts: w.box.grafts || [],
+      }));
+      nodes = built;
+      preset = 'real';
+      actingAs = 'you'; sel = 'you'; requests = []; reqSeq = 0; seq = 100; lastChange = null;
+      undoStack.length = 0; redoStack.length = 0;   /* nothing before a reading to undo TO */
+      worldNote(w.devices.length
+        ? `Your network, read from your mineral. ${w.devices.length} computer${w.devices.length === 1 ? '' : 's'} can open it${w.support.active ? ', and a Crads AI support window is open' : ''}.`
+        : 'Your network, read from your mineral.');
+      lastWorld = JSON.stringify([w.org, w.box, w.devices, w.support]);
+      render(); fitView();
+    })
+    .catch(() => worldNote('Your mineral could not be reached, so this is not your network.'));
+
+  /* Live, not a snapshot (Sam, 2026-08-03: "just a visual, which should change
+     in real time"). Re-read the box on a slow heartbeat and redraw ONLY when
+     the world actually changed: render() on identical facts would still cost a
+     layout, and fitView() would yank the member's pan/zoom for nothing. The
+     view is refit only when the SHAPE changed (a node appeared or went), not
+     when a fact on an existing node moved. */
+  const readWorld = () => fetch('/topology/world', { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ host: new URLSearchParams(location.search).get('host') || '' }) })
+    .then(r => r.json());
+  setInterval(() => {
+    readWorld().then(w => {
+      if (!w || !w.ok) return;   /* a blip never blanks a drawn map */
+      const sig = JSON.stringify([w.org, w.box, w.devices, w.support]);
+      if (sig === lastWorld) return;
+      lastWorld = sig;
+      const before = nodes.map(n => n.id).join(',');
+      const built = [];
+      if (w.org) built.push(mk('org', null, w.org.label, { pebbles: true, framework: w.box.framework || '' }));
+      built.push(mk('you', w.org ? 'org' : null, w.box.label, {
+        pebbles: w.box.tier === 'rock',
+        owner: w.box.ownedByOrg && w.org ? 'org' : 'self',
+        runs: w.box.runs, origin: w.box.origin, grafts: w.box.grafts || [],
+      }));
+      nodes = built;
+      if (!nodes.some(n => n.id === sel)) sel = 'you';
+      if (!nodes.some(n => n.id === actingAs)) actingAs = 'you';
+      worldNote(w.devices.length
+        ? `Your network, read from your mineral. ${w.devices.length} computer${w.devices.length === 1 ? '' : 's'} can open it${w.support.active ? ', and a Crads AI support window is open' : ''}.`
+        : 'Your network, read from your mineral.');
+      render();
+      if (nodes.map(n => n.id).join(',') !== before) fitView();
+    }).catch(() => {});
+  }, 20000);
+}
+</script>
+
+<!-- ======================= APP-LINK LAYER (product copy only) =======================
+     Not in the mockup. The sandbox above simulates every verb on the model; this
+     layer adds "do it for real" links next to the verbs that have a REAL surface
+     in the app face this page was served from. The server stamps the edition into
+     the placeholder below; opened as a bare file (or with the placeholder
+     unreplaced) nothing decorates and the sandbox is untouched.
+     HONESTY RULE for the map: a row exists only for a verb whose target section
+     verifiably exists in that edition's app today. A verb with no real surface
+     gets no link, matching the sandbox's unbuilt-flag discipline. -->
+<style>
+.applink{font-size:10.5px; color:var(--accent, #5457D6); text-decoration:none;
+  margin-left:2px; padding:2px 5px; border:1px solid currentColor; border-radius:6px;
+  opacity:.75; white-space:nowrap; vertical-align:middle}
+.applink:hover{opacity:1; text-decoration:none}
+/* read-only in the app (Sam's ruling 2026-08-03): simulated verbs go inert */
+.model-only{opacity:.45 !important; cursor:default !important}
+.ro-chip{font-size:10px; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--faint, #8792A2); border:1px solid var(--line2, #D6DEE8);
+  border-radius:6px; padding:2px 7px; margin-left:6px; white-space:nowrap}
+</style>
+<script>
+(() => {
+  const EDITION = '__AIOS_EDITION__';
+  if (EDITION !== 'org' && EDITION !== 'member') return;
+  /* selector -> per-edition [href, tooltip]. Decorated inside the inspector after
+     each of its renders. `once` collapses repeated matches (request cards) to one
+     link on the first match. */
+  const LINKS = [
+    /* verified 2026-08-03 audit: every row names a surface that exists and
+       ACTS in that edition's app. Org-only rows are deliberate (Sam's ruling):
+       a member seeing Pause/Leave/Rejoin gets no chip, because their app has
+       no way to run them today. */
+    { match: '[data-dial="owner"]',
+      org:    ['/panel.html#pebbles', 'For real: ownership transfers run on the Members cards'],
+      member: ['/panel.html#dashboard', 'For real: accept a staged rock transfer on your dashboard'] },
+    { match: '[data-dial="home"]',
+      org:    ['/panel.html#rocks', 'For real: send a re-anchor ask from the Organisations tab'] },
+    { match: '[data-seat-verb="support"]',
+      member: ['/panel.html#sharing', 'For real: grant or revoke support access under Sharing'] },
+    { match: '[data-seat-destroy]',
+      org:    ['/panel.html#yourrock', 'For real: tear a member mineral down under Your rock'] },
+    { match: '[data-seat-verb="status"]', once: true,
+      org:    ['/panel.html#pebbles', 'For real: Pause, Resume and Leave live on the Members cards'] },
+    { match: '[data-seat-verb="hpause"]',
+      org:    ['/panel.html#pebbles', 'For real: Pause delivery sits on the member card under Members'] },
+    { match: '[data-menu="joinSeat"]',
+      org:    ['/panel.html#rocks', 'For real: send a late-attach ask from the Organisations tab'],
+      member: ['/door', 'For real: join a rock from the start screen'] },
+    { match: '[data-req-send="rejoin"]',
+      org:    ['/panel.html#rocks', 'For real: send an invite-back (rejoin) from the Organisations tab'] },
+    { match: '[data-req-send="graft"]',
+      org:    ['/panel.html#rocks', 'For real: offer your framework (reframe) from the Organisations tab'] },
+    { match: '#newBtn',
+      org:    ['/panel.html#decisions', 'For real: stamp a pebble or invite a member under Decisions'] },
+    { match: '.rename2',
+      member: ['/console', 'For real: rename your mineral from your console'] },
+    { match: '[data-req-answer]', once: true,
+      org:    ['/panel.html#rocks', 'For real: requests wait on the Organisations tab'],
+      member: ['/console', 'For real: your console shows what is waiting on you'] },
+  ];
+  /* READ-ONLY IN THE APP (Sam's ruling 2026-08-03): the network view must not
+     pretend to act. Every simulated box verb goes inert; what stays live is
+     READING (seat switch, layers, examples, zoom, find) and the ↗ links,
+     which are the actual real actions. The bare file (mockup) keeps full
+     simulation: this block only runs under a served edition. */
+  const RO_BLOCK = '[data-seat-verb],[data-dial],[data-menu],[data-req-send],[data-req-answer],[data-seat-destroy],#newBtn,.who-edit';
+  const inert = (root) => {
+    root.querySelectorAll(RO_BLOCK).forEach((el) => {
+      if (el.classList.contains('model-only')) return;
+      el.classList.add('model-only');
+      if ('disabled' in el) el.disabled = true;
+      if (el.tagName === 'INPUT') el.readOnly = true;
+      if (!el.title) el.title = 'model only here: the real action is the link beside it';
+    });
+  };
+  const decorate = (root) => {
+    inert(root);
+    for (const row of LINKS){
+      const to = row[EDITION];
+      if (!to) continue;
+      const hits = root.querySelectorAll(row.match);
+      for (let i = 0; i < hits.length; i++){
+        if (row.once && i > 0) break;
+        const el = hits[i];
+        if (el.nextElementSibling && el.nextElementSibling.classList
+          && el.nextElementSibling.classList.contains('applink')) continue;
+        const a = document.createElement('a');
+        a.className = 'applink'; a.href = to[0]; a.title = to[1];
+        a.textContent = 'in app ↗';
+        /* Framed in the app (the read-only Network tab), a new browser tab is
+           the wrong door: the real surface lives in the window this frame is
+           already inside. Ask the rock to go there. Everywhere else this
+           stays a plain link that keeps the sandbox world intact. */
+        if (REAL && window.rock !== window){
+          a.href = 'javascript:void 0';
+          a.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            try { window.rock.postMessage({ type: 'crads-app-nav', href: to[0] }, location.origin); } catch (e) {}
+          });
+        } else { a.target = '_blank'; a.rel = 'noopener'; }
+        el.insertAdjacentElement('afterend', a);
+      }
+    }
+  };
+  const insp = document.getElementById('inspector');
+  if (!insp) return;
+  /* the inspector redraws by innerHTML on every model change; re-decorate after
+     each. Inserting links re-fires the observer: the already-decorated guard
+     above makes that second pass a no-op, so there is no loop. */
+  new MutationObserver(() => decorate(insp)).observe(insp, { childList: true, subtree: true });
+  /* one whole-page pass at boot picks up the static toolbar (#newBtn); the
+     observer owns the inspector from here on */
+  decorate(document.body);
+  /* say why the buttons are quiet, once, in the toolbar */
+  const seatBtn = document.getElementById('seatBtn');
+  if (seatBtn) seatBtn.insertAdjacentHTML('afterend',
+    '<span class="ro-chip" title="This page shows the model. Buttons that would pretend to act are switched off; the small links act for real in your app.">view only · links act</span>');
+})();
+</script>

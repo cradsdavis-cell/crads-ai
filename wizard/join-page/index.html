@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Join your rock - Crads-AI</title>
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABhklEQVR42mNgGGyAV1BcildQvI1XUPwir6D4T15B8f8U4p9Qs0BmShGyPIFXUPwbFSzFhUFmJ+Cz/D+dcAK2YP9GRwd8Q4kOaPwQ1CgqJvk/0Uvj/5wik/9H+mz/35jtCMYgNkgMJAdSQ6Qj2pAdcJGQhpJwHbBljxc748UgNSC1RDjgIrIDcKZ2DWWZ/xsaLDAsOjPZ7v/mJkswBrHR5UF6QHrx5Q5kB+C0HBS8yAY3xOv/N9CUw1ALEgPJIasF6cXnCIIOQPY5yKfYLMbmEJBa5JAgywGgeES2XFSc6MQFVovsCCMtedIcAErJyAmOGJ+jY31Nuf+ra83/d6UZkh4CoOyEHOe0Kg9wOgCUpynxPQwLSMr/N8nP/e88pf+/RXXFf0ldQ+IcAEv5oOxFiQ/t2pv/+29aBcceC2eDHUXQAbD4ByUkci0H+RbZchhW8/UbAg4Y8CgY8EQ44NlwwAuiAS+KB0VlRO/qeMAbJAPeJBvwRunANssHvGMyKLpmg6JzOhAAAKk1Ca5ZgCEjAAAAAElFTkSuQmCC">
+<style>
+  /* Join page: design language per docs/superpowers/ui-overhaul/design-language.md.
+     Tokens are an inline copy of wizard/panel/vendor/tokens.css (this page ships as a
+     single static file on crads-ai.com; keep the block in lockstep with the canonical).
+     No external fetches: the type falls back from Inter to the system stack. */
+  :root{
+    --paper:#F7F5EF; --card:#FFFFFF; --card-2:#F1EFE7; --line:#E3E1D6; --line-2:#D3D1C4;
+    --ink:#1F2D24; --soft:#5C6B60; --soft-2:#4F5D53; --faint:#8A968C;
+    --accent:#A4582C; --accent-hi:#C2703D; --accent-soft:color-mix(in srgb,#A4582C 10%,transparent); --on-accent:#FFFFFF;
+    --good:#4E7A55; --warn:#7E6C1E; --bad:#B3402E;
+    --focus:0 0 0 2px #F7F5EF, 0 0 0 4px #A4582C;
+    --shadow-1:0 1px 2px rgba(31,45,36,.05),0 4px 16px -8px rgba(31,45,36,.10);
+    --shadow-2:0 2px 6px rgba(31,45,36,.06),0 16px 40px -16px rgba(31,45,36,.18);
+    --sans:'Inter',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --serif:"Palatino Linotype",Palatino,Georgia,serif;
+    --r-input:8px; --r-btn:10px; --r-card:14px;
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --paper:#161A16; --card:#1D231E; --card-2:#232A24; --line:#2E362F; --line-2:#3B453C;
+      --ink:#E9ECE6; --soft:#9AA69B; --soft-2:#ABB5AC; --faint:#6F7B70;
+      --accent:#D08A52; --accent-hi:#DEA06C; --accent-soft:color-mix(in srgb,#D08A52 12%,transparent); --on-accent:#1C1108;
+      --good:#7FA884; --warn:#CBB755; --bad:#D9705C;
+      --focus:0 0 0 2px #161A16, 0 0 0 4px #D08A52;
+      --shadow-1:0 1px 2px rgba(0,0,0,.25),0 4px 16px -8px rgba(0,0,0,.4);
+      --shadow-2:0 2px 6px rgba(0,0,0,.3),0 16px 40px -16px rgba(0,0,0,.55);
+      color-scheme:dark;
+    }
+    /* dark card definition: same step as member.html iteration 8 (tokens' dark --card
+       sits 1.10:1 vs page and dissolves; the step + soft shadow define the card).
+       Single-card composition: the card border also takes a visible step in dark. */
+    body{--card:#262E25;--card-2:#2C342B}
+    .card{border-color:color-mix(in srgb,var(--soft) 35%,var(--line-2))}
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}
+  .wrap{max-width:480px;width:100%}
+
+  /* brand lockup (branded surface per design-language § brand) */
+  .brand{display:flex;align-items:center;gap:12px;margin:0 0 24px}
+  .brand svg{width:36px;height:36px;flex:none}
+  .brand svg rect{stroke:var(--line-2);stroke-width:1}
+  .brand .wordmark{font-family:var(--serif);font-size:18px;font-weight:700;letter-spacing:.01em;color:var(--ink)}
+  .brand .wordmark .am{color:var(--accent)}
+  .brand .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--soft-2);margin-top:2px;font-weight:500}
+
+  h1{font-size:20px;letter-spacing:-.015em;margin:0 0 4px;font-weight:650}
+  p{margin:8px 0;color:var(--soft-2)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);padding:24px;margin-top:16px;box-shadow:var(--shadow-1)}
+  .org{font-weight:600;color:var(--ink)}
+
+  .btnrow{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;background:var(--accent);color:var(--on-accent);border:1px solid var(--accent);border-radius:var(--r-btn);padding:11px 20px;font-size:14px;font-weight:650;font-family:inherit;text-decoration:none;cursor:pointer;transition:background .12s ease,border-color .12s ease,box-shadow .12s ease}
+  .btn:hover{background:var(--accent-hi);border-color:var(--accent-hi)}
+  .btn:active{transform:translateY(1px)}
+  .btn:focus-visible{outline:none;box-shadow:var(--focus)}
+  /* ghost = secondary: quieter weight AND color than the filled primary; its border
+     clears 2:1 vs the card (--faint samples 3.08 light / 3.16 dark; --line-2 sat at
+     1.53/1.40) and the hover strengthens border + fills the well */
+  .btn.ghost{background:var(--card);color:var(--ink);border-color:color-mix(in srgb,var(--soft) 40%,var(--faint));font-weight:500;box-shadow:var(--shadow-1)}
+  .btn.ghost:hover{background:var(--card-2);border-color:color-mix(in srgb,var(--soft) 30%,var(--faint))}
+
+  /* the 3-step how-it-works: a real numbered list, one step per line */
+  ol.stepslist{list-style:none;counter-reset:s;margin:14px 0 4px;padding:0}
+  ol.stepslist li{counter-increment:s;display:flex;gap:12px;align-items:baseline;padding:7px 0;font-size:13px;line-height:1.55;color:var(--soft-2)}
+  ol.stepslist li+li{border-top:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+  ol.stepslist li::before{content:counter(s);flex:none;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--line-2);background:var(--card-2);color:var(--ink);font-family:var(--mono);font-size:11px;font-weight:500;transform:translateY(3px)}
+  ol.stepslist b{color:var(--ink);font-weight:600}
+
+  .hint{font-size:13px;color:var(--soft-2);line-height:1.6;margin-top:14px}
+  .hint b{color:var(--ink);font-weight:600}
+  .hint a{color:var(--accent);text-decoration:none;border-radius:6px}
+  .hint a:hover{text-decoration:underline}
+  .hint a:focus-visible{outline:none;box-shadow:var(--focus)}
+  .fine{font-size:12px;color:var(--soft-2);line-height:1.6;margin-top:14px}
+  /* error text mixes toward ink for AA on the card (raw --bad samples 4.28:1 on the
+     stepped dark card; the 75% mix samples 5.54 dark / 7.47 light) */
+  .err{color:color-mix(in srgb,var(--bad) 75%,var(--ink));font-weight:500}
+  #opening,#fallback,#badlink{display:none}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line-2);border-top-color:var(--accent);border-radius:50%;animation:r .8s linear infinite;vertical-align:-2px;margin-right:8px}
+  /* track uses the wizard progress-segment recipe (mix soft 25% faint, verified
+     3.26:1 light / 4.63:1 dark) so the unfilled remainder reads as a track */
+  .probebar{height:4px;border-radius:2px;background:color-mix(in srgb,var(--soft) 25%,var(--faint));overflow:hidden;margin:10px 0 2px}
+  .probebar i{display:block;height:100%;background:var(--accent);animation:probe 2s linear forwards}
+  @keyframes probe{from{width:100%}to{width:0}}
+  @keyframes r{to{transform:rotate(360deg)}}
+  code{font-family:var(--mono);font-size:12.5px;color:var(--ink);background:var(--card-2);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+  /* fine print: unrelated facts sit on their own rows with ~14px of air between them */
+  .foot{font-size:12.5px;color:var(--soft-2);line-height:1.65;margin-top:20px;border-top:1px solid var(--line);padding-top:16px}
+  .foot p{margin:0}
+  .foot p+p{margin-top:14px}
+
+  /* bad-link recovery: paste box (mono, it holds a link) + quiet escape hatch */
+  #badlink label{display:block;font-size:13px;font-weight:500;color:var(--ink);margin:16px 0 6px}
+  #badlink input{width:100%;padding:10px 12px;border-radius:var(--r-input);border:1px solid var(--line-2);background:var(--card);color:var(--ink);font-size:12.5px;font-family:var(--mono);transition:border-color .12s ease}
+  #badlink input:hover{border-color:var(--faint)}
+  #badlink input:focus-visible{outline:none;border-color:var(--accent);box-shadow:var(--focus)}
+  #badlink input::placeholder{color:color-mix(in srgb,var(--soft) 88%,var(--faint));font-style:italic}
+  #pasteMsg{display:none}
+
+  @media (prefers-reduced-motion:reduce){
+    .spin{animation:none;border-top-color:var(--line-2)}
+    .probebar i{animation:none;width:50%}
+    .btn{transition:none}
+    .btn:active{transform:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="1" y="1" width="62" height="62" rx="14" fill="#FAF7EE"/>
+      <path d="M32 8.32 A24.2 24.2 0 0 1 32 53.12 A24.2 24.2 0 0 1 32 8.32 Z" fill="none" stroke="#173D2A" stroke-width="2.69" stroke-linejoin="round"/>
+      <line x1="32" y1="12.8" x2="32" y2="53.12" stroke="#173D2A" stroke-width="2.69" stroke-linecap="round"/>
+      <line x1="32" y1="21.76" x2="39.44" y2="19.09" stroke="#173D2A" stroke-width="2.69" stroke-linecap="round"/>
+      <circle cx="42.7" cy="17.92" r="3.46" fill="#C2703D" stroke="#A4582C" stroke-width="2.69"/>
+      <line x1="32" y1="26.24" x2="25.07" y2="20.65" stroke="#173D2A" stroke-width="2.69" stroke-linecap="round"/>
+      <circle cx="23.27" cy="19.2" r="2.3" fill="none" stroke="#173D2A" stroke-width="2.69"/>
+      <line x1="32" y1="31.62" x2="40.56" y2="25.3" stroke="#173D2A" stroke-width="2.69" stroke-linecap="round"/>
+      <circle cx="42.41" cy="23.94" r="2.3" fill="none" stroke="#173D2A" stroke-width="2.69"/>
+      <line x1="32" y1="36.1" x2="22.84" y2="29.17" stroke="#173D2A" stroke-width="2.69" stroke-linecap="round"/>
+      <circle cx="21" cy="27.78" r="2.3" fill="none" stroke="#173D2A" stroke-width="2.69"/>
+      <line x1="32" y1="41.47" x2="41.01" y2="33.98" stroke="#173D2A" stroke-width="2.69" stroke-linecap="round"/>
+      <circle cx="42.78" cy="32.51" r="2.3" fill="none" stroke="#173D2A" stroke-width="2.69"/>
+      <line x1="32" y1="45.95" x2="23.87" y2="37.97" stroke="#173D2A" stroke-width="2.69" stroke-linecap="round"/>
+      <circle cx="22.22" cy="36.35" r="2.3" fill="none" stroke="#173D2A" stroke-width="2.69"/>
+    </svg>
+    <div>
+      <div class="wordmark">crads-<span class="am">ai</span></div>
+      <div class="tag">Your private assistant</div>
+    </div>
+  </div>
+
+  <h1>Join your rock</h1>
+
+  <div class="card" id="opening">
+    <p><span class="spin" aria-hidden="true"></span>Opening the Crads-AI app<span id="orgline"></span>…</p>
+    <!-- the probe window is a KNOWN 2s duration, so the wait gets a determinate bar
+         (final-round judges' ask); reduced-motion freezes it and the copy carries -->
+    <div class="probebar" aria-hidden="true"><i></i></div>
+    <p class="hint">If nothing happens in a couple of seconds, the app probably isn't installed yet; the download button will appear here.</p>
+  </div>
+
+  <div class="card" id="fallback">
+    <p>You'll need the Crads-AI app<span id="orgline2"></span>. It takes about a minute:</p>
+    <ol class="stepslist">
+      <li><span><b>Install and open the app.</b> The download button below picks the right version for this computer.</span></li>
+      <!-- "I have an invitation", verbatim off the door's own button (finding 142,
+           2026-08-16). This said "choose Join", and the door has a DIFFERENT button
+           called "Join a community" which wants a rock handle, not an invite link.
+           The one word sent the reader to the one screen their link cannot answer. -->
+      <li><span><b>It finds your invite by itself.</b> Nothing to type or paste. (If it ever asks, choose <b>I have an invitation</b> and paste this page's link.)</span></li>
+      <li id="step3"><span><b>Sign in with the email address this invite was sent to.</b> The invite only works for that address.</span></li>
+    </ol>
+    <p class="btnrow"><a class="btn" id="dlBtn" href="#" rel="noopener">Download the app</a>
+       <button class="btn ghost" id="copyBtn">Copy my invite</button></p>
+    <!-- 48 hours because that is the only expiry any code enforces: CLAIM_TTL_MS in
+         cockpit/jobs/enrol-arrivals.mjs, which refuses an older claim outright. This
+         line used to say 14 days, a number nothing anywhere enforces, while the email
+         that brought the reader here said 48 hours and the deployed page said neither
+         (finding 140, 2026-08-16). One link, three promises. -->
+    <p class="fine" id="expiry">This invite is good for 48 hours. If it lapses, ask for a fresh one.</p>
+    <p class="hint">Already installed? <a href="#" id="retry">Try opening the app again</a>.</p>
+  </div>
+
+  <div class="card" id="badlink">
+    <p class="err" id="badwhy">This link doesn't look like a complete invite.</p>
+    <p class="hint">Links sometimes get cut in half when forwarded. If you have the original message, paste the whole link below and this page carries on by itself. Otherwise ask whoever sent it to copy it again (it starts with <code>https://crads-ai.com/join#v1.</code>).</p>
+    <label for="pasteLink">Paste the full invite link</label>
+    <input id="pasteLink" placeholder="https://crads-ai.com/join#v1.&hellip;" autocomplete="off" spellcheck="false">
+    <p class="hint err" id="pasteMsg"></p>
+    <p class="hint">Think the link is fine? <a href="#" id="openAnyway">Try opening the app anyway</a>.</p>
+  </div>
+
+  <div class="foot">
+    <p>Your assistant is private to you and yours from the start. Your rock can send things to it but cannot read it; that only changes if you yourself accept a transfer of custody in the app, and you are told the moment ownership or access changes.</p>
+    <p>This page runs entirely in your browser: the invite in the link never leaves it.</p>
+  </div>
+</div>
+<script>
+  // KEEP IN LOCKSTEP with join-parse.mjs (the unit-tested twin of this logic).
+  function parseJoinFragment(fragment){
+    var raw = String(fragment || '').replace(/^#/, '');
+    if (!raw) return { ok: false, reason: 'No invite in the link' };
+    var parts = raw.split('.');
+    if (parts[0] !== 'v1' || parts.length < 4) return { ok: false, reason: 'Not a v1 invite fragment' };
+    var org = parts[1], slug = parts[2], b64 = parts.slice(3).join('.');
+    if (!/^[A-Za-z0-9][A-Za-z0-9 _-]{0,62}$/.test(org) || !/^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$/.test(slug)) return { ok: false, reason: 'Invalid org or member name' };
+    var decoded;
+    try { decoded = atob(b64.replace(/-/g, '+').replace(/_/g, '/')); }
+    catch (e) { return { ok: false, reason: 'Invite payload is not decodable' }; }
+    var f = decoded.split('|');
+    if (f.length < 4 || !f[0] || !f[3]) return { ok: false, reason: 'Invite payload is incomplete' };
+    // f[6] = the ANCHOR org, which is NOT `org` above (finding 136, 2026-08-16).
+    // `org` is the STAGING LANE, which fulfil-arrivals sets to crads-solo on every
+    // invite it mints, anchored or not, because that is where the enrol job holds
+    // the pull token. Reading the lane as "has no organisation" stripped the
+    // sign-in step from every rock-anchored pebble. Absent on older links.
+    return { ok: true, org: org, slug: slug, anchor: f[6] || '', appUrl: 'crads-ai://join/' + raw };
+  }
+  function downloadFor(ua){
+    // ASSET urls, not the releases page. /releases/latest 302s to the release LIST
+    // here, because the rolling build is a prerelease and GitHub excludes those from
+    // `latest`, so every button dropped the member on four files and asked them to
+    // pick. Keep in lockstep with wizard/join-page/join-parse.mjs.
+    var rel = 'https://github.com/cradsdavis-cell/crads-ai-app/releases/download/wizard-app';
+    // Phones first: recent iPadOS reports "Mac" in its UA.
+    if (/iPhone|iPad|iPod|Android|Mobile/i.test(ua)) return { mobile: true, label: 'Download the app', url: rel + '/crads-ai.exe' };
+    if (/Windows/i.test(ua)) return { label: 'Download for Windows', url: rel + '/crads-ai.exe' };
+    if (/Mac/i.test(ua)) return { label: 'Download for Mac', url: rel + '/crads-ai-mac.zip' };
+    return { label: 'Download the app', url: rel + '/crads-ai.exe' };
+  }
+
+  var $ = function(id){ return document.getElementById(id); };
+  var inv = parseJoinFragment(location.hash);
+  if (!inv.ok) {
+    $('badlink').style.display = 'block';
+    // recovery: re-run the same fragment parse on whatever gets pasted; a complete
+    // link navigates straight back into the normal flow (keyboard path: Tab lands on
+    // the input, then the escape-hatch link).
+    var paste = $('pasteLink');
+    function tryPasted(){
+      var t = String(paste.value || '').trim();
+      if (!t) { $('pasteMsg').style.display = 'none'; return; }
+      var frag = t.indexOf('#') > -1 ? t.slice(t.indexOf('#')) : ('#' + t);
+      var p = parseJoinFragment(frag);
+      if (p.ok) {
+        location.replace(location.pathname + frag);   // hash-only change: reload to re-run the flow
+        location.reload();
+        return;
+      }
+      // don't nag on every keystroke: only call it incomplete once it plausibly is a whole paste
+      if (t.length > 24) { $('pasteMsg').textContent = 'Still not a complete invite (' + p.reason + '). Copy the whole link, right to its end.'; $('pasteMsg').style.display = 'block'; }
+      else $('pasteMsg').style.display = 'none';
+    }
+    paste.addEventListener('input', tryPasted);
+    paste.addEventListener('paste', function(){ setTimeout(tryPasted, 0); });
+    $('openAnyway').onclick = function(e){
+      e.preventDefault();
+      location.href = 'crads-ai://join/' + String(location.hash || '').replace(/^#/, '');
+    };
+  } else {
+    // A STANDALONE pebble stages its redeem under the internal route handle
+    // `crads-solo`. That is plumbing, not a rock the reader belongs to, so naming it
+    // read as "for crads-solo" on a box that has no rock at all. The sign-in step is
+    // wrong for them too, and doubly so: since 2026-07-30 a solo claim skips the
+    // Google handshake entirely, because there is no rock for a signed token to
+    // prove anything to. The invite token IS the proof.
+    //
+    // THIS FILE NEVER GOT THAT FIX (finding 141, 2026-08-16). Commit d16110f said
+    // "both now carry the anchor field and the same solo test" and --stat shows it
+    // touched join-parse.mjs and its test, nothing else. The deployed page got it;
+    // this one, which wizard/dev-harness/harness.mjs serves at /join, did not, so
+    // every design and QA pass since has been reading a page that is not the
+    // product. Kept in lockstep with isSolo() in join-parse.mjs, deliberately the
+    // same expression rather than a second opinion on the same question.
+    var solo = inv.anchor ? false : (inv.org === 'crads-solo');
+    // WHICH NAME, which is a DIFFERENT question from the one above (finding 158,
+    // 2026-08-16). The line under it read the anchor to decide WHETHER to name a
+    // rock and then printed the LANE as that rock's name, so this page said, live
+    // and verbatim, "You'll need the Crads-AI app for crads-solo" to a member
+    // whose rock is qa-r2-gmail. Fourth reader of this one field to answer the
+    // owner question with the lane, after 135, 136 and 139.
+    //
+    // The ANCHOR is the only field in the link that names the owning rock, so it
+    // is the only thing this page can honestly print. It is a HANDLE, not the
+    // display name: `QA Run Two Gmail` lives in route:<org>.org_display in the
+    // directory, and this page resolves nothing server-side on purpose, so the
+    // handle is what it has. Same fallback the Minerals page already renders
+    // (org_display || org). The lane is still right for a rock-minted invite,
+    // which carries that rock's handle there and no anchor; with neither there is
+    // nothing to name. Kept in lockstep with orgLabel() in join-parse.mjs.
+    //
+    // Validated only because it is PAINTED: `solo` above stays a bare truthiness
+    // test so it cannot drift from signInRequired() in member-connect.mjs, which
+    // enforces the sign-in. A malformed anchor therefore loses its name and keeps
+    // its sign-in, never the other way round.
+    var orgName = inv.anchor || (solo ? '' : inv.org);
+    if (!/^[A-Za-z0-9][A-Za-z0-9 _-]{0,62}$/.test(orgName)) orgName = '';
+    var orgTxt = orgName ? ' for <span class="org">' + orgName.replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }) + '</span>' : '';
+    $('orgline').innerHTML = orgTxt; $('orgline2').innerHTML = orgTxt;
+    // THE SOLO OVERRIDE IS GONE (Harriet's audit 2026-08-21, point 5). This branch used to
+    // replace step 3 with "That is it: no password, no sign-in", which described the flow
+    // honestly at the time and is now false: signInRequired() in member-connect.mjs returns
+    // true for a solo invite, and POST /redeem refuses a tokenless solo claim once
+    // REQUIRE_VERIFIED_REDEEM is armed. The STATIC step 3 above already states exactly the
+    // promise the flow now keeps ("Sign in with the email address this invite was sent to"),
+    // so the fix is to stop overriding it rather than to invent a third wording that can
+    // drift from the other two. That is the whole lesson of the 135 -> 136 -> 139 -> 141
+    // chain: this page's job is to print what the flow does, and every time the two were
+    // edited separately the page told somebody something the code did not do.
+    //
+    // `solo` still decides the NAME above and that is deliberately untouched: which rock to
+    // print is a different question off the same field (finding 158), and collapsing the two
+    // is how "You'll need the Crads-AI app for crads-solo" reached a live member.
+    if (!solo) {
+      // a rock can revoke its member's invite; a standalone box's cannot be revoked
+      // by anyone but Sam, so only the anchored line carries that caveat. Same 48
+      // hours either way (finding 140): only the caveat differs.
+      var ex = $('expiry');
+      if (ex) ex.textContent = 'This invite is good for 48 hours, and your rock can revoke it sooner.';
+    }
+    var dl = downloadFor(navigator.userAgent);
+    if (dl.mobile) {
+      // Phones cannot run the desktop app: dead-ending on a .exe/.dmg page helps nobody.
+      $('dlBtn').style.display = 'none';
+      var mob = document.createElement('p'); mob.className = 'hint';
+      mob.innerHTML = '<b>On your phone?</b> The Crads-AI app runs on computers (Windows and Mac). Open this same link on your computer, or copy your invite below and send it to yourself.';
+      $('fallback').insertBefore(mob, $('fallback').firstChild);
+    } else {
+      $('dlBtn').textContent = dl.label; $('dlBtn').href = dl.url;
+    }
+
+    function showFallback(){ $('opening').style.display = 'none'; $('fallback').style.display = 'block'; }
+    function tryApp(){
+      $('fallback').style.display = 'none';
+      $('opening').style.display = 'block';
+      if (document.hidden) {
+        // Background tab (middle-click / opened behind): attempting now would misread the
+        // hidden state as "app took focus". Wait until the tab is actually looked at.
+        var onVis = function(){ if (!document.hidden) { document.removeEventListener('visibilitychange', onVis); tryApp(); } };
+        document.addEventListener('visibilitychange', onVis);
+        return;
+      }
+      // If the app is installed, this hands the whole invite over and the page's job is done.
+      location.href = inv.appUrl;
+      var appTookFocus = false;
+      var onHide = function(){ if (document.hidden) appTookFocus = true; };
+      document.addEventListener('visibilitychange', onHide);
+      setTimeout(function(){
+        document.removeEventListener('visibilitychange', onHide);
+        if (!appTookFocus) showFallback();   // nothing answered the scheme: offer the download
+      }, 2000);
+    }
+    $('retry').onclick = function(e){ e.preventDefault(); tryApp(); };
+
+    $('copyBtn').onclick = function(){
+      var text = location.href, btn = $('copyBtn');
+      function done(okTxt){ btn.textContent = okTxt; setTimeout(function(){ btn.textContent = 'Copy my invite'; }, 2000); }
+      function legacy(){
+        try {
+          var t = document.createElement('textarea'); t.value = text;
+          t.style.position = 'fixed'; t.style.top = '-1000px'; document.body.appendChild(t);
+          t.focus(); t.select();
+          var ok = document.execCommand('copy'); document.body.removeChild(t);
+          done(ok ? 'Copied' : 'Press Ctrl-C');
+        } catch (e) { done('Press Ctrl-C'); }
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function(){ done('Copied'); }, legacy);
+      else legacy();
+    };
+
+    tryApp();
+  }
+</script>
+</body>
+</html>

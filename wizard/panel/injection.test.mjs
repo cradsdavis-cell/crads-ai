@@ -1,0 +1,155 @@
+// injection.test.mjs — operator and member TEXT must never be re-parsed as shell.
+//
+// The file's own contract (top of panel-server.mjs) is that the browser never
+// sends shell: every command is built server-side from validated args. Three
+// places broke it, all the same way. shq() produces a safe standalone shell WORD
+// (single-quoted, inner quotes escaped), and each of these took that word and
+// pasted it INSIDE another quoted context, where the quoting no longer holds:
+//
+//   * box-rename  -> inside a double-quoted echo, so $(...) ran
+//   * member-set-status pause reason -> inside a single-quoted sed script, where
+//     an apostrophe closes the quote and the rest concatenates
+//   * console-answer note -> inside a double-quoted curl body
+//
+// All three verified by running the built fragment before the fix. The pause one
+// was the nastiest: the injected command ran AND sed still got a valid script, so
+// the pause succeeded and nothing looked wrong.
+//
+// These tests EXECUTE the built commands against a temp file rather than pattern
+// matching them, because the whole class is about what a shell does with a string,
+// not what the string looks like.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { VERBS, MEMBER_VERBS } from './panel-server.mjs';
+import { tmpDir } from '../../tests/tmp-dir.mjs';
+
+// A payload that writes a marker file if the shell ever evaluates it.
+const withMarker = (dir) => {
+  const marker = join(dir, 'INJECTED');
+  return { marker, payload: `ok$(touch ${marker})` };
+};
+
+test('box-rename: a name containing $(...) is stored, never executed', () => {
+  const dir = tmpDir('inj-rename-');
+  const { marker, payload } = withMarker(dir);
+  // The verb routes through the one-name dual-writer (2026-08-09); point its
+  // box-image paths at this repo + a temp box so the built command still RUNS.
+  const cmd = MEMBER_VERBS['box-rename'].build({ name: payload }).command
+    .replaceAll('/app/engine/box/name-set.mjs', join(import.meta.dirname, '..', '..', 'engine', 'box', 'name-set.mjs'))
+    .replaceAll(' /state ', ` ${dir} `);
+  const out = execFileSync('bash', ['-c', cmd], { encoding: 'utf8' });
+
+  assert.ok(!existsSync(marker), 'the command substitution must NOT run');
+  assert.equal(readFileSync(join(dir, 'box-name'), 'utf8'), payload, 'the literal name is what gets stored');
+  assert.ok(readFileSync(join(dir, 'profile.yaml'), 'utf8').includes(payload), 'the assistant name matches (one-name ruling)');
+  assert.match(out, /OK: renamed to/, 'and the confirmation still prints');
+  assert.ok(out.includes(payload), 'echoing the name back is fine, executing it is not');
+});
+
+// The pause-reason injection test died with pause itself (ruling 2026-08-10:
+// member-set-status is resume-only). The surviving injection surface is the
+// legacy-reason CLEAR on release, proven below: same argv-not-sed shape, same
+// reason it exists (an apostrophe used to close the sed quote and execute).
+
+test('member-set-status: resume clears the reason without tripping the empty-string guard', () => {
+  // shq() refuses an empty string, so the resume path needs its own literal.
+  const dir = tmpDir('inj-resume-');
+  const row = join(dir, 'row.yaml');
+  writeFileSync(row, 'slug: "jane01"\npaused_reason: "was paused"\n');
+  const full = VERBS['member-set-status'].build({ slug: 'jane01', status: 'active', reason: '' }).command;
+  const start = full.indexOf('; R=') + 2;   // NB: not indexOf('R='), which matches BR="$(...)"
+  const end = full.indexOf('"$R"; ', start) + '"$R"; '.length;
+  execFileSync('bash', ['-c', full.slice(start, end).replaceAll('"$f"', JSON.stringify(row))], { encoding: 'utf8' });
+  assert.match(readFileSync(row, 'utf8'), /^paused_reason: ""$/m, 'resume clears it');
+});
+
+test('console-answer: the request body is built by node, so a note cannot reach the shell', () => {
+  // My first version of this test ran the whole verb and asserted no marker
+  // appeared. It passed BEFORE the fix, because the command dies at the
+  // brain-root check long before it reaches the note. A test that cannot fail on
+  // the bug is worse than none, so this one runs ONLY the body-building fragment
+  // with $ORG supplied, and asserts on the JSON that comes out.
+  const dir = tmpDir('inj-note-');
+  const { marker, payload } = withMarker(dir);
+  const note = `declined: they're "unsure" ${payload}`;
+  const cmd = VERBS['console-answer'].build({ id: 'a'.repeat(32), answer: 'declined', note }).command;
+
+  const start = cmd.indexOf('NOTE=');
+  const end = cmd.indexOf('"$NOTE")"; ') + '"$NOTE")"; '.length;
+  assert.ok(start > 0 && end > start, 'found the body fragment');
+  const out = execFileSync('bash', ['-c', `ORG=acme; ${cmd.slice(start, end)} printf '%s' "$BODY"`], { encoding: 'utf8' });
+
+  assert.ok(!existsSync(marker), 'the note must never be evaluated by the shell');
+  const body = JSON.parse(out);
+  assert.equal(body.note, note, 'the note travels verbatim, quotes and all');
+  assert.equal(body.org, 'acme');
+  assert.equal(body.id, 'a'.repeat(32));
+  assert.equal(body.answer, 'declined');
+});
+
+test('console-answer omits the note key entirely when there is no note', () => {
+  const cmd = VERBS['console-answer'].build({ id: 'b'.repeat(32), answer: 'accepted' }).command;
+  const start = cmd.indexOf('NOTE=');
+  const end = cmd.indexOf('"$NOTE")"; ') + '"$NOTE")"; '.length;
+  const out = execFileSync('bash', ['-c', `ORG=acme; ${cmd.slice(start, end)} printf '%s' "$BODY"`], { encoding: 'utf8' });
+  const body = JSON.parse(out);
+  assert.ok(!('note' in body), `an empty note must not become note:"" — got ${out}`);
+  assert.equal(body.answer, 'accepted');
+});
+
+
+// A small POSIX-quoting lexer: is index `target` inside a double-quoted region?
+//
+// Two corrections went into this, both caught by the negative control below,
+// which is the whole reason it exists. First attempt counted unescaped double
+// quotes and flagged two safe verbs, because a `"` inside a SINGLE-quoted region
+// is a literal. Second attempt only honoured backslash escapes INSIDE double
+// quotes, so it mis-parsed the `\'` that shq itself emits outside them. A guard
+// that cries wolf gets deleted, and one that misses the bug is decoration.
+function stateAt(str, target) {
+  let sq = false, dq = false;
+  for (let i = 0; i < str.length; i += 1) {
+    if (i === target) return { sq, dq };
+    const c = str[i];
+    if (!sq && c === '\\') { i += 1; continue; }   // backslash escapes everywhere except in ''
+    if (c === "'" && !dq) { sq = !sq; continue; }
+    if (c === '"' && !sq) { dq = !dq; continue; }
+  }
+  return { sq, dq };
+}
+
+test('the nesting lexer actually detects the bug it is looking for', () => {
+  // Negative control, using the REAL pre-fix box-rename shape.
+  const buggy = `printf '%s' 'x'\\''y' > /state/box-name && echo "OK: renamed to 'x'\\''y'"`;
+  const first = buggy.indexOf("'\\''");
+  const second = buggy.indexOf("'\\''", first + 1);
+  assert.ok(first !== -1 && second !== -1, 'both shq escapes located');
+  assert.equal(stateAt(buggy, first).dq, false, 'the printf argument is a bare word');
+  assert.equal(stateAt(buggy, second).dq, true, 'the echo copy is nested, and that was the hole');
+});
+
+test('no verb pastes a shq-quoted value inside a double-quoted string', () => {
+  // The structural version of the three bugs above: shq's guarantee is "safe as a
+  // standalone word", and it evaporates the moment the word is nested in "...".
+  const ARGS = {
+    slug: 'jane01', confirm: 'jane01', name: "x'y", label: "x'y", note: "x'y", reason: "x'y",
+    id: 'a'.repeat(32), answer: 'declined', kind: 'ask-read', status: 'paused',
+    skill_id: 'sk', org: 'other-org', page: 'a.md', role: 'admin', email: 'a@b.c',
+    pubkey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyMaterialForTheTestOnly0 t',
+  };
+  const offenders = [];
+  for (const [table, V] of [['org', VERBS], ['member', MEMBER_VERBS]]) {
+    for (const [name, spec] of Object.entries(V)) {
+      let cmd;
+      try { cmd = spec.build({ ...ARGS })?.command || ''; } catch { continue; }
+      // Every place shq had to escape a quote: the exact spot the old bugs lived.
+      for (let i = cmd.indexOf("'\\''"); i !== -1; i = cmd.indexOf("'\\''", i + 1)) {
+        if (stateAt(cmd, i).dq) { offenders.push(`${table}:${name}`); break; }
+      }
+    }
+  }
+  assert.deepEqual(offenders, [], `shq value nested in a double-quoted string: ${offenders.join(', ')}`);
+});

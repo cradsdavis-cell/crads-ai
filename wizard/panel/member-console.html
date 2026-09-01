@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.classList.add('embedded');</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABhklEQVR42mNgGGyAV1BcildQvI1XUPwir6D4T15B8f8U4p9Qs0BmShGyPIFXUPwbFSzFhUFmJ+Cz/D+dcAK2YP9GRwd8Q4kOaPwQ1CgqJvk/0Uvj/5wik/9H+mz/35jtCMYgNkgMJAdSQ6Qj2pAdcJGQhpJwHbBljxc748UgNSC1RDjgIrIDcKZ2DWWZ/xsaLDAsOjPZ7v/mJkswBrHR5UF6QHrx5Q5kB+C0HBS8yAY3xOv/N9CUw1ALEgPJIasF6cXnCIIOQPY5yKfYLMbmEJBa5JAgywGgeES2XFSc6MQFVovsCCMtedIcAErJyAmOGJ+jY31Nuf+ra83/d6UZkh4CoOyEHOe0Kg9wOgCUpynxPQwLSMr/N8nP/e88pf+/RXXFf0ldQ+IcAEv5oOxFiQ/t2pv/+29aBcceC2eDHUXQAbD4ByUkci0H+RbZchhW8/UbAg4Y8CgY8EQ44NlwwAuiAS+KB0VlRO/qeMAbJAPeJBvwRunANssHvGMyKLpmg6JzOhAAAKk1Ca5ZgCEjAAAAAElFTkSuQmCC">
+<title>Your mineral</title>
+<!-- The app's design tokens: this page wears them standalone AND embedded.
+     The seat view is the app's home page, so it must look like the app,
+     not like a second product (Sam, 2026-08-03). -->
+<link rel="stylesheet" href="/vendor/tokens.css">
+<link rel="stylesheet" href="/vendor/inter/inter.css">
+<style>
+  /* E6.1 minimum console, MEMBER seat. One-hop sight: this page only ever shows
+     the member's own mineral (its dials, its org, what waits on their consent). */
+  /* This page wears the APP'S tokens (tokens.css above), standalone and
+     embedded alike: the seat view is the app's home page, so a palette of its
+     own here meant the one page every member lands on looked like a different
+     product (the old purple console; Sam, 2026-08-03). The four names
+     tokens.css does not carry map onto ones it does, so light AND dark both
+     come from the app. */
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:0 0 60px}
+  header{display:flex;align-items:center;gap:14px;padding:14px 22px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  header h1{font-size:15px;font-weight:600}
+  header .right{margin-left:auto;display:flex;gap:10px;align-items:center}
+  a.secl{font:inherit;font-size:12.5px;padding:5px 11px;border:1px solid var(--line);border-radius:7px;color:var(--soft);text-decoration:none}
+  a.secl:hover{border-color:var(--accent);color:var(--accent)}
+  a.back{color:var(--accent);text-decoration:none;font-size:13px}
+  .badge{background:var(--chip);border:1px solid var(--line);border-radius:99px;padding:2px 10px;font-size:12px;color:var(--muted)}
+  .badge.req{background:#fdf4e7;border-color:#f0d9b8;color:var(--warn);font-weight:600}
+  main{max-width:640px;margin:22px auto;padding:0 22px;display:grid;gap:18px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px}
+  .boxcard{border:1.5px solid var(--accent);border-radius:12px;padding:14px;background:var(--card);margin-bottom:14px}
+  .boxcard .nm{font-weight:600;font-size:16px}
+  .boxcard .kind{color:var(--muted);font-size:12px}
+  .dials{display:grid;gap:9px}
+  .dial{border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+  .dial label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+  .dial .val{font-weight:600;font-size:13.5px;margin-top:2px}
+  .dial small{color:var(--muted);font-size:11.5px;display:block;margin-top:1px}
+  .ro{font-size:11px;color:var(--muted);margin-top:10px}
+  .req{border:1px solid var(--line);border-radius:9px;padding:12px;margin-bottom:10px}
+  .req .kind{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+  .req .subj{font-weight:600;margin:3px 0}
+  .req .meta{font-size:12.5px;color:var(--muted)}
+  .req .acts{display:flex;gap:8px;margin-top:10px}
+  button{font:inherit;font-size:12.5px;padding:7px 13px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+  button.yes{background:var(--accent);border-color:var(--accent);color:#fff}
+  button:disabled{opacity:.55;cursor:default}
+  .empty{color:var(--muted);font-size:13px;padding:6px 2px}
+  .err{background:#fdf1f4;border:1px solid #f2c6d2;color:var(--bad);border-radius:8px;padding:10px 12px;font-size:13px;display:none}
+  .log{font:12px/1.5 ui-monospace,monospace;background:var(--chip);border-radius:8px;padding:10px;margin-top:10px;max-height:160px;overflow:auto;display:none;white-space:pre-wrap}
+  /* embed mode (?embed=1): this page is the app's "Your seat" tab, framed inside
+     it. The app supplies the title, the nav and the surrounding chrome, so the
+     page drops its own rather than showing a second header and a second nav
+     inside the first. Standalone at /console is unchanged: it is still a whole
+     page for anyone who opens it directly. */
+  /* app-token adoption. Sits at the END of the sheet so these win the cascade
+     over the base rules above (same specificity, later wins): the earlier
+     draft put them first and the old font and radii silently survived. */
+  :root{
+    --bg:var(--paper); --muted:var(--faint); --chip:var(--card-2); --ok:var(--good);
+  }
+  body{font-family:var(--sans)}
+  .panel{border-radius:var(--r-card);box-shadow:var(--shadow-1)}
+  button.yes{color:var(--on-accent)}
+
+  html.embedded body{background:transparent;padding:0}
+  html.embedded header,html.embedded #secnav{display:none}
+  html.embedded main{margin:0;max-width:none;padding:0}
+</style>
+</head>
+<body>
+<header>
+  <h1>Your mineral</h1>
+  <span class="right">
+    <select id="boxPick" style="display:none;font:inherit;font-size:13px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)" aria-label="Which mineral"></select>
+    <span class="badge req" id="waitCount" style="display:none"></span>
+    <a class="back" href="/door">&larr; Start screen</a>
+  </span>
+</header>
+<main>
+  <nav id="secnav" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px">
+    <span style="font:inherit;font-size:12.5px;padding:5px 11px;border:1px solid var(--accent);border-radius:7px;color:var(--accent)">Seat</span>
+    <a class="secl" href="/panel.html#dashboard">Overview</a>
+    <a class="secl" href="/panel.html#brain">Brain</a>
+    <a class="secl" href="/panel.html#cadence">Cadence</a>
+    <a class="secl" href="/panel.html#sharing">Sharing &amp; devices</a>
+    <a class="secl" href="/panel.html#terminal">Terminal</a>
+    <a class="secl" href="/panel.html#network">Network</a>
+  </nav>
+  <div class="err" id="err"></div>
+  <section class="panel" id="retrustWrap" style="display:none">
+    <h2>Re-trust this mineral</h2>
+    <div class="ro" style="margin-top:0">Your mineral was rebuilt, so its address fingerprint changed. Re-trusting
+      forgets the old one on this computer only. Nothing about your mineral or your keys changes.</div>
+    <div style="margin-top:12px"><button class="yes" id="retrustBtn">Re-trust and reconnect</button></div>
+  </section>
+  <section class="panel" id="noBoxPanel" style="display:none">
+    <h2>No mineral yet</h2>
+    <div class="ro" style="margin-top:0">This app is not connected to a mineral on this computer. If someone
+      set one up for you, you will have an invitation link in your email. If not, you can start one.</div>
+    <div style="margin-top:14px"><a class="back" href="/door">Open the start screen &rarr;</a></div>
+  </section>
+  <section class="panel" id="seatPanel">
+    <h2 id="seatPanelTitle">Your pebble</h2>
+    <div class="boxcard"><span class="nm" id="boxNm">&hellip;</span> <span class="kind">Pebble &middot; your assistant</span>
+      <button class="act" id="renameBtn" style="margin-left:auto;font:inherit;font-size:12px;padding:3px 9px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--soft);cursor:pointer">Rename</button></div>
+    <div id="renameWrap" style="display:none;margin:0 0 12px">
+      <input id="renameInput" maxlength="60" style="font:inherit;font-size:13.5px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);width:60%" aria-label="New name for this mineral">
+      <button class="act" id="renameSave" style="font:inherit;font-size:12.5px;padding:6px 11px;margin-left:6px;border:1px solid var(--accent);border-radius:6px;background:transparent;color:var(--accent);cursor:pointer">Save</button>
+      <button class="act" id="renameCancel" style="font:inherit;font-size:12.5px;padding:6px 11px;margin-left:4px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--soft);cursor:pointer">Cancel</button>
+      <p class="ro" style="margin:6px 0 0">Just the name you see. The address and your keys stay exactly as they are.</p>
+    </div>
+    <div class="dials">
+      <div class="dial"><label>Ownership</label><div class="val" id="d_owner"></div><small id="d_owner_s"></small></div>
+      <div class="dial"><label>Anchor</label><div class="val" id="d_anchor"></div><small id="d_anchor_s"></small></div>
+      <div class="dial"><label>Hosting</label><div class="val" id="d_host"></div><small id="d_host_s"></small></div>
+    </div>
+    <div class="ro">Rename it here. What you share lives under Sharing and devices; leaving or transferring always asks you first.</div>
+  </section>
+  <!-- Backup (2026-07-30, Sam's ruling). The own-brain flow existed but lived ONLY on
+       the claim page, so anyone who skipped it, or who owns a mineral built before it
+       shipped, had no way back to it and no way to know whether their brain had ever
+       left the mineral. This card is the persistent entry point and the honest status. -->
+  <section class="panel" id="backupPanel">
+    <h2>Your backup</h2>
+    <div id="backupOff" style="display:none">
+      <div class="ro" style="margin-top:0">Your brain lives on this mineral and nowhere else. Connect your own
+        GitHub account and it gets a <b>private</b> repository that only you can see, and the mineral sends a
+        copy there every night. No password to store: you approve it on GitHub and can revoke it there.</div>
+      <div style="margin-top:12px">
+        <button class="yes" id="backupConnect">Connect my GitHub</button>
+        <button class="act" id="backupDownload" style="margin-left:8px;font:inherit;font-size:12.5px;padding:7px 13px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);cursor:pointer">Or download a copy</button>
+      </div>
+      <p class="ro" style="margin:8px 0 0">No GitHub account, and no wish for one? The download gives you the whole
+        brain as one file. It leaves out passwords, keys and the change history, so what you get is your notes,
+        not your credentials.</p>
+    </div>
+    <div id="backupOn" style="display:none">
+      <div class="boxcard"><span class="nm" id="backupRepo">&hellip;</span> <span class="kind" id="backupWhen"></span></div>
+      <div style="margin:0 0 10px"><button class="act" id="backupDownload2" style="font:inherit;font-size:12.5px;padding:7px 13px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);cursor:pointer">Download a copy now</button></div>
+      <div class="ro">Private, in your own GitHub account. The mineral sends a copy every night, and again whenever
+        you open this app. Revoke it any time in your GitHub settings and the pushes simply stop.</div>
+    </div>
+    <p class="ro" id="backupMsg" style="display:none;margin:10px 0 0"></p>
+  </section>
+  <!-- A6 (2026-08-03). Custody could move both ways already, but BOTH directions were
+       started by the rock: an operator runs transfer-invite or transfer-grant.
+       A member who WANTED to hand their mineral over could only wait to be asked. This is
+       the missing half: the member's ask. It moves nothing on its own. The org still
+       has to agree, and the member still has to accept on their own mineral, which is the
+       flow that already exists above under "Waiting on you". -->
+  <section class="panel" id="handoverPanel" style="display:none">
+    <h2>Hand ownership of this mineral to your rock</h2>
+    <div class="ro" style="margin-top:0">If you want a rock to own and look after this mineral, ask them
+      here. Ownership only moves to the rock that already anchors you: anchor first, from the app's
+      Organisations tab. Nothing changes when you ask: they have to agree, and then you confirm it on this mineral.
+      You can change your mind at any point before you confirm.</div>
+    <div style="margin-top:12px">
+      <label for="hoOrg" style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px">Rock handle</label>
+      <input id="hoOrg" maxlength="40" placeholder="their short name, e.g. acme-collab" autocomplete="off"
+        style="font:inherit;font-size:13.5px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);width:60%">
+      <label for="hoNote" style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:10px 0 4px">Anything they should know (optional)</label>
+      <input id="hoNote" maxlength="400" placeholder="why you're asking" autocomplete="off"
+        style="font:inherit;font-size:13.5px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);width:80%">
+      <div style="margin-top:12px"><button class="yes" id="hoSend">Ask them to take it on</button></div>
+    </div>
+    <p class="ro" id="hoMsg" style="display:none;margin:10px 0 0"></p>
+  </section>
+  <!-- Start a rock (Mountain model + promote ruling, 2026-08-04): the member
+       face of BROKERED promotion. The two hard gates live in the API — the panel and the
+       worker both refuse without them — this card only makes them visible: the consent
+       sentence is TYPED, never a checkbox, because promotion turns this personal brain
+       into the rock's brain (one seat, ONE BRAIN), and the verified pre-copy
+       runs on the mineral before anything is asked anywhere. The request then waits on the
+       operator (the payment gate until tier prices exist); this card watches the honest
+       progress record and offers the finish step only when the worker says done. -->
+  <section class="panel" id="promotePanel" style="display:none">
+    <h2>Start a rock on this mineral</h2>
+    <div class="ro" style="margin-top:0">Your mineral upgrades in place: it becomes your rock's rock and
+      you keep your personal seat. One thing changes hands, and it is the big one: your personal brain becomes
+      the rock's brain. A verified backup copy is pushed to your own repo first, so your
+      pre-rock self is always recoverable. Your backup is pushed first, then the upgrade runs. Nobody has to approve it.</div>
+    <div class="ro" id="prAnchorNote" style="display:none;margin-top:10px"></div>
+    <div style="margin-top:12px">
+      <label for="prHandle" style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px">Rock handle</label>
+      <input id="prHandle" maxlength="40" placeholder="a short name, e.g. janes-org" autocomplete="off"
+        style="font:inherit;font-size:13.5px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);width:60%">
+      <label for="prDisplay" style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:10px 0 4px">Display name (what members see)</label>
+      <input id="prDisplay" maxlength="80" placeholder="Jane's Org" autocomplete="off"
+        style="font:inherit;font-size:13.5px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);width:60%">
+      <label for="prConsent" style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:10px 0 4px">Type this sentence to consent</label>
+      <div class="ro" style="margin:0 0 6px"><b id="prSentence">my personal brain becomes this rock's brain</b></div>
+      <input id="prConsent" maxlength="80" autocomplete="off" placeholder="type it exactly"
+        style="font:inherit;font-size:13.5px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);width:80%">
+      <div style="margin-top:12px"><button class="yes" id="prSend" disabled>Back up, then become a rock</button></div>
+    </div>
+    <p class="ro" id="prMsg" style="display:none;margin:10px 0 0"></p>
+  </section>
+  <section class="panel" id="leavePanel" style="display:none">
+    <h2>Leave this rock</h2>
+    <div class="ro" style="margin-top:0">Leaving never needs permission. It is effective immediately on your
+      side; your rock sees it on their next look and their door key detaches. Your mineral and your brain
+      stay yours; their content and updates stop. Rejoining later is always an invite away.</div>
+    <div style="margin-top:12px">
+      <label for="lvConfirm" style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px">Type the word leave to arm it</label>
+      <input id="lvConfirm" maxlength="10" autocomplete="off" placeholder="leave"
+        style="font:inherit;font-size:13.5px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);width:40%">
+      <div style="margin-top:12px"><button id="lvBtn" disabled>Leave, now</button></div>
+    </div>
+    <p class="ro" id="lvMsg" style="display:none;margin:10px 0 0"></p>
+  </section>
+  <section class="panel" id="originPanel" style="display:none">
+    <h2>Origin</h2>
+    <div id="originRows"></div>
+    <div class="ro">Lineage is frozen: who seeded this mineral never changes, whatever moves later. Reframes only ever append.</div>
+  </section>
+  <section class="panel" id="custodyPanel" style="display:none">
+    <h2>Custody log</h2>
+    <div id="custodyRows"></div>
+    <div class="ro">Every change to who owns this mineral, who it is anchored to, support access and access grants, written by your own mineral the moment it sees one and sent to your Telegram if linked. Nothing about ownership changes without a line here.</div>
+  </section>
+  <section class="panel" id="waitPanel">
+    <h2>Waiting on you</h2>
+    <div id="waits"></div>
+    <div class="empty" id="waitsEmpty" style="display:none">Nothing needs your answer.</div>
+    <div class="log" id="actLog"></div>
+  </section>
+</main>
+<script>
+  var state = { host: '' };
+  function $(id){ return document.getElementById(id); }
+  // This file had no escaper at all, yet it builds the "Waiting on you" cards with
+  // innerHTML from /state/org-inbox/transfer/*.json, which is text the ROCK
+  // writes and delivers through the inbox repo. Unescaped org text landing in the
+  // member's DOM on the app's default landing page is an injection, not a typo risk.
+  // Every sibling panel already has this helper; this one was missed.
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function run(verb, args, onLine){
+    return fetch('/run', { method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ host: state.host, verb: verb, args: args || {} }) })
+      .then(function(r){
+        if (!r.ok) return r.text().then(function(t){ return { ok:false, code:-1, lines:[t] }; });
+        var rd = r.body.getReader(), dec = new TextDecoder(), buf = '', lines = [], code = 1;
+        function pump(){ return rd.read().then(function(x){
+          if (x.done) return { ok: code === 0, code: code, lines: lines };
+          buf += dec.decode(x.value, { stream:true });
+          var parts = buf.split('\n\n'); buf = parts.pop();
+          parts.forEach(function(p){
+            var m = p.match(/^data: (.*)$/m); if (!m) return;
+            var line = JSON.parse(m[1]);
+            if (line === '__DONE__') { code = 0; return; }
+            if (String(line).indexOf('__FAIL__') === 0) { code = parseInt(String(line).replace(/\D+/g,'') || '1', 10); return; }
+            lines.push(String(line));
+            if (onLine) onLine(String(line));
+          });
+          return pump();
+        }); }
+        return pump();
+      });
+  }
+  function showErr(msg){ var e = $('err'); e.textContent = msg; e.style.display = 'block'; }
+  // Plain JSON POST to a panel route (same helper as member-connect.html). The
+  // handover ask called this since 07707b2 with no definition on this page, so
+  // "Ask them to take it on" threw; the consent flow needs it too. Resolves to
+  // { error } on any failure so callers' error branches always run.
+  function post(path, body){
+    return fetch(path, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) })
+      .then(function(r){ return r.json().catch(function(){ return { error: 'Bad response (' + r.status + ')' }; }); })
+      .catch(function(){ return { error: 'Could not reach the server. Check your connection and try again.' }; });
+  }
+  // Start a rock: the typed sentence arms the button. The API refuses a
+  // wrong sentence anyway (panel + worker, byte-identical); typing keeps the
+  // moment honest on the surface — a checkbox would soften what changes hands.
+  var PR_SENTENCE = "my personal brain becomes this rock's brain";
+  function prArm(){
+    $('prSend').disabled = $('prConsent').value.trim() !== PR_SENTENCE || !$('prHandle').value.trim();
+  }
+  function prSay(t){ var m = $('prMsg'); m.style.display = 'block'; m.textContent = t; }
+  function prWatch(id){
+    fetch('/promote/status?id=' + encodeURIComponent(id))
+      .then(function(r){ return r.json(); })
+      .then(function(rec){
+        if (rec && rec.failed) { prSay('Declined: ' + (rec.msg || 'reply to hello@crads-ai.com to talk it through')); return; }
+        if (rec && rec.done) {
+          prSay('Approved. Finishing the upgrade on this mineral\u2026');
+          fetch('/promote/flip', { method:'POST', headers:{'content-type':'application/json'},
+            body: JSON.stringify({ host: state.host, id: id, org_handle: $('prHandle').value.trim() }) })
+            .then(function(r){ return r.text().then(function(t){ return { ok: r.ok, t: t }; }); })
+            .then(function(x){ prSay(x.ok
+              ? 'Done: this mineral is your rock\u2019s rock, and your personal seat stays. Reopen the app and the rock face appears beside it.'
+              : 'The finish step refused: ' + x.t); });
+          return;
+        }
+        prSay((rec && rec.msg) ? rec.msg : 'Registering your rock\u2026 you can close this page and come back.');
+        setTimeout(function(){ prWatch(id); }, 15000);
+      })
+      .catch(function(){ setTimeout(function(){ prWatch(id); }, 30000); });
+  }
+  $('prConsent').addEventListener('input', prArm);
+  $('prHandle').addEventListener('input', prArm);
+  $('prSend').onclick = function(){
+    var b = $('prSend'); b.disabled = true; b.textContent = 'Backing up\u2026';
+    fetch('/promote/start', { method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ host: state.host, org_handle: $('prHandle').value.trim(),
+        org_display: $('prDisplay').value.trim() || $('prHandle').value.trim(),
+        consent: $('prConsent').value.trim() }) })
+      .then(function(r){ return r.text().then(function(t){ return { ok: r.ok, t: t }; }); })
+      .then(function(x){
+        b.textContent = 'Back up, then become a rock';
+        if (!x.ok) { b.disabled = false; prSay(x.t); return; }
+        var d = {}; try { d = JSON.parse(x.t); } catch (e) { /* message below still honest */ }
+        prSay('Backed up to ' + (d.precopy_repo || 'your own repo') + '. Registering your rock now; you can close this page and come back.');
+        if (d.id) prWatch(d.id);
+      })
+      .catch(function(e){ b.disabled = false; prSay('Could not ask: ' + e.message); });
+  };
+  // Leave arming: the typed word enables the button; the verb re-checks it.
+  $('lvConfirm').addEventListener('input', function(){
+    $('lvBtn').disabled = this.value.trim() !== 'leave';
+  });
+  $('lvBtn').onclick = function(){
+    var b = $('lvBtn'); b.disabled = true; b.textContent = 'Leaving\u2026';
+    run('leave-org', { host: state.host, confirm: $('lvConfirm').value.trim() }, function(){})
+      .then(function(r){
+        var m = $('lvMsg'); m.style.display = 'block';
+        m.textContent = r.ok ? 'Done. You have left; your mineral and brain are yours alone. This page will read differently on the next refresh.'
+          : 'That did not complete: try again in a minute.';
+        b.textContent = 'Leave, now';
+        load();
+      });
+  };
+
+  function render(d){
+    var o = d.ownership;
+    // Product register (2026-08-03): once the state names the box's KIND, the
+    // header speaks it ("Your pebble" / "Your rock"). The static "Your mineral"
+    // stays as the honest fallback for state without a tier.
+    if (o.tier === 'pebble' || o.tier === 'rock') {
+      document.querySelector('h1').textContent = 'Your ' + o.tier;
+      document.title = 'Your ' + o.tier;
+      $('seatPanelTitle').textContent = 'Your ' + o.tier;
+    }
+    // the member's own label wins; the slug is only the fallback
+    state.boxName = d.name || '';
+    $('boxNm').textContent = state.boxName || state.host.replace(/-box$/, '');
+    if (o.owner === 'member') { $('d_owner').textContent = 'You'; $('d_owner_s').textContent = 'Yours, portable: it goes where you go'; }
+    else { $('d_owner').textContent = o.owner_slug || d.org.name || 'Your rock'; $('d_owner_s').textContent = 'A work asset of the rock'; }
+    $('d_anchor').textContent = d.anchored ? (d.org.name || 'Your rock') : 'Self-sovereign';
+    $('d_anchor_s').textContent = d.anchored ? 'Your anchor: seat, updates and content come from it' : 'Anchored to the Crads root; no rock carries you';
+    if (o.managed_by === 'crads-ai') { $('d_host').textContent = 'Crads AI'; $('d_host_s').textContent = 'hosted machinery'; }
+    else if (o.managed_by === 'member') { $('d_host').textContent = 'You'; $('d_host_s').textContent = 'Self-run, your metal'; }
+    else { $('d_host').textContent = d.org.name || 'Your rock'; $('d_host_s').textContent = 'The anchor runs it'; }
+
+    // Backup status. "Connected" alone is not a backup, so when it has never actually
+    // pushed we say that rather than implying a copy exists somewhere.
+    // Only a MEMBER-owned box can be handed to a rock. An org-owned one is
+    // already theirs, so offering it would be nonsense (and transfer-invite refuses it).
+    $('handoverPanel').style.display = (o.owner === 'member') ? '' : 'none';
+    // Slice 2: leaving is the pebble's own act (member-owned + anchored only)
+    $('leavePanel').style.display = (o.owner === 'member' && d.anchored) ? '' : 'none';
+    // Promotion (2026-08-04; anchored case reopened 2026-08-10): member-owned
+    // and not already a rock. The anchor is no longer a gate — a rock cannot be
+    // anchored to a rock, so promotion ENDS the anchor as part of the upgrade
+    // and the community join survives it. Ownership still gates: an org-owned
+    // mineral must be handed over before it can own itself, which is the one
+    // fact the API refuses on. Two facts, both re-checked server-side.
+    //
+    // The seat tab in the app carries this same flow (rehomed 2026-08-10) and
+    // the two must not drift: this gate is the API's gate, stated twice.
+    $('promotePanel').style.display = (o.owner === 'member' && o.tier !== 'rock') ? '' : 'none';
+    var prAnchor = $('prAnchorNote');
+    if (prAnchor) {
+      prAnchor.style.display = d.anchored ? '' : 'none';
+      prAnchor.textContent = 'You are anchored to ' + ((d.org || {}).name || 'a rock')
+        + '. Becoming a rock ends that anchor automatically: you stay joined to them as a community member, '
+        + 'they stop paying for your seat, and you start paying for a rock.';
+    }
+    var bk = d.backup || {};
+    $('backupOff').style.display = bk.connected ? 'none' : '';
+    $('backupOn').style.display = bk.connected ? '' : 'none';
+    if (bk.connected) {
+      $('backupRepo').textContent = String(bk.repo || '').replace(/^https?:\/\/(www\.)?/, '');
+      $('backupWhen').textContent = bk.last
+        ? 'Last copy sent ' + bk.last.slice(0, 10)
+        : 'Connected, but nothing has been sent yet';
+    }
+
+    if (Array.isArray(d.custody) && d.custody.length) {
+      $('custodyPanel').style.display = '';
+      var cr = $('custodyRows'); cr.innerHTML = '';
+      d.custody.forEach(function(c){
+        var el4 = document.createElement('div'); el4.className = 'req';
+        el4.innerHTML = '<div class="kind"></div><div class="meta"></div>';
+        el4.querySelector('.kind').textContent = String(c.at || '').slice(0, 16).replace('T', ' ');
+        el4.querySelector('.meta').textContent = c.event === 'baseline'
+          ? 'Watch started: owner ' + (c.owner || 'member') + (c.anchor ? ', anchored to ' + c.anchor : '') + '.'
+          : String(c.event || '');
+        cr.appendChild(el4);
+      });
+    } else { $('custodyPanel').style.display = 'none'; }
+
+    if (d.lineage) {
+      $('originPanel').style.display = '';
+      var orr = $('originRows'); orr.innerHTML = '';
+      var born = document.createElement('div'); born.className = 'req';
+      born.innerHTML = '<div class="kind">born</div><div class="meta"></div>';
+      born.querySelector('.meta').textContent = d.lineage.origin === 'self'
+        ? 'Self-started: nobody\u2019s seed. Its foundations are its own.'
+        : 'Seeded by ' + (d.lineage.stamped_by || 'its rock') + (d.lineage.born ? ' on ' + d.lineage.born : '')
+          + (d.lineage.framework_imprint ? ', imprint: ' + d.lineage.framework_imprint : '') + '.';
+      orr.appendChild(born);
+      (d.lineage.reframes || []).forEach(function(rf){
+        var el3 = document.createElement('div'); el3.className = 'req';
+        el3.innerHTML = '<div class="kind">reframe</div><div class="meta"></div>';
+        el3.querySelector('.meta').textContent = rf.outcome === 'accepted'
+          ? rf.framework + ' from ' + rf.from + ', adopted (' + rf.intensity + ')' + (rf.date ? ' on ' + rf.date : '')
+          : rf.framework + ' offered by ' + rf.from + ': declined';
+        orr.appendChild(el3);
+      });
+    }
+    var w = $('waits'); w.innerHTML = '';
+    var count = 0;
+    if (d.waiting.transfer_invitation) {
+      count++;
+      var inv = d.waiting.transfer_invitation;
+      var el = document.createElement('div'); el.className = 'req';
+      el.innerHTML = '<div class="kind">transfer to rock</div>'
+        + '<div class="subj">Your rock asks to take custody of this mineral</div>'
+        + '<div class="meta">Invited ' + esc(inv.invited || 'recently') + '. Your existing brain repo stays yours and is never touched; accepting means the mineral’s brain becomes the rock’s going forward. Nothing happens unless you accept.</div>'
+        + '<div class="acts"><button class="yes" id="acceptTransfer">Accept the transfer</button></div>';
+      w.appendChild(el);
+      el.querySelector('#acceptTransfer').onclick = function(){
+        var btn = this;
+        btn.disabled = true; btn.textContent = 'Signing you in…';
+        var log = $('actLog'); log.style.display = 'block'; log.textContent = '';
+        // Your own sign-in is the consent (recorded at the directory); the box
+        // script only runs with the receipt, and the rock only completes with
+        // the same record. Nothing on the box alone can accept for you.
+        post('/transfer-consent', { host: state.host })
+          .then(function(c){
+            if (!c || !c.ok) { btn.disabled = false; btn.textContent = 'Accept the transfer'; showErr((c && c.error) || 'Could not record your consent.'); return; }
+            btn.textContent = 'Accepting…';
+            log.textContent += 'Consent recorded with your sign-in (receipt ' + c.receipt.slice(0, 8) + '…).\n';
+            return run('transfer-accept', { receipt: c.receipt }, function(line){ log.textContent += line + '\n'; log.scrollTop = log.scrollHeight; })
+              .then(function(r){ if (!r.ok) showErr('The transfer did not complete: ' + (r.lines.slice(-2).join(' ') || 'unknown')); load(); });
+          });
+      };
+    }
+    // Slice 2 (2026-08-03): a rock's permission questions and framework
+    // offers land HERE, the one list of everything needing your yes. Copy is
+    // per-kind and honest about exactly what a yes means.
+    (d.waiting.asks || []).forEach(function(a){
+      count++;
+      var card = document.createElement('div'); card.className = 'wait';
+      var t = a.kind === 'ask-read' ? 'Your rock asks to always be able to read your brain pages'
+        : a.kind === 'ask-install' ? 'Your rock asks for standing consent to install things on your mineral'
+        : 'Your rock offers its framework: ' + (a.framework || 'unnamed');
+      var m = a.kind === 'ask-read'
+        ? 'This is the STANDING permission, separate from the 24-hour support grant on your Sharing page. Until you turn it off, they may read your brain pages (never your secrets). Declining is recorded as a real no.'
+        : a.kind === 'ask-install'
+        ? 'Standing consent for your rock to push skills and updates onto this mineral without asking each time. Declining is recorded as a real no; they can still ask again later.'
+        : 'Accepting installs their "' + (a.framework || '') + '" material on your mineral under their own name (' + (a.intensity || 'overlay') + '). Your own pages are never edited; declining is recorded history, not an absence.';
+      card.innerHTML = '<div class="subj"></div><div class="meta"></div>'
+        + '<div class="acts"><button class="yes">Accept</button><button class="no">Decline</button></div>';
+      card.querySelector('.subj').textContent = t;
+      card.querySelector('.meta').textContent = m + (a.asked ? ' Asked ' + a.asked + '.' : '') + (a.note ? ' Their note: "' + a.note + '"' : '');
+      var yes = card.querySelector('.yes'), no = card.querySelector('.no');
+      function send(answer){
+        yes.disabled = no.disabled = true;
+        run('ask-answer', { host: state.host, kind: a.kind, answer: answer }, function(){})
+          .then(function(r){ if (!r.ok) showErr('Could not record the answer: try again in a minute.'); load(); });
+      }
+      yes.onclick = function(){ send('accepted'); };
+      no.onclick = function(){ send('declined'); };
+      $('waits').appendChild(card);
+    });
+    if (d.waiting.ownership_grant) {
+      count++;
+      var el2 = document.createElement('div'); el2.className = 'req';
+      el2.innerHTML = '<div class="kind">ownership grant</div>'
+        + '<div class="subj">Your rock granted you ownership of this mineral</div>'
+        + '<div class="meta">Granted ' + esc(d.waiting.ownership_grant.granted) + '. Complete it from the app’s <b>Own my brain</b> step: a fresh copy of the brain lands under your own account.</div>';
+      w.appendChild(el2);
+    }
+    $('waitsEmpty').style.display = count ? 'none' : 'block';
+    $('waitCount').style.display = count ? '' : 'none';
+    $('waitCount').textContent = count + ' waiting';
+  }
+  // A member should never be shown raw ssh transport text. The common causes are
+  // few and each has a different next step, so name them (2026-07-30: a deleted
+  // box surfaced "ssh: connect to host <ip> port 22: Connection timed out",
+  // which tells a member nothing and leaks the address).
+  function reachErr(r){
+    var raw = (r.lines || []).join(' ');
+    if (/Connection timed out|No route to host|Network is unreachable/i.test(raw)) {
+      return 'Your mineral is not answering right now. If it was just updated it will be back in a minute; '
+        + 'if this keeps up, reply to your setup email and we will look.';
+    }
+    if (/Permission denied|publickey/i.test(raw)) {
+      return 'This computer is no longer allowed to open your mineral. If you revoked it, add it again '
+        + 'from another of your computers under Devices.';
+    }
+    if (/Name or service not known|Could not resolve/i.test(raw)) {
+      return 'This computer cannot find your mineral\u2019s address. Check your internet connection and try again.';
+    }
+    if (/Host key verification failed|REMOTE HOST IDENTIFICATION/i.test(raw)) {
+      return 'Your mineral has a new address fingerprint, so this computer stopped short of connecting. '
+        + 'That is normal after a rebuild, and it is safe to re-trust it: press Re-trust below. '
+        + 'If you were not expecting a rebuild, reply to your setup email before doing that.';
+    }
+    return 'Could not read your mineral. It may be starting up: give it a minute, then reopen this page.';
+  }
+
+  // rename: display label only, so nothing structural moves
+  function initRename(){
+    var btn = $('renameBtn'), wrap = $('renameWrap'), inp = $('renameInput');
+    if (!btn) return;
+    btn.onclick = function(){
+      inp.value = state.boxName || state.host.replace(/-box$/, '');
+      wrap.style.display = ''; inp.focus(); inp.select();
+    };
+    $('renameCancel').onclick = function(){ wrap.style.display = 'none'; };
+    $('renameSave').onclick = function(){
+      var v = (inp.value || '').trim();
+      if (!v) { showErr('Give it a name first.'); return; }
+      $('renameSave').disabled = true;
+      run('box-rename', { name: v }).then(function(r){
+        $('renameSave').disabled = false;
+        if (!r.ok) {
+          var why = (r.lines || []).filter(function(l){ return l.indexOf('\u25b8') !== 0; }).join(' ');
+          showErr('Could not rename it: ' + (why || 'unknown'));
+          return;
+        }
+        wrap.style.display = 'none';
+        state.boxName = v;
+        $('boxNm').textContent = v;
+        var pick = $('boxPick');
+        if (pick) { var o = pick.querySelector('option[value="' + state.host + '"]'); if (o) o.textContent = v; }
+      });
+    };
+  }
+
+  // "Connect my GitHub" hands off to the own-brain flow on the member-connect
+  // server. /go/connect resolves it server-side, because this page cannot know
+  // that server's port. Added 2026-07-30: the flow existed only on the claim page.
+  function initHandover(){
+    var b = $('hoSend');
+    if (!b) return;
+    b.onclick = function(){
+      var org = ($('hoOrg').value || '').trim().toLowerCase();
+      var msg = $('hoMsg'); msg.style.display = '';
+      if (!/^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/.test(org)) {
+        msg.textContent = 'That does not look like a rock handle. It is their short name, lowercase, like acme-collab.';
+        return;
+      }
+      b.disabled = true; msg.textContent = 'Sending your ask\u2026';
+      post('/handover-ask', { host: state.host, org: org, note: ($('hoNote').value || '').trim() })
+        .then(function(r){
+          b.disabled = false;
+          if (r.error) { msg.textContent = r.error; return; }
+          msg.textContent = 'Asked ' + org + '. They will see it on their side. Nothing has changed here yet, and'
+            + ' when they agree you will get a confirm step under Waiting on you.';
+        });
+    };
+  }
+
+  function initBackup(){
+    var b = $('backupConnect');
+    // The app's own Backup card owns this flow (2026-08-05: "the button connects
+    // GitHub, instead of sending you somewhere to do it"). This button still hopped
+    // to the invite page's own-brain fold, which was deleted 2026-08-09 when that
+    // page was cut back to the invite claim alone — so the hop now lands nowhere.
+    // Send people to the seat in their own app, where the card lives permanently.
+    if (b) b.onclick = function(){ location.href = '/#seat'; };
+    // The download is a plain navigation, not fetch: the browser's own save dialog
+    // handles a multi-megabyte stream, and we never buffer the brain in this page.
+    function dl(){
+      var msg = $('backupMsg');
+      msg.style.display = ''; msg.textContent = 'Preparing your copy\u2026 the save dialog will open when it is ready.';
+      location.href = '/brain-download?box=' + encodeURIComponent(state.host);
+      setTimeout(function(){ msg.textContent = 'If nothing downloaded, your mineral may be busy. Try again in a moment.'; }, 15000);
+    }
+    ['backupDownload', 'backupDownload2'].forEach(function(id){ var e = $(id); if (e) e.onclick = dl; });
+  }
+
+  // re-trust: drop this computer's stale key for a rebuilt box, then reload
+  function initRetrust(){
+    var b = $('retrustBtn');
+    if (!b) return;
+    b.onclick = function(){
+      b.disabled = true; b.textContent = 'Re-trusting\u2026';
+      fetch('/retrust', { method:'POST', headers:{'content-type':'application/json'},
+        body: JSON.stringify({ host: state.host }) })
+        .then(function(r){ return r.json().catch(function(){ return { ok:false }; }); })
+        .then(function(j){
+          b.disabled = false; b.textContent = 'Re-trust and reconnect';
+          if (!j.ok) { showErr('Could not re-trust it from here. Reply to your setup email and we will sort it.'); return; }
+          $('err').style.display = 'none';
+          load();
+        })
+        .catch(function(){ b.disabled = false; b.textContent = 'Re-trust and reconnect'; });
+    };
+  }
+
+  function load(){
+    run('member-console-state', {}).then(function(r){
+      if (!r.ok) {
+        // do not leave the dials on screen with nothing behind them: an empty
+        // seat reads as a broken box rather than an unreachable one (2026-07-30)
+        showErr(reachErr(r));
+        $('seatPanel').style.display = 'none';
+        $('waitPanel').style.display = 'none';
+        $('originPanel').style.display = 'none';
+        $('backupPanel').style.display = 'none';   // unknown, not "no backup": never guess while the box is unreachable
+        var raw = (r.lines || []).join(' ');
+        $('retrustWrap').style.display = /Host key verification failed|REMOTE HOST IDENTIFICATION/i.test(raw) ? '' : 'none';
+        return;
+      }
+      $('seatPanel').style.display = '';
+      $('waitPanel').style.display = '';
+      $('backupPanel').style.display = '';
+      $('retrustWrap').style.display = 'none';
+      var line = r.lines.find(function(l){ return l.indexOf('CONSOLE_STATE ') === 0; });
+      if (!line) { showErr('Your mineral replied without a state line.'); return; }
+      try { render(JSON.parse(line.slice('CONSOLE_STATE '.length))); $('err').style.display = 'none'; }
+      catch (e) { showErr('Bad state from your mineral: ' + e.message); }
+    });
+  }
+  fetch('/targets').then(function(r){ return r.json(); }).then(function(t){
+    var list = (t.targets || []).filter(function(x){ return (x.kind || 'rock') === 'member'; });
+    if (!list.length) {
+      // Never leave the seat + dials skeleton on screen with nothing behind it:
+      // it reads as a box that failed to load (2026-07-30). Show the empty state.
+      $('seatPanel').style.display = 'none';
+      $('waitPanel').style.display = 'none';
+      $('noBoxPanel').style.display = '';
+      return;
+    }
+    // One app, many boxes (2026-07-30): the app has always been able to HOLD
+    // several, but this page read list[0] and silently ignored the rest.
+    state.boxes = list;
+    var pick = $('boxPick');
+    pick.innerHTML = list.map(function(b){
+      return '<option value="' + b.host + '">' + b.host.replace(/-box$/, '') + '</option>';
+    }).join('');
+    if (list.length > 1) pick.style.display = '';
+    // a crads-ai://box/<slug> link (the ready email's "open it" link) arrives as
+    // #box=<slug> and wins over the remembered choice
+    var asked = (location.hash.match(/^#box=([a-z0-9-]+)$/) || [])[1];
+    var askedHost = asked ? asked + '-box' : '';
+    var remembered = null;
+    try { remembered = localStorage.getItem('crads.lastBox'); } catch (e) { remembered = null; }
+    var start = list.some(function(b){ return b.host === askedHost; }) ? askedHost
+      : list.some(function(b){ return b.host === remembered; }) ? remembered : list[0].host;
+    pick.value = start;
+    state.host = start;
+    pick.onchange = function(){
+      state.host = pick.value;
+      try { localStorage.setItem('crads.lastBox', state.host); } catch (e) { /* private mode */ }
+      $('err').style.display = 'none';
+      $('originPanel').style.display = 'none';
+      $('boxNm').textContent = '\u2026';
+      load();
+    };
+    initRename();
+    initRetrust();
+    // #handover=<org> pre-fills the rock handle the same way #box= picks the
+    // box; the field stays editable. (Since the 2026-08-09 rulings this is the
+    // OWNERSHIP ask; the app's Rocks tab asks joins/anchors directly.)
+    var hoAsk = (location.hash.match(/^#handover=([a-z0-9-]+)$/) || [])[1];
+    if (hoAsk) { var hi = $('hoOrg'); if (hi) hi.value = hoAsk; }
+    initBackup();
+    initHandover();
+    load();
+    setInterval(load, 60000);
+  }).catch(function(){ showErr('Could not list this app’s connections.'); });
+</script>
+</body>
+</html>

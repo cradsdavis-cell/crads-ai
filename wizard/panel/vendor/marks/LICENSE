@@ -1,0 +1,25 @@
+Marks in this directory
+=======================
+
+Most of the SVG files here are copied from the simple-icons project
+(https://github.com/simple-icons/simple-icons), version 16.28.0, which publishes
+them under the CC0-1.0 Universal Public Domain Dedication
+(https://creativecommons.org/publicdomain/zero/1.0/). Each file is the icon's
+single path placed in a 24x24 viewBox with fill="currentColor"; titles were
+stripped. index.mjs is generated from the same package and inlines the same
+bytes as data URIs because the panel's Content-Security-Policy forbids remote
+images.
+
+Seventeen marks that simple-icons does not carry (canva, apify, context7,
+semgrep, globalping, heroku, exa, amplitude, close, attio, plaid, klaviyo,
+readwise, honeycomb, stytch, workos, polar) were taken from the vendor's own
+brand kit, favicon or GitHub avatar on 2026-08-23; SOURCES.md in this directory
+records the URL, format, stated terms and fetch date for each. They are not
+CC0: they are the vendor's trademark, held here under the nominative-use
+rationale below, and nothing more.
+
+The marks are trademarks of their respective owners. They are shown here only
+to identify a connection to the vendor's own service (nominative use) and imply
+no sponsorship, affiliation or endorsement of Crads AI by any of those vendors.
+A vendor's own brand guidelines govern any use beyond identifying the
+connection.

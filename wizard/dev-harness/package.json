@@ -1,0 +1,13 @@
+{
+  "name": "aios-dev-harness",
+  "private": true,
+  "type": "module",
+  "description": "Local fixture harness + screenshot rig for the Crads-AI UI surfaces (dev only, never shipped)",
+  "scripts": {
+    "start": "node harness.mjs",
+    "shots": "node shots.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

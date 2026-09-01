@@ -1,0 +1,58 @@
+/* Crads-AI app design tokens — canonical copy.
+   Source of truth: docs/superpowers/ui-overhaul/design-language.md
+   Served at /vendor/tokens.css for the panel family (panel, member, door, connect).
+   Wizard UI + join-page inline a copy of this block (single-file constraint). */
+
+:root{
+  --paper:   #F7F5EF;
+  --card:    #FFFFFF;
+  --card-2:  #F1EFE7;
+  --line:    #E3E1D6;
+  --line-2:  #D3D1C4;
+  --ink:     #1F2D24;
+  --soft:    #5C6B60;
+  --soft-2:  #4F5D53;   /* small/mono meta text: one step darker than --soft for perceived contrast */
+  --faint:   #8A968C;
+  --accent:  #A4582C;
+  --accent-hi:#C2703D;
+  --accent-soft: color-mix(in srgb, #A4582C 10%, transparent);
+  --on-accent:#FFFFFF;
+  --good:    #4E7A55;
+  --warn:    #7E6C1E;   /* olive-gold: deliberately distant from the terracotta action accent */
+  --bad:     #B3402E;
+  --focus:   0 0 0 2px #F7F5EF, 0 0 0 4px #A4582C;
+  --shadow-1: 0 1px 2px rgba(31,45,36,.05), 0 4px 16px -8px rgba(31,45,36,.10);
+  --shadow-2: 0 2px 6px rgba(31,45,36,.06), 0 16px 40px -16px rgba(31,45,36,.18);
+  --sans: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --r-input: 8px;
+  --r-btn:   10px;
+  --r-card:  14px;
+  --r-modal: 18px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:   #161A16;
+    --card:    #1D231E;
+    --card-2:  #232A24;
+    --line:    #2E362F;
+    --line-2:  #3B453C;
+    --ink:     #E9ECE6;
+    --soft:    #9AA69B;
+    --soft-2:  #ABB5AC;  /* small/mono meta text: one step lighter than --soft in dark */
+    --faint:   #6F7B70;
+    --accent:  #D08A52;
+    --accent-hi:#DEA06C;
+    --accent-soft: color-mix(in srgb, #D08A52 12%, transparent);
+    --on-accent:#1C1108;
+    --good:    #7FA884;
+    --warn:    #CBB755;  /* olive-gold, distant from terracotta */
+    --bad:     #D9705C;
+    --focus:   0 0 0 2px #161A16, 0 0 0 4px #D08A52;
+    --shadow-1: 0 1px 2px rgba(0,0,0,.25), 0 4px 16px -8px rgba(0,0,0,.4);
+    --shadow-2: 0 2px 6px rgba(0,0,0,.3), 0 16px 40px -16px rgba(0,0,0,.55);
+    color-scheme: dark;
+  }
+}

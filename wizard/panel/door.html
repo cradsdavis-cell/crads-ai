@@ -1,0 +1,1338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crads-AI</title>
+<link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADOElEQVR42s2X+0tTcRTA/S+KQf0YlKlZkhi5ooWSjdS0NTTZRKN8pQvNckaWdbVZ/ZBIDx2GmplNDHv7KEqEWlCusHxl5ouZentgDvfLiXNq68657T6EvHDYd+d7Hp/7vef78vNbbo/dxsrsNpax21iL3cbO220sSJT5v7EwpsxXcq3dxs4tQVJPgrG13pILCljfcpNEBIh2sWHn/eb3n7aAPEkJK8LXkWAbdQJHQsYFYPg6F1eUUNKDJ7Ogp+8NCbZRh30CIBgugIWPU55BT4mqGo30P7kgnQTbqMM+tOEJYOEC+Kz2sqpLlMD06I5TxwVAwb7ICH+ozN4D5upimJ0a9jo7uABek3ean1Hy8toKF/1CgKHOZqhTrweTJhgakoLh4Yl4r3F5A8QdSYL4bI2bngtgtQ7BLX0imLQb4UVOOLRlhBHMzOduaQDPX3bQ2wdEh8OqHUFwpf6aG0DUIRXZaHb7Q11CILSmh8G91BAC+MWOSgPIPV8AiuQYSCnMBEPlRVizK9QFIGSfAnRMPjQ9NoF1YgDazmgoca06AErzEqR/gtD9EZBWpIPNqp0Qm3UAgmK3Oef8whpwyPfxXmAqGPKVBDA9PUJDiwlzmHxI0WcSDOqKys8tCjA9NQKWD6/JB+0whmgAXGQwSHeP2UVvbDTCSrk/KNPULgBYL6sVG8gntTCTfjGGaIC3719RkI8D7pWMUMrDrgC6kuMQnZEA7V1PnMs0xhAN0P/pHQUxd3ct2s/9BKNj/aDSaZ17Q/De7dTGGKIB5ma/UpDbDxq8AnR0tVLCrYlRUN10g+oDfdAXY0iaBZGpcZDrYX13AGAi/GVnxv5NX4OefCVPw9LrFyAwRu4RAJOXXDW49aEP+koG6Bv8Uwc1zTVea4AraIs+6LskewFW96Z4Bfz8YfUJgDZoiz6+4vIGGJ8YhLXKLZBVnOsTAG3QFn2WDAClpf0uDeupy2c9AmAf2qAtn5iCDiTcb5t++ih8Y8ecANhGnada4XMgsQg5kOLWjJuSAwDbqBN4MLWIOpSiTE4Ow7GyQudyi23UCTyaM6KP5Q75MtJLIvKCIpN8MZEg2uV3NVsWl9P/8fwGkqjdsS11CjQAAAAASUVORK5CYII=">
+<link rel="icon" type="image/png" sizes="256x256" href="data:image/png;base64,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">
+<link rel="stylesheet" href="/vendor/inter/inter.css">
+<style>
+  /* Door (identity chooser): design language per docs/superpowers/ui-overhaul/design-language.md.
+     Tokens are an inline copy of wizard/panel/vendor/tokens.css (the door server has no
+     /vendor route, so the canonical file cannot be linked here; keep the block in lockstep). */
+  :root{
+    --paper:#F7F5EF; --card:#FFFFFF; --card-2:#F1EFE7; --line:#E3E1D6; --line-2:#D3D1C4;
+    --ink:#1F2D24; --soft:#5C6B60; --soft-2:#4F5D53; --faint:#8A968C;
+    --accent:#A4582C; --accent-hi:#C2703D; --accent-soft:color-mix(in srgb,#A4582C 10%,transparent); --on-accent:#FFFFFF;
+    --good:#4E7A55; --warn:#7E6C1E; --bad:#B3402E;
+    --focus:0 0 0 2px #F7F5EF, 0 0 0 4px #A4582C;
+    --shadow-1:0 1px 2px rgba(31,45,36,.05),0 4px 16px -8px rgba(31,45,36,.10);
+    --shadow-2:0 2px 6px rgba(31,45,36,.06),0 16px 40px -16px rgba(31,45,36,.18);
+    --sans:'Inter',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --serif:"Palatino Linotype",Palatino,Georgia,serif;
+    --r-input:8px; --r-btn:10px; --r-card:14px;
+    /* card boundary: identity cards are this page's only click target, so their
+       rest border earns a visible step (sampled 2.13:1 vs paper; --line is 1.20) */
+    --edge:color-mix(in srgb,var(--soft) 45%,var(--line));
+    /* skeleton fill: member.html's proven pair (>=3:1 vs paper both themes) */
+    --skelfill:color-mix(in srgb,var(--soft) 25%,var(--faint)); --skelglint:rgba(255,255,255,.45);
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --paper:#161A16; --card:#1D231E; --card-2:#232A24; --line:#2E362F; --line-2:#3B453C;
+      --ink:#E9ECE6; --soft:#9AA69B; --soft-2:#ABB5AC; --faint:#6F7B70;
+      --accent:#D08A52; --accent-hi:#DEA06C; --accent-soft:color-mix(in srgb,#D08A52 12%,transparent); --on-accent:#1C1108;
+      --good:#7FA884; --warn:#CBB755; --bad:#D9705C;
+      --focus:0 0 0 2px #161A16, 0 0 0 4px #D08A52;
+      --shadow-1:0 1px 2px rgba(0,0,0,.25),0 4px 16px -8px rgba(0,0,0,.4);
+      --shadow-2:0 2px 6px rgba(0,0,0,.3),0 16px 40px -16px rgba(0,0,0,.55);
+      --edge:color-mix(in srgb,var(--soft) 35%,var(--line-2));   /* sampled 2.98:1 vs paper */
+      color-scheme:dark;
+    }
+    /* dark card definition: same proven step as member.html iteration 8 (tokens' dark
+       --card sits 1.10:1 vs page and dissolves; the step + soft shadow define the card) */
+    body{--card:#262E25;--card-2:#2C342B}
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased;display:flex;min-height:100vh;padding:32px 24px}
+  .wrap{width:100%;max-width:520px;margin:auto}
+
+  /* brand lockup (branded surface per design-language § brand: door carries it) */
+  .lockup{display:flex;align-items:center;gap:12px;margin:0 0 26px}
+  .lockup .mark{width:36px;height:36px;flex:none}
+  .lockup .mark rect{stroke:var(--line-2);stroke-width:1}
+  .lockup .wordmark{font-family:var(--serif);font-size:18px;font-weight:700;letter-spacing:.01em;color:var(--ink)}
+  .lockup .wordmark .am{color:var(--accent)}
+  .lockup .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--soft-2);margin-top:2px;font-weight:500}
+
+  h1{font-size:20px;font-weight:650;letter-spacing:-.015em;margin:0 0 4px}
+  p.lead{color:var(--soft-2);font-size:13.5px;line-height:1.6;margin:0 0 26px;max-width:60ch}
+  h2{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--soft-2);margin:24px 0 10px}
+
+  /* identity cards: the primary action of this screen. Card anatomy per the panel
+     3-zone row: identity (name + mono sub) / status chip / enter chevron.
+     Boundary + hover run one step stronger than the certified surfaces because these
+     cards are the page's SOLE affordance: --edge rest border (>=2:1 vs paper), and
+     hover = accent border + faint accent tint + lift + chevron slide. */
+  .id{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--card);border:1px solid var(--edge);border-radius:var(--r-card);padding:16px 18px;margin-bottom:10px;cursor:pointer;color:var(--ink);font-family:inherit;font-size:14px;box-shadow:var(--shadow-1);transition:border-color .12s ease,background .12s ease,box-shadow .12s ease,transform .12s ease}
+  .id:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--card));box-shadow:var(--shadow-2);transform:translateY(-2px)}
+  .id:hover .chev{color:var(--accent);transform:translateX(3px)}
+  .id:active{transform:translateY(0);box-shadow:var(--shadow-1)}
+  .id:focus-visible{outline:none;box-shadow:var(--focus)}
+
+  /* hierarchy anchor: the identity used last time (localStorage, this machine only)
+     leads with an accent rail + LAST USED micro-chip; with no recency record yet the
+     first row carries the rail alone as the primary pick. */
+  .id.anchor{border-left:3px solid var(--accent);padding-left:16px}
+  .id .lastchip{display:inline-block;margin-left:8px;font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent);border-radius:5px;padding:1.5px 6px;vertical-align:2px}
+
+  /* loading skeleton: member.html's shimmer grammar, shown while /identities is in
+     flight so the list never blank-flashes (perceived speed). */
+  .skel{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);padding:16px 18px;margin-bottom:10px;box-shadow:var(--shadow-1)}
+  .skel .disc{width:20px;height:20px;border-radius:50%;background:var(--skelfill);flex:none;position:relative;overflow:hidden}
+  .skel .meta{flex:1;display:block}
+  .skel .ln{display:block;height:10px;border-radius:5px;background:var(--skelfill);position:relative;overflow:hidden}
+  .skel .ln.w45{width:45%}
+  .skel .ln.w28{width:28%;height:8px;margin-top:9px}
+  .skel .disc::after,.skel .ln::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,var(--skelglint),transparent);animation:shimmer 1.6s ease infinite}
+  @keyframes shimmer{to{transform:translateX(100%)}}
+
+  /* presence dot: the signature element, same pseudo-element pattern as member.html.
+     Green breathing = connected · red static = not answering · faint static = checking. */
+  .dot{position:relative;width:20px;height:20px;flex:none}
+  .dot::after{content:"";position:absolute;left:6.5px;top:6.5px;width:7px;height:7px;border-radius:50%;background:var(--faint)}
+  .dot::before{content:"";position:absolute;inset:0;border-radius:50%;border:1.5px solid var(--faint);opacity:.35;transform:scale(.7)}
+  .dot.ok::after{background:var(--good)}
+  .dot.ok::before{border-color:var(--good);opacity:.45;animation:breathe 3s ease-in-out infinite}
+  .dot.err::after{background:var(--bad)}
+  .dot.err::before{border-color:var(--bad);opacity:.4}
+  @keyframes breathe{0%,100%{transform:scale(.55);opacity:.45}50%{transform:scale(1);opacity:.12}}
+
+  .id .meta{flex:1;min-width:0}
+  .id .name{font-weight:600;font-size:14px}
+  .id .sub{color:var(--soft-2);font-size:11.5px;font-family:var(--mono);font-weight:450;margin-top:3px}
+  .id.pending .sub{color:var(--warn)}
+  .id .kind{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--line);border-radius:6px;padding:2.5px 8px;color:var(--soft-2);background:var(--card-2);flex:none}
+  .id .chev{flex:none;color:var(--faint);font-size:17px;line-height:1;transition:color .12s ease,transform .12s ease}
+
+  /* ---- the inventory (2026-08-13). One list; on-device vs elsewhere is a
+     STATUS on the row, not a separate list. Spec:
+     docs/superpowers/specs/2026-08-13-mineral-inventory.md ---- */
+
+  /* elsewhere: dimmed, no presence dot (there is nothing to probe), no lift on
+     hover, and NOT a click target — the row is information, the Connect button
+     is the only affordance on it. A dimmed row that still looked pressable
+     would promise an open that cannot happen. */
+  .id.off{cursor:default;background:var(--card-2);border-style:dashed;box-shadow:none;align-items:flex-start}
+  .id.off:hover{border-color:var(--edge);background:var(--card-2);box-shadow:none;transform:none}
+  .id.off .name{color:var(--soft-2)}
+  .id.off .kind{opacity:.75}
+  /* the empty slot where an on-device row carries its dot, so the name column
+     of every row still lines up down the list */
+  .id.off .nodot{width:20px;flex:none}
+
+  .connect{flex:none;padding:7px 12px;border-radius:var(--r-btn);border:1px solid var(--line-2);background:var(--card);color:var(--ink);font-size:12px;font-weight:500;font-family:inherit;cursor:pointer;white-space:nowrap;transition:border-color .12s ease,background .12s ease}
+  .connect:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--card))}
+  .connect:active{transform:translateY(1px)}
+  .connect:focus-visible{outline:none;box-shadow:var(--focus)}
+  .connect:disabled{color:var(--soft-2);cursor:default;border-color:var(--line);background:var(--card-2)}
+
+  /* RULING 5: a mineral this computer's key opens that the signed-in account
+     holds no grant on. Sam read exactly this as the account's own holdings on
+     2026-08-10. Warn-coloured, never bad-coloured: it is an account mismatch,
+     not an intrusion (the key was admitted by the mineral's own roster). */
+  .id .flag{display:block;margin-top:5px;font-size:11px;line-height:1.45;color:var(--warn);font-family:var(--mono);font-weight:450}
+
+  /* who holds it (ruling 6). An org-held pebble names its holder rather than
+     reading "shared with you", which is false for a member's own assistant. */
+  .id .held{color:var(--faint)}
+
+
+  /* the honest-fail line under the list: offline, signed out, or the directory
+     is down. Never an empty screen (ruling 4). */
+  .invnote{display:none;margin:2px 4px 0;font-size:11.5px;line-height:1.5;color:var(--soft-2);font-family:var(--mono);font-weight:450}
+  .invnote.on{display:block}
+
+  .forget{margin:-4px 4px 12px;text-align:right}
+  .forget a{color:var(--soft-2);font-size:11.5px;font-family:var(--mono);font-weight:450;text-decoration:none;border-radius:6px;padding:1px 4px}
+  .forget a:hover{color:var(--bad);text-decoration:underline}
+  .forget a:focus-visible{outline:none;box-shadow:var(--focus)}
+  /* "Add a device" under a connected row: same quiet placement as the forget
+     link, but it is not destructive, so its hover takes the accent, not red. */
+  .adddev a:hover{color:var(--accent)}
+
+  /* secondary paths: quiet outline cards, never accent-filled */
+  .newrow{display:flex;gap:10px}
+  .newrow a{flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:13px 16px;border-radius:var(--r-btn);border:1px solid var(--line-2);background:var(--card);color:var(--ink);text-decoration:none;font-size:13px;font-weight:500;box-shadow:var(--shadow-1);transition:border-color .12s ease,box-shadow .12s ease}
+  .newrow a .chev{color:var(--faint);font-size:15px;transition:color .12s ease,transform .12s ease}
+  .newrow a:hover{border-color:var(--faint);box-shadow:var(--shadow-2)}
+  .newrow a:hover .chev{color:var(--accent);transform:translateX(2px)}
+  .newrow a:active{box-shadow:var(--shadow-1)}
+  .newrow a:focus-visible{outline:none;box-shadow:var(--focus)}
+
+  .empty{background:var(--card);border:1px dashed var(--line-2);border-radius:var(--r-card);padding:20px 22px;color:var(--soft-2);font-size:13.5px;line-height:1.6}
+  .empty b{color:var(--ink);font-weight:600}
+
+  /* creator home: the fresh-install takeover. Same card grammar as .id (this
+     screen's sole affordance in that state): --edge rest border, accent hover
+     plus lift, focus ring, laid out as a vertical stack of three big picks
+     rather than a list row, since there is nothing yet to differentiate by
+     recency. */
+  p.hint{color:var(--soft-2);font-size:13.5px;line-height:1.6;margin:0 0 18px}
+  .cards3{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
+  .bigcard{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--edge);border-radius:var(--r-card);padding:16px 18px;cursor:pointer;color:var(--ink);font-family:inherit;box-shadow:var(--shadow-1);transition:border-color .12s ease,background .12s ease,box-shadow .12s ease,transform .12s ease}
+  .bigcard:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--card));box-shadow:var(--shadow-2);transform:translateY(-2px)}
+  .bigcard:active{transform:translateY(0);box-shadow:var(--shadow-1)}
+  .bigcard:focus-visible{outline:none;box-shadow:var(--focus)}
+  .bigcard b{display:block;font-size:14px;font-weight:600;margin-bottom:3px}
+  .bigcard span{display:block;color:var(--soft-2);font-size:12.5px;line-height:1.5;font-weight:450}
+
+  /* pebble flow, collapsed 2026-08-17 (Sam's ruling): self-provision builds SOLO
+     only, so the ownership and who-manages-it screens are gone. A pebble is one
+     screen (name + sign-in, with a for-someone reveal); a rock keeps its handle
+     screen first. Rock anchoring happens where a rock is involved: an invite the
+     rock provisioned, or the ask-to-join flow behind "Join a community". Adds
+     label/input/button.act, which this page didn't need before this screen existed. */
+  .pstep{display:none}
+  .back{display:inline-block;color:var(--soft-2);font-size:12.5px;text-decoration:none;margin:0 0 14px;border-radius:6px;padding:1px 4px}
+  .back:hover{color:var(--ink);text-decoration:underline}
+  .back:focus-visible{outline:none;box-shadow:var(--focus)}
+  label{display:block;font-size:13px;color:var(--ink);margin:14px 0 6px;font-weight:500}
+  input{width:100%;padding:10px 12px;border-radius:var(--r-input);border:1px solid var(--line-2);background:var(--card);color:var(--ink);font-size:14px;font-family:inherit;transition:border-color .12s ease,box-shadow .12s ease}
+  input:hover{border-color:var(--faint)}
+  input:focus-visible{outline:none;border-color:var(--accent);box-shadow:var(--focus)}
+  select{width:100%;padding:10px 12px;border-radius:var(--r-input);border:1px solid var(--line-2);background:var(--card);color:var(--ink);font-size:14px;font-family:inherit}
+  .tokhelp{margin:8px 0 4px;border:1px solid var(--line);border-radius:var(--r-input);background:var(--card-2);padding:8px 12px}
+  .tokhelp summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink)}
+  .tokhelp ol{margin:.6em 0 .4em 1.2em;padding:0}
+  .tokhelp li{margin:0 0 .55em}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92em}
+  #shSizes{display:flex;flex-direction:column;gap:8px;margin:4px 0 2px}
+  .sizecard{text-align:left;padding:10px 12px;border:1px solid var(--line-2);border-radius:var(--r-input);background:var(--card);color:var(--ink);cursor:pointer;font:inherit}
+  .sizecard span{display:block;font-size:12.5px;color:var(--soft-2);margin-top:2px}
+  .sizecard .reco{display:inline;font-size:11px;color:var(--accent);font-weight:600;margin-left:6px}
+  .sizecard .fine{font-size:11.5px;color:var(--faint)}
+  .sizecard.sel{border-color:var(--accent);box-shadow:var(--focus)}
+  .sizecard:disabled{opacity:.45;cursor:default}
+  ::placeholder{color:color-mix(in srgb,var(--soft) 70%,var(--faint))}
+  /* a.act (2026-08-25): the pay control is a LINK, because it leaves for
+     Stripe, but it has to read as the primary action on the screen. The rules
+     below were written as button.act only, so the first shipped pay control
+     rendered as a bare blue hyperlink under a big brown "Done" button, which is
+     exactly backwards. Anchors need the text reset buttons get for free. */
+  a.act{text-decoration:none;text-align:center;box-sizing:border-box}
+  button.act,a.act{display:block;width:100%;padding:11px 18px;border-radius:var(--r-btn);border:1px solid var(--line-2);background:var(--card);color:var(--ink);font-size:13.5px;font-weight:500;font-family:inherit;cursor:pointer;margin-top:16px;box-shadow:var(--shadow-1);transition:border-color .12s ease,background .12s ease,box-shadow .12s ease}
+  button.act:hover,a.act:hover{border-color:var(--faint)}
+  button.act:active,a.act:active{transform:translateY(1px)}
+  button.act:focus-visible,a.act:focus-visible{outline:none;box-shadow:var(--focus)}
+  button.act.primary,a.act.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+  button.act.primary:hover,a.act.primary:hover{background:var(--accent-hi);border-color:var(--accent-hi)}
+  button.act.primary:disabled{background:var(--card-2);border-color:var(--line-2);color:var(--soft-2);cursor:not-allowed;box-shadow:none;transform:none}
+  .msg{display:none;font-size:13px;line-height:1.55;border:1px solid var(--line);border-left:3px solid var(--bad);background:var(--card-2);border-radius:var(--r-input);padding:10px 12px;margin-top:14px;color:var(--ink)}
+  .msg.on{display:block}
+  .msg a{color:var(--accent);font-weight:600}
+  /* inline links inside hints (the for-someone reveal, "Use a different
+     account") take the page's accent, not browser blue */
+  .hint a{color:var(--accent);text-decoration:none;border-radius:5px;padding:0 2px}
+  .hint a:hover{text-decoration:underline}
+  .hint a:focus-visible{outline:none;box-shadow:var(--focus)}
+
+  .foot{color:var(--soft-2);font-size:11.5px;font-family:var(--mono);font-weight:450;letter-spacing:.02em;line-height:1.6;margin-top:32px;border-top:1px solid var(--line);padding-top:12px}
+
+  .updatebar{display:none;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:var(--r-card);padding:13px 16px;margin-bottom:18px;font-size:13.5px;box-shadow:var(--shadow-1)}
+  .updatebar button{margin-left:auto;padding:7px 14px;border-radius:var(--r-btn);border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);font-weight:650;font-size:13px;font-family:inherit;cursor:pointer;white-space:nowrap;transition:background .12s ease,border-color .12s ease}
+  .updatebar button:hover{background:var(--accent-hi);border-color:var(--accent-hi)}
+  .updatebar button:active{transform:translateY(1px)}
+  .updatebar button:focus-visible{outline:none;box-shadow:var(--focus)}
+  .updatebar button:disabled{background:var(--card-2);border-color:var(--line);color:var(--soft-2);cursor:not-allowed;transform:none}
+
+  @media (prefers-reduced-motion:reduce){
+    .dot.ok::before{animation:none;transform:scale(.7);opacity:.3}
+    .id,.id .chev,.newrow a,.newrow a .chev,.updatebar button,.bigcard{transition:none}
+    .id:hover,.bigcard:hover{transform:none}
+    .skel .disc::after,.skel .ln::after{animation:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="lockup">
+    <svg class="mark" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="1" y="1" width="62" height="62" rx="14" fill="#FAF7EE"/>
+      <path d="M32 8.32 A24.2 24.2 0 0 1 32 53.12 A24.2 24.2 0 0 1 32 8.32 Z" fill="none" stroke="#173D2A" stroke-width="2.69" stroke-linejoin="round"/>
+      <line x1="32" y1="12.8" x2="32" y2="53.12" stroke="#173D2A" stroke-width="2.69" stroke-linecap="round"/>
+      <line x1="32" y1="21.76" x2="39.44" y2="19.09" stroke="#173D2A" stroke-width="2.69" stroke-linecap="round"/>
+      <circle cx="42.7" cy="17.92" r="3.46" fill="#C2703D" stroke="#A4582C" stroke-width="2.69"/>
+      <line x1="32" y1="26.24" x2="25.07" y2="20.65" stroke="#173D2A" stroke-width="2.69" stroke-linecap="round"/>
+      <circle cx="23.27" cy="19.2" r="2.3" fill="none" stroke="#173D2A" stroke-width="2.69"/>
+      <line x1="32" y1="31.62" x2="40.56" y2="25.3" stroke="#173D2A" stroke-width="2.69" stroke-linecap="round"/>
+      <circle cx="42.41" cy="23.94" r="2.3" fill="none" stroke="#173D2A" stroke-width="2.69"/>
+      <line x1="32" y1="36.1" x2="22.84" y2="29.17" stroke="#173D2A" stroke-width="2.69" stroke-linecap="round"/>
+      <circle cx="21" cy="27.78" r="2.3" fill="none" stroke="#173D2A" stroke-width="2.69"/>
+      <line x1="32" y1="41.47" x2="41.01" y2="33.98" stroke="#173D2A" stroke-width="2.69" stroke-linecap="round"/>
+      <circle cx="42.78" cy="32.51" r="2.3" fill="none" stroke="#173D2A" stroke-width="2.69"/>
+      <line x1="32" y1="45.95" x2="23.87" y2="37.97" stroke="#173D2A" stroke-width="2.69" stroke-linecap="round"/>
+      <circle cx="22.22" cy="36.35" r="2.3" fill="none" stroke="#173D2A" stroke-width="2.69"/>
+    </svg>
+    <div>
+      <div class="wordmark">crads-<span class="am">ai</span></div>
+      <div class="tag">Your private assistant</div>
+    </div>
+  </div>
+
+  <div class="updatebar" id="updateBar"><span>A new version of this app is available.</span><button id="updateBtn">Install update &amp; restart</button></div>
+
+  <!-- Hidden on a fresh install along with everything else the takeover
+       replaces (live-cert D1: "the takeover owns a fresh install whole").
+       "Your minerals · Everything you have" over an install that has none is
+       the same false claim the rest of that fix removed. -->
+  <h1 id="invTitle">Your minerals</h1>
+  <p class="lead" id="invLead">Everything you have, and which of it this computer can open.</p>
+
+  <div id="creatorHome" style="display:none">
+    <div id="pebbleIntro">
+      <h2>What are we making?</h2>
+      <p class="hint">This install has nothing behind it yet. Pick a door.</p>
+      <div class="cards3">
+        <!-- The self-host door (pivot, 2026-09-01): free software, your server,
+             your accounts, nothing paid to or held by Crads-AI. This card IS
+             the product now, so it leads; the others connect and join. -->
+        <button class="bigcard" data-make="selfhost"><b>Set up my own</b>
+          <span>Free and self-hosted. Your brain runs on a server in your own hosting account, and you pay the host directly. Nothing is stored with Crads-AI.</span></button>
+        <!-- Hosted-era cards ("I have an invitation", "Join a community")
+             stripped 2026-09-01 on Sam's call: nobody can be invited TO a box
+             any more, and the community board was a central directory read.
+             Their successors arrive with the commons model. -->
+        <!-- QA finding 143 (2026-08-16). Every door above MAKES something. A
+             member who already holds a mineral and is simply on a second laptop
+             had no door at all, which is also where "Open in the app" lands:
+             crads-ai://box/<slug> with no matching Host block drops the slug and
+             opens this screen. The picker was right to discard a slug it cannot
+             open; what was missing is a surface to pick. -->
+        <button class="bigcard" data-make="have"><b>I already have one</b>
+          <span>Sign in, and this computer joins the minerals your account already holds. Nothing new is made.</span></button>
+      </div>
+    </div>
+
+
+    <!-- the self-host wizard (2026-09-01): the whole create flow, local. Costs
+         first (B6 died of a surprise fee; here the fee facts ARE the first
+         screen), then the person's own Hetzner token, then the engine builds on
+         THEIR account. The token goes to this app's local server and to
+         api.hetzner.cloud, nowhere else, and is never stored. -->
+    <div id="shFlow" style="display:none">
+      <a href="#" class="back" id="shBack">&#8249; back</a>
+      <h2>Set up my own</h2>
+
+      <div id="shCosts">
+        <p class="hint">The real costs, before anything is made. The software is free and open source. What costs money is the machine it runs on and the AI inside it, and you pay both providers directly:</p>
+        <ul class="hint" style="margin:.4em 0 .8em 1.2em">
+          <li>a Hetzner cloud server, roughly $10 to 25 a month depending on size, billed to you by Hetzner</li>
+          <li>your own Claude subscription, billed to you by Anthropic</li>
+          <li>nothing to Crads-AI, ever</li>
+        </ul>
+        <p class="hint">You need a Hetzner account and an API token; the next screen walks you through getting one. The token stays on this computer.</p>
+        <button class="act primary" id="shCostsOk">That works for me</button>
+      </div>
+
+      <div id="shForm" style="display:none">
+        <label for="shName">Name your mineral</label>
+        <input id="shName" placeholder="e.g. your first name" autocomplete="off" spellcheck="false">
+        <label for="shToken">Your Hetzner API token</label>
+        <details class="tokhelp" id="shTokenHelp" open>
+          <summary>How to get one (about five minutes)</summary>
+          <ol class="hint">
+            <li><b>Make a Hetzner account</b> at <span class="mono">console.hetzner.com</span> if you do not have one. Sign up with your email, confirm it, and add a payment method. Hetzner sometimes asks new accounts to verify identity; if it does, that step is theirs and can take a little while.</li>
+            <li><b>Create a project.</b> On the Cloud console&#8217;s start screen choose &#8220;New project&#8221; and give it any name (&#8220;my-brain&#8221; is fine). If a default project is already there, that works too.</li>
+            <li><b>Open the project</b>, then in the left sidebar choose <b>Security</b>, then the <b>API tokens</b> tab.</li>
+            <li><b>Generate the token.</b> Press &#8220;Generate API token&#8221;, name it (&#8220;crads-ai&#8221; is fine), and set permissions to <b>Read &amp; Write</b>. Read-only cannot build anything.</li>
+            <li><b>Copy it straight away.</b> Hetzner shows a token exactly once. Paste it below; if you lose it, just generate a new one and delete the old.</li>
+          </ol>
+          <p class="hint">The token stays on this computer and is sent only to Hetzner&#8217;s own API. It is the key to your hosting project, so treat it like a password; you can revoke it any time from the same screen.</p>
+        </details>
+        <input id="shToken" type="password" autocomplete="off" spellcheck="false" placeholder="paste the token here">
+        <div id="shOpts" style="display:none">
+          <label for="shLoc">Where in the world</label>
+          <select id="shLoc"></select>
+          <label>How big a machine</label>
+          <!-- Sam's ruling (2026-09-01): a handful of options with words, not
+               25 SKU strings. Each card resolves to a real Hetzner type behind
+               the scenes (a preference chain filtered by what the chosen
+               location sells), and the fine print names it with the real
+               monthly price from Hetzner's own list. -->
+          <div id="shSizes">
+            <button type="button" class="sizecard" data-size="small"><b>Small</b>
+              <span>About the cheapest that runs well. Fine for getting started and light daily use.</span>
+              <span class="fine" data-fine></span></button>
+            <button type="button" class="sizecard" data-size="standard"><b>Standard</b> <span class="reco">recommended</span>
+              <span>What we test on. Comfortable for one person&#8217;s assistant, day in and day out.</span>
+              <span class="fine" data-fine></span></button>
+            <button type="button" class="sizecard" data-size="roomy"><b>Roomy</b>
+              <span>Headroom for heavy use: big imports, lots of documents, never having to think about it.</span>
+              <span class="fine" data-fine></span></button>
+          </div>
+        </div>
+        <button class="act primary" id="shCheckBtn" style="margin-top:14px">Check the token</button>
+        <button class="act primary" id="shBuildBtn" style="display:none;margin-top:14px">Build it</button>
+      </div>
+
+      <div id="shBuild" style="display:none">
+        <p class="hint" id="shPhase">Building&#8230;</p>
+        <div id="shSteps" class="hint"></div>
+        <p class="hint" id="shBootNote" style="display:none">The server is up and is now downloading its workspace. First boot takes a few minutes; this screen will notice by itself.</p>
+      </div>
+
+      <div id="shDone" style="display:none">
+        <p><b>Your mineral is alive.</b> It runs on your server, holds only your key, and answers to nobody else.</p>
+        <button class="act primary" id="shOpenBtn">Open it</button>
+      </div>
+
+      <div class="msg" id="shMsg"></div>
+      <div id="shRetryRow" style="display:none;margin-top:10px">
+        <button class="act" id="shRetryBtn">Retry</button>
+        <button class="act" id="shDestroyBtn">Remove the half-made server</button>
+      </div>
+    </div>
+
+    <!-- the existing-holder door (QA findings 143 + 149, 2026-08-16). Signs this
+         machine in and stops: the inventory below is what answers "what do I
+         hold", and its rows already carry the Connect button. This flow creates
+         nothing, which is the whole point of it existing next to four doors that
+         do. -->
+    <div id="haveFlow" style="display:none">
+      <a href="#" class="back" id="haveBack">&#8249; back</a>
+      <h2>Connect this computer</h2>
+      <p class="hint" id="haveHint">A computer that already opens your mineral can let this one in. Nothing is created.</p>
+      <div class="msg" id="haveMsg"></div>
+
+      <!-- Approve from another computer (self-host pivot, 2026-09-01): the
+           PRIMARY path in. A computer that already opens the mineral lets this
+           one in, over SSH, straight to your own box. No account and no Crads-AI
+           service anywhere in the chain. The name is asked FIRST because the key
+           is made for a name, and the key shown must be the key the finished
+           connection uses. -->
+      <div id="devJoin">
+        <p class="hint">If another of your computers already opens the mineral, it can let this one in directly. No account needed.</p>
+        <label for="devName">What is the mineral called?</label>
+        <input id="devName" placeholder="the name it was set up with" autocomplete="off" spellcheck="false">
+        <button class="act primary" id="devOfferBtn">Show this computer&#8217;s key</button>
+        <div id="devOffer" style="display:none">
+          <label for="devPub">This computer&#8217;s key</label>
+          <input id="devPub" readonly spellcheck="false">
+          <button class="act" id="devCopyBtn">Copy the key</button>
+          <p class="hint">On the computer that already opens the mineral, open this app, find the mineral in the list and choose &#8220;Add a device&#8221;. Paste the key there. It answers with a connection bundle; bring that back here.</p>
+          <label for="devBundle">The connection bundle</label>
+          <input id="devBundle" autocomplete="off" spellcheck="false" placeholder="crads1:&#8230;">
+          <button class="act primary" id="devCompleteBtn">Connect</button>
+        </div>
+        <div class="msg" id="devMsg"></div>
+      </div>
+
+      <!-- The Crads-AI sign-in secondary left with the account system
+           (2026-09-01): identity is the SSH key, and the computer that already
+           holds one is the authority that grants another. -->
+    </div>
+
+    <!-- The old machine's half of device enrolment: opened from a connected
+         mineral row's "Add a device" link. Pastes the NEW computer's key,
+         appends it on the box over the existing connection, answers with the
+         bundle to carry back. -->
+    <div id="devApproveFlow" style="display:none">
+      <a href="#" class="back" id="devApproveBack">&#8249; back</a>
+      <h2>Add a device</h2>
+      <p class="hint" id="devApproveHint"></p>
+      <label for="devApproveKey">The new computer&#8217;s key</label>
+      <input id="devApproveKey" autocomplete="off" spellcheck="false" placeholder="ssh-ed25519 &#8230;">
+      <button class="act primary" id="devApproveBtn">Approve it</button>
+      <div id="devBundleOut" style="display:none">
+        <p class="hint" id="devBundleNote">Done. The box will let that computer in. Carry this bundle back to the new computer and paste it there:</p>
+        <label for="devBundleStr">The connection bundle</label>
+        <input id="devBundleStr" readonly spellcheck="false">
+        <button class="act" id="devBundleCopyBtn">Copy the bundle</button>
+      </div>
+      <div class="msg" id="devApproveMsg"></div>
+    </div>
+
+  </div>
+
+  <!-- ONE LIST (2026-08-13, ratified). This was three lists derived from two
+       truths, never joined: /identities (SSH Host blocks), /account/minerals
+       (grants) and /account/devices (boxes to ask). The join key was always
+       trivial (the alias prefix IS the mineral slug) and the identical merge
+       already shipped for the /my-orgs picker at member-connect.mjs:367.
+       The 2026-08-10 fix retitled this "On this machine" to stop the account
+       row's minerals being misread as these; folding the layers removes the
+       thing that could be misread instead. -->
+  <!-- NOT a second "Your minerals" (the h1 already says it). On 2026-08-12 that
+       heading was found asserting ownership over minerals held by somebody
+       else; the per-row holder line answers that far more precisely now, so
+       this labels the axis the list is actually sorted on instead of repeating
+       an ownership claim. -->
+  <h2 id="idsHead">On this computer and elsewhere</h2>
+  <p class="hint" id="idsHint" style="margin:-.35em 0 .8em">A dot means this computer can open it. Anything dimmed lives elsewhere until you connect this computer to it.</p>
+  <div id="inv"></div>
+  <div class="invnote" id="invNote"></div>
+  <div class="empty" id="none" style="display:none"><b>None yet.</b> Start a rock below, or join one you've been invited to.</div>
+
+  <h2 id="newHead">New here?</h2>
+  <div class="newrow" id="newRow">
+    <!-- A machine that already holds minerals still needs a door to MAKE one
+         (found 2026-09-01: the takeover only shows when the list is empty, so
+         existing users had no path to the self-host wizard at all). The
+         invitation link left with the hosted-era cards, same day. -->
+    <a href="#" id="newSelfhost">Set up my own <span class="chev">›</span></a>
+  </div>
+
+  <div class="foot">This screen checks each mineral by itself; dots flip live.</div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  // `rows` is the merged inventory from /inventory (spec 2026-08-13): one entry
+  // per MINERAL, carrying whether this machine can open it, rather than one
+  // entry per source list. `account` is the state of the account layer:
+  // pending | ok | signed-out | unreachable. It is NOT a boolean, because
+  // "we have not asked yet" and "we asked and got nothing" have to render
+  // differently or an offline launch accuses every mineral on the machine.
+  var state = { rows: [], status: {}, loaded: false };
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  // recency is local-only (localStorage on this machine): the door remembers which
+  // mineral was opened last and anchors it. /inventory carries no recency data.
+  function lastUsed(){ try { return localStorage.getItem('aios_door_last'); } catch (e) { return null; } }
+  function rememberUse(host){ try { localStorage.setItem('aios_door_last', host); } catch (e) { /* private mode */ } }
+
+  function skeleton(){
+    var box = document.getElementById('inv'); box.innerHTML = '';
+    for (var i = 0; i < 2; i++) {
+      var s = document.createElement('div'); s.className = 'skel'; s.setAttribute('aria-hidden', 'true');
+      s.innerHTML = '<span class="disc"></span><span class="meta"><span class="ln w45"></span><span class="ln w28"></span></span>';
+      box.appendChild(s);
+    }
+  }
+
+  function render(){
+    var box = document.getElementById('inv'); box.innerHTML = '';
+    var fresh = !state.rows.length;
+    // While a takeover flow is active (the have flow forces the takeover open
+    // even when identities already exist) a periodic probe-driven render() must
+    // not yank it away from the user mid-sign-in by re-deriving these two lines
+    // from `fresh`. See the pebbleFlowActive latch above startShFlow().
+    if (!pebbleFlowActive && !pebbleDoneHold) {
+      document.getElementById('creatorHome').style.display = fresh ? '' : 'none';
+      document.getElementById('inv').style.display = fresh ? 'none' : '';
+      // Live-cert defect 1 (2026-08-03): only the list DIV was hidden on a fresh
+      // install, so its heading stayed, and the "New here?" strip repeated the
+      // three doors the takeover was already showing. A first launch read as a
+      // duplicated, half-empty screen. The takeover owns a fresh install whole.
+      document.getElementById('idsHead').style.display = fresh ? 'none' : '';
+      document.getElementById('newHead').style.display = fresh ? 'none' : '';
+      document.getElementById('newRow').style.display = fresh ? 'none' : '';
+      document.getElementById('idsHint').style.display = fresh ? 'none' : '';
+      document.getElementById('invTitle').style.display = fresh ? 'none' : '';
+      document.getElementById('invLead').style.display = fresh ? 'none' : '';
+    }
+    document.getElementById('none').style.display = 'none';   // superseded by the takeover
+    // ANCHOR ONLY ON A REAL RECORD. This used to fall back to rows[0], which is
+    // SSH-config parse order wearing the clothes of a recommendation.
+    var last = lastUsed();
+    var hasLast = state.rows.some(function(r){ return r.onDevice && r.alias === last; });
+    renderNote();
+    // The server already ordered these (orderInventory: on-device, then
+    // elsewhere, label-sorted within each). Only the last-used hoist happens
+    // here, because localStorage is the one ordering fact the server cannot
+    // know. Deliberately NOT a second sort implementation: a stable partition.
+    var ordered = hasLast
+      ? state.rows.filter(function(r){ return r.onDevice && r.alias === last; })
+        .concat(state.rows.filter(function(r){ return !(r.onDevice && r.alias === last); }))
+      : state.rows;
+    ordered.forEach(function(r){
+      r.onDevice ? box.appendChild(deviceRow(r, hasLast && r.alias === last)) : box.appendChild(elsewhereRow(r));
+      // A box that does not answer may be a deleted rock lingering on this
+      // computer (pre-cleanup builds left the SSH identity behind). Offer a
+      // local-only forget; it reaches at nothing beyond this machine.
+      if (r.onDevice && state.status[r.alias] === false) box.appendChild(forgetRow(r));
+      // A box that DOES answer can let another computer in (device enrolment,
+      // 2026-09-01): this machine's working connection is the authority now,
+      // not an account. Member rows only; the append lands in the member lane.
+      if (r.onDevice && state.status[r.alias] === true && r.tier !== 'rock') box.appendChild(addDeviceRow(r));
+    });
+  }
+
+  // TIER NOUNS ONLY (ruling 2). This chip read "Admin/Support" and "Member":
+  // a role inside somebody's org, not what the mineral IS. On a standalone
+  // pebble, "Member" is a member of nothing. And the word "pebble" appeared
+  // NOWHERE on this screen, directly under a button that says "New Pebble".
+  // AND ONLY TIERS ANYBODY ANSWERED (tier-honesty, 2026-08-19). tierKnown
+  // false means the noun below is the alias suffix's guess with the probe
+  // still out and the account unheard — the state that painted Harriet's rock
+  // "Pebble" for a whole session (2026-08-18). Say "Checking…" instead;
+  // repollUnsureTiers below re-reads until the probe settles it.
+  function kindChip(r){
+    if (r && r.tierKnown === false) return '<span class="kind" title="Confirming whether this is a rock or a pebble…">Checking…</span>';
+    var tier = r && typeof r === 'object' ? r.tier : r;
+    return '<span class="kind">' + (tier === 'rock' ? 'Rock' : 'Pebble') + '</span>';
+  }
+
+  // Who holds it (ruling 6). An org-held pebble names its holder: "shared with
+  // you" is false for a member's own working assistant, and false in exactly
+  // the anchored shape cohort one ships in.
+  function heldLine(r){
+    if (r.held === 'you') return '';                          // saying so on your own is noise
+    if (r.held === 'org') return ' · <span class="held">held by ' + esc(r.holder) + '</span>';
+    if (r.held === 'other') return ' · <span class="held">someone else holds this</span>';
+    return '';
+  }
+
+  function deviceRow(r, isLast){
+    var st = state.status[r.alias];                           // undefined | true | false
+    var b = document.createElement('button');
+    b.className = 'id' + (st === false ? ' pending' : '') + (isLast ? ' anchor' : '');
+    // "waiting for your rock" was org-flow copy asserted over EVERY unreachable
+    // box, including standalone pebbles that have no rock at all (QA 2026-07-30).
+    // The door only knows the box did not answer, so it says that.
+    var sub = st === undefined ? 'Checking…' : (st ? 'Connected' : 'Not answering yet');
+    b.title = st === undefined ? 'Checking whether this mineral answers…'
+      : st ? 'Connected: this mineral is answering. Press Enter or click to open it.'
+      : 'This mineral is not answering yet. That is normal for a minute after it is built. If it belongs to a rock, it stays this way until an Admin approves your key. This screen keeps checking by itself.';
+    // RULING 5. The key is what opens this, and the key stays sovereign, so the
+    // row is never hidden. But Sam signed in with an unrelated account on
+    // 2026-08-10 and read the whole list as that account's holdings, so a row
+    // the signed-in account holds no grant on says so, and names the account it
+    // was measured against. An account mismatch, not an intrusion: the key was
+    // admitted by this mineral's own device roster, which is the only thing
+    // that writes its authorized_keys.
+    var flag = r.flagged
+      ? '<span class="flag">opens with this computer&#8217;s key, not held by '
+        + (r.flagAccount ? esc(r.flagAccount) : 'the signed-in account') + '</span>'
+      : '';
+    b.innerHTML = '<span class="dot' + (st === undefined ? '' : st ? ' ok' : ' err') + '" aria-hidden="true"></span>'
+      + '<span class="meta"><span class="name">' + esc(r.label)
+      + (isLast ? '<span class="lastchip">Last used</span>' : '') + '</span>'
+      + '<br><span class="sub">' + sub + heldLine(r) + '</span>' + flag + '</span>'
+      + kindChip(r)
+      + '<span class="chev" aria-hidden="true">›</span>';
+    // The chosen mineral has to RIDE THE URL. localStorage is a convenience
+    // neither surface reads, so a bare /go/panel or /go/member opened targets[0]
+    // and showed another box's pages as yours whenever this machine held two of
+    // a kind (proven live 2026-08-04). Members honour #box=<slug>; rocks honour
+    // #host=<host>, because a promoted rock keeps its <slug>-box alias and its
+    // host cannot be derived from the slug.
+    // The identity rides the QUERY as well as the fragment (2026-08-18). The
+    // fragment is what the destination surface reads, and it is client-side only
+    // -- the door server never saw it, so its lazy-start could not tell WHICH
+    // mineral was clicked and refused a just-provisioned rock outright. Same
+    // value, twice, for two different readers. (Kept OUT of the handler body:
+    // door-identity-target.test.mjs reads the handler with a bounded window.)
+    b.onclick = function(){
+      rememberUse(r.alias);
+      var id = encodeURIComponent(r.tier === 'rock' ? r.alias : r.slug);
+      location.href = r.tier === 'rock'
+        ? '/go/panel?host=' + id + '#host=' + id
+        : '/go/member?box=' + id + '#box=' + id;
+    };
+    return b;
+  }
+
+  // RULING 3 + FINDING 8. A mineral on the account that this computer cannot
+  // open. Before this it was a run-on text line ("Connect this computer to: a ·
+  // b · c") built from an UNFILTERED list, so minerals already open on this
+  // machine were offered again. Now it is a row in the same list, dimmed, with
+  // no presence dot (there is nothing to probe) and exactly one action.
+  // A DIV, not a button: the row itself must not look pressable, because
+  // pressing it cannot open anything.
+  function elsewhereRow(r){
+    var d = document.createElement('div');
+    d.className = 'id off';
+    d.title = 'This mineral is on your account, but this computer has no key for it yet.';
+    var act = r.enrollable
+      ? '<button class="connect" data-slug="' + esc(r.slug) + '">Connect this computer</button>'
+      // FINDING 9's mirror image: never offer a button with nothing on the other
+      // end of the request. A grant whose box has not registered has nothing to
+      // ask, so the row says where it stands instead of pretending.
+      : '';
+    var why = r.enrollable ? 'Not on this computer'
+      : 'Not on this computer yet, and it has not checked in';
+    d.innerHTML = '<span class="nodot" aria-hidden="true"></span>'
+      + '<span class="meta"><span class="name">' + esc(r.label) + '</span>'
+      + '<br><span class="sub">' + why + heldLine(r) + '</span></span>'
+      + kindChip(r) + act;
+    return d;
+  }
+
+  function forgetRow(r){
+    var noun = r.tier === 'rock' ? 'rock' : 'pebble';
+    var f = document.createElement('div'); f.className = 'forget';
+    var a = document.createElement('a'); a.href = '#';
+    a.textContent = 'Forget this ' + noun + ' on this computer';
+    a.title = 'Removes only this computer’s key and connection entry. No mineral, brain or account anywhere is touched.';
+    a.onclick = function(ev){
+      ev.preventDefault();
+      if (!confirm('Remove "' + r.label + '" from this computer?\n\nThis deletes only this computer\'s key and connection entry for it; no mineral, brain or account anywhere is touched. If the ' + noun + ' still exists, you would need a fresh invite to reconnect.')) return;
+      fetch('/forget', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host: r.alias }) })
+        .then(function(x){ if (x.ok) { load(); } else { x.text().then(function(msg){ alert('Could not remove it: ' + (msg || x.status)); }); } });
+    };
+    f.appendChild(a);
+    return f;
+  }
+
+  // The old machine's door into device enrolment: a quiet link under each
+  // connected pebble row. Opens the approve panel for that mineral.
+  function addDeviceRow(r){
+    var f = document.createElement('div'); f.className = 'forget adddev';
+    var a = document.createElement('a'); a.href = '#';
+    a.textContent = 'Add a device';
+    a.title = 'Let another computer open this mineral. You paste the other computer’s key here; nothing else changes.';
+    a.onclick = function(ev){ ev.preventDefault(); startDevApproveFlow(r); };
+    f.appendChild(a);
+    return f;
+  }
+
+  // RULING 4. Offline is a first-class state, so the list NEVER blanks because
+  // a server was down: the on-device rows came off this machine's own disk and
+  // still open. What is lost is only the knowledge of minerals held elsewhere,
+  // and this line says exactly that rather than leaving a silent short list.
+  function renderNote(){
+    // With no account layer there is nothing off-machine to caveat: the list
+    // IS this computer's truth. Kept as a hook; renders nothing.
+    var n = document.getElementById('invNote');
+    n.className = 'invnote'; n.textContent = '';
+  }
+
+  // The takeover latch (kept after the self-host strip, 2026-09-01, which
+  // removed the creator flows: users self-provision with the local wizard, and
+  // a rock can no longer create a pebble). True while a takeover flow (the
+  // have flow) owns the screen, so a probe-driven render() cannot yank it away
+  // mid-sign-in.
+  var pebbleFlowActive = false;
+  var pebbleDoneHold = false;
+  function exitPebbleFlow(){
+    // Clears the flow-active override so the next render() is free to re-derive
+    // #creatorHome/#inv from state.rows again, instead of staying pinned open
+    // forever. Called on completion (thank-you screen) and when the user backs out
+    // of Q1.
+    pebbleFlowActive = false;
+  }
+  document.getElementById('creatorHome').addEventListener('click', function(e){
+    var card = e.target.closest('[data-make]');
+    if (!card) return;
+    var make = card.getAttribute('data-make');
+    if (make === 'selfhost') { startShFlow(); }
+    else if (make === 'have') { startHaveFlow(''); }
+  });
+
+  // ---- the self-host wizard (2026-09-01) -----------------------------------
+  // The page is deliberately thin: every decision (key custody, resume,
+  // known-hosts) lives in provision-routes.mjs; this just walks the screens
+  // and polls. Re-entering the flow reattaches to a run already going, so an
+  // accidental back or a page reload never orphans a build.
+  var shPoll = null;
+  function shShow(stage){
+    ['shCosts','shForm','shBuild','shDone'].forEach(function(id){
+      document.getElementById(id).style.display = (id === stage) ? 'block' : 'none';
+    });
+  }
+  function shErr(text){
+    var m = document.getElementById('shMsg');
+    m.className = text ? 'msg on' : 'msg';
+    m.textContent = text || '';
+    document.getElementById('shRetryRow').style.display = text ? 'block' : 'none';
+  }
+  function startShFlow(){
+    pebbleFlowActive = true;
+    document.getElementById('creatorHome').style.display = 'block';
+    document.getElementById('inv').style.display = 'none';
+    document.getElementById('pebbleIntro').style.display = 'none';
+    document.getElementById('haveFlow').style.display = 'none';
+    document.getElementById('devApproveFlow').style.display = 'none';
+    document.getElementById('shFlow').style.display = 'block';
+    shErr('');
+    fetch('/provision/status').then(function(r){ return r.json(); }).then(function(s){
+      if (s.phase === 'provisioning' || s.phase === 'booting') { shShow('shBuild'); shAttach(); }
+      else if (s.phase === 'ready') { shReady(s); }
+      else shShow('shCosts');
+    }).catch(function(){ shShow('shCosts'); });
+  }
+  function exitShFlow(){
+    if (shPoll) { clearInterval(shPoll); shPoll = null; }
+    document.getElementById('shFlow').style.display = 'none';
+    document.getElementById('pebbleIntro').style.display = '';
+    exitPebbleFlow();
+  }
+  document.getElementById('shBack').addEventListener('click', function(e){ e.preventDefault(); exitShFlow(); });
+  // The "New here?" strip's own door into the wizard: startShFlow already
+  // forces the takeover open over an inventory that has rows.
+  document.getElementById('newSelfhost').addEventListener('click', function(e){ e.preventDefault(); startShFlow(); });
+  document.getElementById('shCostsOk').addEventListener('click', function(){ shShow('shForm'); });
+
+  document.getElementById('shCheckBtn').addEventListener('click', function(){
+    shErr('');
+    var token = document.getElementById('shToken').value.trim();
+    if (!token) { shErr('Paste your Hetzner API token first.'); document.getElementById('shRetryRow').style.display='none'; return; }
+    var btn = document.getElementById('shCheckBtn');
+    btn.disabled = true; btn.textContent = 'Checking…';
+    fetch('/provision/validate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ token: token }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        btn.disabled = false; btn.textContent = 'Check the token';
+        if (!x.ok || !x.d.ok) { shErr('Hetzner did not accept that token. Check it against the steps above: it must be an API token (not a password), with Read and Write, from the project the server should live in. Tokens show once; generating a fresh one is quicker than hunting the old.'); document.getElementById('shRetryRow').style.display='none'; return; }
+        var loc = document.getElementById('shLoc');
+        shCat = x.d;
+        loc.innerHTML = (x.d.locations || []).map(function(l){
+          return '<option value="' + esc(l.name) + '"' + (l.name === x.d.defaults.location ? ' selected' : '') + '>' + esc(l.city + ', ' + l.country) + '</option>';
+        }).join('');
+        shRenderTypes(loc.value || x.d.defaults.location);
+        document.getElementById('shOpts').style.display = loc.options.length ? 'block' : 'none';
+        btn.style.display = 'none';
+        document.getElementById('shBuildBtn').style.display = 'inline-block';
+      })
+      .catch(function(){ btn.disabled = false; btn.textContent = 'Check the token'; shErr('Could not reach Hetzner from here. Check the connection and try again.'); document.getElementById('shRetryRow').style.display='none'; });
+  });
+
+  function shStart(){
+    shErr('');
+    var locVal = document.getElementById('shLoc').value || '';
+    var resolved = shResolveSize(shSizeChoice, locVal);
+    var body = {
+      token: document.getElementById('shToken').value.trim(),
+      name: document.getElementById('shName').value.trim().toLowerCase(),
+      location: locVal,
+      server_type: (resolved && resolved.name) || '',
+    };
+    if (!body.name) { shShow('shForm'); shErr('Give it a name first.'); document.getElementById('shRetryRow').style.display='none'; return; }
+    fetch('/provision/start', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        if (!x.ok) { shShow('shForm'); shErr(x.d.error || 'Could not start the build.'); document.getElementById('shRetryRow').style.display='none'; return; }
+        shShow('shBuild'); shAttach();
+      })
+      .catch(function(){ shShow('shForm'); shErr('The app did not answer. Quit it and open it again, then retry.'); });
+  }
+  // Hetzner sells each machine type per datacentre, not globally: the first
+  // real run picked a pair the API refused ("unsupported location for server
+  // type", 2026-09-01). So the machine list re-filters whenever the location
+  // changes, and only pairs that exist are offerable. A type whose
+  // availability could not be read lists everywhere rather than nowhere.
+  var shCat = null;
+  var shSizeChoice = 'standard';
+  // Preference chains, amd64 only (the product images are amd64): the first
+  // type in the chain the chosen location sells wins. cx is Intel shared
+  // (EU locations); cpx covers the rest of the world.
+  var SH_CHAINS = {
+    small:    ['cx23', 'cpx21', 'cpx22'],
+    standard: ['cx33', 'cpx31', 'cpx32'],
+    roomy:    ['cx43', 'cpx41', 'cpx42'],
+  };
+  function shResolveSize(size, locName){
+    if (!shCat) return null;
+    var byName = {};
+    (shCat.server_types || []).forEach(function(t){ byName[t.name] = t; });
+    var chain = SH_CHAINS[size] || [];
+    for (var i = 0; i < chain.length; i++) {
+      var t = byName[chain[i]];
+      if (!t) continue;
+      if (!t.locations || !t.locations.length || t.locations.indexOf(locName) !== -1) return t;
+    }
+    return null;
+  }
+  function shRenderTypes(locName){
+    if (!shCat) return;
+    var cards = document.querySelectorAll('#shSizes .sizecard');
+    var anySelectable = false;
+    cards.forEach(function(c){
+      var size = c.getAttribute('data-size');
+      var t = shResolveSize(size, locName);
+      var fine = c.querySelector('[data-fine]');
+      if (!t) {
+        c.disabled = true; c.classList.remove('sel');
+        fine.textContent = 'Not sold at this location.';
+        return;
+      }
+      c.disabled = false; anySelectable = true;
+      var price = t.prices && t.prices[locName];
+      fine.textContent = t.cores + ' cpu, ' + t.memoryGb + 'GB memory, ' + t.diskGb + 'GB disk'
+        + (price ? ', around \u20AC' + Math.round(price) + ' a month' : '') + ' (' + t.name + ')';
+    });
+    // keep the choice if it survived the location change; otherwise standard,
+    // otherwise the first card the location sells
+    var chosen = document.querySelector('#shSizes .sizecard[data-size="' + shSizeChoice + '"]');
+    if (!chosen || chosen.disabled) shSizeChoice = 'standard';
+    chosen = document.querySelector('#shSizes .sizecard[data-size="' + shSizeChoice + '"]');
+    if ((!chosen || chosen.disabled) && anySelectable) {
+      var first = document.querySelector('#shSizes .sizecard:not([disabled])');
+      shSizeChoice = first.getAttribute('data-size');
+    }
+    cards.forEach(function(c){ c.classList.toggle('sel', !c.disabled && c.getAttribute('data-size') === shSizeChoice); });
+  }
+  document.getElementById('shSizes').addEventListener('click', function(e){
+    var card = e.target.closest('.sizecard');
+    if (!card || card.disabled) return;
+    shSizeChoice = card.getAttribute('data-size');
+    shRenderTypes(document.getElementById('shLoc').value);
+  });
+  document.getElementById('shLoc').addEventListener('change', function(){ shRenderTypes(this.value); });
+
+  document.getElementById('shBuildBtn').addEventListener('click', shStart);
+  document.getElementById('shRetryBtn').addEventListener('click', shStart);
+
+  function shReady(s){
+    shShow('shDone'); shErr('');
+    if (shPoll) { clearInterval(shPoll); shPoll = null; }
+    var open = document.getElementById('shOpenBtn');
+    open.onclick = function(){ location.href = '/go/member?host=' + encodeURIComponent(s.alias || '') + '&box=' + encodeURIComponent(s.slug || ''); };
+  }
+  function shAttach(){
+    if (shPoll) clearInterval(shPoll);
+    var tick = function(){
+      fetch('/provision/status').then(function(r){ return r.json(); }).then(function(s){
+        document.getElementById('shPhase').textContent =
+          s.phase === 'booting' ? 'Server created. Waiting for it to wake up…' : 'Building on your Hetzner account…';
+        document.getElementById('shSteps').innerHTML = (s.steps || []).map(function(t){ return '✓ ' + esc(t); }).join('<br>');
+        document.getElementById('shBootNote').style.display = (s.phase === 'booting') ? 'block' : 'none';
+        if (s.phase === 'ready') shReady(s);
+        if (s.phase === 'failed') {
+          clearInterval(shPoll); shPoll = null;
+          shShow('shForm');
+          shErr(s.error || 'The build failed.');
+        }
+      }).catch(function(){ /* one missed poll is nothing */ });
+    };
+    tick();
+    shPoll = setInterval(tick, 3000);
+  }
+  document.getElementById('shDestroyBtn').addEventListener('click', function(){
+    shErr('');
+    var body = { token: document.getElementById('shToken').value.trim(), name: document.getElementById('shName').value.trim().toLowerCase() };
+    fetch('/provision/destroy', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        if (!x.ok) { shErr(x.d.error || 'Could not remove it.'); return; }
+        shShow('shForm');
+        shErr('');
+        document.getElementById('shRetryRow').style.display = 'none';
+      })
+      .catch(function(){ shErr('The app did not answer.'); });
+  });
+
+  // The existing-holder flow (QA findings 143 + 149, 2026-08-16). One job: get
+  // this machine signed in, then hand the screen back to the inventory, which
+  // already knows how to list a mineral held elsewhere and offer to connect to
+  // it. It never creates anything, and it never claims anything about the
+  // account that /inventory/full has not said.
+  var haveSlug = '';
+  function startHaveFlow(slug){
+    haveSlug = slug || '';
+    // Force the takeover open: a deep link can
+    // land here on a machine that already holds OTHER minerals, where render()
+    // has hidden #creatorHome. pebbleFlowActive is the "a takeover flow owns the
+    // screen" latch rather than a pebble-only one, so the 25s probe tick cannot
+    // pull this away from under a sign-in that is waiting on a browser.
+    pebbleFlowActive = true;
+    document.getElementById('creatorHome').style.display = 'block';
+    document.getElementById('inv').style.display = 'none';
+    document.getElementById('pebbleIntro').style.display = 'none';
+    document.getElementById('shFlow').style.display = 'none';
+    document.getElementById('devApproveFlow').style.display = 'none';
+    document.getElementById('haveFlow').style.display = 'block';
+    var msg = document.getElementById('haveMsg'); msg.className = 'msg'; msg.innerHTML = '';
+    var dmsg = document.getElementById('devMsg'); dmsg.className = 'msg'; dmsg.textContent = '';
+    // Name what the link asked for. Without it, a member who pressed "Open in
+    // the app" and landed here cannot tell whether the link did anything at all.
+    document.getElementById('haveHint').textContent = haveSlug
+      ? 'This computer has no key for "' + haveSlug + '" yet. Sign in to Crads-AI and it can ask that mineral to admit this computer. Nothing is created.'
+      : 'Sign in to Crads-AI and this computer joins what your account already holds. Nothing is created.';
+  }
+  function exitHaveFlow(){
+    haveSlug = '';
+    document.getElementById('haveFlow').style.display = 'none';
+    document.getElementById('pebbleIntro').style.display = '';
+    exitPebbleFlow();
+  }
+  document.getElementById('haveBack').addEventListener('click', function(e){
+    e.preventDefault(); exitHaveFlow(); render();
+  });
+  // The Crads account row (T5) left with the account system (2026-09-01).
+  // The door now claims exactly what this machine's own disk can prove.
+
+  // Only on-device rows are probed. An elsewhere row has no alias to dial, so
+  // probing it would be a guaranteed failure rendered as a red dot on something
+  // that is not broken.
+  function probeAll(){
+    state.rows.filter(function(r){ return r.onDevice; }).forEach(function(r){
+      fetch('/probe', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ host: r.alias }) })
+        .then(function(x){ return x.json(); })
+        .then(function(x){ state.status[r.alias] = !!x.ok; render(); })
+        .catch(function(){ state.status[r.alias] = false; render(); });
+    });
+  }
+
+  // TWO STAGES, DELIBERATELY (ruling 4). /inventory reads this machine's ssh
+  // config off disk and touches no network, so the minerals you can open appear
+  // instantly and still appear on a plane, signed out, or with the worker down.
+  // /inventory/full then merges the account layer: minerals held elsewhere,
+  // real labels, tiers, who holds each one. Awaiting the second before painting
+  // the first would hand the offline-proof answer's latency to a server.
+  // Both stages RETURN their promise (2026-08-16): a caller that has to know
+  // whether the merge landed -- the existing-holder flow, and the #connect deep
+  // link -- can then wait for it instead of guessing with a timer.
+  function load(){
+    if (!state.loaded) skeleton();   // first paint: shimmer, never a blank list
+    return fetch('/inventory').then(function(r){ return r.json(); }).then(function(d){
+      state.loaded = true;
+      state.rows = d.rows || [];
+      render(); probeAll();
+    }).catch(function(){ state.loaded = true; render(); }).then(loadFull);
+  }
+  function loadFull(){
+    // the /full stage is local-only since the account retirement; kept because
+    // the reload path still awaits it by name
+    return fetch('/inventory/full').then(function(r){ return r.json(); }).then(function(d){
+      state.rows = d.rows || state.rows;
+      render(); probeAll();
+    }).catch(function(){ render(); });
+  }
+  var firstLoad = load();
+  setInterval(probeAll, 25000);   // the pending state self-completes: dots flip live
+
+  // Tier honesty's second half (2026-08-19). The server kicks the face probe
+  // when it serves an unsure row (inventory-routes.mjs); this side re-reads
+  // until nothing is unsure, so the "Checking…" chip settles into the box's
+  // own answer — Rock for Harriet's promoted box, Pebble when the guess stood.
+  // BOUNDED: the probe completes (or fails) once per alias per app run, so a
+  // few re-reads catch it; a box that never answers settles fail-open to the
+  // guess on the read after its probe gives up, and we stop asking. Never a
+  // spin, never a wrong chip parked for a whole session.
+  var unsureRepolls = 0;
+  function repollUnsureTiers(){
+    var unsure = state.rows.some(function(r){ return r.onDevice && r.tierKnown === false; });
+    if (!unsure) { unsureRepolls = 0; return; }
+    if (unsureRepolls >= 4) return;
+    unsureRepolls++;
+    setTimeout(function(){ load().then(repollUnsureTiers); }, 2500);
+  }
+  firstLoad.then(repollUnsureTiers);
+
+  // Deep links into the two create flows (2026-08-13). The dashboard's mineral
+  // picker offers "+ New pebble" and "+ New rock" in its footer, and those have
+  // to land ON the flow rather than on the start screen with an instruction to
+  // find it. Without this the picker footer would be exactly the dangling
+  // pointer finding 9 was about. Hash, not a route: the flows are client-side.
+
+  // Deep link for somebody who ALREADY HOLDS a mineral (QA finding 143,
+  // 2026-08-16). `crads-ai://box/<slug>` on a machine with no `<slug>-box` Host
+  // block: app.mjs finds no surface for the slug, drops it and opens this door
+  // at "What are we making?" -- four ways to create something and nothing for
+  // the member who lost the email or bought a second laptop. Discarding a slug
+  // it cannot open is right for a surface PICKER (connect-enrols.test.mjs:12);
+  // what was missing is a surface to pick, so the app can now hand the slug over
+  // as `#connect=<slug>` and land ON the connect branch.
+  //
+  // Deliberately AFTER the first inventory read: if the account already lists
+  // this mineral, that row is the answer and it carries its own Connect button,
+  // so opening a sign-in over the top of it would be a second door into the
+  // same room.
+  (function(){
+    var m = location.hash.match(/^#connect(?:=([a-z0-9][a-z0-9-]*))?$/);
+    if (!m) return;
+    var slug = m[1] || '';
+    try { history.replaceState(null, '', location.pathname); } catch (e) { /* file:// */ }
+    firstLoad.then(function(){
+      if (slug && state.rows.some(function(r){ return r.slug === slug; })) return;
+      startHaveFlow(slug);
+    });
+  })();
+
+  // RULING 3's action. Asks the mineral to admit this machine, through the same
+  // module and the same decider the panel uses (device-enrol.mjs); the mineral
+  // decides on its own schedule and this relays its words, never its own.
+
+  // ---- device enrolment, both halves (self-host pivot, 2026-09-01) --------
+  // The NEW machine's half lives inside the have flow above (name -> key ->
+  // bundle -> connect); this is the shared plumbing plus the OLD machine's
+  // approve panel. No account and no Crads-AI service: the box's own
+  // authorized_keys is the roster, and this machine's working SSH connection
+  // is the authority that writes it.
+  function copyField(id, btn){
+    var el = document.getElementById(id);
+    el.focus(); el.select();
+    var done = false;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(el.value); done = true;
+    } else {
+      try { done = document.execCommand('copy'); } catch (e) { done = false; }
+    }
+    var t = btn.textContent;
+    btn.textContent = done ? 'Copied' : 'Select and copy it by hand';
+    setTimeout(function(){ btn.textContent = t; }, 1600);
+  }
+  function devSay(id, text){
+    var m = document.getElementById(id);
+    m.className = text ? 'msg on' : 'msg';
+    m.textContent = text || '';
+  }
+  document.getElementById('devCopyBtn').onclick = function(){ copyField('devPub', this); };
+  document.getElementById('devBundleCopyBtn').onclick = function(){ copyField('devBundleStr', this); };
+
+  // New machine, step one: name the mineral, get this computer's key.
+  document.getElementById('devOfferBtn').onclick = function(){
+    devSay('devMsg', '');
+    var name = document.getElementById('devName').value.trim().toLowerCase();
+    if (!name) { devSay('devMsg', 'Type the mineral’s name first: the name it was set up with.'); return; }
+    var btn = this; btn.disabled = true; btn.textContent = 'Making a key…';
+    fetch('/device/offer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: name }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        btn.disabled = false; btn.textContent = 'Show this computer’s key';
+        if (!x.ok || !x.d.pubkey) { devSay('devMsg', (x.d && x.d.error) || 'Could not make a key on this computer.'); return; }
+        document.getElementById('devPub').value = x.d.pubkey;
+        document.getElementById('devOffer').style.display = 'block';
+      })
+      .catch(function(){ btn.disabled = false; btn.textContent = 'Show this computer’s key'; devSay('devMsg', 'The app did not answer. Quit it and open it again, then retry.'); });
+  };
+
+  // New machine, step two: paste the bundle, finish the connection.
+  document.getElementById('devCompleteBtn').onclick = function(){
+    devSay('devMsg', '');
+    var bundle = document.getElementById('devBundle').value.trim();
+    if (!bundle) { devSay('devMsg', 'Paste the connection bundle from the other computer first.'); return; }
+    var btn = this; btn.disabled = true; btn.textContent = 'Connecting…';
+    fetch('/device/complete', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ bundle: bundle }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        btn.disabled = false; btn.textContent = 'Connect';
+        if (!x.ok || !x.d || (!x.d.ok && x.d.error)) { devSay('devMsg', (x.d && x.d.error) || 'Could not finish the connection.'); return; }
+        if (!x.d.ok) { devSay('devMsg', 'Could not finish the connection.'); return; }
+        exitHaveFlow();
+        load();
+        render();
+      })
+      .catch(function(){ btn.disabled = false; btn.textContent = 'Connect'; devSay('devMsg', 'The app did not answer. Quit it and open it again, then retry.'); });
+  };
+
+  // Old machine: the approve panel, opened from a connected row's link.
+  var devApproveHost = '';
+  function startDevApproveFlow(r){
+    devApproveHost = r.alias;
+    pebbleFlowActive = true;
+    document.getElementById('creatorHome').style.display = 'block';
+    document.getElementById('inv').style.display = 'none';
+    document.getElementById('pebbleIntro').style.display = 'none';
+    document.getElementById('shFlow').style.display = 'none';
+    document.getElementById('haveFlow').style.display = 'none';
+    document.getElementById('devApproveFlow').style.display = 'block';
+    document.getElementById('devApproveKey').value = '';
+    document.getElementById('devBundleOut').style.display = 'none';
+    devSay('devApproveMsg', '');
+    document.getElementById('devApproveHint').textContent =
+      'Let another computer open "' + r.label + '". On the new computer, open this app, choose "I already have one", type the name "' + (r.slug || '') + '" and copy the key it shows. Paste that key below.';
+  }
+  function exitDevApproveFlow(){
+    devApproveHost = '';
+    document.getElementById('devApproveFlow').style.display = 'none';
+    document.getElementById('pebbleIntro').style.display = '';
+    exitPebbleFlow();
+  }
+  document.getElementById('devApproveBack').addEventListener('click', function(e){
+    e.preventDefault(); exitDevApproveFlow(); render();
+  });
+  document.getElementById('devApproveBtn').onclick = function(){
+    devSay('devApproveMsg', '');
+    var key = document.getElementById('devApproveKey').value.trim();
+    if (!key) { devSay('devApproveMsg', 'Paste the new computer’s key first.'); return; }
+    var btn = this; btn.disabled = true; btn.textContent = 'Asking the box…';
+    fetch('/device/approve', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host: devApproveHost, pubkey: key }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        btn.disabled = false; btn.textContent = 'Approve it';
+        if (!x.ok || !x.d.bundle) { devSay('devApproveMsg', (x.d && x.d.error) || 'The box did not accept the key.'); return; }
+        document.getElementById('devBundleStr').value = x.d.bundle;
+        document.getElementById('devBundleNote').textContent = x.d.hostkeyIncluded
+          ? 'Done. The box will let that computer in. Carry this bundle back to the new computer and paste it there:'
+          : 'Done. The box will let that computer in. Carry this bundle back to the new computer and paste it there. This computer had no fingerprint on record for the box, so the new computer will trust it on first connect.';
+        document.getElementById('devBundleOut').style.display = 'block';
+      })
+      .catch(function(){ btn.disabled = false; btn.textContent = 'Approve it'; devSay('devApproveMsg', 'The app did not answer. Quit it and open it again, then retry.'); });
+  };
+
+  // self-update banner (fail-silent; keeps polling so a release published while
+  // this window sits open still surfaces)
+  // Follow an update into the new instance in THIS window. See member.html for the
+  // full reasoning: the new version boots windowless and publishes its url, we
+  // navigate ourselves to it, so no second window and no orphan.
+  // No-progress budget, not a total one (2026-08-24) \u2014 see member.html for the
+  // full reasoning: a flat 90s used to cover the whole download+swap+boot with no
+  // phase emitted until after the swap, so a healthy download read as a hang.
+  var HANDOFF_QUIET_MS = 120000;
+  var HANDOFF_SAY = { downloading: 'Downloading the new version\u2026', installing: 'Installing it\u2026', starting: 'Starting the new version\u2026' };
+  function followHandoff(bar, onFail){
+    var give_up = Date.now() + HANDOFF_QUIET_MS;
+    var seen = '';
+    (function poll(){
+      if (Date.now() > give_up) { onFail(); return; }
+      fetch('/update-handoff').then(function(r){ return r.json(); }).then(function(h){
+        var phase = (h && h.phase) || '';
+        if (phase && phase !== seen) {
+          seen = phase;
+          give_up = Date.now() + HANDOFF_QUIET_MS;
+          if (HANDOFF_SAY[phase]) bar.firstElementChild.textContent = HANDOFF_SAY[phase];
+        }
+        if (phase === 'ready' && h.url) {
+          bar.firstElementChild.textContent = 'Update ready, switching over\u2026';
+          location.replace(h.url + (location.hash || ''));
+          return;
+        }
+        if (phase === 'failed') {
+          bar.firstElementChild.textContent = h.reason
+            ? 'Update stopped: ' + h.reason + ' You are still on the version you had.'
+            : 'That update did not start, and you are still on the version you had.';
+          return;
+        }
+        setTimeout(poll, 700);
+      }).catch(function(){ setTimeout(poll, 700); });
+    })();
+  }
+  function pollUpdate(){
+    fetch('/update-status').then(function(r){ return r.json(); }).then(function(u){
+      if (!u.available) return;
+      var bar = document.getElementById('updateBar');
+      bar.style.display = 'flex';
+      document.getElementById('updateBtn').onclick = function(){
+        // A 400 refusal still resolves the promise, so without this check the banner
+        // claims an update is happening when the server did nothing. See member.html.
+        var btn = this, label = btn.textContent;
+        btn.disabled = true; btn.textContent = 'Updating…';
+        function failed(){
+          btn.disabled = false; btn.textContent = label;
+          bar.firstElementChild.textContent = 'That update could not be started, and nothing on your machine has changed. Try again in a moment.';
+        }
+        fetch('/update-apply', { method: 'POST' }).then(function(resp){
+          if (!resp.ok) return failed();
+          bar.firstElementChild.textContent = 'Updating\u2026';
+          followHandoff(bar, failed);
+        }).catch(failed);
+      };
+    }).catch(function(){});
+  }
+  pollUpdate();
+  setInterval(pollUpdate, 60000);
+})();
+</script>
+<script>
+(function(){
+  // Version chip (2026-08-09, Sam: "understand where we're up to"): the build
+  // identity, always visible, with the what's-new fold behind a click. Hover
+  // summary added 2026-08-13 (Sam: "a brief overview of the changes made in this
+  // release") so the answer arrives without a click; the fold stays for the full
+  // list. Kept self-contained (own fetch, own DOM) so every face carries the
+  // identical fragment; /update-status supplies {current,latest}, /whats-new the log.
+  // Where the chip lives (verify drive 2026-08-23): a face that offers a
+  // #verChipMount gets the chip IN the header flow, so it can never float over
+  // a control (it sat on the Decisions Decline button at 1280 and over content
+  // at 640). A face without one keeps the bottom-right corner. The fold and
+  // the hover summary are placed off the chip's own box either way.
+  var mount = document.getElementById('verChipMount');
+  var chip = document.createElement('div'); chip.id = 'verChip';
+  chip.style.cssText = mount
+    ? 'font-size:11px;line-height:1;opacity:.55;cursor:pointer;user-select:none;font-family:inherit;white-space:nowrap;align-self:center'
+    : 'position:fixed;right:10px;bottom:8px;font-size:11px;line-height:1;opacity:.55;cursor:pointer;z-index:70;user-select:none;font-family:inherit';
+  var log = document.createElement('div'); log.id = 'verLog';
+  log.style.cssText = 'display:none;position:fixed;right:10px;bottom:26px;width:min(360px,80vw);max-height:min(320px,60vh);overflow:auto;background:#fff;color:#333;border:1px solid #d8ded9;border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,.14);padding:10px 12px;font-size:12px;z-index:71;text-align:left';
+  var tip = document.createElement('div'); tip.id = 'verTip';
+  // pointer-events:none so the tooltip can never eat the chip's own click
+  tip.style.cssText = 'display:none;position:fixed;right:10px;bottom:26px;width:min(320px,80vw);background:#fff;color:#333;border:1px solid #d8ded9;border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,.14);padding:8px 10px;font-size:11.5px;line-height:1.4;z-index:71;text-align:left;pointer-events:none';
+  (mount || document.body).appendChild(chip); document.body.appendChild(log); document.body.appendChild(tip);
+  // In-flow chip: the popovers hang just below it, right-aligned to it.
+  function place(el){
+    if (!mount) return;
+    var r = chip.getBoundingClientRect();
+    el.style.bottom = 'auto';
+    el.style.top = Math.round(r.bottom + 6) + 'px';
+    el.style.right = Math.max(10, Math.round(window.innerWidth - r.right)) + 'px';
+  }
+  var status = null;
+  function render(u){
+    status = u;
+    var c = u && u.current, l = u && u.latest, txt = '';
+    if (c && c.build) txt = (c.version ? c.version + ' \u00b7 ' : '') + 'build ' + c.build;
+    else if (c && c.sha) txt = 'build ' + String(c.sha).slice(0,8);
+    else txt = 'Dev build';
+    if (u && u.available && l && l.build) txt += ' \u2192 build ' + l.build + ' available';
+    chip.textContent = txt;
+  }
+  fetch('/update-status').then(function(r){return r.json();}).then(render).catch(function(){ chip.textContent=''; });
+  // ONE changelog read, shared by the hover summary and the click fold: the
+  // tooltip has to be instant on first hover, and opening the fold afterwards
+  // must not refetch. Offline resolves to an empty list, never a rejection.
+  // `notes` is the server's member-facing view: {entries:[{plain,when}], hidden}.
+  // The subjects are filtered and tidied there (updater.mjs plainRelease), so this
+  // page never has to know what a "leg" or a "finding" is.
+  var notes = null, changelogPending = null;
+  function changelog(){
+    if (notes) return Promise.resolve(notes);
+    if (!changelogPending) changelogPending = fetch('/whats-new')
+      .then(function(r){ return r.json(); })
+      .then(function(d){ notes = { entries: (d && d.entries) || [], hidden: (d && d.hidden) || 0 }; return notes; })
+      .catch(function(){ notes = { entries: [], hidden: 0 }; return notes; });
+    return changelogPending;
+  }
+  changelog();
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  // Name what the list actually describes, in words that mean something to
+  // somebody who does not build this. changelog.json lives on the ROLLING
+  // release, so it is always the newest build's changes: saying "this build"
+  // while an unapplied update sits there would be a lie the chip contradicts.
+  function heading(){
+    if (status && status.available) return 'What\u2019s in the update';
+    if (status && status.current && (status.current.build || status.current.sha)) return 'What changed';
+    return 'Latest published build';
+  }
+  // "Nothing you can see changed" is a real, useful answer, and a far better one
+  // than three lines of plumbing. Said plainly rather than shown as an empty box.
+  function plumbingOnly(n){
+    return 'Groundwork only this time, nothing that changes how the app looks or works'
+      + (n > 1 ? ' (' + n + ' changes).' : '.');
+  }
+  function paintTip(n){
+    var es = n.entries;
+    if (!es.length) {
+      tip.innerHTML = '<b>' + heading() + '</b><div style="opacity:.7;margin-top:3px">'
+        + (n.hidden ? plumbingOnly(n.hidden) : 'Release notes unavailable offline.') + '</div>';
+      return;
+    }
+    var top = es.slice(0, 3);
+    tip.innerHTML = '<b>' + heading() + '</b><span style="opacity:.5"> \u00b7 ' + esc(top[0].when || top[0].date) + '</span>'
+      + top.map(function(e){
+        return '<div style="margin:4px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">\u00b7 ' + esc(e.plain || e.subject) + '</div>';
+      }).join('')
+      + (es.length > top.length ? '<div style="margin-top:6px;opacity:.5">Click for the full list</div>' : '');
+  }
+  var hoverTimer = null;
+  chip.onmouseenter = function(){
+    if (log.style.display === 'block') return;
+    clearTimeout(hoverTimer);
+    hoverTimer = setTimeout(function(){
+      changelog().then(function(n){
+        if (log.style.display === 'block') return;
+        paintTip(n); place(tip); tip.style.display = 'block';
+      });
+    }, 150);
+  };
+  chip.onmouseleave = function(){ clearTimeout(hoverTimer); tip.style.display = 'none'; };
+  chip.onclick = function(){
+    clearTimeout(hoverTimer); tip.style.display = 'none';
+    if (log.style.display === 'block') { log.style.display = 'none'; return; }
+    place(log); log.style.display = 'block';
+    if (notes === null) log.textContent = 'Loading\u2026';
+    changelog().then(function(n){
+      var es = n.entries;
+      if (!es.length) {
+        log.innerHTML = '<b style="display:block;margin:0 0 6px">What\u2019s new</b><span style="opacity:.7">'
+          + esc(n.hidden ? plumbingOnly(n.hidden) : 'No release notes available right now.') + '</span>';
+        return;
+      }
+      log.innerHTML = '<b style="display:block;margin:0 0 6px">What\u2019s new</b>' + es.map(function(e){
+        return '<div style="margin:0 0 5px"><span style="opacity:.55">' + esc(e.when || e.date) + '</span> ' +
+          esc(e.plain || e.subject) + '</div>';
+      }).join('')
+        + (n.hidden ? '<div style="margin-top:7px;opacity:.5">Plus ' + n.hidden + ' behind-the-scenes change'
+            + (n.hidden === 1 ? '' : 's') + ' with nothing to see.</div>' : '');
+    });
+  };
+})();
+</script>
+</body>
+</html>
