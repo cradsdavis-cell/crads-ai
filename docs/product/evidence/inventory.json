@@ -1,0 +1,872 @@
+{
+  "navSections": [
+    {
+      "sec": "dashboard",
+      "label": "Overview",
+      "face": "both",
+      "group": null
+    },
+    {
+      "sec": "decisions",
+      "label": "Decisions",
+      "face": "rock",
+      "group": null
+    },
+    {
+      "sec": "yourrock",
+      "label": "Your rock",
+      "face": "rock",
+      "group": null
+    },
+    {
+      "sec": "seat",
+      "label": "Your pebble",
+      "face": "pebble",
+      "group": null
+    },
+    {
+      "sec": "network",
+      "label": "Map",
+      "face": "both",
+      "group": "Network"
+    },
+    {
+      "sec": "rocks",
+      "label": "Organisations",
+      "face": "both",
+      "group": "Network"
+    },
+    {
+      "sec": "commons",
+      "label": "Communities",
+      "face": "pebble",
+      "group": "Network"
+    },
+    {
+      "sec": "pebbles",
+      "label": "Members",
+      "face": "rock",
+      "group": "Network"
+    },
+    {
+      "sec": "brain",
+      "label": "Brain",
+      "face": "both",
+      "group": "Your assistant"
+    },
+    {
+      "sec": "skills",
+      "label": "Skills",
+      "face": "both",
+      "group": "Your assistant"
+    },
+    {
+      "sec": "library",
+      "label": "Library",
+      "face": "both",
+      "group": "Your assistant"
+    },
+    {
+      "sec": "connections",
+      "label": "Connections",
+      "face": "both",
+      "group": "Your assistant"
+    },
+    {
+      "sec": "publish",
+      "label": "Catalogue",
+      "face": "rock",
+      "group": "Your assistant"
+    },
+    {
+      "sec": "secrets",
+      "label": "Secrets",
+      "face": "both",
+      "group": "Privacy & access"
+    },
+    {
+      "sec": "sharing",
+      "label": "Sharing",
+      "face": "both",
+      "group": "Privacy & access"
+    },
+    {
+      "sec": "terminal",
+      "label": "Terminal",
+      "face": "both",
+      "group": null
+    }
+  ],
+  "navGroups": [
+    {
+      "group": "network",
+      "label": "Network",
+      "sections": [
+        "network",
+        "rocks",
+        "commons",
+        "pebbles"
+      ]
+    },
+    {
+      "group": "assistant",
+      "label": "Your assistant",
+      "sections": [
+        "brain",
+        "skills",
+        "library",
+        "connections",
+        "publish"
+      ]
+    },
+    {
+      "group": "privacy",
+      "label": "Privacy & access",
+      "sections": [
+        "secrets",
+        "sharing"
+      ]
+    }
+  ],
+  "unreachableSections": [
+    "help",
+    "rockreader"
+  ],
+  "memberVerbs": [
+    {
+      "verb": "box-version",
+      "mutating": false
+    },
+    {
+      "verb": "cadence-list",
+      "mutating": false
+    },
+    {
+      "verb": "cadence-write",
+      "mutating": true
+    },
+    {
+      "verb": "catalog-install",
+      "mutating": true
+    },
+    {
+      "verb": "catalog-list",
+      "mutating": false
+    },
+    {
+      "verb": "dashboard-data",
+      "mutating": false
+    },
+    {
+      "verb": "devices-add",
+      "mutating": true
+    },
+    {
+      "verb": "devices-list",
+      "mutating": true
+    },
+    {
+      "verb": "devices-rename",
+      "mutating": true
+    },
+    {
+      "verb": "devices-revoke",
+      "mutating": true
+    },
+    {
+      "verb": "devices-set-vaultkey",
+      "mutating": true
+    },
+    {
+      "verb": "devices-stamp",
+      "mutating": true
+    },
+    {
+      "verb": "dir-remove",
+      "mutating": true
+    },
+    {
+      "verb": "library-list",
+      "mutating": false
+    },
+    {
+      "verb": "mcp-add",
+      "mutating": true
+    },
+    {
+      "verb": "mcp-add-custom",
+      "mutating": true
+    },
+    {
+      "verb": "mcp-add-google",
+      "mutating": true
+    },
+    {
+      "verb": "mcp-adopt",
+      "mutating": true
+    },
+    {
+      "verb": "mcp-remove",
+      "mutating": true
+    },
+    {
+      "verb": "mcp-status",
+      "mutating": false
+    },
+    {
+      "verb": "mcp-token-forget",
+      "mutating": true
+    },
+    {
+      "verb": "mcp-token-set",
+      "mutating": true
+    },
+    {
+      "verb": "mcp-token-set-google",
+      "mutating": true
+    },
+    {
+      "verb": "open-folder",
+      "mutating": false
+    },
+    {
+      "verb": "page-delete",
+      "mutating": true
+    },
+    {
+      "verb": "page-read",
+      "mutating": false
+    },
+    {
+      "verb": "pages-list",
+      "mutating": false
+    },
+    {
+      "verb": "prompt-list",
+      "mutating": false
+    },
+    {
+      "verb": "secrets-discover",
+      "mutating": true
+    },
+    {
+      "verb": "secrets-envelopes",
+      "mutating": false
+    },
+    {
+      "verb": "secrets-list",
+      "mutating": false
+    },
+    {
+      "verb": "secrets-put",
+      "mutating": true
+    },
+    {
+      "verb": "secrets-remove",
+      "mutating": true
+    },
+    {
+      "verb": "sharing-list",
+      "mutating": false
+    },
+    {
+      "verb": "sharing-write",
+      "mutating": true
+    },
+    {
+      "verb": "skill-read",
+      "mutating": false
+    },
+    {
+      "verb": "skill-remove",
+      "mutating": true
+    },
+    {
+      "verb": "skill-run",
+      "mutating": true
+    },
+    {
+      "verb": "skills-list",
+      "mutating": false
+    },
+    {
+      "verb": "support-grant",
+      "mutating": true
+    },
+    {
+      "verb": "support-revoke",
+      "mutating": true
+    },
+    {
+      "verb": "support-status",
+      "mutating": true
+    },
+    {
+      "verb": "telegram-forget",
+      "mutating": true
+    },
+    {
+      "verb": "telegram-link",
+      "mutating": true
+    },
+    {
+      "verb": "telegram-status",
+      "mutating": false
+    },
+    {
+      "verb": "telegram-verify",
+      "mutating": true
+    }
+  ],
+  "connectors": [
+    {
+      "key": "notion",
+      "label": "Notion",
+      "category": "Docs",
+      "auth": "oauth",
+      "featured": true
+    },
+    {
+      "key": "linear",
+      "label": "Linear",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": true
+    },
+    {
+      "key": "sentry",
+      "label": "Sentry",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": true
+    },
+    {
+      "key": "canva",
+      "label": "Canva",
+      "category": "Design",
+      "auth": "oauth",
+      "featured": true
+    },
+    {
+      "key": "vercel",
+      "label": "Vercel",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": true
+    },
+    {
+      "key": "apify",
+      "label": "Apify",
+      "category": "Data",
+      "auth": "oauth",
+      "featured": true
+    },
+    {
+      "key": "paypal",
+      "label": "PayPal",
+      "category": "Payments",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "square",
+      "label": "Square",
+      "category": "Payments",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "figma",
+      "label": "Figma",
+      "category": "Design",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "asana",
+      "label": "Asana",
+      "category": "Docs",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "atlassian",
+      "label": "Atlassian",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "intercom",
+      "label": "Intercom",
+      "category": "Comms",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "webflow",
+      "label": "Webflow",
+      "category": "Web",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "wix",
+      "label": "Wix",
+      "category": "Web",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "netlify",
+      "label": "Netlify",
+      "category": "Web",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "neon",
+      "label": "Neon",
+      "category": "Data",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "huggingface",
+      "label": "Hugging Face",
+      "category": "AI",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "context7",
+      "label": "Context7",
+      "category": "AI",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "semgrep",
+      "label": "Semgrep",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "globalping",
+      "label": "Globalping",
+      "category": "Web",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "todoist",
+      "label": "Todoist",
+      "category": "Docs",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "heroku",
+      "label": "Heroku",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "exa",
+      "label": "Exa",
+      "category": "AI",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "amplitude",
+      "label": "Amplitude",
+      "category": "Data",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "circleci",
+      "label": "CircleCI",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "close",
+      "label": "Close",
+      "category": "Comms",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "zapier",
+      "label": "Zapier",
+      "category": "Web",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "attio",
+      "label": "Attio",
+      "category": "Comms",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "clickup",
+      "label": "ClickUp",
+      "category": "Docs",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "shortcut",
+      "label": "Shortcut",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "gitlab",
+      "label": "GitLab",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "prisma",
+      "label": "Prisma",
+      "category": "Data",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "plaid",
+      "label": "Plaid",
+      "category": "Payments",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "resend",
+      "label": "Resend",
+      "category": "Comms",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "klaviyo",
+      "label": "Klaviyo",
+      "category": "Comms",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "miro",
+      "label": "Miro",
+      "category": "Design",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "readwise",
+      "label": "Readwise",
+      "category": "Docs",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "honeycomb",
+      "label": "Honeycomb",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "posthog",
+      "label": "PostHog",
+      "category": "Data",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "buildkite",
+      "label": "Buildkite",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "stytch",
+      "label": "Stytch",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "cloudflare-obs",
+      "label": "Cloudflare Observability",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "cloudflare-bindings",
+      "label": "Cloudflare Bindings",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "workos",
+      "label": "WorkOS",
+      "category": "Dev",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "algolia",
+      "label": "Algolia",
+      "category": "Web",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "coda",
+      "label": "Coda",
+      "category": "Docs",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "sanity",
+      "label": "Sanity",
+      "category": "Web",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "contentful",
+      "label": "Contentful",
+      "category": "Web",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "polar",
+      "label": "Polar",
+      "category": "Payments",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "hubspot",
+      "label": "HubSpot",
+      "category": "Comms",
+      "auth": "token",
+      "featured": false
+    },
+    {
+      "key": "render",
+      "label": "Render",
+      "category": "Web",
+      "auth": "token",
+      "featured": false
+    },
+    {
+      "key": "zoom",
+      "label": "Zoom",
+      "category": "Comms",
+      "auth": "token",
+      "featured": false
+    },
+    {
+      "key": "pagerduty",
+      "label": "PagerDuty",
+      "category": "Dev",
+      "auth": "token",
+      "featured": false
+    },
+    {
+      "key": "elevenlabs",
+      "label": "ElevenLabs",
+      "category": "AI",
+      "auth": "token",
+      "featured": false
+    },
+    {
+      "key": "box",
+      "label": "Box",
+      "category": "Docs",
+      "auth": "token",
+      "featured": false
+    },
+    {
+      "key": "mongodb",
+      "label": "MongoDB",
+      "category": "Data",
+      "auth": "token",
+      "featured": false
+    },
+    {
+      "key": "otter",
+      "label": "Otter.ai",
+      "category": "Meetings",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "fireflies",
+      "label": "Fireflies.ai",
+      "category": "Meetings",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "granola",
+      "label": "Granola",
+      "category": "Meetings",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "avoma",
+      "label": "Avoma",
+      "category": "Meetings",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "krisp",
+      "label": "Krisp",
+      "category": "Meetings",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
+      "key": "fyxer",
+      "label": "Fyxer",
+      "category": "Meetings",
+      "auth": "oauth",
+      "featured": false
+    }
+  ],
+  "connectorCategories": [
+    "AI",
+    "Comms",
+    "Data",
+    "Design",
+    "Dev",
+    "Docs",
+    "Meetings",
+    "Payments",
+    "Web"
+  ],
+  "engineSkills": [
+    {
+      "name": "capture",
+      "title": "Capture the session",
+      "category": "capture"
+    },
+    {
+      "name": "connect",
+      "title": "Connect a service",
+      "category": "box"
+    },
+    {
+      "name": "daily",
+      "title": "Daily brief",
+      "category": "briefing"
+    },
+    {
+      "name": "dashboard",
+      "title": "Build pages & cards",
+      "category": "box"
+    },
+    {
+      "name": "explain",
+      "title": "Explain this system",
+      "category": "box"
+    },
+    {
+      "name": "followup",
+      "title": "Follow-ups",
+      "category": "comms"
+    },
+    {
+      "name": "inbox",
+      "title": "Inbox triage",
+      "category": "comms"
+    },
+    {
+      "name": "onboard",
+      "title": "Onboarding interview",
+      "category": "box"
+    },
+    {
+      "name": "plan-week",
+      "title": "Plan your week",
+      "category": "briefing"
+    },
+    {
+      "name": "weekly",
+      "title": "Weekly review",
+      "category": "briefing"
+    },
+    {
+      "name": "write-folder",
+      "title": "Write a folder",
+      "category": "org"
+    },
+    {
+      "name": "write-page",
+      "title": "Write a page",
+      "category": "org"
+    },
+    {
+      "name": "write-prompt",
+      "title": "Write a prompt",
+      "category": "org"
+    }
+  ],
+  "machineryJobs": [
+    "heartbeat",
+    "org-sync",
+    "org-pull",
+    "org-publish",
+    "backup",
+    "brain-push",
+    "auto-update",
+    "seen-drain",
+    "reconcile",
+    "heartbeat-pull",
+    "mcp-refresh",
+    "google-rekey",
+    "custody-watch",
+    "gh-refresh",
+    "state-md"
+  ],
+  "worlds": [
+    "rich",
+    "empty",
+    "error"
+  ],
+  "totals": {
+    "navSections": 16,
+    "navByFace": {
+      "both": 10,
+      "rock": 4,
+      "pebble": 2
+    },
+    "memberVerbs": 46,
+    "mutatingVerbs": 30,
+    "connectors": 62,
+    "featuredConnectors": 6,
+    "engineSkills": 13,
+    "machineryJobs": 15,
+    "surfaceStates": 48
+  }
+}

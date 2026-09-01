@@ -1,0 +1,47 @@
+[
+ {
+  "n": 1,
+  "say": "Your assistant, by the name you gave it. \"Talk to it\" opens a conversation.",
+  "sel": "#heroStrip",
+  "x": 4.69,
+  "y": 3.21,
+  "w": 90.63,
+  "h": 7.54
+ },
+ {
+  "n": 2,
+  "say": "How much of the interview is done. Until this completes, every answer your assistant gives is generic.",
+  "sel": "[data-card=\"onboarding\"]",
+  "x": 4.69,
+  "y": 13.42,
+  "w": 44.22,
+  "h": 9.83
+ },
+ {
+  "n": 3,
+  "say": "How many pages your brain holds. This is what your assistant reads before it answers anything.",
+  "sel": "[data-card=\"brain\"]",
+  "x": 51.09,
+  "y": 13.42,
+  "w": 44.22,
+  "h": 9.83
+ },
+ {
+  "n": 4,
+  "say": "What your pebble can do, and what is still switched off. Each row links to the way in.",
+  "sel": "[data-card=\"ladder\"]",
+  "x": 4.69,
+  "y": 25.63,
+  "w": 44.22,
+  "h": 12.42
+ },
+ {
+  "n": 5,
+  "say": "The jobs your mineral runs by itself. Expand it to see each one and when it last ran.",
+  "sel": "[data-card=\"health\"]",
+  "x": 51.09,
+  "y": 25.63,
+  "w": 44.22,
+  "h": 12.42
+ }
+]
