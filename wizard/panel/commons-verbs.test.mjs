@@ -91,8 +91,49 @@ test('commons-publish and commons-revoke: engine paths, validated args, honest r
 });
 
 test('the member edition gains no commons owner powers', () => {
-  for (const w of ['commons-init', 'commons-publish', 'commons-grant', 'commons-revoke', 'commons-status', 'commons-roster']) {
+  for (const w of ['commons-init', 'commons-publish', 'commons-grant', 'commons-revoke', 'commons-status', 'commons-roster', 'commons-create']) {
     assert.ok(!MEMBER_VERBS[w], `${w} is org-only`);
+  }
+});
+
+// ---- the 2026-09-02 usability verbs ----------------------------------------
+
+test('commons-create: adminOnly, mutating, payload as base64 stdin only, honest old-image rail', () => {
+  const v = VERBS['commons-create'];
+  assert.equal(v.adminOnly, true, 'starting a community is the owner\'s dial');
+  assert.equal(v.mutating, true);
+  const payload = Buffer.from(JSON.stringify({ name: 'Harbour Guild', open: false })).toString('base64');
+  const spec = v.build({ payload_b64: payload });
+  assert.ok(!spec.command.includes('Harbour'), 'nothing typed reaches the command string');
+  assert.equal(spec.stdin, payload + '\n');
+  assert.match(spec.command, /commons-create\.mjs/);
+  assert.match(spec.command, /too old to start a community/);
+  assert.throws(() => v.build({ payload_b64: 'not base64!!' }), /base64/);
+  assert.throws(() => v.build({}), /base64/);
+});
+
+test('commons-revoke: github:true appends the and-github flag and nothing else can', () => {
+  const plain = VERBS['commons-revoke'].build({ id: 'g-abc12345' }).command;
+  assert.ok(!/and-github/.test(plain), 'the GitHub half is opt-in');
+  const both = VERBS['commons-revoke'].build({ id: 'g-abc12345', github: true }).command;
+  assert.match(both, /revoke g-abc12345 and-github$/);
+  const off = VERBS['commons-revoke'].build({ id: 'g-abc12345', github: 'nonsense' }).command;
+  assert.ok(!/and-github/.test(off), 'only an explicit true arms it');
+});
+
+test('community-check and community-seen: member verbs, validated org, honest rails', () => {
+  for (const [name, rail] of [['community-check', /too old to re-check/], ['community-seen', /too old to track new shared items/]]) {
+    const v = MEMBER_VERBS[name];
+    assert.ok(v, `${name} exists on the member surface`);
+    assert.equal(v.mutating, true, `${name} writes the record`);
+    const cmd = v.build({ org: 'hg-guild' }).command;
+    assert.match(cmd, new RegExp(`${name}\\.mjs`));
+    assert.match(cmd, / hg-guild$/);
+    assert.match(cmd, rail);
+    for (const evil of ['../up', 'a b', '$(id)', '', 'X', 'x'.repeat(70)]) {
+      assert.throws(() => v.build({ org: evil }), /community name/, `${name} refused: ${evil.slice(0, 12)}`);
+    }
+    assert.ok(!VERBS[name], `${name} is member-side; the org table gains nothing`);
   }
 });
 

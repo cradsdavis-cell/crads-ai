@@ -4,7 +4,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
 import { mintBundle, readCommunity, writeCommunity } from './commons-lib.mjs';
@@ -151,4 +151,133 @@ test('community-list with nothing joined is a clean empty state', () => {
   const out = execFileSync(process.execPath, [path.join(HERE, 'community-list.mjs'), state], { encoding: 'utf8' });
   const j = JSON.parse(out.replace(/^COMMUNITIES_STATE /, ''));
   assert.deepEqual(j, { communities: [], error: null });
+});
+
+// ---- the shared-library view + the last-look stamp (ruling 4) --------------
+
+function bareCommonsWithCatalog() {
+  const root = tmpDir('join-cat-');
+  const bare = path.join(root, 'commons.git');
+  git(['init', '--bare', '-b', 'main', bare]);
+  const work = path.join(root, 'work');
+  git(['clone', bare, work]);
+  mkdirSync(path.join(work, 'skills', 'tide-tables'), { recursive: true });
+  writeFileSync(path.join(work, 'skills', 'tide-tables', 'SKILL.md'), '# tides\n');
+  writeFileSync(path.join(work, 'skills', 'tide-tables', 'skill.yaml'), 'id: tide-tables\nversion: 2\n');
+  mkdirSync(path.join(work, 'catalog'), { recursive: true });
+  writeFileSync(path.join(work, 'catalog', 'catalog.json'), JSON.stringify({
+    rock: 'HG',
+    items: [
+      { id: 'tide-tables', kind: 'skill', version: 2, description: 'Tides for the harbour, every morning.' },
+      { id: 'welcome', kind: 'page', version: 1, title: 'Welcome to the guild' },
+      { id: 'kickoff', kind: 'prompt', version: 1, title: 'Kickoff prompt' },
+      { id: 'bad id!', kind: 'skill', version: 1 },
+      { id: 'weird', kind: 'widget', version: 1 },
+    ],
+  }));
+  git(['add', '-A'], work);
+  git(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'seed'], work);
+  git(['push', '-q', 'origin', 'HEAD:main'], work);
+  return { bare, work };
+}
+const listOf = (state) => JSON.parse(
+  execFileSync(process.execPath, [path.join(HERE, 'community-list.mjs'), state], { encoding: 'utf8' })
+    .replace(/^COMMUNITIES_STATE /, ''));
+
+test('community-list carries the shared library: names, descriptions, fresh flags; seen stamps the look', () => {
+  const state = tmpDir('join-state-');
+  const { bare, work } = bareCommonsWithCatalog();
+  writeCommunity(state, { org: 'hg-guild', org_display: 'HG', url: bare, status: 'joined' });
+  execFileSync(process.execPath, [path.join(HERE, 'commons-pull.mjs'), state], { encoding: 'utf8' });
+
+  // day zero: everything is fresh; unusable manifest rows never surface
+  let c = listOf(state).communities[0];
+  assert.deepEqual(c.items.map((i) => i.id), ['tide-tables', 'welcome', 'kickoff'], 'bad ids and unknown kinds are dropped');
+  assert.equal(c.items[0].description, 'Tides for the harbour, every morning.');
+  assert.equal(c.items[1].title, 'Welcome to the guild');
+  assert.ok(c.items.every((i) => i.fresh), 'never looked: everything is new');
+  assert.equal(c.fresh_count, 3);
+
+  // the member looks: community-seen stamps, and the flags clear
+  const seen = execFileSync(process.execPath, [path.join(HERE, 'community-seen.mjs'), state, 'hg-guild'], { encoding: 'utf8' });
+  assert.match(seen, /OK: caught up with HG \(3 item\(s\) noted\)/);
+  c = listOf(state).communities[0];
+  assert.equal(c.fresh_count, 0);
+  assert.ok(c.items.every((i) => !i.fresh));
+
+  // the owner ships a new version + a new item: only those come back fresh
+  writeFileSync(path.join(work, 'catalog', 'catalog.json'), JSON.stringify({
+    rock: 'HG',
+    items: [
+      { id: 'tide-tables', kind: 'skill', version: 3, description: 'Tides, now with swell.' },
+      { id: 'welcome', kind: 'page', version: 1, title: 'Welcome to the guild' },
+      { id: 'kickoff', kind: 'prompt', version: 1, title: 'Kickoff prompt' },
+      { id: 'moon-phases', kind: 'skill', version: 1, description: 'New.' },
+    ],
+  }));
+  git(['add', '-A'], work);
+  git(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'v3'], work);
+  git(['push', '-q', 'origin', 'HEAD:main'], work);
+  execFileSync(process.execPath, [path.join(HERE, 'commons-pull.mjs'), state], { encoding: 'utf8' });
+  c = listOf(state).communities[0];
+  const fresh = c.items.filter((i) => i.fresh).map((i) => i.id).sort();
+  assert.deepEqual(fresh, ['moon-phases', 'tide-tables'], 'a bump and an arrival are new; the rest stay quiet');
+  assert.equal(c.fresh_count, 2);
+});
+
+test('community-seen refuses an unknown community; a checkout with no manifest lists no items', () => {
+  const state = tmpDir('join-state-');
+  const r = spawnSync(process.execPath, [path.join(HERE, 'community-seen.mjs'), state, 'nope-guild'], { encoding: 'utf8' });
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /not a member/);
+  writeCommunity(state, { org: 'aa-guild', org_display: 'A', url: bareCommons(), status: 'joined' });
+  execFileSync(process.execPath, [path.join(HERE, 'commons-pull.mjs'), state], { encoding: 'utf8' });
+  const c = listOf(state).communities[0];
+  assert.deepEqual(c.items, [], 'the old empty-manifest fixture carries no items');
+  assert.equal(c.fresh_count, 0);
+});
+
+// ---- community-check: the Check again button (ruling 3) --------------------
+
+test('community-check: a readable community answers "syncing"; an unknown one refuses', () => {
+  const state = tmpDir('join-state-');
+  writeCommunity(state, { org: 'aa-guild', org_display: 'A Guild', url: bareCommons(), status: 'joined' });
+  const r = execFileSync(process.execPath, [path.join(HERE, 'community-check.mjs'), state, 'aa-guild'], { encoding: 'utf8' });
+  assert.match(r, /OK: A Guild is syncing\. Its shared library appears in your catalogue\./);
+  const bad = spawnSync(process.execPath, [path.join(HERE, 'community-check.mjs'), state, 'nope-guild'], { encoding: 'utf8' });
+  assert.equal(bad.status, 1);
+  assert.match(bad.stdout, /not a member/);
+});
+
+test('community-check: access-ended diagnoses and persists the hint; recovery announces itself', () => {
+  const state = tmpDir('join-state-');
+  const { bare } = bareCommonsWithCatalog();
+  writeCommunity(state, { org: 'hg-guild', org_display: 'HG', url: bare, status: 'joined' });
+  execFileSync(process.execPath, [path.join(HERE, 'commons-pull.mjs'), state], { encoding: 'utf8' });
+  // access ends: the bare repo disappears -> git answers access-shaped
+  const parked = bare + '.parked';
+  renameSync(bare, parked);
+  let r = execFileSync(process.execPath, [path.join(HERE, 'community-check.mjs'), state, 'hg-guild'], { encoding: 'utf8' });
+  assert.match(r, /^Not yet: /m);
+  assert.match(r, /cannot read HG's shared library/, 'a non-GitHub commons gets the generic honest line');
+  assert.equal(readCommunity(state, 'hg-guild').status, 'access-ended');
+  // access comes back: Check again says so in one line
+  renameSync(parked, bare);
+  r = execFileSync(process.execPath, [path.join(HERE, 'community-check.mjs'), state, 'hg-guild'], { encoding: 'utf8' });
+  assert.match(r, /OK: HG is readable again and syncing\./);
+  assert.equal(readCommunity(state, 'hg-guild').status, 'joined');
+});
+
+test('the recovery write clears a stale access hint', () => {
+  const state = tmpDir('join-state-');
+  writeCommunity(state, {
+    org: 'aa-guild', org_display: 'A', url: bareCommons(),
+    status: 'access-ended', access_hint: 'pending-invite', invite_from: 'sam', ended_notified: true,
+  });
+  execFileSync(process.execPath, [path.join(HERE, 'commons-pull.mjs'), state], { encoding: 'utf8' });
+  const rec = readCommunity(state, 'aa-guild');
+  assert.equal(rec.status, 'joined');
+  assert.ok(!('access_hint' in rec) && !('invite_from' in rec), 'a synced community carries no stale advice');
+  const c = listOf(state).communities[0];
+  assert.ok(!('access_hint' in c));
 });

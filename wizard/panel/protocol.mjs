@@ -23,6 +23,26 @@ export function extractBox(argv) {
   return '';
 }
 
+// crads-ai://join-community/<token> — a community's join link (commons
+// usability overhaul, 2026-09-02). The token is the join bundle's base64 body
+// re-encoded base64url, so the whole link survives chat apps and browsers.
+// This returns the TOKEN, which app.mjs forwards to the Communities page as
+// #sec=commons&join=<token>: pure data on a whitelisted charset. The page
+// decodes it back into the bundle and PRE-FILLS the join field; nothing joins,
+// runs, or is written from the link itself (the run=signin discipline). A
+// percent-encoded arrival is tolerated; anything outside the charset is
+// dropped rather than guessed at.
+export function extractJoinToken(argv) {
+  for (const a of argv || []) {
+    let s = String(a || '');
+    if (!/^crads-ai:\/\/join-community\//i.test(s)) continue;
+    try { s = decodeURIComponent(s); } catch { /* keep the raw form */ }
+    const m = s.match(/^crads-ai:\/\/join-community\/([A-Za-z0-9_-]{1,4096})\/?$/i);
+    if (m) return m[1];
+  }
+  return '';
+}
+
 const run = (cmd, args) => new Promise((res, rej) => execFile(cmd, args, (e, so) => (e ? rej(e) : res(so))));
 
 export async function registerProtocolHandler({ execPath = process.execPath, platform = process.platform, runner = run } = {}) {

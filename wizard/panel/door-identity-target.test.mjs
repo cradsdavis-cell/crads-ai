@@ -51,7 +51,9 @@ test('legacy rock aliases still land on THEIR box (#host=, one shell since 2026-
   // an unknown host falls back to a real target rather than an empty page.
   const html = read('member.html');
   assert.equal(html.includes('IS_ORG'), false, 'no org boot branch remains to drift');
-  assert.match(html, /askedHost = \(location\.hash\.match\(\/\^#host=\(\[A-Za-z0-9\._-\]\+\)\$\/\) \|\| \[\]\)\[1\] \|\| askedHost;/,
+  // (?:&|$) since 2026-09-02: the hash may be compound (#host=...&sec=terminal),
+  // the door's finish checklist naming a tab alongside the identity.
+  assert.match(html, /askedHost = \(location\.hash\.match\(\/\^#host=\(\[A-Za-z0-9\._-\]\+\)\(\?:&\|\$\)\/\) \|\| \[\]\)\[1\] \|\| askedHost;/,
     'a legacy -rock/-parent alias rides #host= and wins over the #box= derivation');
   assert.match(html, /state\.host = state\.targets\.some\(function\(x\)\{ return x\.host === askedHost; \}\) \? askedHost : state\.targets\[0\]\.host;/,
     'an unknown host must fall back to a real target');

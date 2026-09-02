@@ -171,9 +171,10 @@ takes about two minutes with both machines in front of you.
 
 ## How do I join a community?
 
-The community's owner hands you a join bundle, one line starting
-`cradscommons1:`. Paste it on your dashboard's Communities page and their
-shared library starts arriving as offers in your catalogue.
+The community's owner sends you a join link (or its one-line text
+fallback, starting `cradscommons1:`). Opening the link lands you on your
+dashboard's Communities page with the invitation filled in; press Join and
+their shared library starts arriving as offers in your catalogue.
 [Join a community](/docs/join-a-community) is the walkthrough, including the
 private-repository case.
 

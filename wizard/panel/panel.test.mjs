@@ -105,7 +105,7 @@ test('every org verb resolves brain_root instead of hardcoding /state/brain', ()
       : name === 'membership-drop' ? { slug: 'jane01', org: 'beta' }
       : name === 'demote' ? { org: 'beta', confirm: 'beta' }
       : name === 'community-catalog-push' ? { ids: ['brief-me'] }
-      : name === 'commons-init' || name === 'commons-grant' ? { payload_b64: 'e30=' }
+      : name === 'commons-init' || name === 'commons-grant' || name === 'commons-create' ? { payload_b64: 'e30=' }
       : name === 'commons-revoke' ? { id: 'g-abc12345' }
       : {});
     if (c === null) continue; // approve-device needs a real fingerprint pair; covered below

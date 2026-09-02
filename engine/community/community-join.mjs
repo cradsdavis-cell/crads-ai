@@ -18,6 +18,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { ORG_RE, inboxConfFor, inboxDirFor, parseBundle, readCommunity, writeCommunity } from './commons-lib.mjs';
+import { accessAdvice, diagnoseAccess } from './commons-github.mjs';
 import { pullOne } from './commons-pull.mjs';
 
 const state = String(process.argv[2] || '');
@@ -60,9 +61,22 @@ writeCommunity(state, rec);
 
 const r = pullOne(state, rec);
 if (r.status === 'ok') {
-  console.log(`OK: joined ${c.org_display}. Its commons is on this box now; new and updated items appear in your catalogue for you to install when you choose.`);
+  console.log(`OK: joined ${c.org_display}. Its shared library is on this box now; new and updated items appear in your catalogue for you to install when you choose.`);
 } else if (r.status === 'access-ended') {
-  console.log(`OK: joined ${c.org_display}, but this box cannot read its commons yet. For a private repository the owner must invite your GitHub account as a read collaborator (and this box needs its GitHub sign-in connected). The box keeps trying on its normal rhythm.`);
+  // Ruling 3 (2026-09-02): before settling for a generic failure, name the
+  // actual blocker. The failed pull was the probe; GitHub answers WHICH case
+  // this is: no sign-in at all, an invitation sitting unaccepted (looked up
+  // via the member's own token), or genuinely no access.
+  const d = await diagnoseAccess(state, rec);
+  const cur = readCommunity(state, c.org) || rec;
+  writeCommunity(state, {
+    ...cur,
+    access_hint: d.hint || undefined,
+    invite_from: d.from || undefined,
+  });
+  const advice = accessAdvice(d);
+  if (advice) console.log(`OK: joined ${c.org_display}, but ${advice}`);
+  else console.log(`OK: joined ${c.org_display}, but this box cannot read its shared library yet. For a private repository the owner must invite your GitHub account as a read collaborator. Once that is done, press Check again; the box also keeps trying on its own rhythm.`);
 } else if (r.status === 'oversized') {
   console.log(`OK: joined ${c.org_display}, but ${r.line}`);
 } else {

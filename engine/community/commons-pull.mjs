@@ -142,6 +142,7 @@ export function pullOne(state, rec, { spawn = execFileSync, ghToken } = {}) {
   writeCommunity(state, {
     ...rec, status: 'joined', last_ok: now, last_sha: sha,
     last_error: undefined, ended_notified: undefined, ended_at: undefined,
+    access_hint: undefined, invite_from: undefined,
   });
   if (recovered) log(`${org}: access is back; the commons is syncing again.`);
   return { org, status: 'ok', sha };

@@ -25,9 +25,13 @@
 // member keeps what they installed (standing ruling).
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { BRANCH_RE, ORG_RE, allowFileFromEnv, mintBundle, readCommonsConf, validGitUrl } from './commons-lib.mjs';
+import {
+  BRANCH_RE, ORG_RE, allowFileFromEnv, githubRepoFromUrl, linkForBundle,
+  mintBundle, readCommonsConf, readGhToken, validGitUrl,
+} from './commons-lib.mjs';
+import { ghClient, inviteCollaborator, listCollaborators, listRepoInvitations, removeCollaboratorAccess } from './commons-github.mjs';
 
-const [state, brain, cmd, arg] = process.argv.slice(2).map((s) => String(s || ''));
+const [state, brain, cmd, arg, arg2] = process.argv.slice(2).map((s) => String(s || ''));
 const die = (msg) => { console.log(`ERROR: ${msg}`); process.exit(1); };
 if (!state || !brain || !cmd) die('usage: commons-admin <state-dir> <brain-root> <init|status|grant|revoke|roster|bundle> [id]');
 
@@ -112,15 +116,55 @@ if (cmd === 'status') {
   process.exit(0);
 }
 
+// The roster merged with the LIVE GitHub lists (ruling 2, 2026-09-02): for a
+// GitHub-shaped commons with a stored token, each grant with a username gets
+// `live`: 'accepted' (collaborator now), 'pending' (invitation unaccepted) or
+// 'none' (in this ledger only — never invited, or already removed). A
+// collaborator on the repo that no active grant names is listed under
+// `github.extra_collaborators` so the two lists cannot silently disagree.
+// GitHub being unreachable degrades to the plain ledger, said in `github.error`.
 if (cmd === 'roster') {
-  process.stdout.write('ROSTER_STATE ' + JSON.stringify(readRoster()) + '\n');
+  const roster = readRoster();
+  const conf = readConf();
+  const at = conf ? githubRepoFromUrl(conf.url) : null;
+  const token = at ? readGhToken(state) : '';
+  if (!at || !token) {
+    process.stdout.write('ROSTER_STATE ' + JSON.stringify({ ...roster, github: { live: false } }) + '\n');
+    process.exit(0);
+  }
+  const gh = ghClient({ token });
+  const [collab, invites] = await Promise.all([
+    listCollaborators(gh, at),
+    listRepoInvitations(gh, at),
+  ]);
+  if (!collab.ok || !invites.ok) {
+    process.stdout.write('ROSTER_STATE ' + JSON.stringify({
+      ...roster, github: { live: false, error: (collab.ok ? invites : collab).detail },
+    }) + '\n');
+    process.exit(0);
+  }
+  const lc = (s) => String(s || '').toLowerCase();
+  const accepted = new Set(collab.logins.map(lc));
+  const pending = new Set(invites.invitations.map((i) => lc(i.login)));
+  const grants = roster.grants.map((g) => {
+    if (!g || !g.github) return g;
+    const u = lc(g.github);
+    return { ...g, live: accepted.has(u) ? 'accepted' : (pending.has(u) ? 'pending' : 'none') };
+  });
+  const named = new Set(grants.filter((g) => g && g.github && g.status === 'active').map((g) => lc(g.github)));
+  const extra = collab.logins.filter((l) => lc(l) !== lc(at.owner) && !named.has(lc(l)));
+  process.stdout.write('ROSTER_STATE ' + JSON.stringify({
+    grants, github: { live: true, repo: `${at.owner}/${at.repo}`, extra_collaborators: extra },
+  }) + '\n');
   process.exit(0);
 }
 
 if (cmd === 'bundle') {
   const conf = readConf();
   if (!conf) die('no commons is configured yet. Run commons init first.');
-  console.log(mintBundle({ org: conf.org, org_display: conf.org_display, url: conf.url, ...(conf.branch ? { branch: conf.branch } : {}) }));
+  const bundle = mintBundle({ org: conf.org, org_display: conf.org_display, url: conf.url, ...(conf.branch ? { branch: conf.branch } : {}) });
+  console.log(bundle);
+  console.log(`JOIN_LINK ${linkForBundle(bundle)}`);
   console.log(inviteReminder(conf.url));
   process.exit(0);
 }
@@ -144,9 +188,28 @@ if (cmd === 'grant') {
   });
   writeRoster(roster);
   const bundle = mintBundle({ org: conf.org, org_display: conf.org_display, url: conf.url, ...(conf.branch ? { branch: conf.branch } : {}) });
-  console.log(`OK: grant ${id} recorded for ${label}. Hand them this bundle out of band (a message, not a public post):`);
+  console.log(`OK: ${label} is recorded (${id}). Hand them the join link (or the bundle under it) out of band: a direct message, never a public post.`);
   console.log(bundle);
-  console.log(inviteReminder(conf.url));
+  console.log(`JOIN_LINK ${linkForBundle(bundle)}`);
+  // Ruling 2 (2026-09-02): when the commons lives on GitHub and a username was
+  // given, THIS BOX sends the read-collaborator invitation itself, with its own
+  // stored token. The grant above stands either way; the invite line reports
+  // its own outcome honestly, and the manual reminder only appears when there
+  // is genuinely something manual left to do.
+  const at = githubRepoFromUrl(conf.url);
+  if (at && github) {
+    const token = readGhToken(state);
+    if (!token) {
+      console.log(`This hub has no GitHub sign-in, so it could not send ${github}'s invitation itself. ${inviteReminder(conf.url)}`);
+    } else {
+      const inv = await inviteCollaborator(ghClient({ token }), { ...at, username: github });
+      if (inv.state === 'invited') console.log(`GitHub invitation sent to ${github} (read access to ${at.owner}/${at.repo}). They accept it from GitHub's email; until they do, their mineral will say the invitation is waiting.`);
+      else if (inv.state === 'already') console.log(`${github} already has access to ${at.owner}/${at.repo} on GitHub; nothing more to send.`);
+      else console.log(`GitHub refused the invitation for ${github} (${inv.detail}). Send it by hand: repository Settings, Collaborators.`);
+    }
+  } else {
+    console.log(inviteReminder(conf.url));
+  }
   process.exit(0);
 }
 
@@ -162,9 +225,24 @@ if (cmd === 'revoke') {
   writeRoster(roster);
   const conf = readConf();
   console.log(`OK: grant ${id} (${g.label}) is marked revoked in the roster.`);
-  console.log('Now remove their read access on your git host'
-    + (conf && isGithub(conf.url) ? ' (GitHub: repo Settings, Collaborators, remove their account)' : '')
-    + '. The bundle stops working once the host access is gone. What they already installed stays theirs; that is by design.');
+  // `revoke <id> and-github` (ruling 2, 2026-09-02): also remove their GitHub
+  // read access from here, collaborator and any still-pending invitation both.
+  // Never touches what the member installed; the feed is all that ends.
+  const at = conf ? githubRepoFromUrl(conf.url) : null;
+  if (arg2 === 'and-github' && at && g.github) {
+    const token = readGhToken(state);
+    if (!token) {
+      console.log(`This hub has no GitHub sign-in, so it could not remove ${g.github}'s access itself. Remove it by hand: repository Settings, Collaborators.`);
+    } else {
+      const r = await removeCollaboratorAccess(ghClient({ token }), { ...at, username: g.github });
+      if (r.ok) console.log(`Their GitHub read access to ${at.owner}/${at.repo} is removed too${r.cancelled ? ' (the unaccepted invitation was cancelled)' : ''}. What they already installed stays theirs; that is by design.`);
+      else console.log(`Could not remove ${g.github}'s GitHub access (${r.detail}). Remove it by hand: repository Settings, Collaborators. What they already installed stays theirs.`);
+    }
+  } else {
+    console.log('Now remove their read access on your git host'
+      + (conf && isGithub(conf.url) ? ' (GitHub: repo Settings, Collaborators, remove their account)' : '')
+      + '. The bundle stops working once the host access is gone. What they already installed stays theirs; that is by design.');
+  }
   process.exit(0);
 }
 

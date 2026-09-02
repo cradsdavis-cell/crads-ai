@@ -6,7 +6,7 @@ access: public
 mode: how-to
 order: 60
 pins: wizard/panel/member.html
-reviewed: 2026-09-01
+reviewed: 2026-09-02
 ---
 
 The app is the everyday way to talk to your assistant, and for most people it is
@@ -61,7 +61,9 @@ people hours: **"This is an extra, not a step."** Connecting Claude Code
 signs in your laptop and reaches into your mineral over SSH. It does not sign
 the mineral itself in, it does not switch on scheduled jobs, and nothing it
 does makes the Overview checklist tick. That item belongs to the Terminal
-tab: open it and run `claude` once.
+tab: open it and run `claude` once. The create wizard's finish checklist
+offers exactly that under **Connect Claude**, so a mineral set up recently
+has usually done it on day one.
 
 ## Connections you make in here stay chats-only
 

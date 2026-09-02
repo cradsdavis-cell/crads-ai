@@ -208,6 +208,15 @@
   .sizecard .fine{font-size:11.5px;color:var(--faint)}
   .sizecard.sel{border-color:var(--accent);box-shadow:var(--focus)}
   .sizecard:disabled{opacity:.45;cursor:default}
+  /* the finish checklist (wizard steps 5-6, 2026-09-02): "alive" is the
+     headline, not the end. Each remaining step is a row with an honest state
+     chip; "Checking…" is a real state, never a decoration. */
+  .steprow{border:1px solid var(--line-2);border-radius:var(--r-card);background:var(--card);padding:14px 16px;margin-top:12px;box-shadow:var(--shadow-1)}
+  .steprow b{font-size:13.5px}
+  .steprow .hint{margin:6px 0 0}
+  .steprow button.act{margin-top:12px}
+  .stepchip{float:right;font-size:11px;font-weight:650;font-family:var(--mono);letter-spacing:.02em;border-radius:999px;padding:2px 9px;border:1px solid var(--line-2);color:var(--soft-2);background:var(--card-2);margin-left:8px}
+  .stepchip.done{color:var(--good);border-color:var(--good)}
   ::placeholder{color:color-mix(in srgb,var(--soft) 70%,var(--faint))}
   /* a.act (2026-08-25): the pay control is a LINK, because it leaves for
      Stripe, but it has to read as the primary action on the screen. The rules
@@ -376,9 +385,40 @@
         <p class="hint" id="shBootNote" style="display:none">The server is up and is now downloading its workspace. First boot takes a few minutes; this screen will notice by itself.</p>
       </div>
 
+      <!-- the finish checklist (wizard steps 5-6, 2026-09-02). The bare "alive
+           + Open it" screen ended the flow two steps early: a mineral with no
+           brain backup and no Claude sign-in is alive but inert. Both steps
+           run from here, and both stay reachable later in the app (the seat's
+           Backup card; the Terminal tab), so skipping is always safe. -->
       <div id="shDone" style="display:none">
         <p><b>Your mineral is alive.</b> It runs on your server, holds only your key, and answers to nobody else.</p>
-        <button class="act primary" id="shOpenBtn">Open it</button>
+        <p class="hint">Two finishing steps make it fully yours. Both can wait, and both are always available later in the app.</p>
+
+        <div class="steprow">
+          <b>Open it</b>
+          <p class="hint">The app is where you meet your assistant. Everything below can also be done from in there.</p>
+          <button class="act primary" id="shOpenBtn">Open it</button>
+        </div>
+
+        <div class="steprow" id="shRowGh">
+          <span class="stepchip" id="shGhChip">Checking&hellip;</span>
+          <b>Back up your brain to your GitHub</b>
+          <p class="hint">A private repository in your own GitHub account. Once connected, your brain pushes there on its own, every night: your data, your backup, on an account you control. No GitHub account yet? Make one at <span class="mono">github.com</span> first; the free kind is fine.</p>
+          <p class="hint" id="shGhDoneLine" style="display:none"></p>
+          <button class="act" id="shGhBtn">Connect GitHub</button>
+          <div id="shGhRun" style="display:none">
+            <p class="hint" id="shGhCode" style="margin-top:10px"></p>
+            <div class="hint" id="shGhSteps"></div>
+          </div>
+          <div class="msg" id="shGhMsg"></div>
+        </div>
+
+        <div class="steprow" id="shRowClaude">
+          <span class="stepchip" id="shClaudeChip">Checking&hellip;</span>
+          <b>Connect Claude</b>
+          <p class="hint">Your mineral is inert until it is signed in to Claude, on your own Claude subscription. Open the terminal and run <span class="mono">claude</span> once: it prints a sign-in link and a code, you approve it in your browser, and your assistant wakes up. Scheduled jobs run on this sign-in, so nothing works overnight without it. This screen notices by itself once it is done.</p>
+          <button class="act" id="shClaudeBtn">Open the terminal</button>
+        </div>
       </div>
 
       <div class="msg" id="shMsg"></div>
@@ -745,6 +785,8 @@
   }
   function exitShFlow(){
     if (shPoll) { clearInterval(shPoll); shPoll = null; }
+    if (shStepsTimer) { clearInterval(shStepsTimer); shStepsTimer = null; }
+    if (shGhPoll) { clearInterval(shGhPoll); shGhPoll = null; }
     document.getElementById('shFlow').style.display = 'none';
     document.getElementById('pebbleIntro').style.display = '';
     exitPebbleFlow();
@@ -868,9 +910,118 @@
   function shReady(s){
     shShow('shDone'); shErr('');
     if (shPoll) { clearInterval(shPoll); shPoll = null; }
+    shBox = { alias: s.alias || '', slug: s.slug || '' };
     var open = document.getElementById('shOpenBtn');
-    open.onclick = function(){ location.href = '/go/member?host=' + encodeURIComponent(s.alias || '') + '&box=' + encodeURIComponent(s.slug || ''); };
+    open.onclick = function(){ location.href = '/go/member?host=' + encodeURIComponent(shBox.alias) + '&box=' + encodeURIComponent(shBox.slug); };
+    // The two finishing steps' state, read from the box itself and kept live:
+    // signing in happens in another surface (the app's Terminal tab), so this
+    // screen has to notice on its own, not on a click.
+    shStepsSync();
+    if (shStepsTimer) clearInterval(shStepsTimer);
+    shStepsTimer = setInterval(shStepsSync, 5000);
   }
+
+  // ---- the finish checklist (wizard steps 5-6, 2026-09-02) -----------------
+  // GitHub runs IN PLACE via the same /own-brain routes the seat's Backup card
+  // uses (mounted on this server too); Claude sign-in hands over to the app's
+  // Terminal tab, the one surface that can run the interactive sign-in, and
+  // this screen's poll notices when it lands.
+  var shBox = { alias: '', slug: '' };
+  var shStepsTimer = null;
+  var shGhPoll = null;
+  function shChip(id, text, done){
+    var c = document.getElementById(id);
+    c.textContent = text;
+    c.classList.toggle('done', !!done);
+  }
+  function shStepsSync(){
+    if (!shBox.alias) return;
+    fetch('/setup-steps?box=' + encodeURIComponent(shBox.alias))
+      .then(function(r){ return r.json(); })
+      .then(function(st){
+        if (!st || st.reachable === false) {
+          // an unreachable box is "could not check", never a false "not yet"
+          if (document.getElementById('shGhChip').textContent === 'Checking…') shChip('shGhChip', 'Could not check', false);
+          if (document.getElementById('shClaudeChip').textContent === 'Checking…') shChip('shClaudeChip', 'Could not check', false);
+          return;
+        }
+        var ghConnected = !!(st.github && st.github.connected);
+        // while the connect flow is running, its own progress owns the row
+        if (!shGhPoll) {
+          shChip('shGhChip', ghConnected ? 'Done' : 'Not yet', ghConnected);
+          document.getElementById('shGhBtn').style.display = ghConnected ? 'none' : '';
+          var dl = document.getElementById('shGhDoneLine');
+          dl.style.display = ghConnected ? '' : 'none';
+          if (ghConnected) dl.innerHTML = 'Connected: <span class="mono">' + esc(st.github.repo || '') + '</span>. From here it keeps itself current, every night.';
+        }
+        var signedIn = !!(st.claude && st.claude.signedIn);
+        shChip('shClaudeChip', signedIn ? 'Done' : 'Not yet', signedIn);
+        document.getElementById('shClaudeBtn').style.display = signedIn ? 'none' : '';
+      })
+      .catch(function(){ /* one missed poll is nothing */ });
+  }
+  function shGhErr(text){
+    var m = document.getElementById('shGhMsg');
+    m.className = text ? 'msg on' : 'msg';
+    m.textContent = text || '';
+  }
+  document.getElementById('shGhBtn').addEventListener('click', function(){
+    shGhErr('');
+    var btn = document.getElementById('shGhBtn');
+    btn.disabled = true; btn.textContent = 'Starting…';
+    fetch('/own-brain/start', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slug: shBox.slug, box: shBox.alias }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        if (!x.ok) {
+          btn.disabled = false; btn.textContent = 'Connect GitHub';
+          shGhErr((x.d && x.d.error) || 'Could not start the GitHub connection.');
+          return;
+        }
+        btn.style.display = 'none';
+        document.getElementById('shGhRun').style.display = 'block';
+        document.getElementById('shGhCode').innerHTML =
+          'Your code is <b class="mono">' + esc(x.d.userCode || '') + '</b>. Enter it at '
+          + '<a href="' + esc(x.d.verificationUri || 'https://github.com/login/device') + '" target="_blank" rel="noopener">github.com/login/device</a>'
+          + ' and approve the sign-in. This screen notices by itself.';
+        shChip('shGhChip', 'Waiting for GitHub…', false);
+        if (shGhPoll) clearInterval(shGhPoll);
+        shGhPoll = setInterval(shGhTick, 2000);
+      })
+      .catch(function(){
+        btn.disabled = false; btn.textContent = 'Connect GitHub';
+        shGhErr('The app did not answer. Quit it and open it again, then retry.');
+      });
+  });
+  function shGhTick(){
+    fetch('/own-brain/status').then(function(r){ return r.json(); }).then(function(st){
+      document.getElementById('shGhSteps').innerHTML = (st.steps || []).map(function(t){ return '✓ ' + esc(t); }).join('<br>');
+      if (st.stage === 'working') shChip('shGhChip', 'Working…', false);
+      if (st.stage === 'done') {
+        clearInterval(shGhPoll); shGhPoll = null;
+        document.getElementById('shGhRun').style.display = 'none';
+        shChip('shGhChip', 'Done', true);
+        var dl = document.getElementById('shGhDoneLine');
+        dl.style.display = '';
+        dl.innerHTML = 'Connected: <span class="mono">' + esc((st.result && st.result.repo) || '') + '</span>. From here it keeps itself current, every night.';
+      }
+      if (st.stage === 'failed') {
+        clearInterval(shGhPoll); shGhPoll = null;
+        document.getElementById('shGhRun').style.display = 'none';
+        var btn = document.getElementById('shGhBtn');
+        btn.style.display = ''; btn.disabled = false; btn.textContent = 'Connect GitHub';
+        shChip('shGhChip', 'Not yet', false);
+        shGhErr((st.reason || 'The connection did not complete.') + ' Nothing was lost: every step is safe to run again, so pressing Connect GitHub picks up where this stopped.');
+      }
+    }).catch(function(){ /* one missed poll is nothing */ });
+  }
+  document.getElementById('shClaudeBtn').addEventListener('click', function(){
+    // The hash carries which mineral, which tab and WHICH opener; the app
+    // whitelists run=signin to the bare `claude` sign-in and nothing else, so
+    // no URL can ever type an arbitrary command into a terminal.
+    location.href = '/go/member?host=' + encodeURIComponent(shBox.alias) + '&box=' + encodeURIComponent(shBox.slug)
+      + '#box=' + encodeURIComponent(shBox.slug) + '&sec=terminal&run=signin';
+  });
   function shAttach(){
     if (shPoll) clearInterval(shPoll);
     var tick = function(){

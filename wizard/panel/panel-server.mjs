@@ -2112,6 +2112,25 @@ export const VERBS = {
         + '|| echo \'ROSTER_STATE {"grants":[],"dormant":"this rock needs an update before it can run a commons"}\'',
     }),
   },
+  // "Start a community" (ruling 1, 2026-09-02): one field in the UI, the box
+  // does the rest with its own stored GitHub token (create the private
+  // <id>-commons repo, seed the README, wire the conf). Same stdin-b64
+  // transport as commons-init; the Advanced fold still drives commons-init
+  // for bring-your-own-repository, unchanged.
+  'commons-create': {
+    adminOnly: true,
+    mutating: true,
+    build: (a = {}) => {
+      const b64 = String(a.payload_b64 ?? '');
+      if (!b64 || b64.length > 4000 || !B64_RE.test(b64)) bad('payload_b64 must be base64 (the community name as JSON)');
+      return {
+        command: 'S=/app/engine/community/commons-create.mjs; [ -f "$S" ] '
+          + '|| { echo "ERROR: this rock\'s software is too old to start a community; update and restart it first."; exit 1; }; '
+          + BR_RESOLVE + 'base64 -d | node "$S" /state "$BR"',
+        stdin: b64 + '\n',
+      };
+    },
+  },
   'commons-init': {
     adminOnly: true,
     mutating: true,
@@ -2155,10 +2174,14 @@ export const VERBS = {
     build: (a = {}) => {
       const id = String(a.id ?? '');
       if (!/^g-[a-z0-9]{4,12}$/.test(id)) bad('id must be a grant id from the roster (it looks like g-xxxxxxxx)');
+      // github: true (ruling 2, 2026-09-02) also removes their read access on
+      // GitHub from here (collaborator + any pending invitation), the offer
+      // the confirm dialog makes when the grant carries a username.
+      const alsoGithub = a.github === true || a.github === 'true';
       return {
         command: 'S=/app/engine/community/commons-admin.mjs; [ -f "$S" ] '
           + '|| { echo "ERROR: this rock\'s software is too old to run a commons; update and restart it first."; exit 1; }; '
-          + BR_RESOLVE + `node "$S" /state "$BR" revoke ${id}`,
+          + BR_RESOLVE + `node "$S" /state "$BR" revoke ${id}${alsoGithub ? ' and-github' : ''}`,
       };
     },
   },
@@ -3127,6 +3150,35 @@ export const MEMBER_VERBS = {
       return {
         command: 'S=/app/engine/community/community-leave.mjs; [ -f "$S" ] '
           + '|| { echo "ERROR: this mineral\'s software is too old to manage communities; update and restart it first."; exit 1; }; '
+          + `node "$S" /state ${org}`,
+      };
+    },
+  },
+  // Check again (ruling 3, 2026-09-02): one pull now for one community, with
+  // the join-time diagnosis re-run, so accepting the owner's GitHub invitation
+  // is followed by a button press, not a wait for the cadence.
+  'community-check': {
+    mutating: true,
+    build: (a = {}) => {
+      const org = String(a.org ?? '');
+      if (!COMMONS_ORG_RE.test(org)) bad('org must be the community name shown on the Communities page');
+      return {
+        command: 'S=/app/engine/community/community-check.mjs; [ -f "$S" ] '
+          + '|| { echo "ERROR: this mineral\'s software is too old to re-check a community; update and restart it first."; exit 1; }; '
+          + `node "$S" /state ${org}`,
+      };
+    },
+  },
+  // The last-look stamp behind the shared-library view (ruling 4, 2026-09-02):
+  // box-side only; the community owner never learns what was looked at.
+  'community-seen': {
+    mutating: true,
+    build: (a = {}) => {
+      const org = String(a.org ?? '');
+      if (!COMMONS_ORG_RE.test(org)) bad('org must be the community name shown on the Communities page');
+      return {
+        command: 'S=/app/engine/community/community-seen.mjs; [ -f "$S" ] '
+          + '|| { echo "ERROR: this mineral\'s software is too old to track new shared items; update and restart it first."; exit 1; }; '
           + `node "$S" /state ${org}`,
       };
     },

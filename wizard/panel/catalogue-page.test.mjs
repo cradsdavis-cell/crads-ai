@@ -68,7 +68,8 @@ test('the Commons card leads the page and the roster is headed Access', () => {
   assert.ok(commonsAt > 0 && libraryAt > commonsAt, 'Commons first, the library inventory below it');
   assert.match(sec, /<h3 class="subhead" id="commonsCard">Commons<button class="info"/, 'the card head carries its bubble');
   assert.match(sec, /<h4 class="subhead"[^>]*>Access<button class="info"/, 'the roster subheading is Access');
-  assert.match(sec, /it starts <span style="font-family:var\(--mono\)">cradscommons1:<\/span>/, 'the grant hint names the bundle line');
+  assert.match(sec, /sends their GitHub invitation when you give their username, and makes their join link/, 'the grant hint leads with the link + the sent invitation');
+  assert.match(sec, /Send the link in a direct message, never a public post/, 'the out-of-band rule survives in the hint');
   assert.match(sec, /the one the Backup card on <b>Your mineral<\/b> connects/, 'the setup hint points GitHub sign-in at the seat Backup card');
   assert.match(sec, /<p>What this mineral shares when it hosts a community\.<\/p>/, 'one-line sub-copy, role not edition');
   assert.ok(!/[—]/.test(sec), 'zero em dashes');

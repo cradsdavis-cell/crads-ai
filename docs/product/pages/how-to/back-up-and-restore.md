@@ -5,8 +5,8 @@ audience: public
 access: public
 mode: how-to
 order: 50
-pins: engine/backup.mjs, docs/box-restore-runbook.md
-reviewed: 2026-09-01
+pins: engine/backup.mjs, docs/box-restore-runbook.md, wizard/panel/door.html
+reviewed: 2026-09-02
 ---
 
 Two different things get backed up, by two different mechanisms, and the second
@@ -28,8 +28,12 @@ That is the important half. It means the pages your assistant has written about
 your world exist somewhere that is not this machine and is not ours, in a format
 you can read in any text editor, on infrastructure we cannot reach.
 
-**If you do nothing else on this page, connect GitHub.** It happens on the
-**Backup** card, midway down **Your pebble**:
+**If you do nothing else on this page, connect GitHub.** The create wizard
+offers this exact step on its finish checklist, the moment your mineral first
+comes alive, so you may well have done it on day one; the chip there says so
+honestly either way. Later, and for any mineral made before the checklist
+existed, the same flow lives on the **Backup** card, midway down
+**Your pebble**:
 
 ![Your pebble, with the Backup card mid-page](shot:member-seat)
 

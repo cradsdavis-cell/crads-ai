@@ -31,7 +31,7 @@ import { listPanelTargets, registerPromotedHost, unregisterPromotedHost } from '
 import { probePromotedHosts } from './panel/face-probe.mjs';
 import { getBuildInfo, checkForUpdate, cleanupOld, applyUpdate } from './panel/updater.mjs';
 import { createDoorServer } from './panel/door-server.mjs';
-import { extractBox, registerProtocolHandler } from './panel/protocol.mjs';
+import { extractBox, extractJoinToken, registerProtocolHandler } from './panel/protocol.mjs';
 import { pushOwnedBrains } from './panel/brain-push.mjs';
 import { runSsh } from './panel/ssh-bridge.mjs';
 import { launchTarget, readLastUsed, lastUsedPath } from './panel/last-used.mjs';
@@ -185,8 +185,14 @@ async function main() {
       const r = await fetch(prev.url, { signal: ctrl.signal });
       clearTimeout(t);
       if (r.ok) {
-        dbg(`already running at ${prev.url}; reopening window and exiting`);
-        openAppWindow(prev.url); process.exit(0);
+        // A join link clicked while the app is already running must still land
+        // on the Communities page with the bundle pre-filled, not on whatever
+        // hash the last window carried: same live server, purposeful hash.
+        // The token is data on a whitelisted charset (see protocol.mjs).
+        const joinTok = extractJoinToken(process.argv);
+        const reopenUrl = joinTok ? `${String(prev.url).split('#')[0]}#sec=commons&join=${joinTok}` : prev.url;
+        dbg(`already running at ${prev.url}; reopening window${joinTok ? ' on the Communities join panel' : ''} and exiting`);
+        openAppWindow(reopenUrl); process.exit(0);
       }
       throw new Error('stale');
     } catch { try { unlinkSync(RUN_FILE); } catch { /* nothing to clear */ } }
@@ -388,7 +394,16 @@ async function main() {
       // invite deep link died with the invitation system, and AIOS_FORCE_WIZARD
       // with the org wizard, both 2026-09-01.)
       const wantBox = extractBox(process.argv);
-      if (wantBox && panelFlipUrl && allTargets.some((t) => t.host === `${wantBox}-box`)) {
+      // crads-ai://join-community/<token> (2026-09-02): land on the Communities
+      // page with the join panel open and the bundle pre-filled. The token is
+      // data (whitelisted charset, decoded by the page into the join FIELD,
+      // never a command); which mineral joins stays the member's pick on the
+      // page when this machine has several.
+      const wantJoin = extractJoinToken(process.argv);
+      if (wantJoin && panelFlipUrl) {
+        openUrl = `${panelFlipUrl}#sec=commons&join=${wantJoin}`; label = 'panel(join-community)';
+      }
+      else if (wantBox && panelFlipUrl && allTargets.some((t) => t.host === `${wantBox}-box`)) {
         openUrl = `${panelFlipUrl}#box=${wantBox}`; label = `panel(${wantBox})`;
       }
       else if (wantBox && panelFlipUrl && allTargets.some((t) => t.host === `${wantBox}-rock` || t.host === `${wantBox}-parent`)) {

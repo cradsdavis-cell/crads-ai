@@ -189,8 +189,21 @@ $35/mo pass-through, seat fees, and tier pricing are gone with the billing code.
   view, and `ssh cert-ui-box` from a plain shell landed inside the container.
   Hetzner recycled the exact IP that broke the first engine cert and the flow
   absorbed it (clear-then-pin working as designed). Box, Hetzner key, and the
-  local identity all cleaned after. Still owed on the wizard: the GitHub
-  brain-repo step and the Claude sign-in step (docs cover them meanwhile).
+  local identity all cleaned after. **Steps 5-6 SHIPPED 2026-09-02** as the
+  door's finish checklist: "Your mineral is alive" is now a three-row screen
+  (Open it · Back up your brain to your GitHub · Connect Claude) with live
+  done/not-yet chips read from the box (`/setup-steps`, one SSH round trip:
+  brain origin remote + the non-empty `/state/.claude-auth/.credentials.json`
+  presence test). The GitHub step runs the EXISTING own-brain flow in place
+  (own-brain-routes mounted on the door as well as the seat; device-flow
+  OAuth App `Ov23lixA2dRqRtv5hfnm`, registered 2026-07-24 — not a deploy key:
+  the box's uid cannot run ssh, so own-brain wires an HTTPS remote plus a
+  credential helper and stores the member's token on THEIR box only). The
+  Claude step deep-links the app's Terminal tab with the sign-in opener
+  staged (`#box=<slug>&sec=terminal&run=signin`, run= whitelisted to the bare
+  `claude`), because an interactive OAuth cannot be automated honestly; the
+  checklist's poll notices when the credential file lands. Both steps stay
+  reachable later where they always were: the seat's Backup card and ladder.
 - **Third pass, same day (Sam's calls after walking the flow):** the hosted-era
   door cards (invitation + join-a-community) stripped; the door is now
   "Set up my own" (lead) + "I already have one". **Wizard-local device-add

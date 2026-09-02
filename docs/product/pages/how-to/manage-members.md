@@ -7,8 +7,8 @@ mode: how-to
 persona: host
 surface: pebbles
 order: 30
-pins: engine/community/commons-admin.mjs, engine/community/commons-pull.mjs
-reviewed: 2026-09-01
+pins: engine/community/commons-admin.mjs, engine/community/commons-github.mjs, engine/community/commons-pull.mjs
+reviewed: 2026-09-02
 ---
 
 Membership in a community is read access to your
@@ -42,18 +42,27 @@ grants roster below is the living list.)
 
 ## Adding a member
 
-1. **Record a grant** on the roster: a label you know them by, optionally
-   their email or GitHub username.
-2. The panel prints their **join bundle** (`cradscommons1:...`). Hand it to
-   them directly, in a private message, never a public post.
-3. For a private GitHub commons, **also invite their GitHub account as a
-   read collaborator** on the repository. The panel reminds you every time,
-   because the bundle alone grants nothing: the git host's access control is
-   the actual door.
+One press on the Commons card's Access section. Give a label you know them
+by and, for a private GitHub commons, their GitHub username, then press
+**Share with them**:
 
-On their side, they paste the bundle on their Communities page and your
-library starts arriving as offers: [join a community](/docs/join-a-community)
-is the page to send them.
+1. They are **recorded on your roster**.
+2. When you gave their username, your hub **sends the GitHub read invitation
+   itself** and reports the outcome in words: sent, already a collaborator,
+   or exactly why GitHub refused (with the by-hand fallback named). The git
+   host's access control is still the actual door; your hub just knocks on
+   it for you.
+3. Their **join link** (`crads-ai://join-community/...`) is printed with a
+   copy button, alongside the raw one-line invitation for anywhere the link
+   cannot travel. Hand either to them directly, in a private message, never
+   a public post.
+
+On their side, opening the link lands them on their Communities page with
+the invitation filled in, and your library starts arriving as offers once
+they press Join and accept GitHub's email:
+[join a community](/docs/join-a-community) is the page to send them. The
+roster then shows what GitHub shows, live: *invite pending* until they
+accept, *accepted* after.
 
 ## Getting a new member to a working mineral
 
@@ -90,12 +99,12 @@ liveness dashboard was mostly learning who to ask; you can just ask.
 
 ## Revoking a member
 
-Two halves, in this order:
-
-1. **Mark the grant revoked** on your roster, so your records say what you
-   decided and when.
-2. **Remove their read access on the git host** (on GitHub: remove the
-   collaborator). This is the half that actually ends the feed.
+One press on their roster row, and the confirm tells you exactly what it
+covers. When the grant carries their GitHub username, **Revoke** marks your
+roster and removes their read access on GitHub in the same act (a
+still-pending invitation is cancelled too). Without a username, the roster is
+marked and removing the host access stays your step; removing it is the half
+that actually ends the feed, and the copy says so.
 
 On their side, their Communities page says once that their access has ended,
 and then goes quiet. **What they installed stays theirs.** Nothing you do can

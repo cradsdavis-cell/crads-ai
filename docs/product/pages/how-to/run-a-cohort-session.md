@@ -22,8 +22,8 @@ hands, on their own accounts. The sequence per person:
 2. Sign Claude in on their mineral, in its Terminal.
 3. Set their first scheduled task.
 4. Connect Telegram.
-5. Paste your community's join bundle on their Communities page
-   ([join a community](/docs/join-a-community)).
+5. Have them open your community's join link; it fills their
+   Communities page in for them ([join a community](/docs/join-a-community)).
 
 Until step 2 their mineral is deliberately asleep, which is a feature in the
 room: nobody's assistant does anything surprising while you are still talking.

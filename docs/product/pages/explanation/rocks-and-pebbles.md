@@ -76,10 +76,10 @@ pages and folders. The whole model in five sentences:
 - Membership is read access to that repository, granted and revoked with the
   git host's own tools. A private GitHub repository with invited collaborators
   is the usual shape; a public repository makes an open community.
-- The owner hands each member a **join bundle**, one line starting
-  `cradscommons1:`, out of band. The member pastes it on their own
-  [Communities page](/docs/join-a-community), and their mineral pulls the
-  commons read-only on its own rhythm.
+- The owner hands each member a **join link** (with a one-line text
+  invitation as its fallback), out of band. Opening it lands the member on
+  their own [Communities page](/docs/join-a-community) with the invitation
+  filled in, and their mineral pulls the commons read-only on its own rhythm.
 - Everything that arrives is an **offer**. Nothing installs itself, ever;
   installing is the member's explicit act, through the same lint and sandbox
   gates as anything else.

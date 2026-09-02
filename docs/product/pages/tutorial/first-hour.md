@@ -5,8 +5,8 @@ audience: public
 access: public
 mode: tutorial
 order: 10
-pins: wizard/panel/door.html, wizard/panel/provision-routes.mjs, wizard/panel/member.html
-reviewed: 2026-09-01
+pins: wizard/panel/door.html, wizard/panel/provision-routes.mjs, wizard/panel/setup-steps.mjs, wizard/panel/member.html
+reviewed: 2026-09-02
 ---
 
 This walks the whole way in, from nothing at all to an assistant that answers
@@ -93,8 +93,23 @@ it again picks the build back up, and if a build fails you get a **Remove the
 half-made server** button that uses your own token, so nothing half-made ever
 sits on your bill unnoticed.
 
-**You should see, at the end:** "Your mineral is alive." It runs on your
-server, holds only your key, and answers to nobody else. Press **Open it**.
+**You should see, at the end:** "Your mineral is alive", at the top of a short
+finish checklist. Alive is not the same as finished: the same screen carries
+the two steps that make the mineral fully yours, each with an honest
+done or not-yet chip.
+
+- **Back up your brain to your GitHub** runs right there: press **Connect
+  GitHub**, a code appears, and you approve it on the github.com page it
+  names. The wizard makes a private repository in your own account and your
+  brain pushes there nightly from then on.
+  [Back up and restore](/docs/back-up-and-restore) is the full picture.
+- **Connect Claude** opens the app's Terminal tab with the sign-in already
+  running; that is step 7 below, and the checklist notices by itself once it
+  is done.
+
+Both can wait, and both stay available in the app later (the Backup card on
+**Your pebble**, and the Terminal tab), so pressing **Open it** first is never
+wrong.
 
 ## Step 6. Look around, briefly
 
@@ -131,6 +146,9 @@ the ? is the fastest answer.
 Your mineral is inert until you sign Claude in on it. Claude is the AI your
 assistant runs on, and it runs on **your** Claude account, on **your**
 machine.
+
+If you pressed **Connect Claude** on the setup screen's finish checklist, you
+are already here with the sign-in running: skip to point 3.
 
 1. On the Overview, press the big **Meet your assistant** button. (The same
    place is always reachable later as **Terminal** at the bottom of the

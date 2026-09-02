@@ -24,6 +24,8 @@ import { fetchChangelog, plainRelease } from './updater.mjs';
 import { inventoryRoutes } from './inventory-routes.mjs';
 import { provisionRoutes } from './provision-routes.mjs';
 import { deviceRoutes } from './device-routes.mjs';
+import { createOwnBrainRoutes } from './own-brain-routes.mjs';
+import { setupStepsRoutes } from './setup-steps.mjs';
 import { crossOriginBlocked, refuseCrossOrigin } from './same-origin.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -77,6 +79,34 @@ export function createDoorServer(opts = {}) {
   // machine approves the new one over SSH, no account and no worker. Mounted
   // exactly like provision; injectables for tests ride opts.device.
   const device = deviceRoutes(opts.device || {});
+  // The finish checklist (wizard steps 5-6, built 2026-09-02): after a mineral
+  // is alive, the person still owes it a GitHub brain backup and a Claude
+  // sign-in. Both facts and the GitHub flow are served HERE so the door's
+  // "Your mineral is alive" screen can carry them without a hop; the seat's
+  // Backup card and Terminal tab stay the way back in for a box made earlier.
+  //
+  // Host gate for both: the alias must be an identity this machine already
+  // manages (same rule as /probe below), because the value becomes an ssh
+  // destination.
+  const managedHost = (want) => {
+    let identities = [];
+    try { identities = bridge.targets() || []; } catch { identities = []; }
+    return identities.some((t) => t.host === want) ? want : null;
+  };
+  // Same routes the seat mounts (own-brain-routes was factored for exactly
+  // this second mount): device-flow sign-in, private <slug>-brain repo under
+  // the OWNER'S account, token stored on THEIR box only — never on this
+  // machine, never in a response. No default host on the door: the checklist
+  // always names the box it is looking at.
+  const ownBrain = createOwnBrainRoutes({
+    opts: opts.ownBrain || {},
+    defaultHost: () => null,
+    resolveHost: managedHost,
+  });
+  const setupSteps = setupStepsRoutes({
+    resolveHost: managedHost,
+    probe: (opts.setupSteps || {}).probe,
+  });
   const inventory = inventoryRoutes({
     targets: () => bridge.targets(),
     // tier honesty (2026-08-19): serving an unsure row kicks the face probe in
@@ -224,6 +254,11 @@ export function createDoorServer(opts = {}) {
 
     // The two-machine device enrolment (offer / approve / complete).
     if (device(req, res, path)) return;
+
+    // The finish checklist's two reads + the GitHub brain-backup flow
+    // (see the mounts above).
+    if (setupSteps(req, res, path)) return;
+    if (ownBrain(req, res, path)) return;
 
     if (req.method === 'GET' && path.startsWith('/go/')) {
       const name = path.slice(4);

@@ -1,8 +1,9 @@
 // P3.3: the own-brain flow — start returns the GitHub code to show, status
 // streams progress until done. Token lives only in the in-memory flow state,
 // never on disk, never in a response. Since the member-connect surface was
-// deleted (2026-09-01) the routes' one mount is the panel server (the seat's
-// Backup card), so that is the server driven here.
+// deleted (2026-09-01) the routes mount twice: the panel server (the seat's
+// Backup card, driven here) and the door (the finish checklist, driven in
+// setup-steps.test.mjs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPanelServer } from './panel-server.mjs';

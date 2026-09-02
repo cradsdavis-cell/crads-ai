@@ -816,7 +816,7 @@ export function termTranscript(host) {
 // ---------------------------------------------------------------------------
 // /run dispatcher
 // ---------------------------------------------------------------------------
-function ok(lines) { return { code: 0, lines }; }
+function ok(lines, code) { return { code: code || 0, lines }; }
 
 // Telegram link state for the fixture box (see the telegram-* cases below).
 let TG_STATE = { ok: true, token: false, chat: false, username: null };
@@ -1209,46 +1209,79 @@ export function runVerb(surface, verb, args, state, opts) {
           { id: 'anchor/onboarding-pack/weekly', title: 'Weekly review', body: 'Walk me through last week: what shipped, what slipped, what needs me today.', truncated: false, pack: 'onboarding-pack', rock: 'anchor', path: '/state/org-inbox/prompts/onboarding-pack/weekly.md' },
         ],
       })]);
-    // ---- communities (commons-repo model, self-host pivot 2026-09-01) -----
+    // ---- communities (commons-repo model, self-host pivot 2026-09-01;
+    // usability overhaul 2026-09-02) -----
     // Prefix MUST match community-list.mjs exactly (the prompt-list lesson).
-    // Rich world: one healthy community and one whose access ended, so the
-    // honest-revocation copy is drivable; empty world reaches the empty state.
+    // Rich world: one healthy community WITH a shared library (fresh + seen
+    // items, every kind, so the storefront fold renders all its rows), one
+    // whose GitHub invitation is still pending (the Check again path), and
+    // one plainly access-ended; empty world reaches the empty state.
     case 'community-list':
       if (state === 'empty') return ok(['COMMUNITIES_STATE ' + JSON.stringify({ communities: [], error: null })]);
       return ok(['COMMUNITIES_STATE ' + JSON.stringify({
         communities: [
-          { org: 'harbour-guild', org_display: 'Harbour Guild', url: 'https://github.com/harbour-guild/hg-commons.git', branch: 'main', joined: '2026-09-01T02:10:00.000Z', status: 'joined', last_ok: '2026-09-01T04:00:00.000Z', last_sha: 'ab12cd3', last_error: '', counts: { skills: 3, packs: 1, pages: 2, prompts: 4, dirs: 1 } },
-          { org: 'tide-collective', org_display: 'Tide Collective', url: 'git@github.com:tide-collective/commons.git', joined: '2026-08-20T00:00:00.000Z', status: 'access-ended', last_ok: '2026-08-28T04:00:00.000Z', last_sha: '99ffee0', last_error: 'Repository not found', counts: { skills: 1, packs: 0, pages: 0, prompts: 0, dirs: 0 } },
+          { org: 'harbour-guild', org_display: 'Harbour Guild', url: 'https://github.com/harbour-guild/hg-commons.git', branch: 'main', joined: '2026-09-01T02:10:00.000Z', status: 'joined', last_ok: '2026-09-01T04:00:00.000Z', last_sha: 'ab12cd3', last_error: '', counts: { skills: 3, packs: 1, pages: 2, prompts: 4, dirs: 1 },
+            items: [
+              { id: 'tide-tables', kind: 'skill', title: '', description: 'Tides for the harbour, in your morning brief.', version: 3, fresh: true },
+              { id: 'welcome', kind: 'page', title: 'Welcome to the guild', description: 'How this community works, on one screen.', version: 1, fresh: false },
+              { id: 'kickoff', kind: 'prompt', title: 'Kick off a client', description: '', version: 1, fresh: false },
+              { id: 'coaching-templates', kind: 'dir', title: 'Coaching templates', description: 'The session templates the guild runs on.', version: 2, fresh: true },
+              { id: 'onboarding-pack', kind: 'pack', title: 'Onboarding pack', description: 'Everything a new member installs first.', version: 1, fresh: false },
+            ],
+            fresh_count: 2 },
+          { org: 'tide-collective', org_display: 'Tide Collective', url: 'https://github.com/tide-collective/tc-commons.git', joined: '2026-09-01T23:00:00.000Z', status: 'access-ended', access_hint: 'pending-invite', invite_from: 'mel-harper', last_ok: '', last_sha: '', last_error: 'Repository not found', counts: { skills: 0, packs: 0, pages: 0, prompts: 0, dirs: 0 }, items: [], fresh_count: 0 },
+          { org: 'driftwood-alumni', org_display: 'Driftwood Alumni', url: 'git@github.com:driftwood/alumni-commons.git', joined: '2026-08-20T00:00:00.000Z', status: 'access-ended', last_ok: '2026-08-28T04:00:00.000Z', last_sha: '99ffee0', last_error: 'Repository not found', counts: { skills: 1, packs: 0, pages: 0, prompts: 0, dirs: 0 }, items: [], fresh_count: 0 },
         ],
         error: null,
       })]);
     case 'community-join':
-      return ok(['OK: joined Harbour Guild. Its commons is on this box now; new and updated items appear in your catalogue for you to install when you choose.']);
+      return ok(['OK: joined Harbour Guild. Its shared library is on this box now; new and updated items appear in your catalogue for you to install when you choose.']);
+    case 'community-check':
+      return ok([`OK: ${A.org === 'tide-collective' ? 'Tide Collective is readable again and syncing' : 'that community is syncing'}. Its shared library appears in your catalogue.`]);
+    case 'community-seen':
+      return ok([`OK: caught up with ${A.org || '?'} (5 item(s) noted).`]);
     case 'community-leave':
-      return ok([`OK: left ${A.org || '?'}. Its commons no longer syncs to this box. Everything you installed from it stays yours.`]);
+      return ok([`OK: left ${A.org || '?'}. Its shared library no longer syncs to this box. Everything you installed from it stays yours.`]);
     case 'community-share':
       return ok(['OK: staged skills/my-skill for Harbour Guild at commons-share/harbour-guild/skills/my-skill (under this box\'s state directory).']);
     // the org face's Commons card (same pivot); prefixes match commons-admin.mjs
     case 'commons-status':
       if (state === 'empty') return ok(['COMMONS_STATE ' + JSON.stringify({ configured: false, key_present: false, roster: { active: 0, revoked: 0 }, last_publish: null })]);
       return ok(['COMMONS_STATE ' + JSON.stringify({ configured: true, url: 'https://github.com/harbour-guild/hg-commons.git', branch: 'main', org: 'harbour-guild', org_display: 'Harbour Guild', key_present: false, roster: { active: 2, revoked: 1 }, last_publish: { at: '2026-09-01T03:00:00.000Z', items: 7, skipped: 0, sha: 'ab12cd3' } })]);
+    // the merged roster (2026-09-02): live GitHub states + a collaborator no
+    // grant names, so the owner surface renders every row shape it has.
     case 'commons-roster':
-      if (state === 'empty') return ok(['ROSTER_STATE {"grants":[]}']);
+      if (state === 'empty') return ok(['ROSTER_STATE {"grants":[],"github":{"live":false}}']);
       return ok(['ROSTER_STATE ' + JSON.stringify({ grants: [
-        { id: 'g-aa11bb22', label: 'Astrid H', github: 'astrid-h', issued: '2026-09-01T02:00:00.000Z', status: 'active' },
-        { id: 'g-cc33dd44', label: 'Jem A', issued: '2026-09-01T02:05:00.000Z', status: 'active' },
-        { id: 'g-ee55ff66', label: 'Old Member', issued: '2026-08-01T00:00:00.000Z', status: 'revoked', revoked: '2026-08-28T00:00:00.000Z' },
-      ] })]);
+        { id: 'g-aa11bb22', label: 'Astrid H', github: 'astrid-h', issued: '2026-09-01T02:00:00.000Z', status: 'active', live: 'accepted' },
+        { id: 'g-gg77hh88', label: 'Mel Harper', github: 'mel-harper', issued: '2026-09-02T01:00:00.000Z', status: 'active', live: 'pending' },
+        { id: 'g-cc33dd44', label: 'Juniper A', issued: '2026-09-01T02:05:00.000Z', status: 'active' },
+        { id: 'g-ee55ff66', label: 'Old Member', github: 'old-member', issued: '2026-08-01T00:00:00.000Z', status: 'revoked', revoked: '2026-08-28T00:00:00.000Z' },
+      ], github: { live: true, repo: 'harbour-guild/hg-commons', extra_collaborators: ['mystery-dev'] } })]);
+    // Start a community (ruling 1): the empty world answers the no-sign-in
+    // refusal so the inline connect-GitHub step is drivable; the rich world
+    // never reaches this (a commons is already configured there).
+    case 'commons-create':
+      if (state === 'empty') return ok(['ERROR: this hub has no GitHub sign-in yet, so it cannot create the repository for you. Connect GitHub first (the Backup card on Your mineral, or run connect-github in the Terminal tab), then press Start again.'], 1);
+      return ok(['OK: created harbour-guild/harbour-guild-commons on your GitHub (private: only people you share with can read it) and set it up as the Harbour Guild shared library (harbour-guild).',
+        'A README naming the community is in the repository.',
+        'Publish puts your catalogue there. Sharing with a member records them here, sends their GitHub invitation when you give their username, and prints their join link.']);
     case 'commons-init':
       return ok(['OK: this rock\'s commons is https://github.com/harbour-guild/hg-commons.git (branch main), shared as "Harbour Guild" (harbour-guild).', 'Publish puts your catalogue there; grants hand members their join bundle.']);
     case 'commons-publish':
       return ok(['OK: published 7 item(s) to the Harbour Guild commons (ab12cd3). Members receive them on their next sync, to install when they choose.']);
-    case 'commons-grant':
-      return ok(['OK: grant g-zz99yy88 recorded for New Member. Hand them this bundle out of band (a message, not a public post):',
-        'cradscommons1:' + Buffer.from(JSON.stringify({ org: 'harbour-guild', org_display: 'Harbour Guild', url: 'https://github.com/harbour-guild/hg-commons.git', branch: 'main' })).toString('base64'),
-        'For a private GitHub commons, also invite their GitHub account as a READ collaborator on the repo (Settings, Collaborators); the bundle alone does not grant repository access.']);
+    case 'commons-grant': {
+      const fxBundle = 'cradscommons1:' + Buffer.from(JSON.stringify({ org: 'harbour-guild', org_display: 'Harbour Guild', url: 'https://github.com/harbour-guild/hg-commons.git', branch: 'main' })).toString('base64');
+      return ok(['OK: New Member is recorded (g-zz99yy88). Hand them the join link (or the bundle under it) out of band: a direct message, never a public post.',
+        fxBundle,
+        'JOIN_LINK crads-ai://join-community/' + fxBundle.slice('cradscommons1:'.length).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+        'GitHub invitation sent to new-member (read access to harbour-guild/hg-commons). They accept it from GitHub\'s email; until they do, their mineral will say the invitation is waiting.']);
+    }
     case 'commons-revoke':
-      return ok([`OK: grant ${A.id || '?'} is marked revoked in the roster.`, 'Now remove their read access on your git host (GitHub: repo Settings, Collaborators, remove their account). The bundle stops working once the host access is gone. What they already installed stays theirs; that is by design.']);
+      return ok([`OK: grant ${A.id || '?'} is marked revoked in the roster.`,
+        ...(A.github
+          ? ['Their GitHub read access to harbour-guild/hg-commons is removed too (the unaccepted invitation was cancelled). What they already installed stays theirs; that is by design.']
+          : ['Now remove their read access on your git host (GitHub: repo Settings, Collaborators, remove their account). The bundle stops working once the host access is gone. What they already installed stays theirs; that is by design.'])]);
     case 'library-list':
       // Prefix MUST match library-list.mjs exactly, and the empty world must
       // reach the empty-state UI (the two lessons the prompt-list fixture

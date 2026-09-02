@@ -10,7 +10,7 @@
 // the pulled checkout; they are a summary for a card, not an inventory.
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
-import { inboxDirFor, listCommunities } from './commons-lib.mjs';
+import { inboxDirFor, listCommunities, readCommonsItems, seenKey } from './commons-lib.mjs';
 
 const state = String(process.argv[2] || '');
 const out = { communities: [], error: null };
@@ -41,6 +41,14 @@ else {
       for (const pack of dirsIn(path.join(root, 'pages')).slice(0, 50)) {
         pages += filesIn(path.join(root, 'pages', pack), '.html').length;
       }
+      // The shared-library view (2026-09-02, ruling 4): what the checkout's
+      // own manifest names, each item flagged fresh when it arrived or grew a
+      // version since the member's last look (community-seen stamps the look).
+      const seen = rec.seen && typeof rec.seen === 'object' && !Array.isArray(rec.seen) ? rec.seen : {};
+      const items = readCommonsItems(state, rec.org).map((it) => ({
+        ...it,
+        fresh: !(seenKey(it) in seen) || (parseInt(seen[seenKey(it)], 10) || 0) < it.version,
+      }));
       out.communities.push({
         org: rec.org,
         org_display: rec.org_display || rec.org,
@@ -48,6 +56,8 @@ else {
         ...(rec.branch ? { branch: rec.branch } : {}),
         joined: rec.joined || '',
         status: rec.status || 'joined',
+        ...(rec.access_hint ? { access_hint: rec.access_hint } : {}),
+        ...(rec.invite_from ? { invite_from: rec.invite_from } : {}),
         last_ok: rec.last_ok || '',
         last_sha: rec.last_sha || '',
         last_error: rec.last_error || '',
@@ -58,6 +68,8 @@ else {
           prompts,
           dirs,
         },
+        items,
+        fresh_count: items.filter((it) => it.fresh).length,
       });
     }
   } catch (e) {

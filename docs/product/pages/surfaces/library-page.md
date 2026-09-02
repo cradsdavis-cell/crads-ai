@@ -6,8 +6,8 @@ access: public
 mode: reference
 surface: library
 order: 110
-pins: wizard/panel/member.html, engine/community/commons-publish.mjs
-reviewed: 2026-09-01
+pins: wizard/panel/member.html, engine/community/commons-publish.mjs, engine/community/community-list.mjs
+reviewed: 2026-09-02
 ---
 
 *Pages, prompts and files your communities have shared with you.*
@@ -36,6 +36,13 @@ your own brain, where it is yours, and removing takes it out again.
 Everything offered waits in your catalogue until you take it. Nothing
 installs by itself, ever, and what you install stays yours if you leave the
 community, the same rule the [Skills page](/docs/skills-page) follows.
+
+The [Communities page](/docs/join-a-community) shows the same offers a
+different way: each community's card expands into its whole shared library,
+by name and description, with what arrived since your last look shown first
+and an install button on each thing that installs. The Library page stays the
+place to read a prompt or manage what is already on your mineral; the
+community card is the place to browse what one community carries.
 
 ## Where it all comes from: the library zones on a rock
 

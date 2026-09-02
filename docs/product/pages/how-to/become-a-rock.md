@@ -72,11 +72,12 @@ it before you curate anything.
 
 The community itself is a git repository you own, and
 [share with your community](/docs/share-with-your-community) walks the whole
-of it: create the repository, point the Catalogue page's Commons card at it,
-publish your library into it, and hand each member a join bundle. Membership
-is read access to that repository, granted and revoked with the git host's
-own tools; [manage your members](/docs/manage-members) covers the roster
-side.
+of it: name the community on the Catalogue page's Commons card (your hub
+creates the repository on your GitHub itself; Advanced takes any repository
+you already have), publish your library into it, and send each member their
+join link. Membership is read access to that repository, and the card sends
+the GitHub invitations and shows who has accepted, live;
+[manage your members](/docs/manage-members) covers the roster side.
 
 ## Your maintenance changes today
 

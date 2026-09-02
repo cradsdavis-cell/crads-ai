@@ -214,14 +214,68 @@ export function tokenArgsFor(url, token) {
 }
 
 // Best-effort read of the box's own GitHub token. Injectable for tests.
+//
+// TWO homes, both checked (2026-09-02): `gh auth login` (connect-github, the
+// rock path) keeps its token in GH_CONFIG_DIR, and own-brain (the Backup card,
+// the NORMAL member path) stores its device-flow token at
+// <state>/.kernel/brain-github-token and never touches the gh CLI. Until this
+// fallback, a member box whose only GitHub sign-in came from the Backup card
+// had no token here, so a private commons could never be pulled on exactly the
+// boxes the docs send at it. Same resolution order as the app's ORG_GH_RESOLVE:
+// gh first, the brain token file as the last resort.
 export function readGhToken(state, { spawn = execFileSync } = {}) {
+  const shaped = (t) => (/^[A-Za-z0-9._-]{8,255}$/.test(t) ? t : '');
   try {
     const t = spawn('gh', ['auth', 'token'], {
       env: { ...process.env, GH_CONFIG_DIR: path.join(state, '.kernel', 'gh') },
       encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000,
     }).trim();
-    return /^[A-Za-z0-9._-]{8,255}$/.test(t) ? t : '';
-  } catch { return ''; }
+    if (shaped(t)) return t;
+  } catch { /* fall through to the brain token */ }
+  try { return shaped(readFileSync(path.join(state, '.kernel', 'brain-github-token'), 'utf8').trim()); }
+  catch { return ''; }
+}
+
+// ---- GitHub-shaped commons -------------------------------------------------
+// {owner, repo} for a commons URL that lives on github.com, else null. Both
+// the https and the scp-style shapes a bundle can carry.
+export function githubRepoFromUrl(url) {
+  const v = validGitUrl(String(url || ''));
+  if (!v.ok) return null;
+  if (v.host !== 'github.com' && !(v.host || '').endsWith('.github.com')) return null;
+  const m = String(url).match(/github\.com[:/]+([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
+  if (!m) return null;
+  const [, owner, repo] = m;
+  if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(owner) || !/^[A-Za-z0-9._-]{1,100}$/.test(repo)) return null;
+  return { owner, repo };
+}
+
+// ---- the join link ---------------------------------------------------------
+// The clickable form of a join bundle: the bundle's base64 body re-encoded
+// base64url (URL-safe by construction, so chat apps and browsers cannot mangle
+// it) behind the app's registered crads-ai:// scheme. The link carries DATA
+// only: the app passes the token to the Communities page, which decodes it
+// back into the bundle and PRE-FILLS the join field. Joining stays the
+// member's own press, and the bundle text remains the fallback for anyone
+// whose click never reaches the app.
+export const JOIN_LINK_PREFIX = 'crads-ai://join-community/';
+export const JOIN_TOKEN_RE = /^[A-Za-z0-9_-]{1,4096}$/;
+
+export function linkForBundle(bundle) {
+  const b = String(bundle || '');
+  if (!b.startsWith(BUNDLE_PREFIX) || b.length > BUNDLE_MAX) return '';
+  const body = b.slice(BUNDLE_PREFIX.length);
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body)) return '';
+  return JOIN_LINK_PREFIX + body.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export function bundleFromLinkToken(token) {
+  const t = String(token || '');
+  if (!JOIN_TOKEN_RE.test(t)) return '';
+  let body = t.replace(/-/g, '+').replace(/_/g, '/');
+  while (body.length % 4) body += '=';
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body)) return '';
+  return BUNDLE_PREFIX + body;
 }
 
 // ---- the rock's commons conf ----------------------------------------------
@@ -239,6 +293,67 @@ export function readCommonsConf(state) {
     org: val('ORG') || '',
     org_display: val('ORG_DISPLAY') || val('ORG') || '',
   };
+}
+
+// The items a synced checkout carries, read from its own manifest
+// (catalog/catalog.json, written by commons-publish). Bounded and sanitised:
+// a summary for the Communities page's shared-library view, not an inventory,
+// and nothing box-hostile can ride the strings (the page renders them through
+// textContent anyway; this keeps the discipline at the source too).
+export function readCommonsItems(state, org, { max = 200 } = {}) {
+  if (!ORG_RE.test(String(org || ''))) return [];
+  let cat = null;
+  try { cat = JSON.parse(readFileSync(path.join(inboxDirFor(state, org), 'catalog', 'catalog.json'), 'utf8')); }
+  catch { return []; }
+  if (!cat || !Array.isArray(cat.items)) return [];
+  const KINDS = ['skill', 'pack', 'page', 'prompt', 'dir'];
+  const out = [];
+  for (const it of cat.items) {
+    if (out.length >= max) break;
+    if (!it || typeof it !== 'object') continue;
+    const id = String(it.id || '');
+    if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(id)) continue;
+    const kind = KINDS.includes(it.kind) ? it.kind : (it.kind === undefined || it.kind === '' ? 'skill' : '');
+    if (!kind) continue;
+    out.push({
+      id, kind,
+      title: clean(it.title, 120),
+      description: clean(it.description, 200),
+      version: Number.isInteger(it.version) && it.version > 0 ? it.version : 1,
+    });
+  }
+  return out;
+}
+
+export const seenKey = (it) => `${it.kind}:${it.id}`;
+
+// Write the conf from validated fields, tmp + rename. Callers validate first
+// (ORG_RE / validGitUrl / BRANCH_RE); this refuses rather than writing junk.
+export function writeCommonsConfFile(state, { url, branch = '', org, org_display = '' } = {}) {
+  if (!validGitUrl(String(url || ''), { allowFile: allowFileFromEnv() }).ok) throw new Error('conf url must be a valid git URL');
+  if (!ORG_RE.test(String(org || ''))) throw new Error('conf org must be a usable community id');
+  if (branch && !BRANCH_RE.test(String(branch))) throw new Error('conf branch must be a plain branch name');
+  const display = clean(org_display, DISPLAY_MAX) || String(org);
+  const conf = `URL=${url}\n` + (branch ? `BRANCH=${branch}\n` : '') + `ORG=${org}\nORG_DISPLAY=${display}\n`;
+  mkdirSync(state, { recursive: true });
+  const f = path.join(state, 'commons.conf');
+  writeFileSync(`${f}.tmp`, conf);
+  renameSync(`${f}.tmp`, f);
+}
+
+// A community id derived from human words: "Harbour Guild" -> harbour-guild.
+// Empty string when nothing usable survives, so the caller refuses in words.
+export function deriveOrgId(name) {
+  const id = String(name || '')
+    .toLowerCase()
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x00-\x1f\x7f]/g, ' ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 38)
+    .replace(/-+$/, '');
+  return ORG_RE.test(id) ? id : '';
 }
 
 // ---- misc shared -----------------------------------------------------------

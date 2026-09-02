@@ -2043,7 +2043,7 @@
       </div>
       <div class="guidecard">
         <div class="gtitle">Part of a community?</div>
-        <div class="hint" style="margin:0">Joining happens on the <a href="#commons" id="seatGoComms">Communities tab</a>: paste the join bundle a community owner hands you. Joining costs nothing and nothing about your mineral moves.</div>
+        <div class="hint" style="margin:0">Joining happens on the <a href="#commons" id="seatGoComms">Communities tab</a>: open the join link (or paste the invitation) a community owner hands you. Joining costs nothing and nothing about your mineral moves.</div>
       </div>
       <div class="guidecard">
         <!-- 2026-08-09 audit (R3): Origin folds shut — lineage is worth keeping,
@@ -2194,25 +2194,25 @@
     <section data-sec="commons">
       <div class="pagehead">
         <div>
-          <h2>Communities<button class="info" type="button" aria-label="What is this?" data-tip="Communities you belong to. Each one shares a commons: skills, prompts, pages and folders its owner curates. Your mineral syncs each commons on its own rhythm; what arrives is offered in your catalogue and installs only when you choose. This box never sends anything back, and no community can reach inside it.">?</button></h2>
+          <h2>Communities<button class="info" type="button" aria-label="What is this?" data-tip="Communities you belong to. Each one has a shared library: skills, prompts, pages and folders its owner curates. Your mineral syncs each shared library on its own rhythm; what arrives is offered here and in your catalogue, and installs only when you choose. This box never sends anything back, and no community can reach inside it.">?</button></h2>
           <p>The communities this mineral belongs to, and what each one shares with you.</p>
         </div>
         <div class="acts"><button class="act" id="commRefresh">Refresh</button></div>
       </div>
       <div class="notice" id="commNotice"></div>
-      <div class="empty" id="commEmpty" style="display:none"><b>No communities yet.</b> When someone running a community hands you a join bundle, paste it below and their shared library appears in your catalogue.</div>
+      <div class="empty" id="commEmpty" style="display:none"><b>No communities yet.</b> When someone invites you to a community, open their join link (or paste the invitation below) and their shared library appears here.</div>
       <div id="commList"></div>
       <details class="secfold" id="commJoinFold">
-        <summary>Join a community<span class="sum2">Paste the bundle its owner gave you</span></summary>
+        <summary>Join a community<span class="sum2">Open the owner's join link, or paste their invitation here</span></summary>
         <div class="fbody">
-          <label>Community bundle</label>
+          <label>Invitation</label>
           <textarea id="commBundle" rows="3" placeholder="cradscommons1:..." autocomplete="off" spellcheck="false"></textarea>
-          <p class="hint">A community owner hands this to you directly. It names their shared repository; your mineral pulls it read-only. If the repository is private on GitHub, the owner also invites your GitHub account as a read collaborator, and this mineral needs its GitHub sign-in connected to read it.</p>
+          <p class="hint">A community owner hands you a join link (opening it fills this in) or this one-line invitation directly. It names their shared repository; your mineral pulls it read-only. If their library is private on GitHub, they also send your GitHub account an invitation, and this mineral needs its GitHub sign-in connected to read it.</p>
           <button class="act primary" id="commJoinBtn" style="margin-top:10px">Join</button>
           <div class="log" id="commJoinOut"></div>
         </div>
       </details>
-      <div class="pageend">What you install from a community is yours and stays if you leave. Nothing installs by itself: every item waits in your catalogue until you take it.</div>
+      <div class="pageend">What you install from a community is yours and stays if you leave. Nothing installs by itself: every item waits for you until you take it.</div>
     </section>
 
     <!-- Catalogue (Sam, 2026-08-10; was "Publishing"). Iteration 2 (R3/R4/R13,
@@ -2238,8 +2238,27 @@
       <h3 class="subhead" id="commonsCard">Commons<button class="info" type="button" aria-label="What is this?" data-tip="Your community's shared library: a git repository you own. Publish puts everything on this page into it, laid out so members' minerals can offer and install it. A member joins with the bundle you hand them; for a private GitHub repo you also invite their GitHub account as a read collaborator. Revoking marks your roster and you remove their repo access; what they installed stays theirs.">?</button></h3>
       <div class="notice" id="commonsNotice"></div>
       <div id="commonsState"><p class="hint" style="margin:0">Loading…</p></div>
+      <!-- Start a community (ruling 1, 2026-09-02): ONE field. The box derives
+           the id, creates the private <id>-commons repo under the OWNER'S
+           GitHub with its own stored token, seeds the README, and wires the
+           commons config. The old 4-field + deploy-key form survives whole in
+           the Advanced fold below for bring-your-own-repository. -->
+      <div id="commonsStart" style="display:none">
+        <div class="row">
+          <div><label>Community name</label><input id="commonsName" placeholder="Harbour Guild" autocomplete="off"></div>
+        </div>
+        <label class="check" style="display:flex;gap:8px;align-items:flex-start;margin-top:8px"><input type="checkbox" id="commonsOpenCk"> <span>Open community: anyone with the link can pull the library</span></label>
+        <p class="hint">One press: this hub creates a private repository named after the community on your own GitHub, puts a README in it, and wires everything up here. Publishing and sharing happen on this card afterwards.</p>
+        <button class="act primary" id="commonsCreateBtn" style="margin-top:10px">Start the community</button>
+        <div id="commonsGhConnect" style="display:none;margin-top:10px">
+          <p class="hint" style="margin:0 0 6px">This hub has no GitHub sign-in yet. Connect one here (the same sign-in the Backup card uses); the community is created right after.</p>
+          <button class="act" id="commonsGhBtn" type="button">Connect my GitHub</button>
+          <div id="commonsGhLive" style="margin-top:8px"></div>
+        </div>
+        <div class="log" id="commonsCreateOut"></div>
+      </div>
       <details class="secfold" id="commonsSetupFold">
-        <summary>Set up the commons<span class="sum2">A git repository you own, at any host</span></summary>
+        <summary>Advanced: bring your own repository<span class="sum2">Any git host, your own URL and key</span></summary>
         <div class="fbody">
           <div class="row">
             <div><label>Repository URL</label><input id="commonsUrl" placeholder="https://github.com/your-org/your-commons" autocomplete="off"></div>
@@ -2265,8 +2284,9 @@
           <div><label>Who is this grant for?</label><input id="commonsGrantLabel" placeholder="Astrid H" autocomplete="off"></div>
           <div><label>Their GitHub username (optional)</label><input id="commonsGrantGithub" placeholder="astrid-h" autocomplete="off"></div>
         </div>
-        <button class="act" id="commonsGrantBtn" style="margin-top:10px">Record grant + make their bundle</button>
-        <p class="hint" style="margin:8px 0 0">Hand them the whole line the grant prints; it starts <span style="font-family:var(--mono)">cradscommons1:</span> and they paste it on their Communities page.</p>
+        <button class="act" id="commonsGrantBtn" style="margin-top:10px">Share with them</button>
+        <p class="hint" style="margin:8px 0 0">This records them on your roster, sends their GitHub invitation when you give their username, and makes their join link. Send the link in a direct message, never a public post; opening it lands them on their Communities page with everything filled in.</p>
+        <div id="commonsGrantCopy" style="display:none;margin-top:8px"></div>
         <div class="log" id="commonsGrantOut"></div>
       </div>
       <!-- The library inventory: what a publish ships. Read-only here; the
@@ -3063,11 +3083,14 @@
     // #box=<slug> and wins over the default first box. It used to be the
     // standalone console page that honoured this; since 2026-08-04 the app IS
     // the landing, so it has to honour it here.
-    var askedBox = (location.hash.match(/^#box=([a-z0-9-]+)$/) || [])[1];
+    // The hash may be compound since 2026-09-02 (#box=<slug>&sec=terminal&run=signin,
+    // the door's finish checklist naming the tab and the sign-in opener), so the
+    // box match tolerates a &-suffix instead of anchoring on end-of-string.
+    var askedBox = (location.hash.match(/^#box=([a-z0-9-]+)(?:&|$)/) || [])[1];
     var askedHost = askedBox ? askedBox + '-box' : '';
     // the door names a legacy rock target as #host=<host> (its own convention
     // for -rock aliases); the one face honours both conventions
-    askedHost = (location.hash.match(/^#host=([A-Za-z0-9._-]+)$/) || [])[1] || askedHost;
+    askedHost = (location.hash.match(/^#host=([A-Za-z0-9._-]+)(?:&|$)/) || [])[1] || askedHost;
     state.host = state.targets.some(function(x){ return x.host === askedHost; }) ? askedHost : state.targets[0].host;
     // the picker marks the current mineral, and state.host is only known here:
     // pickerLoad's first render may well have finished before this line ran
@@ -3110,6 +3133,26 @@
     };
     var wanted = secFromHash();          // arrived via the console's nav: land there
     if (wanted) activateSec(wanted);
+    // The door's finish checklist deep-links "Connect Claude" as
+    // #box=<slug>&sec=terminal&run=signin (2026-09-02): land on the Terminal
+    // tab with the sign-in already typed. run= is a WHITELIST, not a command
+    // channel: only `signin`, which maps to the bare `claude` sign-in opener,
+    // is honoured, so no URL can ever type an arbitrary command into a
+    // terminal on the mineral.
+    if (!wanted && /[#&]sec=terminal(?:&|$)/.test(location.hash)) {
+      activateSec('terminal');
+      if (/[#&]run=signin(?:&|$)/.test(location.hash)) openTerm({ autorun: SIGNIN_OPENER });
+    }
+    // #sec=commons&join=<token> (2026-09-02): a crads-ai://join-community link
+    // lands on the Communities page with the join panel open and the
+    // invitation pre-filled. join= is DATA on a whitelisted charset
+    // ([A-Za-z0-9_-], the invitation's base64url body): it only ever becomes
+    // the invitation field's value, never a command and never a verb call.
+    if (!wanted && /[#&]sec=commons(?:&|$)/.test(location.hash)) {
+      activateSec('commons');
+      var joinTok = (location.hash.match(/[#&]join=([A-Za-z0-9_-]{1,4096})(?:&|$)/) || [])[1];
+      if (joinTok) prefillJoin(joinTok);
+    }
     connect();
     // self-completing, same promise as the door: a box that isn't up yet gets
     // picked up on its own once it answers, no click required. Backs off once
@@ -3478,7 +3521,7 @@
           act: { label: 'Open Help', to: 'help' } },
         { done: backup, name: 'Make your first backup',
           why: sx.backupConnected ? 'GitHub is connected; the first push has not landed yet'
-                                  : 'Your brain survives this mineral \u00b7 a home for your commons and your brain backup',
+                                  : 'Your brain survives this mineral \u00b7 a home for your community and your brain backup',
           act: { label: 'Back it up', to: 'seat', focus: 'seatBackupCard' } },
       ],
       caps: [
@@ -3486,7 +3529,7 @@
         comms ? { st: 'ok', name: 'Joined a community', pill: sx.communities + ' joined',
                   why: 'Their shared skills, pages and files land in your catalogue' }
               : { st: 'ok', name: 'Join a community', pill: 'Ready',
-                  why: 'Paste a join bundle from a community owner',
+                  why: 'Open a join link (or paste the invitation) from a community owner',
                   act: { label: 'Join one', to: 'commons' } },
         row(comms, 'Install skills from your community', 'Ready',
           'What your communities publish lands in your Library and Skills',
@@ -6832,7 +6875,7 @@
     if (!order.length) {
       var none = document.createElement('div'); none.className = 'empty'; none.setAttribute('data-rocks-empty', '');
       none.innerHTML = attached
-        ? '<b>Your communities haven’t published anything yet.</b> When they publish skills to their commons, they appear here.'
+        ? '<b>Your communities haven’t published anything yet.</b> When they publish skills to their shared library, they appear here.'
         : '<b>No community yet.</b> Join one on the Communities page and its offers appear here.';
       box.appendChild(none);
       return;
@@ -7255,22 +7298,113 @@
         var meta = document.createElement('p'); meta.className = 'hint'; meta.style.margin = '2px 0 8px';
         meta.textContent = c.org + ' · ' + c.url + (c.joined ? ' · joined ' + String(c.joined).slice(0, 10) : '');
         var status = document.createElement('p'); status.style.margin = '0 0 10px';
-        if (c.status === 'access-ended') {
-          status.textContent = 'Your access to this commons has ended. What you installed stays yours; new content no longer arrives. If this is unexpected, ask the community owner.';
+        // A community that cannot be read gets the SPECIFIC honest sentence
+        // when the box could diagnose it (ruling 3): the unaccepted GitHub
+        // invitation, or the missing GitHub sign-in. Every stuck state gets a
+        // Check again button (community-check: one pull now + re-diagnosis),
+        // so accepting the invitation is followed by a press, not a wait.
+        var needsCheck = false;
+        if (c.status === 'access-ended' && c.access_hint === 'pending-invite') {
+          status.textContent = 'GitHub sent you an invitation email from ' + (c.invite_from || 'the community owner')
+            + ' that has not been accepted yet. Accept it on github.com (the email lands wherever your GitHub account gets mail), then press Check again.';
+          needsCheck = true;
+        } else if (c.status === 'access-ended' && c.access_hint === 'needs-github') {
+          status.textContent = 'This community’s shared library is private, and this mineral has no GitHub sign-in to read it with. Connect GitHub on Your mineral (the Backup card), then press Check again.';
+          needsCheck = true;
+        } else if (c.status === 'access-ended') {
+          status.textContent = 'Your access to this community’s shared library has ended. What you installed stays yours; new content no longer arrives. If this is unexpected, ask the community owner, then press Check again.';
+          needsCheck = true;
         } else if (c.status === 'oversized') {
-          status.textContent = 'This commons is larger than this mineral accepts, so its content is not kept. Ask the community owner to slim it down.';
+          status.textContent = 'This community’s shared library is larger than this mineral accepts, so its content is not kept. Ask the community owner to slim it down.';
+          needsCheck = true;
         } else if (c.last_ok) {
           var k = c.counts || {};
           status.textContent = 'Syncing. Last sync ' + String(c.last_ok).slice(0, 16).replace('T', ' ')
             + (c.last_sha ? ' (' + c.last_sha + ')' : '') + '. Shared: '
             + (k.skills || 0) + ' skills · ' + (k.packs || 0) + ' packs · ' + (k.pages || 0) + ' pages · '
-            + (k.prompts || 0) + ' prompts · ' + (k.dirs || 0) + ' folders. Offers appear on Skills and Library.';
+            + (k.prompts || 0) + ' prompts · ' + (k.dirs || 0) + ' folders.';
         } else {
           status.textContent = 'Joined; the first sync has not completed yet. The mineral keeps trying on its own rhythm.'
             + (c.last_error ? ' Last answer: ' + c.last_error : '');
         }
+        // Check again (ruling 3): one pull now + the same diagnosis join runs.
+        var checkWrap = null;
+        if (needsCheck) {
+          checkWrap = document.createElement('div'); checkWrap.style.margin = '0 0 10px';
+          var ckBtn = document.createElement('button'); ckBtn.type = 'button'; ckBtn.className = 'act'; ckBtn.textContent = 'Check again';
+          var ckOut = document.createElement('div'); ckOut.className = 'log'; ckOut.style.display = 'none';
+          ckBtn.addEventListener('click', function(){
+            ckBtn.disabled = true; ckOut.style.display = 'block'; ckOut.textContent = 'Checking…';
+            run('community-check', { org: c.org }).then(function(rr){
+              ckBtn.disabled = false;
+              ckOut.textContent = outText(rr) || (rr.ok ? 'Checked.' : 'Could not check just now.');
+              if (rr.ok && /^OK: /m.test(outText(rr))) loadCommunities();
+            }, function(){ ckBtn.disabled = false; ckOut.textContent = 'Could not reach the app server. Try again in a moment.'; });
+          });
+          checkWrap.appendChild(ckBtn); checkWrap.appendChild(ckOut);
+        }
+        // The shared library (ruling 4): what this community carries, new
+        // things first, each installable through the EXISTING install verb
+        // (catalog-install with this community named as the source). Opening
+        // the fold stamps the look (community-seen), so next time only what
+        // arrived or changed since reads as new.
+        var libFold = null;
+        var items = (c.items || []).slice();
+        if (items.length) {
+          items.sort(function(a, b){ return (b.fresh ? 1 : 0) - (a.fresh ? 1 : 0); });
+          libFold = document.createElement('details');
+          libFold.className = 'secfold';
+          libFold.style.margin = '0 0 10px';
+          var sum = document.createElement('summary');
+          sum.textContent = 'Shared library (' + items.length + (c.fresh_count ? ', ' + c.fresh_count + ' new' : '') + ')';
+          libFold.appendChild(sum);
+          var libBody = document.createElement('div'); libBody.className = 'fbody';
+          var KIND_WORD = { skill: 'Skill', pack: 'Pack', page: 'Page', prompt: 'Prompt', dir: 'Folder' };
+          items.forEach(function(it){
+            var row = document.createElement('div'); row.className = 'guidecard'; row.style.marginTop = '8px';
+            var t = document.createElement('p'); t.style.margin = '0';
+            t.textContent = (it.title || it.id) + ' · ' + (KIND_WORD[it.kind] || it.kind) + (it.fresh ? ' · new' : '');
+            row.appendChild(t);
+            if (it.description) {
+              var d = document.createElement('p'); d.className = 'hint'; d.style.margin = '2px 0 0';
+              d.textContent = it.description;
+              row.appendChild(d);
+            }
+            var act = document.createElement('div'); act.style.margin = '6px 0 0';
+            if (it.kind === 'skill' || it.kind === 'page' || it.kind === 'dir') {
+              var ib = document.createElement('button'); ib.type = 'button'; ib.className = 'act mini'; ib.textContent = 'Install';
+              var io = document.createElement('div'); io.className = 'log'; io.style.display = 'none';
+              ib.addEventListener('click', function(){
+                ib.disabled = true; io.style.display = 'block'; io.textContent = 'Installing…';
+                var args = { id: it.id, rock: c.org };
+                if (it.kind !== 'skill') args.kind = it.kind;
+                run('catalog-install', args).then(function(rr){
+                  ib.disabled = false;
+                  io.textContent = outLines(rr).slice(-2).join('\n') || (rr.ok ? 'Installed.' : 'Could not install that.');
+                }, function(){ ib.disabled = false; io.textContent = 'Could not reach the app server. Try again in a moment.'; });
+              });
+              act.appendChild(ib); act.appendChild(io);
+            } else {
+              var where = document.createElement('p'); where.className = 'hint'; where.style.margin = '0';
+              where.textContent = it.kind === 'prompt'
+                ? 'Read and copy it on the Library page.'
+                : 'Offered on the Skills page, with what it ships.';
+              act.appendChild(where);
+            }
+            row.appendChild(act);
+            libBody.appendChild(row);
+          });
+          libFold.appendChild(libBody);
+          libFold.addEventListener('toggle', function(){
+            // Opening IS the look: stamp it once so what is on screen keeps
+            // its "new" marks now, and only later arrivals read as new.
+            if (!libFold.open || libFold.getAttribute('data-seen')) return;
+            libFold.setAttribute('data-seen', '1');
+            run('community-seen', { org: c.org }).catch(function(){ /* the stamp is a convenience, never an error */ });
+          });
+        }
         // Share back (community-share): stage one of your own skills, pages or
-        // folders for this commons. The verb stages a clean tree on the
+        // folders for this community. The verb stages a clean tree on the
         // mineral and prints what to do with it; this fold only reveals the
         // two fields the verb needs and shows its words verbatim.
         var shWrap = document.createElement('div'); shWrap.style.margin = '0 0 10px';
@@ -7284,7 +7418,7 @@
         var shGo = document.createElement('button'); shGo.type = 'button'; shGo.className = 'act'; shGo.style.marginLeft = '6px'; shGo.textContent = 'Stage it';
         var shOut = document.createElement('div'); shOut.className = 'log'; shOut.style.display = 'none';
         var shHint = document.createElement('p'); shHint.className = 'hint'; shHint.style.margin = '6px 0 0';
-        shHint.textContent = 'Stages a copy on your mineral, laid out for the commons, and prints where it is. Handing it to the community owner (a pull request on their repository) is yours to do; nothing is sent anywhere by itself.';
+        shHint.textContent = 'Stages a copy on your mineral, laid out for the community’s shared repository, and prints where it is. Handing it to the community owner (a pull request on their repository) is yours to do; nothing is sent anywhere by itself.';
         shForm.appendChild(shKind); shForm.appendChild(shId); shForm.appendChild(shGo); shForm.appendChild(shHint); shForm.appendChild(shOut);
         shBtn.addEventListener('click', function(){ shForm.style.display = shForm.style.display === 'none' ? '' : 'none'; });
         shGo.addEventListener('click', function(){
@@ -7299,7 +7433,7 @@
         shWrap.appendChild(shBtn); shWrap.appendChild(shForm);
         var leave = document.createElement('button'); leave.type = 'button'; leave.className = 'act'; leave.textContent = 'Leave';
         leave.addEventListener('click', function(){
-          if (!window.confirm('Leave ' + (c.org_display || c.org) + '? The commons stops syncing to this mineral. Everything you installed from it stays yours.')) return;
+          if (!window.confirm('Leave ' + (c.org_display || c.org) + '? Its shared library stops syncing to this mineral. Everything you installed from it stays yours.')) return;
           leave.disabled = true;
           run('community-leave', { org: c.org }).then(function(rr){
             leave.disabled = false;
@@ -7307,7 +7441,10 @@
             loadCommunities();
           });
         });
-        card.appendChild(h); card.appendChild(meta); card.appendChild(status); card.appendChild(shWrap); card.appendChild(leave);
+        card.appendChild(h); card.appendChild(meta); card.appendChild(status);
+        if (checkWrap) card.appendChild(checkWrap);
+        if (libFold) card.appendChild(libFold);
+        card.appendChild(shWrap); card.appendChild(leave);
         list.appendChild(card);
       });
     });
@@ -7318,7 +7455,7 @@
     if (btn) btn.addEventListener('click', function(){
       var out = $('commJoinOut');
       var bundle = ($('commBundle').value || '').trim();
-      if (!bundle) { out.textContent = 'Paste the bundle first: one line starting cradscommons1:, from the community owner.'; return; }
+      if (!bundle) { out.textContent = 'Open the owner’s join link, or paste their invitation first: one line starting cradscommons1:.'; return; }
       btn.disabled = true; out.textContent = 'Joining…';
       run('community-join', { bundle: bundle }).then(function(r){
         btn.disabled = false;
@@ -7327,6 +7464,35 @@
       }, function(){ btn.disabled = false; out.textContent = 'Could not reach the app server. Try again in a moment.'; });
     });
   })();
+  // ---- the join deep link (crads-ai://join-community/<token>, 2026-09-02) ----
+  // The token is the invitation's base64 body, base64url-encoded so the link
+  // survives chat apps. It is DATA on a whitelisted charset: decoding it only
+  // ever fills the invitation FIELD (a .value assignment, the textContent
+  // discipline), the fold opens, and joining stays the member's own press.
+  // Nothing from a URL can run a verb here; the same law as run=signin.
+  function joinBundleFromToken(t){
+    if (!/^[A-Za-z0-9_-]{1,4096}$/.test(String(t || ''))) return '';
+    var body = String(t).replace(/-/g, '+').replace(/_/g, '/');
+    while (body.length % 4) body += '=';
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body)) return '';
+    return 'cradscommons1:' + body;
+  }
+  function prefillJoin(token){
+    var bundle = joinBundleFromToken(token);
+    if (!bundle) return;
+    var jf = $('commJoinFold'), ta = $('commBundle'), out = $('commJoinOut');
+    if (!jf || !ta) return;
+    jf.open = true;
+    ta.value = bundle;
+    if (out) {
+      // Several minerals on this machine: the join lands on the one shown, so
+      // say which one that is and how to point elsewhere BEFORE the press.
+      out.textContent = (state.targets && state.targets.length > 1)
+        ? 'The invitation is filled in. It will join the mineral shown at the top of this page; switch minerals up there first if you mean a different one. Then press Join.'
+        : 'The invitation is filled in. Press Join to add this community.';
+    }
+    try { ta.focus(); } catch (e) { /* focus is a nicety */ }
+  }
 
   // Files tab (2026-08-25). Directories a rock offers, installed into
   // library/<pack>/<id> in this box's brain via catalog-install kind:'dir',
@@ -8038,8 +8204,10 @@
       if (s.dormant) { notice('commonsNotice', s.dormant); return; }
       notice('commonsNotice', '');
       var p = document.createElement('p'); p.className = 'hint'; p.style.margin = '0';
+      var start = $('commonsStart');
+      if (start) start.style.display = s.configured ? 'none' : 'block';
       if (!s.configured) {
-        p.textContent = 'No commons yet. Set one up below: a git repository you own becomes your community\'s shared library.';
+        p.textContent = 'No community yet. Name one above and this hub sets up its shared library for you, or bring your own repository below.';
         $('commonsActions').style.display = 'none';
       } else {
         p.textContent = 'Sharing as "' + (s.org_display || s.org) + '" (' + s.org + ') from ' + s.url
@@ -8060,19 +8228,41 @@
       if (!r.ok) { host.textContent = 'Could not read the roster just now.'; return; }
       var line = outLines(r).filter(function(l){ return l.indexOf('ROSTER_STATE ') === 0; })[0];
       var s = {}; try { s = line ? JSON.parse(line.slice('ROSTER_STATE '.length)) : {}; } catch (e) { s = {}; }
+      var gh = s.github || {};
+      // The live half (ruling 2): when the commons lives on GitHub and this
+      // hub holds a token, each row with a username says what GitHub says
+      // (invite pending / accepted / not on the repo), and a collaborator no
+      // grant names is listed too, so the two lists cannot silently disagree.
+      if (gh.live === false && gh.error) {
+        var warn = document.createElement('p'); warn.className = 'hint';
+        warn.textContent = 'GitHub could not be checked just now (' + gh.error + '); this is your ledger only.';
+        host.appendChild(warn);
+      }
       var grants = (s.grants || []).slice().reverse();
-      if (!grants.length) { var e2 = document.createElement('p'); e2.className = 'hint'; e2.textContent = 'No grants recorded yet.'; host.appendChild(e2); return; }
+      if (!grants.length && !(gh.extra_collaborators || []).length) {
+        var e2 = document.createElement('p'); e2.className = 'hint'; e2.textContent = 'Nobody shared with yet.'; host.appendChild(e2); return;
+      }
+      var LIVE_WORD = { accepted: 'accepted on GitHub', pending: 'invite pending on GitHub', none: 'not on the GitHub repo' };
       grants.forEach(function(g){
         var row = document.createElement('div'); row.className = 'guidecard'; row.style.marginTop = '8px';
         var t = document.createElement('p'); t.style.margin = '0';
-        t.textContent = g.label + (g.github ? ' (' + g.github + ')' : '') + ' · ' + String(g.issued || '').slice(0, 10) + ' · ' + g.status;
+        t.textContent = g.label + (g.github ? ' (' + g.github + ')' : '') + ' · ' + String(g.issued || '').slice(0, 10) + ' · ' + g.status
+          + (g.status === 'active' && gh.live && g.github ? ' · ' + (LIVE_WORD[g.live] || g.live) : '')
+          + (g.status === 'active' && gh.live && !g.github ? ' · in your ledger only (no GitHub username)' : '');
         row.appendChild(t);
         if (g.status === 'active') {
           var rv = document.createElement('button'); rv.type = 'button'; rv.className = 'act'; rv.style.marginTop = '6px'; rv.textContent = 'Revoke';
           rv.addEventListener('click', function(){
-            if (!window.confirm('Revoke ' + g.label + '’s grant? Remember to also remove their read access on your git host; what they installed stays theirs.')) return;
+            // The confirm carries the GitHub half of the offer when there is
+            // one: with a username on the grant the revoke also removes their
+            // read access from here; without one that step stays yours.
+            var alsoGithub = !!g.github;
+            var msg = alsoGithub
+              ? 'Revoke ' + g.label + '? This marks your roster and also removes ' + g.github + '’s read access on GitHub (a pending invitation is cancelled too). What they installed stays theirs.'
+              : 'Revoke ' + g.label + '? This marks your roster; also remove their read access on your git host yourself. What they installed stays theirs.';
+            if (!window.confirm(msg)) return;
             rv.disabled = true;
-            run('commons-revoke', { id: g.id }).then(function(rr){
+            run('commons-revoke', alsoGithub ? { id: g.id, github: true } : { id: g.id }).then(function(rr){
               rv.disabled = false;
               notice('commonsNotice', rr.ok ? outText(rr) : verbErr(rr, 'Could not revoke:'));
               loadCommonsRoster(); loadCommons();
@@ -8082,11 +8272,83 @@
         }
         host.appendChild(row);
       });
+      (gh.extra_collaborators || []).forEach(function(login){
+        var row = document.createElement('div'); row.className = 'guidecard'; row.style.marginTop = '8px';
+        var t = document.createElement('p'); t.style.margin = '0';
+        t.textContent = login + ' · has read access on GitHub, but is not on your roster. If you do not know them, remove them on GitHub (repository Settings, Collaborators).';
+        row.appendChild(t);
+        host.appendChild(row);
+      });
     });
+  }
+  // Connect GitHub from the Commons card (ruling 1): the SAME device flow the
+  // Backup card runs (/own-brain/start on this box), rendered here so starting
+  // a community never throws the owner onto another page. On done the create
+  // is retried by itself.
+  var commonsObTimer = null;
+  function commonsObSay(html){ var el = $('commonsGhLive'); if (el) el.innerHTML = html; }
+  function commonsObStop(){ if (commonsObTimer) { clearInterval(commonsObTimer); commonsObTimer = null; } }
+  function commonsObPoll(){
+    fetch('/own-brain/status').then(function(r){ return r.json(); }).then(function(st){
+      var steps = (st.steps || []).map(function(l){ return '<div class="hint">' + seatEsc(l) + '</div>'; }).join('');
+      if (st.stage === 'working') { commonsObSay('<div class="hint" style="color:var(--ink)">Approved. Connecting&hellip;</div>' + steps); return; }
+      if (st.stage === 'done') {
+        commonsObStop();
+        commonsObSay('<div class="hint" style="color:var(--good)">GitHub is connected. Creating the community&hellip;</div>');
+        var gc = $('commonsGhConnect');
+        if (gc) gc.style.display = 'none';
+        commonsCreate();
+        return;
+      }
+      if (st.stage === 'failed') {
+        commonsObStop();
+        var btn = $('commonsGhBtn'); if (btn) btn.disabled = false;
+        commonsObSay('<div class="hint" style="color:var(--bad)">' + seatEsc(st.reason || 'did not complete') + '</div>' + steps
+          + '<div class="hint" style="margin-top:6px">Nothing was lost; pressing Connect my GitHub starts again.</div>');
+      }
+    }).catch(function(){ /* transient: the next tick tries again */ });
+  }
+  function commonsObStart(){
+    var btn = $('commonsGhBtn'); if (btn) btn.disabled = true;
+    commonsObSay('<div class="hint">Starting GitHub sign-in&hellip;</div>');
+    fetch('/own-brain/start', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slug: String(state.host || '').replace(/-box$/, ''), box: state.host }) })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (j.error) { if (btn) btn.disabled = false; commonsObSay('<div class="hint" style="color:var(--bad)">' + seatEsc(j.error) + '</div>'); return; }
+        commonsObSay('<div class="hint" style="color:var(--ink)">On any device open '
+          + '<a href="' + seatEsc(j.verificationUri) + '" target="_blank" rel="noopener" style="color:var(--accent)">'
+          + seatEsc(String(j.verificationUri || '').replace('https://', '')) + '</a> and enter this code:</div>'
+          + '<div style="font:600 22px/1.4 ui-monospace,monospace;letter-spacing:.12em;margin:6px 0">' + seatEsc(j.userCode) + '</div>'
+          + '<div class="hint">Waiting for you to approve it. This card checks by itself.</div>');
+        commonsObStop();
+        commonsObTimer = setInterval(commonsObPoll, 3000);
+      })
+      .catch(function(e){ if (btn) btn.disabled = false; commonsObSay('<div class="hint" style="color:var(--bad)">Could not reach your mineral just now (' + seatEsc(e && e.message ? e.message : e) + ').</div>'); });
+  }
+  // Start a community (ruling 1): one field through commons-create. A refusal
+  // naming the missing GitHub sign-in reveals the inline connect flow above.
+  function commonsCreate(){
+    var out = $('commonsCreateOut'), btn = $('commonsCreateBtn');
+    if (!out || !btn) return;
+    var name = ($('commonsName').value || '').trim();
+    if (!name) { out.textContent = 'Name the community first: a couple of human words, e.g. Harbour Guild.'; return; }
+    var payload = { name: name, open: !!($('commonsOpenCk') && $('commonsOpenCk').checked) };
+    btn.disabled = true; out.textContent = 'Creating…';
+    run('commons-create', { payload_b64: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))) }).then(function(r){
+      btn.disabled = false;
+      var text = outText(r) || (r.ok ? 'Created.' : 'Could not create the community.');
+      out.textContent = text;
+      if (r.ok) { loadCommons(); return; }
+      if (/no GitHub sign-in/i.test(text)) { var gc = $('commonsGhConnect'); if (gc) gc.style.display = 'block'; }
+    }, function(){ btn.disabled = false; out.textContent = 'Could not reach the app server. Try again in a moment.'; });
   }
   (function(){
     var init = $('commonsInitBtn'), grant = $('commonsGrantBtn'), pub = $('commonsPublishBtn');
+    var create = $('commonsCreateBtn'), ghBtn = $('commonsGhBtn');
     var b64 = function(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))); };
+    if (create) create.addEventListener('click', function(){ commonsCreate(); });
+    if (ghBtn) ghBtn.addEventListener('click', function(){ commonsObStart(); });
     if (init) init.addEventListener('click', function(){
       var out = $('commonsInitOut');
       var body = {
@@ -8113,15 +8375,38 @@
         loadCommons();
       });
     });
+    // The grant's output leads with what the owner actually sends: a copy
+    // button for the join link (the clickable form) and one for the raw
+    // invitation text (the fallback for anywhere the link cannot travel).
+    // Both values come straight off the verb's own lines; the full output
+    // stays underneath, verbatim.
+    var copyBtn = function(label, value){
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'act mini'; b.style.marginRight = '6px'; b.textContent = label;
+      b.addEventListener('click', function(){
+        var done = function(){ b.textContent = 'Copied'; setTimeout(function(){ b.textContent = label; }, 1600); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(value).then(done, function(){ b.textContent = 'Select it below and copy'; });
+        else b.textContent = 'Select it below and copy';
+      });
+      return b;
+    };
     if (grant) grant.addEventListener('click', function(){
-      var out = $('commonsGrantOut');
+      var out = $('commonsGrantOut'), copyBox = $('commonsGrantCopy');
       var body = { label: ($('commonsGrantLabel').value || '').trim() };
       var gh = ($('commonsGrantGithub').value || '').trim();
       if (gh) body.github = gh;
       grant.disabled = true; out.textContent = 'Recording…';
+      if (copyBox) { copyBox.style.display = 'none'; copyBox.innerHTML = ''; }
       run('commons-grant', { payload_b64: b64(body) }).then(function(r){
         grant.disabled = false;
-        out.textContent = outText(r) || (r.ok ? 'Recorded.' : 'Could not record.');
+        var lines = outLines(r);
+        out.textContent = lines.join('\n') || (r.ok ? 'Recorded.' : 'Could not record.');
+        if (r.ok && copyBox) {
+          var link = (lines.filter(function(l){ return l.indexOf('JOIN_LINK ') === 0; })[0] || '').slice('JOIN_LINK '.length);
+          var bundle = lines.filter(function(l){ return l.indexOf('cradscommons1:') === 0; })[0] || '';
+          if (link) copyBox.appendChild(copyBtn('Copy join link', link));
+          if (bundle) copyBox.appendChild(copyBtn('Copy invitation text', bundle));
+          copyBox.style.display = (link || bundle) ? 'block' : 'none';
+        }
         if (r.ok) { $('commonsGrantLabel').value = ''; $('commonsGrantGithub').value = ''; loadCommonsRoster(); loadCommons(); }
       });
     });
