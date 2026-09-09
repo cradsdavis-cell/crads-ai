@@ -70,6 +70,22 @@ Steps, in order, all local:
 Failure handling: every step idempotent and resumable; a half-created server is shown
 with a "destroy and retry" button that uses their token (never silently re-billed).
 
+### 2b. Providers (2026-09-09)
+
+The wizard builds on **Hetzner or DigitalOcean**, the person's choice on the
+costs screen. `wizard/provision/providers.mjs` is the registry (label,
+currency, console, token help slug, per-provider defaults and size chains,
+`makeClient`); `hetzner.mjs` and `digitalocean.mjs` each honour the same
+nine-method client contract the engine drives. The engine writes `provider`
+into the resume state and refuses to resume a state on the other provider.
+DigitalOcean specifics: droplet names are not unique, so a create is never
+retried; the droplet is tagged with its own name and a lost create answer is
+recovered by tag. Sydney is DigitalOcean's default location (the one place
+Hetzner cannot offer an Australian). Size cards mean the same machine on both
+(4 / 8 / 16 GB). Live cert on DigitalOcean: `PROVIDER=digitalocean
+DO_TOKEN=... node wizard/provision/live-cert.mjs create ...`, opt-in only, on
+Sam's explicit go; not yet run as of 2026-09-09.
+
 ## 3. Rocks as hubs: the commons-repo model
 
 > **Retired 2026-09-09.** Sam's ruling: delete community, library and network

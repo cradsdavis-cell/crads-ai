@@ -54,7 +54,10 @@ for (const s of SHOTS) {
     await page.goto(`${BASE}/state/${s.world}`, { waitUntil: 'load' });
     // The join page needs its #v1.… fragment; the harness hands out a complete
     // demo URL from /join-url, which is the only form it guarantees to serve.
-    let url = `${BASE}/${s.surface}`;
+    // `query` rides the page URL: the harness reads page-level switches from
+    // the referer (`?provision=ready`, `?setup=done`), the same way `?state=`
+    // picks a world, so a shot can open a flow on a chosen screen.
+    let url = `${BASE}/${s.surface}${s.query ? `?${s.query}` : ''}`;
     if (s.surface === 'join') {
       const r = await page.goto(`${BASE}/join-url`, { waitUntil: 'load' });
       url = JSON.parse(await r.text()).url;
@@ -74,6 +77,20 @@ for (const s of SHOTS) {
       const el = await page.$(sel);
       if (!el) throw new Error(`click ${sel} matched nothing`);
       await el.click();
+      await page.waitForTimeout(600);
+    }
+    // ACTS: the reader's own gestures, in order, for a screen that only exists
+    // partway through a flow (the wizard's token form, its catalogue, its
+    // build screen). Same rule as clicks and marks: a selector that matches
+    // nothing FAILS the shot, because a screenshot of the wrong screen is a
+    // page that lies with a straight face.
+    for (const a of s.acts) {
+      if (a.wait) { await page.waitForTimeout(a.wait); continue; }
+      const sel = a.click || a.fill;
+      const el = await page.$(sel);
+      if (!el) throw new Error(`act ${a.click ? 'click' : 'fill'} ${sel} matched nothing`);
+      if (a.fill) await el.fill(String(a.value ?? ''));
+      else await el.click();
       await page.waitForTimeout(600);
     }
     // The version chip reads "Dev build" when the harness serves the page: a

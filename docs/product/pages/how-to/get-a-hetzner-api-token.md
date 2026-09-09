@@ -6,13 +6,17 @@ access: public
 mode: how-to
 order: 5
 pins: wizard/panel/door.html, wizard/provision/engine.mjs
-reviewed: 2026-09-01
+reviewed: 2026-09-09
 ---
 
 Crads-AI is self-hosted: your assistant runs on a server in your own hosting
-account, at Hetzner, a German hosting company. The setup wizard builds that
-server for you, and to do it on your account it needs an API token from you.
-This page gets you from nothing to that token.
+account. The setup wizard offers two hosting companies and builds the server
+on whichever you pick. This page is the Hetzner one: a German company, the
+cheapest of the two at every size, with locations in Germany, Finland, the US
+and Singapore. [Get a DigitalOcean API token](/docs/get-a-digitalocean-api-token)
+is the other, and the one to read if you want your server in Sydney. To build
+on your Hetzner account the wizard needs an API token from you; this page gets
+you from nothing to that token.
 
 The token is the key to your hosting project. It stays on your computer, the
 app sends it only to Hetzner's own API, and you can revoke it at any time.

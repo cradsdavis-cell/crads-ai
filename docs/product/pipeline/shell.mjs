@@ -15,14 +15,13 @@
 
 export const SITE = 'https://crads-ai.com';
 
-// The site's own brand string, copied verbatim from every existing page's
-// og:site_name. It contains an em dash, which the house rule forbids in anything
-// we write. This is not something we wrote: it is an existing site-wide
-// identifier, and changing it only on docs pages would make them report a
-// different site name to every social card than the rest of crads-ai.com.
-// So it stays, publish.test.mjs names it as the ONE permitted occurrence, and
-// changing it site-wide is Sam's call rather than a side effect of a docs build.
-export const SITE_NAME = 'Sam Davis \u2014 Crads AI';
+// The site name every published page reports in og:site_name. Until
+// 2026-09-09 this was the site's pre-existing brand string, em dash and all,
+// carried here as the one permitted em dash per page (publish.test.mjs counts
+// the brand's em dashes and allows exactly that many). The v4 one-stop-shop
+// site renamed itself to the product, site-wide, in the same wave; the docs
+// pages follow, and the count the test allows is now zero.
+export const SITE_NAME = 'Crads-AI';
 
 const NAV = `
 <nav class="site-nav-bar" aria-label="Primary">

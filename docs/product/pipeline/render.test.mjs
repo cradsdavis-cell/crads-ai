@@ -115,7 +115,10 @@ test('an annotated shot renders numbered markers and a text legend', () => {
 });
 
 test('a shot with no annotations degrades to a plain figure', () => {
-  const html = renderMarkdown('![The door](shot:door-empty)');
+  // The fixture dir, not the real one (trap 62): door-empty gained marks on
+  // 2026-09-09, so a read of docs/product/shots/ after a rig run finds a
+  // sidecar and this test asserts on whatever the last capture left behind.
+  const html = renderMarkdown('![The door](shot:door-empty)', { shotsDir: FIX_SHOTS });
   assert.match(html, /<figure class="shot">/);
   assert.ok(!html.includes('shot-mark'), 'no empty overlay');
   assert.ok(!html.includes('shot-legend'), 'and no empty legend');

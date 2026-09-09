@@ -6,7 +6,7 @@ access: public
 mode: tutorial
 order: 10
 pins: wizard/panel/door.html, wizard/panel/provision-routes.mjs, wizard/panel/setup-steps.mjs, wizard/panel/member.html
-reviewed: 2026-09-02
+reviewed: 2026-09-09
 ---
 
 This walks the whole way in, from nothing at all to an assistant that answers
@@ -20,14 +20,17 @@ step and come back; nothing here is lost by walking away.
 
 **You need four things:** the Crads AI app, the Claude desktop app signed in
 to a paid Claude account (Pro is the minimum; the free tier will not run an
-assistant), a free GitHub account for your brain's private backup, and a
-Hetzner account with an API token. The wizard explains the token as you go,
-and [get a Hetzner API token](/docs/get-a-hetzner-api-token) is the same
-walkthrough as its own page if you would rather do it first.
+assistant), a free GitHub account for your brain's private backup, and an
+account at one of the two hosting companies the wizard supports, with an API
+token for it. Hetzner is the cheaper; DigitalOcean has a Sydney location. The
+wizard explains the token as you go, and
+[get a Hetzner API token](/docs/get-a-hetzner-api-token) or
+[get a DigitalOcean API token](/docs/get-a-digitalocean-api-token) is the
+same walkthrough as its own page if you would rather do it first.
 
 Worth knowing before you start: the machine you are about to create is yours
 in the plainest sense. It is built in your own hosting account, billed to you
-by Hetzner, and the only key on it from its first boot is this computer's.
+by that company, and the only key on it from its first boot is this computer's.
 Nothing about it is stored with Crads-AI, because there is nothing central to
 store it in.
 
@@ -43,40 +46,55 @@ joining a mineral that already exists; that path is
 **If instead you see a list of names**, someone has used Crads AI on this
 computer before. The same **Set up my own** choice is below the list.
 
+![The door on a computer that has never opened a mineral: two large choices.](shot:door-empty)
+
 ## Step 2. The costs, before anything else
 
-Press **Set up my own**. The first screen is the bill, in full, before
-anything is created:
+Press **Set up my own**. The first screen asks where it should live, then
+shows the bill, in full, before anything is created:
 
-- a Hetzner cloud server, roughly €4 to €30 a month depending on the size you pick, billed
-  to you by Hetzner
+- a cloud server in your own account at the company you picked: at Hetzner
+  roughly €4 to €30 a month, at DigitalOcean roughly $24 to $96, depending on
+  the size you pick, billed to you by them
 - your own Claude subscription, billed to you by Anthropic
 - nothing to Crads-AI, ever
 
 If that works for you, say so and carry on. There is no other screen where a
 cost appears later.
 
+![The costs screen: pick a host, then the whole bill, then one button to carry on.](shot:door-costs)
+
+Pick **Hetzner** unless you have a reason not to; it is the cheaper of the
+two. Pick **DigitalOcean** if you want your server in Sydney, or in one of
+the other places it has that Hetzner does not. The cost line and everything
+on the next screen follow your pick.
+
+![The same screen with DigitalOcean picked: the cost line now in US dollars.](shot:door-provider-cards)
+
 ## Step 3. Name it, and paste your token
 
 Two boxes. The **name** is what your mineral, and your assistant, will be
-called; your first name is a fine answer. The **token** is your Hetzner API
-token, and a fold on the same screen walks you through getting one in about
-five minutes if you have not yet.
+called; your first name is a fine answer. The **token** is the API token for
+the hosting company you picked, and a fold on the same screen walks you
+through getting one in about five minutes if you have not yet.
 
 The token deserves one honest sentence: it stays on this computer, is sent
-only to Hetzner's own API, is never written to disk and never stored, and you
-can revoke it in the Hetzner console at any time. Press **Check the token**
+only to that company's own API, is never written to disk and never stored, and
+you can revoke it in their console at any time. Press **Check the token**
 and the app proves it works with a read-only call before offering to build
 anything.
 
+![Name it and paste the token, with the how-to fold open above the token box.](shot:door-token)
+
 ## Step 4. Pick a place and a size
 
-**Where in the world** lists the locations your Hetzner account actually
+**Where in the world** lists the locations your hosting account actually
 offers, so pick whichever is closest to you or wherever you want your data to
 live.
 
 **How big a machine** is three plain cards, each showing the real machine
-underneath and Hetzner's real monthly price for it in your chosen location:
+underneath and the host's real monthly price for it in your chosen location.
+The three mean the same thing at either company (4, 8 and 16 GB of memory):
 
 - **Small**: about the cheapest that runs well. Fine for getting started.
 - **Standard** (recommended): what we test on. Comfortable for one person's
@@ -84,6 +102,12 @@ underneath and Hetzner's real monthly price for it in your chosen location:
 - **Roomy**: headroom for heavy use and never having to think about it.
 
 Pick one and press **Build it**.
+
+![The token checked: a location list and three size cards, each with its real machine and monthly price.](shot:door-catalogue)
+
+The prices in the picture are indicative: Hetzner's list prices on the day
+the screenshot was taken, in euros. The wizard reads the live price list each
+time you run it, so the numbers on your screen are the ones you will pay.
 
 ## Step 5. Watch it build
 
@@ -94,10 +118,16 @@ it again picks the build back up, and if a build fails you get a **Remove the
 half-made server** button that uses your own token, so nothing half-made ever
 sits on your bill unnoticed.
 
+![The build screen: each step ticked as it lands, and the note that first boot takes minutes.](shot:door-building)
+
+![The failure screen: what went wrong in one line, Retry, and the button that removes the half-made server.](shot:door-failed)
+
 **You should see, at the end:** "Your mineral is alive", at the top of a short
 finish checklist. Alive is not the same as finished: the same screen carries
 the two steps that make the mineral fully yours, each with an honest
 done or not-yet chip.
+
+![Your mineral is alive: Open it, then the two finishing steps with their Not yet chips.](shot:door-finish)
 
 - **Back up your brain to your GitHub** runs right there: press **Connect
   GitHub**, a code appears, and you approve it on the github.com page it

@@ -44,13 +44,13 @@ Which skills exist on your mineral, what runs on a schedule and when, which
 outside services are connected and with whose tokens, and the machine itself.
 
 Since September 2026 "you own it" is literal all the way down. The server is
-in your own Hetzner account, billed to you by Hetzner. The only keys that open
+in your own hosting account, Hetzner or DigitalOcean, billed to you by them. The only keys that open
 it are yours, from first boot: the wizard put this computer's key on the
 machine when it was created, and every later machine was
 [vouched for by an earlier one](/docs/add-another-computer). There is no
 account above you, no host who pays your bill, and no field anywhere in which
 somebody else's name could appear as this machine's owner. Whoever pays
-Hetzner for the box holds the box, and that is you.
+the host for the box holds the box, and that is you.
 
 Installing a skill, moving a schedule from daily to twice a week, connecting a
 service, disconnecting one: all yours, no permission needed.

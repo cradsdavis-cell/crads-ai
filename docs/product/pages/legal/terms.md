@@ -4,7 +4,7 @@ summary: What you get, what it costs, what we each promise, and how either of us
 audience: public
 access: public
 mode: legal
-version: 0.6
+version: 0.7
 effective: 2026-09-09
 order: 20
 ---
@@ -42,7 +42,8 @@ is no plan to charge for it, no payment method collected, and no mechanism in
 the software that could bill you.
 
 What you do pay, to other people, on your own accounts: your hosting provider
-for the server (billed by Hetzner to you), and Anthropic for your Claude
+for the server (Hetzner or DigitalOcean, whichever you picked, billed by them
+to you), and Anthropic for your Claude
 subscription. The setup wizard states both before anything is created.
 
 Paid **services** exist separately: guided setup, working sessions and

@@ -1,3 +1,4 @@
+import { catalogue as provisionCatalogue, BUILD_STEPS, publicProviders } from './provision-fixture.mjs';
 // fixtures.mjs: realistic demo data for the UI-overhaul dev harness.
 //
 // One fictional org ("driftwood-surf") with a fleet of members, operators,
@@ -910,6 +911,77 @@ function mcpRows() {
 }
 let TG_POLLS = 0;
 
+// ---- the door's self-host wizard (/provision/*, /setup-steps) ---------------
+// The real routes live in wizard/panel/provision-routes.mjs and setup-steps.mjs
+// and drive a real Hetzner account; the harness stubs Hetzner out of existence
+// (tests never touch provisioning: harness/lib/live-guard.sh). Same idiom as
+// the Google connect flow above: sticky state that walks on a clock, reset by
+// /state/<world>, so a driven test or a docs shot can photograph every screen
+// of the wizard without a server ever being made.
+//
+// Two ways in. Drive the page (check the token, Build it) and the run walks
+// starting -> provisioning -> booting -> ready across status polls with
+// append-only steps, the way the real run reads. Or ask for a screen directly
+// with `?provision=booting|ready|failed` on the door URL (read from the referer
+// like `?state=`): the page's own "re-enter the flow" read then lands on that
+// screen, which is how the docs photograph the build and finish screens.
+// `?setup=done` flips the finish checklist's two chips to Done.
+const PROV_FIXTURE = { slug: 'mel', alias: 'mel-box', ip: '203.0.113.9', server_id: 42 };
+let PROV = { phase: 'idle', at: 0, failReads: 0, name: '', location: '', server_type: '' };
+function provReset() { PROV = { phase: 'idle', at: 0, failReads: 0, name: '', location: '', server_type: '' }; }
+// refusal strings mirror wizard/panel/provision-routes.mjs verbatim
+export function provisionProviders() { return publicProviders(); }
+export function provisionValidate(body) {
+  const token = String((body && body.token) || '');
+  if (!token || token.includes('bad')) return { status: 401, body: { ok: false, reason: 'unauthorized' } };
+  const provider = String((body && body.provider) || 'hetzner');
+  if (!publicProviders().some((p) => p.id === provider)) return { status: 400, body: { error: 'unknown provider' } };
+  return { status: 200, body: provisionCatalogue(provider) };
+}
+export function provisionStart(body) {
+  const slug = String((body && body.name) || '').toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$/.test(slug)) return { status: 400, body: { error: 'name must be 2-32 lowercase letters, digits or hyphens' } };
+  if (!String((body && body.token) || '')) return { status: 400, body: { error: 'a Hetzner API token is required' } };
+  if (PROV.phase === 'provisioning' || PROV.phase === 'booting') return { status: 409, body: { error: 'a build is already running', alias: `${PROV.name}-box` } };
+  PROV = { phase: 'starting', at: 0, failReads: 0, name: slug, location: String(body.location || ''), server_type: String(body.server_type || '') };
+  return { status: 200, body: { ok: true, alias: `${slug}-box` } };
+}
+const provView = (phase, steps, extra = {}) => ({
+  slug: PROV.name || PROV_FIXTURE.slug, alias: `${PROV.name || PROV_FIXTURE.slug}-box`,
+  phase, steps, ip: phase === 'starting' || phase === 'provisioning' ? null : PROV_FIXTURE.ip,
+  error: null, server_id: phase === 'starting' ? null : PROV_FIXTURE.server_id, ...extra,
+});
+export function provisionStatus(override) {
+  if (override === 'booting') return provView('booting', BUILD_STEPS.slice(0, 4));
+  if (override === 'ready') return provView('ready', BUILD_STEPS);
+  if (override === 'failed') {
+    // first read: the page attaches to a run in flight; every read after: the
+    // boot never answered, which is the one failure a person can act on
+    PROV.failReads += 1;
+    if (PROV.failReads === 1) return provView('booting', BUILD_STEPS.slice(0, 4));
+    return provView('failed', BUILD_STEPS.slice(0, 4), { error: 'the server was created but its workspace never answered; Retry checks again, or Start over rebuilds it' });
+  }
+  if (PROV.phase === 'idle') return { phase: 'idle' };
+  if (PROV.phase === 'ready') return provView('ready', BUILD_STEPS);
+  PROV.at += 1;
+  if (PROV.at <= 3) { PROV.phase = 'provisioning'; return provView('provisioning', BUILD_STEPS.slice(0, PROV.at)); }
+  if (PROV.at <= 5) { PROV.phase = 'booting'; return provView('booting', BUILD_STEPS.slice(0, 4)); }
+  PROV.phase = 'ready';
+  return provView('ready', BUILD_STEPS);
+}
+export function provisionDestroy() {
+  const had = PROV.phase !== 'idle';
+  provReset();
+  return { status: 200, body: { ok: true, destroyed: had ? { server: PROV_FIXTURE.server_id } : {} } };
+}
+export function setupSteps(done) {
+  return {
+    reachable: true,
+    github: done ? { connected: true, repo: 'github.com/mel-harper/mel-brain' } : { connected: false, repo: '' },
+    claude: { signedIn: !!done },
+  };
+}
+
 // Sticky flow state, reset when a test asks for a world (2026-08-12).
 // Five module-level variables walk their flows on a clock, and NOTHING put them
 // back: once one test drove the rock's GitHub connect to `done`, ORG_GH_ARMED
@@ -926,6 +998,7 @@ export function resetFlows() {
   TG_STATE = { ok: true, token: false, chat: false, username: null };
   TG_POLLS = 0;
   gwReset();
+  provReset();
 }
 
 const SSH_FAIL = [

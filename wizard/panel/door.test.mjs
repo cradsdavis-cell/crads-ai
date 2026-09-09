@@ -713,3 +713,27 @@ test('door: the "not running" answer is a page with a way back, never a bare str
       'self-contained: an error page that fetches anything can fail while rendering a failure');
   } finally { s.close(); }
 });
+
+// --- the second provider (2026-09-09) ------------------------------------------
+test('the self-host wizard reads every provider-shaped string from the registry, never from its own source', () => {
+  assert.match(DOOR, /id="shProviders"/, 'provider cards render into a slot');
+  assert.match(DOOR, /fetch\('\/provision\/providers'\)/, 'from the registry route');
+  assert.match(DOOR, /data-provider=/, 'a card names its provider');
+  for (const id of ['shCostServer', 'shCostNeed', 'shTokenLabel', 'shTokenHelp', 'shTokenHelpDo']) assert.match(DOOR, new RegExp(`id="${id}"`), `${id} is re-rendered per provider`);
+  assert.doesNotMatch(DOOR, /SH_CHAINS/, 'no hard-coded size chains');
+  assert.doesNotMatch(DOOR, /\\u20AC/, 'no hard-coded euro sign; the symbol rides the validate answer');
+  assert.match(DOOR, /shCat\.chains/, 'chains come from the validate answer');
+  assert.match(DOOR, /shCat\.symbol/, 'so does the currency symbol');
+  // the token, the start and the destroy all name the provider they are for
+  for (const route of ['validate', 'start', 'destroy']) {
+    // the body is built in the lines above the fetch; look around the call, not only after it
+    const at = DOOR.indexOf(`fetch('/provision/${route}'`);
+    const call = DOOR.slice(Math.max(0, at - 700), at + 200);
+    assert.match(call, /provider: shProvider/, `/provision/${route} carries the provider`);
+  }
+  // no user-facing string still assumes Hetzner outside the Hetzner help fold
+  const outsideFold = DOOR.replace(/<details class="tokhelp" id="shTokenHelp"[\s\S]*?<\/details>/, '');
+  const script = outsideFold.slice(outsideFold.indexOf('<script>'));
+  const strings = script.split('\n').filter((l) => !/^\s*\/\//.test(l) && /'[^'\n]*Hetzner[^'\n]*'/.test(l));
+  assert.deepEqual(strings, [], 'no Hetzner-only copy left in the script');
+});

@@ -141,8 +141,8 @@ Sometimes it is genuinely the machine, and sometimes it is between you and it.
 Give it a minute, then open **Help** and run **Update and restart this mineral**
 (under **Mineral software**), which restarts the mineral's software without
 touching anything of yours. If it stays unreachable, the machine itself is
-worth a look in your own Hetzner console (it is your server; Hetzner's console
-can reboot it), and a person helping you can go deeper
+worth a look in your own hosting console, Hetzner's or DigitalOcean's (it is
+your server; their console can reboot it), and a person helping you can go deeper
 [with your permission](/docs/grant-support-access).
 
 ## Something else

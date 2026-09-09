@@ -18,7 +18,7 @@ export const JOURNEY = [
   {
     id: 'setup', title: 'Getting set up',
     blurb: 'From nothing to an assistant that is awake, knows you, and reaches your phone.',
-    slugs: ['get-a-hetzner-api-token', 'first-hour', 'the-interview', 'your-first-week', 'connect-google', 'connect-telegram'],
+    slugs: ['get-a-hetzner-api-token', 'get-a-digitalocean-api-token', 'first-hour', 'the-interview', 'your-first-week', 'connect-google', 'connect-telegram'],
   },
   {
     id: 'app', title: 'Every page of the app',

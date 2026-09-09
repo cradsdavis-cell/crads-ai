@@ -207,6 +207,10 @@
   .sizecard .reco{display:inline;font-size:11px;color:var(--accent);font-weight:600;margin-left:6px}
   .sizecard .fine{font-size:11.5px;color:var(--faint)}
   .sizecard.sel{border-color:var(--accent);box-shadow:var(--focus)}
+  /* provider cards (2026-09-09): the door's big cards, with the size card's selected ring */
+  #shProviders{margin:6px 0 14px}
+  .provcard{padding:12px 14px}
+  .provcard.sel{border-color:var(--accent);box-shadow:var(--focus)}
   .sizecard:disabled{opacity:.45;cursor:default}
   /* the finish checklist (wizard steps 5-6, 2026-09-02): "alive" is the
      headline, not the end. Each remaining step is a row with an honest state
@@ -320,28 +324,35 @@
 
     <!-- the self-host wizard (2026-09-01): the whole create flow, local. Costs
          first (B6 died of a surprise fee; here the fee facts ARE the first
-         screen), then the person's own Hetzner token, then the engine builds on
-         THEIR account. The token goes to this app's local server and to
-         api.hetzner.cloud, nowhere else, and is never stored. -->
+         screen), then the person's own API token, then the engine builds on
+         THEIR account. The token goes to this app's local server and to the
+         chosen provider's API, nowhere else, and is never stored.
+         Providers (2026-09-09): the cards below are rendered from
+         /provision/providers (wizard/provision/providers.mjs); Hetzner leads,
+         DigitalOcean is the second. Everything provider-shaped on this screen
+         (cost line, token label, help fold, currency symbol, size chains)
+         follows the pick; nothing is hard-coded here. -->
     <div id="shFlow" style="display:none">
       <a href="#" class="back" id="shBack">&#8249; back</a>
       <h2>Set up my own</h2>
 
       <div id="shCosts">
+        <p class="hint">Where should it live? Two hosting companies are supported; the server is built in your own account at whichever you pick.</p>
+        <div class="cards3" id="shProviders"></div>
         <p class="hint">The real costs, before anything is made. The software is free and open source. What costs money is the machine it runs on and the AI inside it, and you pay both providers directly:</p>
         <ul class="hint" style="margin:.4em 0 .8em 1.2em">
-          <li>a Hetzner cloud server, roughly €4 to €30 a month depending on the size you pick, billed to you by Hetzner in euros</li>
+          <li id="shCostServer">a cloud server, billed to you by the hosting company you picked</li>
           <li>your own Claude subscription, billed to you by Anthropic</li>
           <li>nothing to Crads-AI, ever</li>
         </ul>
-        <p class="hint">You need a Hetzner account and an API token; the next screen walks you through getting one. The token stays on this computer.</p>
+        <p class="hint" id="shCostNeed">You need an account there and an API token; the next screen walks you through getting one. The token stays on this computer.</p>
         <button class="act primary" id="shCostsOk">That works for me</button>
       </div>
 
       <div id="shForm" style="display:none">
         <label for="shName">Name your mineral</label>
         <input id="shName" placeholder="e.g. your first name" autocomplete="off" spellcheck="false">
-        <label for="shToken">Your Hetzner API token</label>
+        <label for="shToken" id="shTokenLabel">Your Hetzner API token</label>
         <details class="tokhelp" id="shTokenHelp" open>
           <summary>How to get one (about five minutes)</summary>
           <ol class="hint">
@@ -353,16 +364,26 @@
           </ol>
           <p class="hint">The token stays on this computer and is sent only to Hetzner&#8217;s own API. It is the key to your hosting project, so treat it like a password; you can revoke it any time from the same screen.</p>
         </details>
+        <details class="tokhelp" id="shTokenHelpDo" open style="display:none">
+          <summary>How to get one (about five minutes)</summary>
+          <ol class="hint">
+            <li><b>Make a DigitalOcean account</b> at <span class="mono">cloud.digitalocean.com</span> if you do not have one. Sign up with your email, confirm it, and add a payment method. New accounts are sometimes asked to verify identity; that step is theirs and can take a little while.</li>
+            <li><b>Open API</b> in the left sidebar of the control panel, then the <b>Tokens</b> tab, then <b>Generate New Token</b>.</li>
+            <li><b>Name it</b> (&#8220;crads-ai&#8221; is fine), pick an expiry you are comfortable with, and give it <b>Full Access</b>. Read-only cannot build anything.</li>
+            <li><b>Copy it straight away.</b> DigitalOcean shows a token exactly once. Paste it below; if you lose it, just generate a new one and delete the old.</li>
+          </ol>
+          <p class="hint">The token stays on this computer and is sent only to DigitalOcean&#8217;s own API. It is the key to your account, so treat it like a password; you can revoke it any time from the same screen.</p>
+        </details>
         <input id="shToken" type="password" autocomplete="off" spellcheck="false" placeholder="paste the token here">
         <div id="shOpts" style="display:none">
           <label for="shLoc">Where in the world</label>
           <select id="shLoc"></select>
           <label>How big a machine</label>
           <!-- Sam's ruling (2026-09-01): a handful of options with words, not
-               25 SKU strings. Each card resolves to a real Hetzner type behind
-               the scenes (a preference chain filtered by what the chosen
-               location sells), and the fine print names it with the real
-               monthly price from Hetzner's own list. -->
+               25 SKU strings. Each card resolves to a real machine type behind
+               the scenes (the provider's preference chain, filtered by what
+               the chosen location sells), and the fine print names it with the
+               real monthly price from the provider's own list. -->
           <div id="shSizes">
             <button type="button" class="sizecard" data-size="small"><b>Small</b>
               <span>About the cheapest that runs well. Fine for getting started and light daily use.</span>
@@ -757,6 +778,44 @@
   // and polls. Re-entering the flow reattaches to a run already going, so an
   // accidental back or a page reload never orphans a build.
   var shPoll = null;
+  // The providers, from the registry, and the one picked. Hetzner until the
+  // person picks otherwise; every provider-shaped string below reads these.
+  var shProviders = [];
+  var shProvider = null;
+  function shProviderLabel(){ return (shProvider && shProvider.label) || 'the hosting company'; }
+  function shRenderProviders(){
+    var box = document.getElementById('shProviders');
+    box.innerHTML = shProviders.map(function(p){
+      return '<button type="button" class="bigcard provcard' + (shProvider && p.id === shProvider.id ? ' sel' : '') + '" data-provider="' + esc(p.id) + '">'
+        + '<b>' + esc(p.label) + '</b><span>' + esc(p.blurb) + '</span></button>';
+    }).join('');
+    if (!shProvider) return;
+    document.getElementById('shCostServer').textContent = shProvider.costsCopy;
+    document.getElementById('shCostNeed').textContent = 'You need a ' + shProvider.label + ' account and an API token; the next screen walks you through getting one. The token stays on this computer.';
+    document.getElementById('shTokenLabel').textContent = shProvider.tokenLabel;
+    document.getElementById('shTokenHelp').style.display = shProvider.id === 'hetzner' ? '' : 'none';
+    document.getElementById('shTokenHelpDo').style.display = shProvider.id === 'digitalocean' ? '' : 'none';
+  }
+  function shPickProvider(id){
+    shProvider = shProviders.filter(function(p){ return p.id === id; })[0] || shProviders[0] || null;
+    // a token checked against one provider means nothing to the other
+    shCat = null;
+    document.getElementById('shOpts').style.display = 'none';
+    document.getElementById('shBuildBtn').style.display = 'none';
+    document.getElementById('shCheckBtn').style.display = '';
+    shRenderProviders();
+  }
+  document.getElementById('shProviders').addEventListener('click', function(e){
+    var card = e.target.closest('[data-provider]');
+    if (card) shPickProvider(card.getAttribute('data-provider'));
+  });
+  function shLoadProviders(){
+    if (shProviders.length) { shRenderProviders(); return; }
+    fetch('/provision/providers').then(function(r){ return r.json(); }).then(function(d){
+      shProviders = (d && d.providers) || [];
+      shPickProvider(shProvider ? shProvider.id : (shProviders[0] && shProviders[0].id));
+    }).catch(function(){ /* the cards stay empty; the default provider still works */ });
+  }
   function shShow(stage){
     ['shCosts','shForm','shBuild','shDone'].forEach(function(id){
       document.getElementById(id).style.display = (id === stage) ? 'block' : 'none';
@@ -777,6 +836,7 @@
     document.getElementById('devApproveFlow').style.display = 'none';
     document.getElementById('shFlow').style.display = 'block';
     shErr('');
+    shLoadProviders();
     fetch('/provision/status').then(function(r){ return r.json(); }).then(function(s){
       if (s.phase === 'provisioning' || s.phase === 'booting') { shShow('shBuild'); shAttach(); }
       else if (s.phase === 'ready') { shReady(s); }
@@ -800,25 +860,25 @@
   document.getElementById('shCheckBtn').addEventListener('click', function(){
     shErr('');
     var token = document.getElementById('shToken').value.trim();
-    if (!token) { shErr('Paste your Hetzner API token first.'); document.getElementById('shRetryRow').style.display='none'; return; }
+    if (!token) { shErr('Paste your ' + shProviderLabel() + ' API token first.'); document.getElementById('shRetryRow').style.display='none'; return; }
     var btn = document.getElementById('shCheckBtn');
     btn.disabled = true; btn.textContent = 'Checking…';
-    fetch('/provision/validate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ token: token }) })
+    fetch('/provision/validate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ token: token, provider: shProvider ? shProvider.id : undefined }) })
       .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
       .then(function(x){
         btn.disabled = false; btn.textContent = 'Check the token';
-        if (!x.ok || !x.d.ok) { shErr('Hetzner did not accept that token. Check it against the steps above: it must be an API token (not a password), with Read and Write, from the project the server should live in. Tokens show once; generating a fresh one is quicker than hunting the old.'); document.getElementById('shRetryRow').style.display='none'; return; }
+        if (!x.ok || !x.d.ok) { shErr(shProviderLabel() + ' did not accept that token. Check it against the steps above: it must be an API token (not a password), with write access, from the account the server should live in. Tokens show once; generating a fresh one is quicker than hunting the old.'); document.getElementById('shRetryRow').style.display='none'; return; }
         var loc = document.getElementById('shLoc');
         shCat = x.d;
         loc.innerHTML = (x.d.locations || []).map(function(l){
-          return '<option value="' + esc(l.name) + '"' + (l.name === x.d.defaults.location ? ' selected' : '') + '>' + esc(l.city + ', ' + l.country) + '</option>';
+          return '<option value="' + esc(l.name) + '"' + (l.name === x.d.defaults.location ? ' selected' : '') + '>' + esc(l.country ? l.city + ', ' + l.country : l.city) + '</option>';
         }).join('');
         shRenderTypes(loc.value || x.d.defaults.location);
         document.getElementById('shOpts').style.display = loc.options.length ? 'block' : 'none';
         btn.style.display = 'none';
         document.getElementById('shBuildBtn').style.display = 'inline-block';
       })
-      .catch(function(){ btn.disabled = false; btn.textContent = 'Check the token'; shErr('Could not reach Hetzner from here. Check the connection and try again.'); document.getElementById('shRetryRow').style.display='none'; });
+      .catch(function(){ btn.disabled = false; btn.textContent = 'Check the token'; shErr('Could not reach ' + shProviderLabel() + ' from here. Check the connection and try again.'); document.getElementById('shRetryRow').style.display='none'; });
   });
 
   function shStart(){
@@ -828,6 +888,7 @@
     var body = {
       token: document.getElementById('shToken').value.trim(),
       name: document.getElementById('shName').value.trim().toLowerCase(),
+      provider: shProvider ? shProvider.id : undefined,
       location: locVal,
       server_type: (resolved && resolved.name) || '',
     };
@@ -845,21 +906,16 @@
   // type", 2026-09-01). So the machine list re-filters whenever the location
   // changes, and only pairs that exist are offerable. A type whose
   // availability could not be read lists everywhere rather than nowhere.
+  // The preference chains and the currency symbol arrive with the validate
+  // answer (the provider's own, wizard/provision/providers.mjs); this page
+  // hard-coded Hetzner's until 2026-09-09.
   var shCat = null;
   var shSizeChoice = 'standard';
-  // Preference chains, amd64 only (the product images are amd64): the first
-  // type in the chain the chosen location sells wins. cx is Intel shared
-  // (EU locations); cpx covers the rest of the world.
-  var SH_CHAINS = {
-    small:    ['cx23', 'cpx21', 'cpx22'],
-    standard: ['cx33', 'cpx31', 'cpx32'],
-    roomy:    ['cx43', 'cpx41', 'cpx42'],
-  };
   function shResolveSize(size, locName){
     if (!shCat) return null;
     var byName = {};
     (shCat.server_types || []).forEach(function(t){ byName[t.name] = t; });
-    var chain = SH_CHAINS[size] || [];
+    var chain = (shCat.chains && shCat.chains[size]) || [];
     for (var i = 0; i < chain.length; i++) {
       var t = byName[chain[i]];
       if (!t) continue;
@@ -883,7 +939,7 @@
       c.disabled = false; anySelectable = true;
       var price = t.prices && t.prices[locName];
       fine.textContent = t.cores + ' cpu, ' + t.memoryGb + 'GB memory, ' + t.diskGb + 'GB disk'
-        + (price ? ', around \u20AC' + Math.round(price) + ' a month' : '') + ' (' + t.name + ')';
+        + (price ? ', around ' + (shCat.symbol || '') + Math.round(price) + ' a month' : '') + ' (' + t.name + ')';
     });
     // keep the choice if it survived the location change; otherwise standard,
     // otherwise the first card the location sells
@@ -1027,7 +1083,7 @@
     var tick = function(){
       fetch('/provision/status').then(function(r){ return r.json(); }).then(function(s){
         document.getElementById('shPhase').textContent =
-          s.phase === 'booting' ? 'Server created. Waiting for it to wake up…' : 'Building on your Hetzner account…';
+          s.phase === 'booting' ? 'Server created. Waiting for it to wake up…' : 'Building on your ' + shProviderLabel() + ' account…';
         document.getElementById('shSteps').innerHTML = (s.steps || []).map(function(t){ return '✓ ' + esc(t); }).join('<br>');
         document.getElementById('shBootNote').style.display = (s.phase === 'booting') ? 'block' : 'none';
         if (s.phase === 'ready') shReady(s);
@@ -1043,7 +1099,7 @@
   }
   document.getElementById('shDestroyBtn').addEventListener('click', function(){
     shErr('');
-    var body = { token: document.getElementById('shToken').value.trim(), name: document.getElementById('shName').value.trim().toLowerCase() };
+    var body = { token: document.getElementById('shToken').value.trim(), name: document.getElementById('shName').value.trim().toLowerCase(), provider: shProvider ? shProvider.id : undefined };
     fetch('/provision/destroy', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) })
       .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
       .then(function(x){

@@ -18,7 +18,7 @@
 // Words that legitimately carry a capital mid-sentence: proper nouns, product
 // names, and UI labels quoted as they appear on screen.
 export const PROPER = new Set(`Crads AI ChatGPT Google Microsoft Claude Code Gmail Calendar Drive Docs Sheets
-Tasks Contacts Telegram GitHub Hetzner Cloudflare Anthropic Notion Linear Sentry Canva Vercel Apify
+Tasks Contacts Telegram GitHub Hetzner DigitalOcean Cloudflare Anthropic Notion Linear Sentry Canva Vercel Apify
 PayPal Square Figma Asana Atlassian Intercom Australian Australia NSW Coogee Samuel Davis Sam Mel
 Harper Driftwood Surf School Advanced External Publish Production Testing Desktop Web OAIC ABN GST
 Members Skills Connections Overview Terminal Help Sharing Privacy Network Your Rock Rocks Pebbles

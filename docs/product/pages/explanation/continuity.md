@@ -33,7 +33,8 @@ This is now built so that I hold nothing.
 ## Why this survives me
 
 **Your machine is yours, all the way down.** Your mineral runs on a server in
-your own Hetzner account, billed to you, opened only by your own keys. You did
+your own hosting account (Hetzner or DigitalOcean), billed to you, opened only
+by your own keys. You did
 not take the box from me; you built it, so there is no sense in which you need
 to take the box back if I vanish. It keeps running, keeps its schedule, keeps
 answering you.

@@ -5,36 +5,50 @@
 // (a plain object the caller persists wherever it likes — the app keeps it in
 // its config dir) so a crashed run resumes instead of double-creating, and a
 // half-created server is visible with its id for destroy-and-retry. The
-// Hetzner token itself is NEVER written into state.
+// provider token itself is NEVER written into state.
+//
+// Providers (2026-09-09): the engine drives whichever client providers.mjs
+// hands it for `provider` (Hetzner by default, DigitalOcean the second). The
+// provider is written into state on the first step and checked on resume,
+// because a state file started on one provider names a server id that means
+// nothing on the other: resuming it there would create a second server.
 
-import { HetznerClient } from './hetzner.mjs';
+import { providerOf, DEFAULT_PROVIDER } from './providers.mjs';
 import { renderSelfHostCloudInit } from './selfhost-cloudinit.mjs';
 
 export const DEFAULT_IMAGE = 'ghcr.io/cradsdavis-cell/crads-pebble:v2'; // public on GHCR (verified 2026-08-20)
-export const DEFAULT_SERVER_TYPE = 'cx33';
-export const DEFAULT_LOCATION = 'nbg1';
+// Hetzner's defaults, kept under their old names for the callers that read
+// them; per-provider defaults live in providers.mjs.
+export const DEFAULT_SERVER_TYPE = providerOf(DEFAULT_PROVIDER).defaults.serverType;
+export const DEFAULT_LOCATION = providerOf(DEFAULT_PROVIDER).defaults.location;
 
 /**
  * @param {object} o
- * @param {string} o.token         the user's Hetzner API token (in-memory only)
+ * @param {string} o.token         the user's provider API token (in-memory only)
+ * @param {string} [o.provider]    'hetzner' (default) or 'digitalocean'; see providers.mjs
  * @param {string} o.boxName
  * @param {string} o.ownerPubKey   ssh-ed25519 line (the app's own identity key)
  * @param {object} o.state         mutable run state; caller persists between steps
  * @param {(step: string, detail?: string) => void} [o.onStep]
  * @param {object} [o.overrides]   {serverType, location, image, client}
  */
-export async function provisionSelfHost({ token, boxName, ownerPubKey, state, onStep = () => {}, overrides = {} }) {
-  const hc = overrides.client ?? new HetznerClient(token);
-  const serverType = overrides.serverType ?? DEFAULT_SERVER_TYPE;
-  const location = overrides.location ?? DEFAULT_LOCATION;
+export async function provisionSelfHost({ token, boxName, ownerPubKey, state, onStep = () => {}, overrides = {}, provider = DEFAULT_PROVIDER }) {
+  const P = providerOf(provider);
+  if (state.provider && state.provider !== P.id) {
+    throw new Error(`this build was started on ${providerOf(state.provider).label}, not ${P.label}; remove the half-made server there, or give the new one a different name`);
+  }
+  state.provider = P.id;
+  const hc = overrides.client ?? P.makeClient(token);
+  const serverType = overrides.serverType ?? P.defaults.serverType;
+  const location = overrides.location ?? P.defaults.location;
   const image = overrides.image ?? DEFAULT_IMAGE;
 
   if (!state.tokenValidated) {
     onStep('validate-token');
     const v = await hc.validateToken();
     if (!v.ok) throw new Error(v.reason === 'unauthorized'
-      ? 'Hetzner rejected the token. Check it is a read-write API token for the right project.'
-      : `could not reach Hetzner: ${v.reason}`);
+      ? `${P.label} rejected the token. Check it is a read-write API token for the right account.`
+      : `could not reach ${P.label}: ${v.reason}`);
     state.tokenValidated = true;
   }
 
@@ -80,13 +94,14 @@ export async function provisionSelfHost({ token, boxName, ownerPubKey, state, on
   // Next wizard steps (separate modules, separate consent): write the SSH
   // config Host block + known_hosts entry, GitHub brain-repo creation via
   // device flow, and the on-box `claude setup-token` walk. None of them touch
-  // Hetzner again.
+  // the provider again.
 }
 
 /** destroy-and-retry for a half-created run. Only ever the user's own metal. */
-export async function destroySelfHost({ token, state, client }) {
+export async function destroySelfHost({ token, state, client, provider }) {
   if (!state.serverId) return { destroyed: false };
-  const hc = client ?? new HetznerClient(token);
+  const P = providerOf(provider || state.provider || DEFAULT_PROVIDER);
+  const hc = client ?? P.makeClient(token);
   await hc.deleteServer(state.serverId);
   for (const k of ['serverId', 'serverIp', 'createActionId', 'serverRunning']) delete state[k];
   return { destroyed: true };

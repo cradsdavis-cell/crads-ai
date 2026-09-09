@@ -34,9 +34,10 @@ test('every published page is a whole site page', () => {
       assert.ok(h.includes(must), `${f.rel} missing ${must}`);
     }
     assert.ok(h.includes('rel="canonical"'), `${f.rel} has no canonical`);
-    // Zero em dashes, with exactly one named exception: the site's own
-    // pre-existing og:site_name brand string (see shell.mjs). Counting rather
-    // than excluding, so a NEW em dash anywhere still fails.
+    // Zero em dashes. Until 2026-09-09 the one exception was the site's
+    // pre-existing og:site_name brand string (see shell.mjs); the brand is now
+    // "Crads-AI", so the allowance this computes is zero. Counting rather than
+    // excluding, so a NEW em dash anywhere still fails.
     const emDashes = (h.match(/—/g) || []).length;
     const inBrand = (SITE_NAME.match(/—/g) || []).length;
     assert.equal(emDashes, inBrand,

@@ -193,3 +193,98 @@ for (const face of ['/panel', '/member', '/door']) {
     assert.match(await res.text(), /verChip/, 'the face carries the version chip that does the fetching');
   });
 }
+
+// ---- the door's self-host wizard, stubbed end to end (2026-09-09) ----------
+// The docs photograph every wizard screen from this harness with no server
+// ever made. Pinned here, browserless, so the page-level switches the shots
+// rely on (`?provision=`, `?setup=`) cannot rot between rig runs.
+const asDoor = (query = '') => ({ headers: { referer: `${base}/door${query ? `?${query}` : ''}` } });
+const postJson = (path, body, extra = {}) => fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', ...(extra.headers || {}) }, body: JSON.stringify(body) });
+
+test('provision/validate: a good token answers the catalogue, a bad one 401s', async () => {
+  await fetch(base + '/state/empty');
+  const good = await postJson('/provision/validate', { token: 'fixture-token' });
+  assert.equal(good.status, 200);
+  const cat = await good.json();
+  assert.equal(cat.ok, true);
+  assert.ok(cat.locations.length >= 3 && cat.server_types.length >= 3, 'enough choices to photograph');
+  assert.equal(cat.defaults.location, 'nbg1');
+  for (const t of cat.server_types) {
+    assert.ok(Array.isArray(t.locations), `${t.name}: stamped with the locations that sell it`);
+    for (const loc of t.locations) assert.equal(typeof t.prices[loc], 'number', `${t.name}: a price at ${loc}`);
+  }
+  const bad = await postJson('/provision/validate', { token: 'bad-token' });
+  assert.equal(bad.status, 401);
+  assert.equal((await bad.json()).ok, false);
+});
+
+test('provision/start walks to ready across status polls, then destroy resets to idle', async () => {
+  await fetch(base + '/state/empty');
+  assert.equal((await (await fetch(base + '/provision/status')).json()).phase, 'idle');
+  const r = await postJson('/provision/start', { token: 'fixture-token', name: 'mel', location: 'nbg1', server_type: 'cx33' });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).alias, 'mel-box');
+  const phases = []; let steps = 0;
+  for (let i = 0; i < 8; i++) {
+    const s = await (await fetch(base + '/provision/status')).json();
+    phases.push(s.phase);
+    assert.ok(s.steps.length >= steps, 'steps are append-only');
+    steps = s.steps.length;
+    assert.ok(!('token' in s), 'the run view never carries the token');
+    if (s.phase === 'ready') break;
+  }
+  assert.ok(phases.includes('provisioning') && phases.includes('booting') && phases.at(-1) === 'ready', `walk was ${phases.join(' > ')}`);
+  const again = await postJson('/provision/start', { token: 'fixture-token', name: 'mel' });
+  assert.equal(again.status, 200, 'a finished run does not block a new one');
+  const s2 = await (await fetch(base + '/provision/status')).json();
+  assert.equal(s2.phase, 'provisioning');
+  const busy = await postJson('/provision/start', { token: 'fixture-token', name: 'mel' });
+  assert.equal(busy.status, 409, 'one run at a time, like the real routes');
+  const d = await postJson('/provision/destroy', { token: 'fixture-token', name: 'mel' });
+  assert.equal(d.status, 200);
+  assert.equal((await (await fetch(base + '/provision/status')).json()).phase, 'idle');
+  const badName = await postJson('/provision/start', { token: 'fixture-token', name: 'Mel Harper' });
+  assert.equal(badName.status, 400);
+});
+
+test('?provision= on the door URL lands the flow on a chosen screen', async () => {
+  await fetch(base + '/state/empty');
+  const booting = await (await fetch(base + '/provision/status', asDoor('provision=booting'))).json();
+  assert.equal(booting.phase, 'booting');
+  assert.ok(booting.steps.length > 0 && booting.ip, 'a build screen has steps and a server');
+  const ready = await (await fetch(base + '/provision/status', asDoor('provision=ready'))).json();
+  assert.equal(ready.phase, 'ready');
+  assert.equal(ready.alias, 'mel-box');
+  // failed: the page attaches to a run in flight, then its first poll fails
+  const f1 = await (await fetch(base + '/provision/status', asDoor('provision=failed'))).json();
+  const f2 = await (await fetch(base + '/provision/status', asDoor('provision=failed'))).json();
+  assert.equal(f1.phase, 'booting');
+  assert.equal(f2.phase, 'failed');
+  assert.match(f2.error, /never answered/);
+  // a fresh world clears the switch's own state too
+  await fetch(base + '/state/empty');
+  assert.equal((await (await fetch(base + '/provision/status', asDoor('provision=failed'))).json()).phase, 'booting');
+  assert.equal((await (await fetch(base + '/provision/status'))).ok, true);
+});
+
+test('setup-steps answers not-yet by default and done with ?setup=done', async () => {
+  const not = await (await fetch(base + '/setup-steps?box=mel-box', asDoor())).json();
+  assert.deepEqual(not, { reachable: true, github: { connected: false, repo: '' }, claude: { signedIn: false } });
+  const done = await (await fetch(base + '/setup-steps?box=mel-box', asDoor('setup=done'))).json();
+  assert.equal(done.github.connected, true);
+  assert.ok(done.github.repo);
+  assert.equal(done.claude.signedIn, true);
+});
+
+test('provision/providers lists the registry; validate answers each provider in its own currency', async () => {
+  const reg = await (await fetch(base + '/provision/providers')).json();
+  assert.deepEqual(reg.providers.map((p) => p.id), ['hetzner', 'digitalocean']);
+  const dO = await (await postJson('/provision/validate', { token: 'fixture-token', provider: 'digitalocean' })).json();
+  assert.equal(dO.symbol, '$');
+  assert.equal(dO.defaults.location, 'syd1', 'Sydney by default on DigitalOcean');
+  assert.ok(dO.locations.some((l) => l.name === 'syd1'));
+  assert.ok(dO.chains.standard.every((slug) => dO.server_types.some((t) => t.name === slug) || slug.endsWith('-amd')), 'the fixture sells the chain it names');
+  const hz = await (await postJson('/provision/validate', { token: 'fixture-token' })).json();
+  assert.equal(hz.symbol, '€');
+  assert.equal((await postJson('/provision/validate', { token: 'fixture-token', provider: 'aws' })).status, 400);
+});

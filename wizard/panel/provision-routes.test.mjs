@@ -8,28 +8,17 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
 import { provisionRoutes } from './provision-routes.mjs';
+// The fake Hetzner is shared with the dev-harness (docs screenshots, driven
+// tests) so the routes test and the page fixtures cannot disagree about what
+// a Hetzner answer looks like.
+import { fakeClient } from '../dev-harness/provision-fixture.mjs';
+import { PROVIDERS } from '../provision/providers.mjs';
 
 const PUB = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF6zXyq1x2Qq0m7T3v9m4T8u5X6a7B8c9D0e1F2g3H4i owner@door';
 
-function fakeClient(calls) {
-  return {
-    validateToken: async () => ({ ok: true }),
-    listLocations: async () => [{ name: 'nbg1', city: 'Nuremberg', country: 'DE' }],
-    listServerTypes: async () => [
-      { id: 1, name: 'cx33', cores: 4, memoryGb: 8, diskGb: 80, arch: 'x86' },
-      { id: 2, name: 'cpx11', cores: 2, memoryGb: 2, diskGb: 40, arch: 'x86' },
-    ],
-    listAvailability: async () => ({ nbg1: [1], hel1: [1, 2] }),
-    ensureSshKey: async () => 7,
-    createServer: async (o) => { calls.push(['create', o.name]); return { id: 42, ip: '203.0.113.9', actionId: 9 }; },
-    waitAction: async () => ({ status: 'success' }),
-    getServer: async () => ({ id: 42, name: 'aios-demo', status: 'running', ip: '203.0.113.9' }),
-    deleteServer: async (id) => { calls.push(['delete', id]); },
-  };
-}
 
 function harness(over = {}) {
-  const calls = [];
+  const calls = [];   // [['create', name, provider], ['delete', id, provider], ...] since 2026-09-09
   const installs = [];
   const pins = [];
   const sshDir = tmpDir('prov-');
@@ -41,7 +30,7 @@ function harness(over = {}) {
   const handle = provisionRoutes({
     sshDir,
     settingsPath,
-    makeClient: () => fakeClient(calls),
+    makeClient: (token, provider) => fakeClient(calls, provider),
     install: (o) => { installs.push({ ...o }); return { publicKey: PUB + '\n' }; },
     pin: (ip) => pins.push(ip),
     probe: over.probe || (async () => ({ code: 0, stdout: 'chain-ok\n' })),
@@ -189,4 +178,55 @@ test('no test may write the real ~/.claude/settings.json', () => {
   const h = harness();
   h.close();
   assert.ok(h.settingsPath.startsWith(h.sshDir), 'settings path is inside the scratch dir');
+});
+
+// --- the second provider (2026-09-09) -------------------------------------------
+test('GET /provision/providers lists the registry without functions, Hetzner first', async (t) => {
+  const h = harness(); t.after(h.close);
+  const r = await h.call('GET', '/provision/providers');
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.providers.map((p) => p.id), Object.keys(PROVIDERS));
+  for (const p of r.body.providers) {
+    for (const k of ['id', 'label', 'symbol', 'costsCopy', 'tokenLabel', 'tokenHelpDocSlug', 'defaults', 'sizeChains']) assert.ok(k in p, `${p.id} lacks ${k}`);
+    assert.ok(!('makeClient' in p), 'no function crosses the wire');
+  }
+});
+
+test('validate carries the provider shape: symbol, chains, its own defaults', async (t) => {
+  const h = harness(); t.after(h.close);
+  const hz = await h.call('POST', '/provision/validate', { token: 't' });
+  assert.equal(hz.body.provider, 'hetzner');
+  assert.equal(hz.body.symbol, '€');
+  assert.deepEqual(hz.body.chains, PROVIDERS.hetzner.sizeChains);
+  const dO = await h.call('POST', '/provision/validate', { token: 't', provider: 'digitalocean' });
+  assert.equal(dO.status, 200);
+  assert.equal(dO.body.provider, 'digitalocean');
+  assert.equal(dO.body.symbol, '$');
+  assert.deepEqual(dO.body.defaults, { location: PROVIDERS.digitalocean.defaults.location, server_type: PROVIDERS.digitalocean.defaults.serverType });
+  const bad = await h.call('POST', '/provision/validate', { token: 't', provider: 'linode' });
+  assert.equal(bad.status, 400);
+});
+
+test('a DigitalOcean build drives the DigitalOcean client, records the provider, and destroys on the same provider', async (t) => {
+  const h = harness(); t.after(h.close);
+  const r = await h.call('POST', '/provision/start', { token: 'dop_v1_sekrit', name: 'demo', provider: 'digitalocean', location: 'syd1', server_type: 's-4vcpu-8gb' });
+  assert.equal(r.status, 200);
+  const s = await untilPhase(h.call, 'ready');
+  assert.equal(s.provider, 'digitalocean');
+  assert.ok(h.calls.some((c) => c[0] === 'create' && c[2] === 'digitalocean'), 'created through the DigitalOcean client');
+  const state = JSON.parse(readFileSync(join(h.sshDir, 'demo-box.provision.json'), 'utf8'));
+  assert.equal(state.provider, 'digitalocean', 'the provider is in the resume state');
+  assert.ok(!JSON.stringify(state).includes('sekrit'), 'the token is not');
+  // after a restart the form may say nothing about the provider: the state knows
+  const d = await h.call('POST', '/provision/destroy', { token: 'dop_v1_sekrit', name: 'demo' });
+  assert.equal(d.status, 200);
+  assert.ok(h.calls.some((c) => c[0] === 'delete' && c[2] === 'digitalocean'), 'deleted through the DigitalOcean client, not the default');
+});
+
+test('start refuses an unknown provider and names the right provider in the token refusal', async (t) => {
+  const h = harness(); t.after(h.close);
+  assert.equal((await h.call('POST', '/provision/start', { token: 't', name: 'demo', provider: 'aws' })).status, 400);
+  const r = await h.call('POST', '/provision/start', { name: 'demo', provider: 'digitalocean' });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /DigitalOcean API token/);
 });

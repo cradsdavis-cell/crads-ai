@@ -59,7 +59,8 @@ export const PINNED_CLAIMS = [
 // Shots that photograph a price. Pricing is DISPLAY-ONLY until the 26 Sep
 // read-date, so any page showing one of these must say so on the page: a
 // screenshot of a number reads as a commitment.
-export const BILLING_SHOTS = ['member-overview'];
+// door-catalogue photographs Hetzner's list prices (2026-09-09).
+export const BILLING_SHOTS = ['member-overview', 'door-catalogue'];
 export const BILLING_CAVEAT = 'indicative';
 
 // --- the checks, as functions ----------------------------------------------

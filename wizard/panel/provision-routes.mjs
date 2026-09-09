@@ -2,7 +2,8 @@
 // 2026-09-01): the wizard UI over wizard/provision/engine.mjs.
 //
 // Mounted by door-server the same way inventory-routes is. The page collects a
-// name and the person's OWN Hetzner token; this module runs the engine, then
+// name, a provider (Hetzner or DigitalOcean, providers.mjs) and the person's
+// OWN API token for it; this module runs the engine, then
 // finishes what the engine deliberately leaves alone: the SSH identity on THIS
 // machine (Host block + keypair via installMemberAccess — minted BEFORE birth
 // so the only key on the box is the owner's), the boot wait through the
@@ -13,15 +14,16 @@
 // which the engine already refuses to put a token in). One run at a time: this
 // is a person making their own box, not a fleet tool.
 //
-//   POST /provision/validate  {token}                    -> {ok, locations, server_types}
-//   POST /provision/start     {token, name, location?, server_type?} -> {ok, alias}
+//   GET  /provision/providers                            -> {providers: [...]} (providers.mjs, no functions)
+//   POST /provision/validate  {token, provider?}         -> {ok, provider, symbol, chains, locations, server_types, defaults}
+//   POST /provision/start     {token, name, provider?, location?, server_type?} -> {ok, alias}
 //   GET  /provision/status                               -> the run, minus the token
-//   POST /provision/destroy   {token?}                   -> destroy-and-retry
+//   POST /provision/destroy   {token?, name?, provider?} -> destroy-and-retry
 import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { HetznerClient } from '../provision/hetzner.mjs';
-import { provisionSelfHost, destroySelfHost, DEFAULT_SERVER_TYPE, DEFAULT_LOCATION } from '../provision/engine.mjs';
+import { providerOf, publicProviders, DEFAULT_PROVIDER, PROVIDERS } from '../provision/providers.mjs';
+import { provisionSelfHost, destroySelfHost } from '../provision/engine.mjs';
 import { installMemberAccess } from './member-connect.mjs';
 import { pinHostForUser, runSsh } from './ssh-bridge.mjs';
 import { registerClaudeSshConfig, syncClaudeStartDir, claudeSettingsPath, OPEN_FOLDER_PROBE } from './claude-settings.mjs';
@@ -30,7 +32,13 @@ const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$/;
 
 export function provisionRoutes(opts = {}) {
   const sshDir = opts.sshDir || join(homedir(), '.ssh');
-  const makeClient = opts.makeClient || ((token) => new HetznerClient(token));
+  // (token, providerId) -> a client honouring the nine-method contract. Tests
+  // inject a fake; production asks the registry.
+  const makeClient = opts.makeClient || ((token, provider) => providerOf(provider).makeClient(token));
+  const providerIdOf = (form) => {
+    const id = String((form && form.provider) || DEFAULT_PROVIDER);
+    return Object.prototype.hasOwnProperty.call(PROVIDERS, id) ? id : null;
+  };
   const install = opts.install || installMemberAccess;
   const pin = opts.pin || pinHostForUser;
   // The boot probe goes through the whole chain on purpose: owner key -> sshd
@@ -60,7 +68,7 @@ export function provisionRoutes(opts = {}) {
     writeFileSync(statePath(slug), JSON.stringify(state, null, 2) + '\n', { mode: 0o600 });
   };
 
-  let run = null; // { slug, alias, phase, steps[], ip, error, token, state }
+  let run = null; // { slug, alias, provider, phase, steps[], ip, error, token, state }
 
   const view = () => {
     if (!run) {
@@ -86,10 +94,10 @@ export function provisionRoutes(opts = {}) {
         const pre = install({ slug, host: '0.0.0.0', user: 'member' }, sshDir);
         const ownerPubKey = String(pre.publicKey).trim().split('\n')[0];
         const r = await provisionSelfHost({
-          token, boxName: slug, ownerPubKey, state: run.state,
+          token, boxName: slug, ownerPubKey, state: run.state, provider: run.provider,
           onStep: (step, detail) => { run.steps.push(detail ? `${step} (${detail})` : step); },
           overrides: {
-            client: makeClient(token),
+            client: makeClient(token, run.provider),
             ...(opts.files ? { files: opts.files } : {}),
             ...(run.location ? { location: run.location } : {}),
             ...(run.serverType ? { serverType: run.serverType } : {}),
@@ -152,11 +160,15 @@ export function provisionRoutes(opts = {}) {
     if (!path.startsWith('/provision/')) return false;
 
     if (req.method === 'GET' && path === '/provision/status') { jsonOut(res, 200, view()); return true; }
+    if (req.method === 'GET' && path === '/provision/providers') { jsonOut(res, 200, { providers: publicProviders() }); return true; }
 
     if (req.method === 'POST' && path === '/provision/validate') {
       readBody(req, res, async (body) => {
         let form; try { form = JSON.parse(body); } catch { jsonOut(res, 400, { error: 'bad json' }); return; }
-        const client = makeClient(String(form.token || ''));
+        const providerId = providerIdOf(form);
+        if (!providerId) { jsonOut(res, 400, { error: 'unknown provider' }); return; }
+        const P = providerOf(providerId);
+        const client = makeClient(String(form.token || ''), providerId);
         const v = await client.validateToken();
         if (!v.ok) { jsonOut(res, 401, { ok: false, reason: v.reason }); return; }
         // Both catalogues ride the validate answer so the form can offer real
@@ -174,7 +186,13 @@ export function provisionRoutes(opts = {}) {
             .filter(([, ids]) => ids.includes(ty.id))
             .map(([loc]) => loc);
         }
-        jsonOut(res, 200, { ok: true, locations, server_types: types, defaults: { location: DEFAULT_LOCATION, server_type: DEFAULT_SERVER_TYPE } });
+        // The provider's own shape rides along so the page never hard-codes
+        // a currency symbol or a size chain (door.html read SH_CHAINS from
+        // its own source until 2026-09-09).
+        jsonOut(res, 200, {
+          ok: true, provider: P.id, label: P.label, symbol: P.symbol, chains: P.sizeChains,
+          locations, server_types: types, defaults: { location: P.defaults.location, server_type: P.defaults.serverType },
+        });
       });
       return true;
     }
@@ -184,13 +202,16 @@ export function provisionRoutes(opts = {}) {
         let form; try { form = JSON.parse(body); } catch { jsonOut(res, 400, { error: 'bad json' }); return; }
         const slug = String(form.name || '').toLowerCase();
         if (!SLUG_RE.test(slug)) { jsonOut(res, 400, { error: 'name must be 2-32 lowercase letters, digits or hyphens' }); return; }
-        if (!String(form.token || '')) { jsonOut(res, 400, { error: 'a Hetzner API token is required' }); return; }
+        const providerId = providerIdOf(form);
+        if (!providerId) { jsonOut(res, 400, { error: 'unknown provider' }); return; }
+        if (!String(form.token || '')) { jsonOut(res, 400, { error: `a ${providerOf(providerId).label} API token is required` }); return; }
         if (run && (run.phase === 'provisioning' || run.phase === 'booting')) {
           jsonOut(res, 409, { error: 'a build is already running', alias: run.alias }); return;
         }
         run = {
           slug,
           alias: `${slug}-box`,
+          provider: providerId,
           phase: 'starting',
           steps: [],
           ip: null,
@@ -213,10 +234,13 @@ export function provisionRoutes(opts = {}) {
         const slug = active ? run.slug : String(form.name || '').toLowerCase();
         const token = (active && run.token) || String(form.token || '');
         if (!slug || !SLUG_RE.test(slug)) { jsonOut(res, 400, { error: 'nothing to destroy' }); return; }
-        if (!token) { jsonOut(res, 400, { error: 'the Hetzner token is needed again to destroy (it is never stored)' }); return; }
+        if (!token) { jsonOut(res, 400, { error: 'the hosting token is needed again to destroy (it is never stored)' }); return; }
         const state = (active && run.state) || loadState(slug);
+        // The provider the run was started on wins over anything the form
+        // says: a delete sent to the wrong provider is a server left running.
+        const providerId = (active && run.provider) || state.provider || providerIdOf(form) || DEFAULT_PROVIDER;
         try {
-          const r = await destroySelfHost({ token, state, client: makeClient(token) });
+          const r = await destroySelfHost({ token, state, provider: providerId, client: makeClient(token, providerId) });
           try { unlinkSync(statePath(slug)); } catch { /* already gone */ }
           if (active) run = null;
           jsonOut(res, 200, { ok: true, destroyed: r.destroyed });

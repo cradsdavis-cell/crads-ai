@@ -4,7 +4,7 @@ summary: What is stored, where it runs, what leaves your mineral, and why almost
 audience: public
 access: public
 mode: legal
-version: 0.11
+version: 0.12
 effective: 2026-09-09
 order: 10
 ---
@@ -58,9 +58,10 @@ the whole list, and it exists because you wrote to us.
 
 ## Where your mineral runs
 
-On a server you created in your own Hetzner account, in whichever of
-Hetzner's locations you picked in the setup wizard. Your contract for that
-machine is with Hetzner, not with us, and we cannot see, reach or bill it.
+On a server you created in your own hosting account, at Hetzner or
+DigitalOcean, in whichever of that company's locations you picked in the setup
+wizard. Your contract for that machine is with them, not with us, and we
+cannot see, reach or bill it.
 
 If you are in Australia and picked a European location, your data is stored
 overseas. We say that plainly because Australian privacy law expects
@@ -169,7 +170,7 @@ because there is nothing to export from: it is already yours, in a portable
 format, everywhere it exists.
 
 Deleting your mineral is deleting your server, in your own hosting console,
-which destroys the machine and its disk under your contract with Hetzner.
+which destroys the machine and its disk under your contract with your host.
 Nothing needs our involvement and we hold no record of the machine to delete
 at our end. Copies you hold, including your backup repository, remain yours.
 

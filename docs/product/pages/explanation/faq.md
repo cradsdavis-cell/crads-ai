@@ -26,8 +26,9 @@ the two words you will keep meeting.
 The software is free, and it stays free. What costs money is the machine it
 runs on and the AI inside it, and you pay both providers directly:
 
-- a **Hetzner cloud server**, roughly €4 to €30 a month depending on the size
-  you pick in the setup wizard, billed to you by Hetzner
+- a **cloud server** in your own account at Hetzner (roughly €4 to €30 a
+  month) or DigitalOcean (roughly $24 to $96), depending on the size you pick
+  in the setup wizard, billed to you by them
 - your own **Claude subscription**, billed to you by Anthropic
 - **nothing to Crads-AI, ever**
 
@@ -50,7 +51,8 @@ binding version.
 
 Mostly no. If you can make an account at a hosting company and paste a token,
 the wizard does the rest, and
-[get a Hetzner API token](/docs/get-a-hetzner-api-token) walks the one
+[get a Hetzner API token](/docs/get-a-hetzner-api-token) (or
+[the DigitalOcean one](/docs/get-a-digitalocean-api-token)) walks the one
 genuinely unfamiliar step. Answering the interview needs no technical skill at
 all. The deliberately technical route exists too, for those who want it:
 [Claude Code on your mineral](/docs/claude-code-on-your-mineral).
@@ -74,8 +76,9 @@ the two are different.
 ## Where is my data kept?
 
 On the server you created, in the location you picked in the wizard, in your
-own Hetzner account, plus a backup in a private GitHub repository in your own
-account. The wizard offers whatever locations Hetzner sells, so where your
+own Hetzner or DigitalOcean account, plus a backup in a private GitHub
+repository in your own account. The wizard offers whatever locations your
+host sells (DigitalOcean has Sydney; Hetzner does not), so where your
 data lives is your choice, and if you are in Australia and pick a European
 location, your data is stored overseas: the
 [privacy policy](/docs/privacy-policy) says so plainly, because Australian

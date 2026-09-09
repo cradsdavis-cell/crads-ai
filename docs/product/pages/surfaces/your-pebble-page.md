@@ -31,8 +31,8 @@ exactly as they are.
 ## Whose machine this is
 
 The short answer, for every mineral made since September 2026: yours, in the
-plainest sense available. The server sits in your own Hetzner account, billed
-to you by Hetzner, and the only keys that open it are on
+plainest sense available. The server sits in your own hosting account, Hetzner or
+DigitalOcean, billed to you by them, and the only keys that open it are on
 [your own roster](/docs/devices-and-access). There is no owner field to check
 because there is no other candidate: whoever pays the hosting bill and holds
 the keys holds the box, and both are you by construction. The longer version
@@ -88,7 +88,7 @@ Ask for a new one in the Terminal with `/write-page`.
 
 There is no delete button on this page, and that is not an oversight to hunt
 past. Your mineral is a server in your own hosting account, so ending it is
-an act you take there: delete the server in your own Hetzner console, and the
+an act you take there: delete the server in your own hosting console, and the
 bill stops with it. Nothing of the software stands between you and that,
 which is the point; just do [the backup](/docs/back-up-and-restore) first,
 because a deleted server takes its disk with it.

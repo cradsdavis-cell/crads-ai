@@ -80,6 +80,18 @@ function ctxOf(req) {
   return { surface, state: state || 'rich' };
 }
 
+// A page-level switch beyond the three worlds, read the same way `?state=` is
+// (referer first, then the request's own query): `?provision=ready` or
+// `?setup=done` on the door URL. Kept out of ctxOf so the world stays a
+// three-valued thing every stub can switch on.
+function pageParam(req, name) {
+  try {
+    const v = new URL(req.headers.referer || '').searchParams.get(name);
+    if (v) return v;
+  } catch { /* no referer */ }
+  try { return new URL(req.url, 'http://localhost').searchParams.get(name) || ''; } catch { return ''; }
+}
+
 function readBody(req) {
   return new Promise((resolve) => {
     let body = '';
@@ -255,7 +267,20 @@ const server = createServer(async (req, res) => {
   // The door's self-host wizard (2026-09-01) reads its run state at load when
   // the flow is re-entered; idle is the truthful harness answer (no build ever
   // runs here — the harness stubs Hetzner out of existence, same as billing).
-  if (req.method === 'GET' && path === '/provision/status') { sendJson(res, { phase: 'idle' }); return; }
+  //
+  // Since 2026-09-09 the whole flow is stubbed (fixtures.mjs, "the door's
+  // self-host wizard"): validate answers a catalogue, start arms a run that
+  // walks to ready across status polls, destroy resets, and `?provision=` on
+  // the door URL lands the flow on a chosen screen for the docs shots. Hetzner
+  // is still stubbed out of existence: nothing here can create anything.
+  if (req.method === 'GET' && path === '/provision/status') { sendJson(res, FX.provisionStatus(pageParam(req, 'provision'))); return; }
+  // the registry itself (providers.mjs), exactly as door-server serves it
+  if (req.method === 'GET' && path === '/provision/providers') { sendJson(res, { providers: FX.provisionProviders() }); return; }
+  if (req.method === 'POST' && path === '/provision/validate') { const a = FX.provisionValidate(await readBody(req)); sendJson(res, a.body, a.status); return; }
+  if (req.method === 'POST' && path === '/provision/start') { const a = FX.provisionStart(await readBody(req)); sendJson(res, a.body, a.status); return; }
+  if (req.method === 'POST' && path === '/provision/destroy') { const a = FX.provisionDestroy(await readBody(req)); sendJson(res, a.body, a.status); return; }
+  // the finish checklist's two chips; `?setup=done` on the door URL flips both
+  if (req.method === 'GET' && path === '/setup-steps') { sendJson(res, FX.setupSteps(pageParam(req, 'setup') === 'done')); return; }
   // The version chip fetches this on EVERY face at load, unprompted, so a missing
   // route here is the favicon trap above wearing a new shirt: one 404, one console
   // error, every driven test on every face red. Both real servers promise 200 +

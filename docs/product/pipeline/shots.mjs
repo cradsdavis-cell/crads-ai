@@ -59,6 +59,20 @@ const add = (id, surface, world, opts = {}) => {
     // off-canvas because the fit raced the capture). A selector that matches
     // nothing fails the shot, same rule as marks.
     clicks: Array.isArray(opts.clicks) ? opts.clicks : [],
+    // query: a page-level switch on the surface URL (`provision=ready`,
+    // `setup=done`), read by the harness from the referer exactly like
+    // `?state=`. For screens a flow only reaches after a build the rig cannot
+    // run. See wizard/dev-harness/README.md, "Page switches".
+    query: opts.query || '',
+    // acts: the reader's gestures, in order, before capture. Each is one of
+    //   { click: '<selector>' }
+    //   { fill: '<selector>', value: '<text>' }
+    //   { wait: <ms> }
+    // for screens that exist only partway through a flow. Selectors are the
+    // page's own stable handles (#id, [data-x="v"]), never coordinates or
+    // text, and shots.test.mjs checks each #id against the surface's shell
+    // without a browser (a renamed control fails the gate, not the release).
+    acts: Array.isArray(opts.acts) ? opts.acts : [],
     note: opts.note || '' });
 };
 
@@ -74,7 +88,70 @@ const add = (id, surface, world, opts = {}) => {
 
 // --- the door and the birth path (public tier, tutorial) ---
 add('door-identity-chooser', 'door', 'rich', { note: 'the door with minerals on it: what a returning owner sees' });
-add('door-empty', 'door', 'empty', { note: 'a machine with no minerals yet: the first-run door' });
+add('door-empty', 'door', 'empty', { note: 'a machine with no minerals yet: the first-run door',
+  marks: [
+    { sel: '[data-make="selfhost"]', say: 'Set up my own: builds a new mineral in your own hosting account. The one you want.' },
+    { sel: '[data-make="have"]', say: 'I already have one: for a second computer joining a mineral that exists. Nothing new is made.' },
+  ] });
+
+// --- the self-host wizard, screen by screen (public tier, tutorial) ---
+// Zero infrastructure: the harness stubs /provision/* and /setup-steps
+// (fixtures.mjs, "the door's self-host wizard"), so every screen below is
+// photographed without a server ever being made. The first-hour tutorial
+// walks these in order. Selectors are door.html's own ids.
+const SH_OPEN = { click: '[data-make="selfhost"]' };
+add('door-costs', 'door', 'empty', { acts: [SH_OPEN],
+  note: 'wizard step 1: the bill in full before anything is created; the first screen behind Set up my own',
+  marks: [
+    { sel: '#shProviders', say: 'Pick where it lives: Hetzner (cheapest) or DigitalOcean (has a Sydney location). The server is built in your own account there.' },
+    { sel: '#shCosts ul', say: 'The whole bill: the server, billed by the host you picked; your Claude subscription, billed by Anthropic; nothing to Crads-AI.' },
+    { sel: '#shCostsOk', say: 'Carry on. No cost appears on any later screen.' },
+  ] });
+add('door-provider-cards', 'door', 'empty', { acts: [SH_OPEN, { click: '[data-provider="digitalocean"]' }],
+  note: 'wizard step 1 with DigitalOcean picked: the cost line, the account line and (next screen) the token help all follow the pick',
+  marks: [
+    { sel: '[data-provider="digitalocean"]', say: 'DigitalOcean picked. Dearer than Hetzner at the same size, but it has a Sydney location.' },
+    { sel: '#shCostServer', say: 'The cost line follows the pick: US dollars here, euros on Hetzner.' },
+  ] });
+add('door-token', 'door', 'empty', { acts: [SH_OPEN, { click: '#shCostsOk' }],
+  note: 'wizard step 2: name it and paste the token for the host you picked; the fold explains how to get one',
+  marks: [
+    { sel: '#shName', say: 'What your mineral, and your assistant, will be called.' },
+    { sel: '#shTokenHelp summary', say: 'How to get a token, in about five minutes, without leaving this screen.' },
+    { sel: '#shToken', say: 'The token goes to the host you picked and nowhere else, and is never stored.' },
+    { sel: '#shCheckBtn', say: 'Proves the token works with a read-only call before offering to build anything.' },
+  ] });
+// The catalogue shows Hetzner prices, so the page that carries this shot must
+// say "indicative" (claims.mjs BILLING_SHOTS). The help fold is closed first:
+// with it open the size cards sit below the fold of a 900px viewport.
+add('door-catalogue', 'door', 'empty', {
+  acts: [SH_OPEN, { click: '#shCostsOk' }, { click: '#shTokenHelp summary' },
+    { fill: '#shName', value: 'mel' }, { fill: '#shToken', value: 'fixture-token' }, { click: '#shCheckBtn' }],
+  note: 'wizard step 3: the token checked, the real locations and sizes the account sells, with Hetzner list prices',
+  marks: [
+    { sel: '#shLoc', say: 'Only the locations your account can actually build in.' },
+    { sel: '#shSizes', say: 'Three plain sizes. The fine print names the real machine and its monthly price where you chose.' },
+    { sel: '#shBuildBtn', say: 'Build it. From here the wizard creates the server on your own account.' },
+  ] });
+add('door-building', 'door', 'empty', { query: 'provision=booting', acts: [SH_OPEN],
+  note: 'wizard step 4: the build screen, server created and waiting for its first boot; ?provision=booting lands the flow here',
+  marks: [
+    { sel: '#shSteps', say: 'Each step as it happens. Closing the app partway loses nothing: reopening picks the build back up.' },
+    { sel: '#shBootNote', say: 'First boot downloads the workspace. Minutes, not seconds, and the screen notices by itself.' },
+  ] });
+add('door-failed', 'door', 'empty', { query: 'provision=failed', acts: [SH_OPEN, { wait: 800 }], full: true,
+  note: 'wizard step 4, the honest failure: a server that was made but never answered, with Retry and the destroy button that uses your own token',
+  marks: [
+    { sel: '#shMsg', say: 'What went wrong, in one line.' },
+    { sel: '#shDestroyBtn', say: 'Remove the half-made server, so nothing sits on your bill unnoticed.' },
+  ] });
+add('door-finish', 'door', 'empty', { query: 'provision=ready', acts: [SH_OPEN, { wait: 800 }], full: true,
+  note: 'wizard step 5: alive, with the finish checklist and its honest not-yet chips; ?provision=ready lands the flow here',
+  marks: [
+    { sel: '#shOpenBtn', say: 'Open it: the app, where you meet your assistant. Never wrong to press first.' },
+    { sel: '#shRowGh', say: 'Back up your brain to your own GitHub. A code appears; you approve it on github.com.' },
+    { sel: '#shRowClaude', say: 'Connect Claude: opens the Terminal with the sign-in running. Nothing works overnight without it.' },
+  ] });
 
 // --- the member surfaces (public tier, tutorial + reference) ---
 // Shot ids carry the name a PERSON sees, never the internal sec id: the page

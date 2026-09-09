@@ -36,6 +36,24 @@ via the Referer header (no surface file is modified):
 Cookie fallback for tools that strip referers: `GET /state/empty` (or
 `rich`/`error`) sets it globally.
 
+## Page switches
+
+Beyond the three worlds, a surface URL can carry a switch the stubs read the
+same way (referer first, then the request's own query). Used by the docs
+shots (`docs/product/pipeline/shots.mjs`, `query:`):
+
+- `/door?provision=booting|ready|failed`: the self-host wizard's own
+  "re-enter the flow" read lands on the build screen, the finish checklist,
+  or (booting on the first poll, failed on the next) the failure with Retry
+  and Remove. Without the switch, driving the page (Check the token, Build
+  it) walks a stubbed run starting → provisioning → booting → ready across
+  status polls. A token containing `bad` is refused at Check.
+- `/provision/providers` answers the real registry (Hetzner, DigitalOcean);
+  validate answers a catalogue in the picked provider's currency (`provider`
+  in the body), Sydney-first for DigitalOcean.
+- `/door?setup=done`: the finish checklist's GitHub and Claude chips read
+  Done instead of Not yet.
+
 ## Stubbed endpoints
 
 `/targets`, `POST /run` (all panel + member verbs, streamed over the real SSE
