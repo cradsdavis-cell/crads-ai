@@ -55,10 +55,9 @@ full before you type anything. The everyday ones:
   brief reads all week.
 - `/weekly`: the week reviewed. The log, project health, next week's focus.
 
-The authoring commands (`/write-page`, `/write-prompt`, `/write-folder`) are
-here too: they make library content, and a community host leans on them when
-curating a commons. The generated
-[skills reference](/docs/skills) is the authoritative list.
+`/write-page` is here too: it builds you a page of your own, which lands in
+the sidebar. The generated [skills reference](/docs/skills) is the
+authoritative list.
 
 ## Opening and closing a session
 

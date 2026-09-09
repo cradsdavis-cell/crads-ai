@@ -173,9 +173,9 @@ persist.
 
 A sorted inbox before you wake. A brief that knows what matters. Your phone as
 the front door. A brain you have read and corrected twice. That is the whole
-product working as intended, and everything past this point (hosting a
-community, [starting one](/docs/become-a-rock), writing your own skills) is
-optional depth, not homework.
+product working as intended, and everything past this point (writing your
+own skills, [adding a second computer](/docs/add-another-computer), building
+your own pages) is optional depth, not homework.
 
 One last honest habit: [back up your mineral](/docs/back-up-and-restore) has
 the one step in the whole system only you can do. Do it this week, not the

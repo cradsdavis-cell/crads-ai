@@ -12,7 +12,7 @@ import { EventEmitter } from 'node:events';
 import { writeFileSync, readFileSync, unlinkSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { createPanelServer, VERBS, MEMBER_VERBS } from './panel-server.mjs';
+import { createPanelServer, MEMBER_VERBS } from './panel-server.mjs';
 import { mintVaultKeypair, ensureVaultKeypair, seal, open, vaultFingerprint } from './vault-crypto.mjs';
 // a self-enrolled row is named after the machine running the test (2026-08-12),
 // so ask the same function the server does rather than pinning one hostname.
@@ -125,7 +125,6 @@ test('devices-set-vaultkey: member verb, validated, key never argv-mangled', () 
   assert.ok(MEMBER_VERBS['devices-set-vaultkey'].mutating);
   // The old org table survives only as a builder library since the face
   // collapse; a member-device verb never belonged in it and still does not.
-  assert.equal(VERBS['devices-set-vaultkey'], undefined, 'never grew a copy in the old org table');
   assert.throws(() => MEMBER_VERBS['devices-set-vaultkey'].build({ slug: 'laptop', vaultkey: 'short' }), /vaultkey/);
   assert.throws(() => MEMBER_VERBS['devices-set-vaultkey'].build({ slug: 'laptop', vaultkey: `${vk} extra` }), /vaultkey/);
   assert.throws(() => MEMBER_VERBS['devices-set-vaultkey'].build({ slug: '../x', vaultkey: vk }), /slug|short id/i);

@@ -176,8 +176,8 @@ function skillsPage() {
   }
   const body = [`> ${STAMP}`, '',
     `Every mineral ships with these ${rows.length} skills. They are the engine set: the`,
-    'skill library itself ships empty, so anything beyond this list is something you or',
-    'your rock added.', '',
+    'skill library itself ships empty, so anything beyond this list is something you',
+    'added.', '',
     // Verified against config/profile.schema.yaml (cadence.enabled: false) and
     // engine/cron/cadence-lib.mjs seeds: schedules ship attached but OFF.
     'Four of them arrive with a schedule already attached: the daily brief in the',
@@ -254,7 +254,6 @@ function connectionsPage() {
 function machineryPage() {
   const rows = machinery();
   for (const r of rows) noEmDash(r.note, `machinery ${r.id} note`);
-  const onRock = rows.filter((r) => r.rock).length;
   const onPebble = rows.filter((r) => r.pebble).length;
   const body = [`> ${STAMP}`, '',
     'Your mineral runs some of these jobs on its own. They are machinery: Crads AI',
@@ -264,35 +263,19 @@ function machineryPage() {
     'You can see the ones your mineral runs, and their last outcome, on the **Health**',
     'card on your **Overview** page. It summarises them in a line ("3 jobs, all fine") and',
     'expands to the individual rows.', '',
-    `**A pebble runs ${onPebble} of these ${rows.length}; a rock runs ${onRock}.** That is not a`,
-    'setting, it is how each is built: a rock reports to nobody, is anchored to nothing,',
-    'and has no owner-facing brain repository of the kind a pebble backs up nightly, while',
-    'the jobs marked no in the Pebble column are control-plane work only a rock has (a',
-    'member roster to pull health for, a public route to keep registered). The',
-    'consequences are worth knowing if you host one, and they are called out under the',
-    'table.', '',
+    `**Your mineral runs ${onPebble} of these ${rows.length}.** The jobs marked no in the`,
+    'Runs column are control-plane work the scheduler still knows how to do but that',
+    'never fires on a mineral of your own (a member roster to pull health for, a',
+    'shared organisation brain to refresh); they are listed so the table is the whole',
+    'scheduler, not a flattering subset of it.', '',
     'A yes does not mean the job fires on every box every day: several jobs guard',
     'themselves to nothing until they apply (no connected services means nothing to',
-    'refresh; no joined rocks means nothing to wire). The column says where a job',
-    '*can* run, and the Health card on your Overview says what yours actually did.',
-    'The When column is read from the scheduler itself; "when it applies" means the',
-    'job has a rhythm only once there is something for it to do.', '',
-    '| Job | What it does | When | Pebble | Rock |', '|---|---|---|---|---|',
-    ...rows.map((r) => `| \`${r.id}\` | ${r.note} | ${r.when} | ${r.pebble ? 'yes' : 'no'} | ${r.rock ? 'yes' : 'no'} |`), '',
-    '## If you host a rock', '',
-    'Three of the jobs a rock does not run are ones a pebble owner would reasonably',
-    'assume are universal:', '',
-    '- **`backup` and `brain-push` do not run on a rock.** A rock does not take the',
-    '  nightly encrypted snapshot, and does not push its brain to a repository on a',
-    '  schedule. The push that happens when you turn a mineral into a rock is a one-time',
-    '  step in that upgrade, not the start of a nightly habit.',
-    '- **`auto-update` does not run on a rock.** A pebble restarts nightly onto the',
-    '  published image. A rock does not: it stays on the software it has until somebody',
-    '  restarts it, which is **Update and restart this mineral** under Help. Update your',
-    '  rock when a fix is out, and do it before you build pebbles, because a rock also',
-    '  hands its host scripts to the pebbles it builds.',
-    '- **`mcp-refresh` does not run on a rock**, so a rock\'s own connections are not',
-    '  refreshed for it on a schedule.', ''];
+    'refresh; no managing organisation means nothing to sync). The column says where',
+    'a job *can* run, and the Health card on your Overview says what yours actually',
+    'did. The When column is read from the scheduler itself; "when it applies" means',
+    'the job has a rhythm only once there is something for it to do.', '',
+    '| Job | What it does | When | Runs |', '|---|---|---|---|',
+    ...rows.map((r) => `| \`${r.id}\` | ${r.note} | ${r.when} | ${r.pebble ? 'yes' : 'no'} |`), ''];
   return {
     file: 'machinery-jobs.md',
     content: [fm({

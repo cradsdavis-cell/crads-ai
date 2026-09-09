@@ -40,29 +40,7 @@ test('engine-synced skill classifies as engine, category from frontmatter', () =
   assert.equal(s.description, 'Morning brief.');
 });
 
-test('org skill with .origin.json carries rock + version and wins classification', () => {
-  const state = mkBox();
-  addSkill(state, 'pricing-review', {
-    fm: 'description: Reviews pricing.',
-    yaml: 'id: pricing-review\nversion: 3\ndescription: "Reviews pricing."\ncategory: comms\ncadence:\n  default: "weekly"\n  time: "09:00"\ngate: ""\noutbound: false\n',
-    origin: { rock: 'acme-collab', version: 3, installed: '2026-08-01' },
-  });
-  const s = listSkills(state).skills[0];
-  assert.equal(s.source, 'org');
-  assert.equal(s.rock, 'acme-collab');
-  assert.equal(s.version, 3);
-  assert.equal(s.category, 'comms');
-  assert.equal(s.cadence_default, 'weekly');
-});
 
-test('legacy org install (skill.yaml, no origin marker) still classifies as org', () => {
-  const state = mkBox();
-  addSkill(state, 'legacy-skill', { yaml: 'id: legacy-skill\nversion: 1\ndescription: "old"\n' });
-  const s = listSkills(state).skills[0];
-  assert.equal(s.source, 'org');
-  assert.equal(s.rock, '');
-  assert.equal(s.version, 1);
-});
 
 test('seed ids classify as seed; unknown ids as member; bad category falls to other', () => {
   const state = mkBox();
@@ -74,13 +52,16 @@ test('seed ids classify as seed; unknown ids as member; bad category falls to ot
   assert.equal(by['my-own-thing'].category, 'other');
 });
 
-test('outbound flag reads from skill.yaml; cadence + runs pass through; empty box is empty', () => {
+test('cadence + runs pass through; a stray skill.yaml means nothing now; empty box is empty', () => {
   const state = mkBox();
-  addSkill(state, 'sender', { yaml: 'id: sender\nversion: 1\noutbound: true\n' });
+  // skill.yaml was the org-push package marker; since 2026-09-09 it neither
+  // classifies nor carries an outbound flag (communities are gone)
+  addSkill(state, 'sender', { fm: 'description: Sends.', yaml: 'id: sender\nversion: 1\noutbound: true\n' });
   writeFileSync(join(state, 'cockpit', 'cadence.json'), JSON.stringify({ sender: { enabled: true, when: 'daily', time: '08:00' } }));
   writeFileSync(join(state, 'cockpit', 'skill-runs.json'), JSON.stringify({ sender: '2026-08-04T07:00:00Z' }));
   const out = listSkills(state);
-  assert.equal(out.skills[0].outbound, true);
+  assert.equal(out.skills[0].source, 'member', 'a skill.yaml no longer makes it an org skill');
+  assert.equal(out.skills[0].outbound, undefined, 'no outbound flag is read any more');
   assert.equal(out.cadence.sender.when, 'daily');
   assert.equal(out.runs.sender, '2026-08-04T07:00:00Z');
 

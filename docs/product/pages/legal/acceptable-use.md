@@ -4,8 +4,8 @@ summary: The short list of things you must not do with a mineral, and what enfor
 audience: public
 access: public
 mode: legal
-version: 0.3
-effective: 2026-09-01
+version: 0.4
+effective: 2026-09-09
 order: 40
 ---
 
@@ -38,11 +38,6 @@ cannot reach. The conduct list itself is unchanged.)*
   *you* is the product; the interview even learns your voice for it. Using it
   to write as somebody else, or to make automated output look like a specific
   real person wrote it, is not.
-- **Publish hostile content to a commons.** If you host a community, what you
-  publish installs on machines whose owners trusted you. Content designed to
-  exfiltrate, damage or mislead on a member's machine is the one way this
-  product lets you hurt someone who trusted you, and it is treated
-  accordingly.
 - **Misrepresent the software.** Do not resell it as your own product or
   charge people for the software itself; charge for your services, plainly
   labelled as yours. The coming open-source licence will state the binding
@@ -70,8 +65,7 @@ agreement with them, as [the terms](/docs/terms) set out.
 If you find a vulnerability, we want to hear it, and you will not be in trouble
 for having looked. Email cradsdavis@gmail.com with what you found and how.
 
-What we ask: do not use other people's minerals or communities as your test
-target, do not exfiltrate anyone's data to prove a point, and give us a chance
+What we ask: do not use other people's minerals as your test target, do not exfiltrate anyone's data to prove a point, and give us a chance
 to fix it before you publish. What you get: a real answer from the person who
 wrote the code, and credit if you want it.
 
@@ -79,12 +73,6 @@ wrote the code, and credit if you want it.
 
 Honesty about enforcement, because the old kind is gone: your mineral is your
 machine, and we cannot reach it, suspend it or delete it. What we can do is
-stop dealing with you: end paid services, decline support, and, where your
-conduct involves a community, tell its host what we know. Unlawful use is
+stop dealing with you: end paid services and decline support. Unlawful use is
 between you and the law, and where the law obliges us to act on something we
 operate, we will.
-
-A community host can and should apply this same list to their commons:
-revoking a member's read access is theirs to do, and
-[what a member already installed stays the member's](/docs/join-a-community)
-either way.

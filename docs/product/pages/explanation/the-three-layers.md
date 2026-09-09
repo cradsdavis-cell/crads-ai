@@ -18,9 +18,8 @@ before you have to ask.
 The container image, the engine, the desktop app, the skill runner, the scheduler
 and its run history, the system pages, and a handful of protected jobs.
 
-You do not edit these, and you also do not have to maintain them. On a pebble
-they arrive by a nightly restart onto the latest published software; a rock
-updates only when its owner presses Update
+You do not edit these, and you also do not have to maintain them. They arrive
+by a nightly restart onto the latest published software
 ([how updates reach you](/docs/how-updates-reach-you)).
 
 The trade is honest: you give up the ability to change the engine, and in
@@ -88,8 +87,7 @@ app's privileges. The one thing it can reach is a read-only bridge to your
 brain pages: it can list them and read them, and that is the whole list. A
 page can never grant access, write anything, or restart anything. The worst a
 badly built page can do is look wrong, which is precisely the ceiling that
-makes carelessness safe. The same sandbox holds for pages a community offers
-you and you install.
+makes carelessness safe.
 
 ## The part people get wrong
 

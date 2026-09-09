@@ -280,8 +280,11 @@ test('coverage is reported, and does not silently go backwards', () => {
   // the nav with the hosted-era board, and the `library` page was written, so
   // every nav section a reader can reach now has its page. A change that
   // drops a surface page should have to say so out loud here.
-  assert.equal(total, 15, 'the nav grew or shrank; re-read the inventory before adjusting this');
-  assert.ok(covered >= 15, `surface coverage fell to ${covered}/${total}: ${rows.filter((r) => !r.page).map((r) => r.sec).join(', ')}`);
+  // Re-pinned 2026-09-09 (simple assistant): commons, publish, library and
+  // network left the nav with their surfaces; seven sections remain and each
+  // has its page.
+  assert.equal(total, 7, 'the nav grew or shrank; re-read the inventory before adjusting this');
+  assert.ok(covered >= 7, `surface coverage fell to ${covered}/${total}: ${rows.filter((r) => !r.page).map((r) => r.sec).join(', ')}`);
 });
 
 // --- how the pages know about each other -------------------------------------

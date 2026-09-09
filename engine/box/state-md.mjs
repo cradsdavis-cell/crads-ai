@@ -99,40 +99,6 @@ function connections(stateDir, now) {
   return rows;
 }
 
-// EVERY INBOX (2026-08-23). The anchor's catalogue at org-inbox/ plus one per
-// joined rock at org-inbox.d/<owner>/ (tie-claim.mjs + org-sync.sh). A joined
-// rock is named by the ORG= handle in its conf, else its GitHub owner; the
-// anchor by what its catalogue calls itself.
-function inboxes(stateDir) {
-  const out = [{ dir: path.join(stateDir, 'org-inbox'), name: '' }];
-  const d = path.join(stateDir, 'org-inbox.d');
-  let confs = [];
-  try { confs = readdirSync(d).filter((f) => f.endsWith('.conf')).sort(); } catch { confs = []; }
-  for (const f of confs) {
-    const owner = f.replace(/\.conf$/, '');
-    if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(owner)) continue;
-    const m = rd(path.join(d, f)).match(/^ORG=(.*)$/m);
-    out.push({ dir: path.join(d, owner), name: (m && m[1].trim()) || owner });
-  }
-  return out;
-}
-
-function offers(stateDir, installed) {
-  const have = new Set(installed.map((s) => s.id));
-  const byRock = new Map();
-  for (const ib of inboxes(stateDir)) {
-    const cat = rdj(path.join(ib.dir, 'catalog', 'catalog.json'));
-    const items = cat && Array.isArray(cat.items) ? cat.items : [];
-    for (const it of items) {
-      if (!it || !ID_RE.test(String(it.id || '')) || have.has(it.id)) continue;
-      const rock = String((cat && cat.rock) || ib.name || 'your rock');
-      if (!byRock.has(rock)) byRock.set(rock, []);
-      byRock.get(rock).push({ id: it.id, version: Number(it.version) || 0, kind: it.kind || 'skill' });
-    }
-  }
-  return byRock;
-}
-
 function custody(stateDir, n = 5) {
   const lines = rd(path.join(stateDir, 'custody-log.jsonl')).split('\n').filter(Boolean);
   return lines.slice(-n).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
@@ -167,7 +133,6 @@ function age(iso, now) {
   return `${Math.round(h / 24)} days ago`;
 }
 const originWord = (s) => {
-  if (s.source === 'org') return `from ${s.rock || 'your rock'}${s.version ? ` v${s.version}` : ''}`;
   if (s.source === 'engine') return 'built in';
   if (s.source === 'seed') return 'starter';
   return 'yours';
@@ -219,16 +184,6 @@ export function buildStateMd(stateDir, { now = new Date(), version = softwareVer
   if (!skills.length) push('- None yet.');
   for (const s of skills) push(`- /${s.id}${s.title ? ` (${s.title})` : ''}: ${originWord(s)}`);
   push('');
-
-  push('## Offers not yet installed', '');
-  const off = offers(stateDir, skills);
-  if (!off.size) push('- None waiting.');
-  for (const [rock, items] of off) {
-    push(`### From ${rock}`, '');
-    for (const it of items) push(`- /${it.id} v${it.version}${it.kind !== 'skill' ? ` (${it.kind})` : ''}`);
-    push('');
-  }
-  if (!off.size) push('');
 
   push('## Custody, last 5 events', '');
   const ev = custody(stateDir);

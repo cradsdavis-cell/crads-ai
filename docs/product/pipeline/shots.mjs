@@ -17,11 +17,13 @@
 // always answer "what was I looking at" and a maintainer can re-take one shot
 // without re-reading the rig.
 
-// The harness's six surfaces (wizard/dev-harness/README.md).
+// The harness's three surfaces (wizard/dev-harness/README.md); connect, wizard
+// and join left on 2026-09-01, the rock face with the simple-assistant strip
+// on 2026-09-09.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-export const SURFACES = ['panel', 'member', 'door', 'connect', 'wizard', 'join'];
+export const SURFACES = ['panel', 'member', 'door'];
 // The harness's three worlds. `rich` is the populated Driftwood world.
 export const WORLDS = ['rich', 'empty', 'error'];
 
@@ -73,11 +75,6 @@ const add = (id, surface, world, opts = {}) => {
 // --- the door and the birth path (public tier, tutorial) ---
 add('door-identity-chooser', 'door', 'rich', { note: 'the door with minerals on it: what a returning owner sees' });
 add('door-empty', 'door', 'empty', { note: 'a machine with no minerals yet: the first-run door' });
-add('connect-onboarding', 'connect', 'rich', { note: 'the member onboarding surface after sign-in' });
-// The join page long-polls and never reaches `load`, so it commits and waits.
-// shots.mjs found this in 2026-07 and the docs rig re-found it the hard way
-// (a 30s goto timeout) before reading that file.
-add('join-invite-landing', 'join', 'rich', { waitUntil: 'commit', waitMs: 3500, note: 'what an invited member opens from the link' });
 
 // --- the member surfaces (public tier, tutorial + reference) ---
 // Shot ids carry the name a PERSON sees, never the internal sec id: the page
@@ -107,38 +104,14 @@ add('member-connections', 'member', 'rich', { sec: 'connections', note: 'wired M
 // The stub landed with the granular-walkthrough round; if this shot ever shows
 // a could-not-reach banner again, pull it rather than publish an error state.
 add('member-seat', 'member', 'rich', { sec: 'seat', waitMs: 2200, note: 'Your pebble: ownership, the backup card, and anything waiting on the member' });
-add('member-promote-form', 'member', 'rich', { sec: 'seat', waitMs: 2200, full: true, clicks: ['#seatPromoteStart'],
-  note: 'the promote form open on the Your rock card: handle, name, and the typed consent sentence' });
 add('member-telegram-setup', 'member', 'rich', { sec: 'connections', waitMs: 2200, clicks: ['#tgToggle'],
   note: 'the Telegram card expanded: step 1 (BotFather + token) as a fresh mineral shows it' });
-add('member-sharing', 'member', 'rich', { sec: 'sharing', note: 'what the member has chosen to share, and with whom' });
 add('member-empty', 'member', 'empty', { full: true, note: 'a box before onboarding: the state a new seat actually opens on' });
 
 // --- the remaining member surfaces, one per nav section (coverage pass) ---
-add('member-network', 'member', 'rich', { sec: 'network', note: 'Map: the rocks above this mineral and the pebbles under it' });
-add('member-rocks', 'member', 'rich', { sec: 'rocks', note: 'Organisations, member face: the rocks this mineral is tied to and the ones with an open door' });
 add('member-secrets', 'member', 'rich', { sec: 'secrets', note: 'Secrets: every password, token and key the mineral holds, and what each is for' });
 add('member-terminal', 'member', 'rich', { sec: 'terminal', waitMs: 2200, note: 'Terminal: talking to the assistant directly' });
 
-// --- the rock surfaces (public tier: all rock machinery is public) ---
-add('rock-overview', 'panel', 'rich', {
-  full: true, waitMs: 4500,
-  note: 'the rock control panel home (sec `dashboard`, titled Overview); the longer wait lets both halves of the fleet snapshot land, so the Members tile shows its settled count rather than the honest Counting state',
-  marks: [
-    { sel: '#heroStrip', say: 'The rock, by its one name. A rock\'s assistant answers to the same name.' },
-    { sel: '[data-card="pebbles"]', say: 'Who is in your community, how many are waiting on you, and who has gone quiet.' },
-    { sel: '[data-card="waiting"]', say: 'Anything that needs your answer before it can move.' },
-    { sel: '[data-card="ladder"]', say: 'What your rock can do. Anything blocking pebble creation is hoisted to the front.' },
-    { sel: '[data-card="billing"]', say: 'Indicative only. Nothing is charged during the beta.' },
-  ],
-});
-add('rock-pebbles', 'panel', 'rich', { sec: 'pebbles', note: 'the roster: ties, status, and which build each mineral runs' });
-add('rock-new-pebble', 'panel', 'rich', { sec: 'pebbles', waitMs: 2200, clicks: ['#addMemberBtn'],
-  note: 'the New pebble fold open: whose pebble it will be, then who it is for' });
-add('rock-rocks', 'panel', 'rich', { sec: 'rocks', note: 'rocks this rock is tied to' });
-add('rock-yourrock', 'panel', 'rich', { sec: 'yourrock', note: 'your rock: custody, the open-rocks listing, and the Billing card' });
-add('rock-decisions', 'panel', 'rich', { sec: 'decisions', note: 'Decisions: only what waits on the host\'s answer' });
-add('rock-catalogue', 'panel', 'rich', { sec: 'publish', note: 'Catalogue: what this rock offers its members' });
 
 export const SHOTS = S;
 

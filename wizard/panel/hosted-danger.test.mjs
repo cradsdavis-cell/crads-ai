@@ -28,15 +28,13 @@ test('the org-face danger zone is RETIRED: its wrapper, cards and switches stay 
   assert.ok(!html.includes('Delete this rock'), 'no delete-this-rock surface remains');
 });
 
-test('the seat Danger mirror still follows R19c: nothing renders unless an action is live', () => {
-  const seat = html.slice(html.indexOf("if ($('seatDanger'))"), html.indexOf("var b = st.backup || {};"));
-  assert.ok(seat.length > 0 && seat.length < 4000, 'the seat danger block found');
-  // the one live destructive action is stop hosting, offered only when the
-  // box's own ownership record says it hosts (tier rock)
-  assert.match(seat, /var liveDanger = own\.tier === 'rock';/, 'live iff this mineral hosts');
-  assert.match(seat, /\$\('seatDanger'\)\.style\.display = liveDanger \? '' : 'none';/, 'the card follows it');
-  assert.match(seat, /closest\('details'\)/, 'the Advanced fold that holds only it is found');
-  assert.match(seat, /fold\.style\.display = liveDanger \? '' : 'none';/, 'and follows the same switch');
-  assert.match(seat, /<b>Stop hosting<\/b>/, 'the action that renders is stop hosting');
-  assert.doesNotMatch(seat, /innerHTML = '<b>Delete/, 'no prose about a delete that cannot be done here');
+test('the seat Danger zone is RETIRED (2026-09-09): stop hosting left with the tie machinery, and R19c holds by absence', () => {
+  // The one live destructive action was stop hosting (a mineral upgraded in
+  // place to host). Nothing hosts any more, so nothing renders: no card, no
+  // Advanced fold, no /demote route, no prose about a delete that cannot be
+  // done here. Deleting a mineral happens at your hosting provider.
+  assert.ok(!html.includes("id=\"seatDanger\""), 'no danger card in the seat');
+  assert.ok(!html.includes('<b>Stop hosting</b>'), 'no stop-hosting control');
+  assert.ok(!html.includes("fetch('/demote'"), 'nothing dials the retired route');
+  assert.doesNotMatch(html, /innerHTML = '<b>Delete/, 'no prose about a delete that cannot be done here');
 });

@@ -1,8 +1,8 @@
 ---
 name: write-page
 title: "Write a page"
-description: Author a page this organisation can offer its members, a screen that installs into their own app. Writes a self-contained, lint-clean package into pages-library/, ready to offer from the dashboard Catalogue. Run in the rock's Claude Code.
-category: org
+description: Author a page for your own app, a screen that installs into the sidebar of this mineral. Writes a self-contained, lint-clean page package and installs it here. Run it from the Terminal tab.
+category: box
 ---
 
 # Skill: /write-page

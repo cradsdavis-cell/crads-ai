@@ -316,7 +316,7 @@ fi
 # re-synced every boot, never authored in the brain repo. The PERSON-scope EA
 # skills (daily, inbox, followup) stay member-only: they assume a profile.yaml
 # and the member's own comms connectors, which the rock never has.
-ROCK_SKILLS="${ROCK_SKILLS:-onboard explain capture weekly plan-week write-prompt write-page write-folder}"
+ROCK_SKILLS="${ROCK_SKILLS:-onboard explain capture weekly plan-week write-page}"
 SKILLS_SRC="$AIOS_DIR/engine/skills"
 SYNCED=""
 for s in $ROCK_SKILLS; do

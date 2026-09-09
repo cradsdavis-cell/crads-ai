@@ -1,13 +1,13 @@
 ---
 title: Your pebble
-summary: The machine itself: its name, where its backup goes, and the upgrade that starts a community.
+summary: The machine itself: its name, where its backup goes, the computers that can open it, and your own pages.
 audience: public
 access: public
 mode: reference
 surface: seat
 order: 101
 pins: wizard/panel/member.html
-reviewed: 2026-09-01
+reviewed: 2026-09-09
 ---
 
 *The page about the machine itself rather than about what it knows.*
@@ -66,14 +66,23 @@ GitHub picks up where this stopped."
 The whole story, including the one step only you can do, is
 [back up your mineral](/docs/back-up-and-restore).
 
-## Becoming a rock
+## Every computer that can open this mineral
 
-The "Your rock" card states where this mineral stands. On a rock it says so,
-and points at the commons; on a pebble it says, honestly, that turning a
-pebble into a rock is **temporarily not offered in the app** while the
-commons-era version of the upgrade is built.
-[Start a community](/docs/become-a-rock) has what that means and what a
-would-be host can do meanwhile.
+Under the backup card sits the roster: every computer whose SSH key opens
+this mineral, with when it was last seen. It is the same file the mineral's
+door checks, so what is listed here is exactly what can connect, and nothing
+else can. **Revoke** on a row takes effect the next time that machine tries;
+if a laptop is lost or stolen, this is where you shut it out. Adding one is
+[its own two-minute walk](/docs/add-another-computer), done from a computer
+that is already on the list. [Devices and access](/docs/devices-and-access)
+has the whole model.
+
+## Your pages
+
+The last card lists the pages your assistant has built for you: each one is
+also an entry in the sidebar under "Your pages". Remove one here and it goes
+from the sidebar too, after the same are-you-sure the page's own header uses.
+Ask for a new one in the Terminal with `/write-page`.
 
 ## Why there is no danger zone
 

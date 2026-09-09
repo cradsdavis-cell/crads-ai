@@ -1,24 +1,19 @@
 {
   "pages": {
     "acceptable-use": {
-      "version": "0.3",
-      "effective": "2026-09-01",
-      "hash": "6b23037509d6d1c7"
-    },
-    "hosting-a-rock": {
       "version": "0.4",
-      "effective": "2026-09-01",
-      "hash": "b849b83469e4cc7e"
+      "effective": "2026-09-09",
+      "hash": "b391a5f3208fa368"
     },
     "privacy-policy": {
-      "version": "0.10",
-      "effective": "2026-09-01",
-      "hash": "15cd629b639199ab"
+      "version": "0.11",
+      "effective": "2026-09-09",
+      "hash": "04dcd93682c2c117"
     },
     "terms": {
-      "version": "0.5",
-      "effective": "2026-09-01",
-      "hash": "beef30b42ca75aa8"
+      "version": "0.6",
+      "effective": "2026-09-09",
+      "hash": "6a1ca0944eb18635"
     }
   }
 }

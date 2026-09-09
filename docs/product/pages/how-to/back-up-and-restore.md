@@ -12,11 +12,6 @@ reviewed: 2026-09-02
 Two different things get backed up, by two different mechanisms, and the second
 one has a step only you can do.
 
-**This page describes a pebble.** A rock does not run either of the nightly jobs
-below: no encrypted snapshot, no scheduled brain push. If you host a rock, read
-the last section, because the difference matters and it is not a setting you have
-switched off.
-
 ## Your brain backs itself up
 
 Your brain is a folder of ordinary files, kept under git (the same
@@ -153,21 +148,3 @@ run. Backups are nightly, not continuous.
 If you are about to do something drastic to your brain, the safe move is to let a
 night pass first, or push your brain manually before you start.
 
-## If you host a rock
-
-A rock runs a much smaller set of jobs than a pebble, and two of the ones it does
-not run are the two on this page. **Neither the nightly encrypted snapshot nor
-the nightly brain push happens on a rock.**
-
-The push that runs when you turn a mineral into a rock is a one-time step inside
-that upgrade. It is not the beginning of a nightly habit, and it is easy to read
-it as one. The Custody card shows when the last push happened, and on a
-connected rock that date is read from your repository itself, the far end, so
-it is live rather than a local note (the local push log is only the fallback
-when the repository cannot be asked). A "last push" date that keeps getting
-older is therefore exactly what it looks like: nothing has been sent since.
-
-So if you host a rock, treat its backup as **something you do**, not something
-that happens: [running your rock](/docs/run-your-rock) makes it one of four
-habits. Push it deliberately before anything significant: before you change
-what the rock publishes, before an update, before you onboard a cohort.

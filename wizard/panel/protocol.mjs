@@ -6,8 +6,9 @@
 //     no-op there. Linux dev boxes: no-op.
 //   extractBox(argv): when the OS launches (or re-launches) the app from a link,
 //     the URL arrives as an argv entry.
-// extractInvite (crads-ai://join/) retired 2026-09-01 with the self-host sweep:
-// invitations-to-a-box cannot exist; an old join link just opens the app's door.
+// extractInvite (crads-ai://join/) retired 2026-09-01 with the self-host sweep,
+// extractJoinToken (crads-ai://join-community/) 2026-09-09 with the community
+// surfaces: an old link of either kind just opens the app's door.
 import { execFile } from 'node:child_process';
 
 const SCHEME = 'crads-ai';
@@ -19,26 +20,6 @@ export function extractBox(argv) {
   for (const a of argv || []) {
     const m = String(a || '').match(/^crads-ai:\/\/box\/([a-z0-9][a-z0-9-]{0,38}[a-z0-9])\/?$/i);
     if (m) return m[1].toLowerCase();
-  }
-  return '';
-}
-
-// crads-ai://join-community/<token> — a community's join link (commons
-// usability overhaul, 2026-09-02). The token is the join bundle's base64 body
-// re-encoded base64url, so the whole link survives chat apps and browsers.
-// This returns the TOKEN, which app.mjs forwards to the Communities page as
-// #sec=commons&join=<token>: pure data on a whitelisted charset. The page
-// decodes it back into the bundle and PRE-FILLS the join field; nothing joins,
-// runs, or is written from the link itself (the run=signin discipline). A
-// percent-encoded arrival is tolerated; anything outside the charset is
-// dropped rather than guessed at.
-export function extractJoinToken(argv) {
-  for (const a of argv || []) {
-    let s = String(a || '');
-    if (!/^crads-ai:\/\/join-community\//i.test(s)) continue;
-    try { s = decodeURIComponent(s); } catch { /* keep the raw form */ }
-    const m = s.match(/^crads-ai:\/\/join-community\/([A-Za-z0-9_-]{1,4096})\/?$/i);
-    if (m) return m[1];
   }
   return '';
 }

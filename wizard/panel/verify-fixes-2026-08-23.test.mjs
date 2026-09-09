@@ -205,19 +205,15 @@ test('5: the fleet is RETIRED (2026-09-01), so no node can ever say paused again
 });
 
 // ---- 6: the skills group is the commons vocabulary ----------------------------
-test('6: the second skills group speaks community, with two honest empty shapes', () => {
-  // "From your rocks" became "From your communities" (face collapse); the
-  // data-group attribute keeps its old value so saved layouts and the
-  // delegated routes survive the rename.
+test('6: the second skills group is RETIRED (2026-09-09): one group, no community copy', () => {
+  // "From your rocks" became "From your communities" (face collapse), then
+  // left with the community surfaces: nothing can offer a skill any more.
   const render = html.slice(html.indexOf('function renderSkills()'), html.indexOf('function skillRow('));
-  assert.match(render, /skGroupHead\(box, 'From your communities'\)/, 'the heading names communities');
-  assert.match(render, /g2\.setAttribute\('data-group', 'rocks'\);/, 'the wire id survives the rename');
+  assert.ok(!render.includes("skGroupHead(box, 'From your communities')"), 'no community group');
+  assert.ok(!render.includes("setAttribute('data-group', 'rocks')"), 'and no rocks wire id');
   assert.ok(!render.includes('IS_ORG'), 'no face guard: one page for every mineral');
-  assert.match(render, /<b>No community yet\.<\/b> Join one on the Communities page and its offers appear here\./,
-    'the not-joined empty state points at the Communities page');
-  assert.match(render, /<b>Your communities haven’t published anything yet\.<\/b>/,
-    'and the joined-but-empty state blames nobody');
-  assert.ok(!render.includes('Organisations page'), 'the dead page name is out of the copy');
+  assert.ok(!/Communities page|Organisations page/.test(render), 'the dead page names are out of the copy');
+  assert.match(render, /skGroupHead\(box, 'On this mineral'\)/, 'the one group survives');
 });
 
 // ---- 7: vocabulary, case, colour ---------------------------------------------

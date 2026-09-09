@@ -62,8 +62,9 @@ fi
 node "$ENGINE/lib/open-folder.mjs" "$BOX" >/dev/null 2>&1 || true
 
 # ---- mineral machinery comes from the IMAGE, not from cloud-init ----------------
-# These six scripts (org-sync, evict-apply, re-anchor-apply, transfer-accept,
-# heartbeat-push, org-brain-wire) used to be baked into each member's user-data
+# These scripts (org-sync, heartbeat-push, org-brain-wire; evict-apply,
+# re-anchor-apply and transfer-accept left with the tie machinery on
+# 2026-09-09) used to be baked into each member's user-data
 # at stamp time, and that cost twice:
 #
 #   1. THEY FROZE. Nothing rewrites a file written once into user-data, so every

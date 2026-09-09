@@ -19,7 +19,7 @@
 // legitimately take.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { VERBS, MEMBER_VERBS } from './panel-server.mjs';
+import { MEMBER_VERBS } from './panel-server.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -36,7 +36,7 @@ test('the blanket watchdog still exists and still defaults short', () => {
 test('every verb that provisions declares a longer budget', () => {
   // These create real infrastructure. A kill part-way leaves it orphaned.
   for (const name of ['invite-member', 'stamp-member', 'new-rock']) {
-    const spec = VERBS[name];
+    const spec = MEMBER_VERBS[name];
     if (!spec) continue;
     assert.ok(Number(spec.timeoutMs) > 60000,
       `${name} creates infrastructure and must be allowed more than a minute, saw ${spec.timeoutMs}`);
@@ -45,7 +45,7 @@ test('every verb that provisions declares a longer budget', () => {
 
 test('an ordinary read verb does NOT get a long budget', () => {
   for (const name of ['member-list', 'stall-board', 'pending-devices']) {
-    const spec = VERBS[name];
+    const spec = MEMBER_VERBS[name];
     if (!spec) continue;
     assert.ok(!spec.timeoutMs || Number(spec.timeoutMs) <= 60000,
       `${name} only reads; it must not be allowed to hang for minutes`);

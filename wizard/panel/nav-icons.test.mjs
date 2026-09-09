@@ -32,13 +32,14 @@ while ((m = re.exec(html))) {
 }
 
 test('the sidebar was actually parsed', () => {
-  // The one-face sidebar: Overview, Your mineral, three group headers, Map,
-  // Communities, Brain, Skills, Library, Connections, Catalogue, Secrets,
-  // Terminal. Fourteen entries; fewer means the parser broke, more means a
-  // new entry arrived and this comment should grow with it.
-  assert.ok(items.length >= 14, `expected a full sidebar, found ${items.length} entries`);
+  // The one-face sidebar: Overview, Your mineral, two group headers, Brain,
+  // Skills, Connections, Secrets, Terminal. Nine entries (Communities,
+  // Catalogue, Library and the Map/Network group left 2026-09-09); fewer means
+  // the parser broke, more means a new entry arrived and this comment should
+  // grow with it.
+  assert.ok(items.length >= 9, `expected a full sidebar, found ${items.length} entries`);
   assert.ok(items.some((i) => i.id === 'brain'), 'Brain entry present');
-  assert.ok(items.some((i) => i.id === 'group:network'), 'Network group header present');
+  assert.ok(items.some((i) => i.id === 'group:assistant'), 'Your assistant group header present');
 });
 
 test('no two nav entries share an identical glyph', () => {

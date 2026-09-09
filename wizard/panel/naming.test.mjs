@@ -98,11 +98,10 @@ test('the rock-tie name plumbing is RETIRED (2026-09-01): community names ride t
   // name communities from the mineral's own community-list instead.
   assert.ok(!html.includes('rockMineSt'), 'no kept tie payload');
   assert.ok(!html.includes('function rockName('), 'no rock-name resolver');
+  // Communities retired 2026-09-09 (simple assistant): nothing names one.
   const sync = html.slice(html.indexOf('function strengthSync'), html.indexOf('// ---- the card library'));
-  assert.match(sync, /state\.communities = cs\.communities \|\| \[\];/,
-    'the community list is what connect keeps now');
-  assert.match(html, /label: c\.org_display \|\| c\.org/,
-    'and the map names a community by its display name, handle as fallback');
+  assert.ok(!sync.includes('community-list'), 'strengthSync reads no community list');
+  assert.ok(!html.includes('c.org_display'), 'and the map names no community');
 });
 
 test("the Pebbles roster naming is RETIRED (2026-09-01): no mineral names another", () => {

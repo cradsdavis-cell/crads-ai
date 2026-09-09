@@ -1,7 +1,7 @@
 ---
 name: onboard
 title: "Onboarding interview"   # human name shown on the Skills page (2026-08-09 audit R6); the slash id stays as a chip
-description: The deep interview that builds a brain from nothing on the 8-layer context spine (North Star, Philosophy, Self, Network, Past, Goals, Tasks, Workflow). Two scopes, auto-detected: PERSON (a member's own brain) or ORG (a rock/org brain). Adaptive, one question at a time, resumable, two-pass (capture → synthesise → review).
+description: The deep interview that builds a brain from nothing on the 8-layer context spine (North Star, Philosophy, Self, Network, Past, Goals, Tasks, Workflow). Adaptive, one question at a time, resumable, two-pass (capture, synthesise, review).
 category: box             # Skills-page grouping (briefing|capture|comms|box|org|other), wire vocabulary, not copy
 ---
 

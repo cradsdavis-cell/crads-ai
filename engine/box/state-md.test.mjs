@@ -141,34 +141,7 @@ test('the injected clock is the only clock: the same now builds the same bytes a
     'the fixture no longer exercises the freshness judgement, so this pins nothing');
 });
 
-test('skills show their origin, and offers are the catalogue minus what is installed, per rock', () => {
-  const md = buildStateMd(pebble(), { now: NOW, version: '' });
-  const inst = section(md, 'Skills installed');
-  assert.match(inst, /\/pulse-plus.*from acme-rock v2/);
-  assert.match(inst, /\/my-notes.*yours/);
-  const off = section(md, 'Offers not yet installed');
-  assert.match(off, /### From acme-rock/);
-  assert.match(off, /\/weekly-review v1/);
-  assert.match(off, /\/starter-pack v1 \(pack\)/);
-  assert.doesNotMatch(off, /pulse-plus/, 'an installed offer is no longer an offer');
-});
 
-test('offers are read from EVERY inbox: a joined rock’s catalogue lists under its own handle (2026-08-23)', () => {
-  const state = pebble();
-  w(path.join(state, 'org-inbox.d', 'tides-gh.conf'), 'ORG_GH_OWNER=tides-gh\nSLUG=harriet\nORG=tides\n');
-  w(path.join(state, 'org-inbox.d', 'tides-gh', 'catalog', 'catalog.json'), JSON.stringify({ items: [
-    { id: 'tide-tables', kind: 'skill', version: 1 }, { id: 'pulse-plus', kind: 'skill', version: 9 },
-  ] }));
-  w(path.join(state, 'org-inbox.d', 'named-gh.conf'), 'ORG_GH_OWNER=named-gh\nSLUG=harriet\n');   // no ORG= line: the owner names it
-  w(path.join(state, 'org-inbox.d', 'named-gh', 'catalog', 'catalog.json'), JSON.stringify({ rock: 'The Named', items: [{ id: 'named-one', kind: 'skill', version: 2 }] }));
-  w(path.join(state, 'org-inbox.d', 'bad_owner.conf'), 'ORG_GH_OWNER=x\n');
-  const off = section(buildStateMd(state, { now: NOW, version: '' }), 'Offers not yet installed');
-  assert.match(off, /### From acme-rock\n\n- \/weekly-review v1\n- \/starter-pack v1 \(pack\)/, 'the anchor first, as before');
-  assert.match(off, /### From tides\n\n- \/tide-tables v1/);
-  assert.match(off, /### From The Named\n\n- \/named-one v2/, 'a catalogue that names itself wins over the owner');
-  assert.doesNotMatch(off, /pulse-plus/, 'installed is installed, whichever rock offers it');
-  assert.doesNotMatch(off, /bad_owner|From x/);
-});
 
 test('custody shows the last five events only, newest last', () => {
   const cust = section(buildStateMd(pebble(), { now: NOW, version: '' }), 'Custody, last 5 events');

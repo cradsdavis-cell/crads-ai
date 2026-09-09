@@ -4,8 +4,8 @@ summary: What you get, what it costs, what we each promise, and how either of us
 audience: public
 access: public
 mode: legal
-version: 0.5
-effective: 2026-09-01
+version: 0.6
+effective: 2026-09-09
 order: 20
 ---
 
@@ -28,8 +28,7 @@ version and date change whenever the text does.
 Software, free of charge: the mineral image, the engine, the desktop app and
 the documentation. You run it on a **mineral**: a server you create in your
 own hosting account, holding an assistant and a brain that belong to you.
-Either a **pebble** (one person's private workspace) or a **rock** (a
-community's own mineral).
+One person's private workspace; we also call it a **pebble**.
 
 We maintain and publish the machinery: the container image, the engine, the
 app, the scheduler and the system pages. You own the machine and the content:
@@ -46,9 +45,9 @@ What you do pay, to other people, on your own accounts: your hosting provider
 for the server (billed by Hetzner to you), and Anthropic for your Claude
 subscription. The setup wizard states both before anything is created.
 
-Paid **services** exist separately: guided setup, hourly support, and
-community onboarding. Each is agreed with you at a stated price before any
-work happens. Buying none of them takes nothing away from the software.
+Paid **services** exist separately: guided setup, working sessions and
+hourly support. Each is agreed with you at a stated price before any work
+happens. Buying none of them takes nothing away from the software.
 
 We are not registered for GST, so no GST is charged.
 
@@ -100,19 +99,18 @@ Being specific is more use to you than a disclaimer.
 - **No guarantee a connected service keeps working.** Google, Microsoft and
   the rest change their APIs and their rules whenever they like. When one
   breaks we fix it if we can and tell you if we cannot.
-- **No guarantee of data recovery beyond your own backup.** A pebble takes a
-  nightly encrypted backup to a repository you own; a rock is backed up when
-  its owner chooses to. If no repository is connected and the machine dies,
-  the content that only existed there is gone. Connect the repository.
+- **No guarantee of data recovery beyond your own backup.** Your mineral
+  takes a nightly encrypted backup to a repository you own. If no repository
+  is connected and the machine dies, the content that only existed there is
+  gone. Connect the repository.
 - **We are one person.** Not a company with a support rota. Response times
   depend on one human being awake and not on a mountain.
 
 ## 6. What the software may do to your mineral
 
-- **Update it.** A pebble restarts nightly onto the latest published
-  software; a rock updates when its owner presses Update. Either way the
-  change is machinery, not your files, and you can switch the nightly update
-  off. Old software keeps old bugs.
+- **Update it.** Your mineral restarts nightly onto the latest published
+  software. The change is machinery, not your files, and you can switch the
+  nightly update off. Old software keeps old bugs.
 - **Let a helper in, only when you grant it.** Support access needs a grant
   from you, expires on a clock the mineral's own door enforces, and the grant
   is recorded on your own mineral (what is and is not logged is set out in

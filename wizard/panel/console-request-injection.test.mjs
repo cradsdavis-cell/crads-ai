@@ -13,10 +13,10 @@
 // their own files (box-rename in panel.test.mjs, commons-verbs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { VERBS, MEMBER_VERBS } from './panel-server.mjs';
+import { MEMBER_VERBS } from './panel-server.mjs';
 
 test('console-request is RETIRED: the verb stays out of both tables', () => {
-  assert.equal(VERBS['console-request'], undefined, 'console-request must stay deleted');
-  assert.equal(VERBS['console-withdraw'], undefined, 'and console-withdraw with it');
+  assert.equal(MEMBER_VERBS['console-request'], undefined, 'console-request must stay deleted');
+  assert.equal(MEMBER_VERBS['console-withdraw'], undefined, 'and console-withdraw with it');
   assert.equal(MEMBER_VERBS['console-request'], undefined, 'the member table never had it and never gains it');
 });

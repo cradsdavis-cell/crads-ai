@@ -39,21 +39,18 @@ function items(groupId) {
 // merge (R6) had retired. Since the face collapse (2026-09-01) nothing in the
 // group carries a face class: Catalogue is every mineral's publishing surface,
 // because acting as a community hub is a role, not an edition.
-test('Your assistant folds Brain, Skills, Library, Connections and Catalogue', () => {
+test('Your assistant folds Brain, Skills and Connections (Library and Catalogue retired 2026-09-09)', () => {
   const g = items('assistant');
   // ONE Brain button since S5 retired orgbrain: the shared graph viewer is the
   // only brain surface there is.
   assert.match(g, /<button data-sec="brain">/, 'the shared brain viewer');
   assert.ok(!g.includes('data-sec="orgbrain"'), 'and no retired orgbrain twin');
   assert.match(g, /<button data-sec="skills">/, 'Skills');
-  assert.match(g, /<button data-sec="library">/, 'Library, after Skills');
-  assert.ok(g.indexOf('data-sec="skills"') < g.indexOf('data-sec="library"'), 'Library sits after Skills');
+  assert.ok(!g.includes('data-sec="library"'), 'no Library tab: your pages are listed on Your mineral');
   assert.match(g, /<button data-sec="connections">/, 'Connections');
-  assert.match(g, /<button data-sec="publish">/, 'Catalogue, no face class');
+  assert.ok(!g.includes('data-sec="publish"'), 'no Catalogue tab: the owner half of the commons is gone');
   assert.ok(!g.includes('class="orgonly"'), 'no org-only chrome survives in the group');
-  assert.equal((g.match(/data-sec="/g) || []).length, 5, 'nothing else in the group');
-  assert.match(g, />Catalogue</, 'the publish tab is labelled Catalogue now');
-  assert.ok(!/>Publishing</.test(g), 'and no longer Publishing');
+  assert.equal((g.match(/data-sec="/g) || []).length, 3, 'nothing else in the group');
 });
 
 test('the old group id is gone, so no stale selector can still resolve', () => {
@@ -62,14 +59,15 @@ test('the old group id is gone, so no stale selector can still resolve', () => {
   assert.ok(!html.includes('>Automations<'), 'no Automations label');
 });
 
-test('old Cadence deep links land on Skills (merged 2026-08-09, R6); Library deep links no longer do (reclaimed 2026-08-26, step 7a)', () => {
+test('old Cadence deep links land on Skills (merged 2026-08-09, R6); Library deep links land on Your mineral (retired 2026-09-09)', () => {
   assert.match(html, /if \(name === 'cadence'\) name = 'skills';/, 'activateSec maps cadence');
   assert.match(html, /if \(h === 'cadence'\) h = 'skills';/, 'hashchange maps cadence');
-  assert.doesNotMatch(html, /'cadence' \|\| name === 'library'/, 'activateSec no longer maps library to skills');
-  assert.doesNotMatch(html, /'cadence' \|\| h === 'library'/, 'hashchange no longer maps library to skills');
+  assert.match(html, /if \(name === 'library'\) name = 'seat';/, 'activateSec maps library to the seat, where the pages list lives');
+  assert.match(html, /if \(h === 'library'\) h = 'seat';/, 'hashchange maps library to the seat');
   assert.ok(!html.includes('data-sec="cadence">'), 'no Cadence tab or section remains');
-  assert.ok(html.includes('<section data-sec="library">'), 'Library is a real section again');
-  assert.ok(html.includes('<button data-sec="library">'), 'and a real nav button');
+  assert.ok(!html.includes('<section data-sec="library">'), 'no Library section remains');
+  assert.ok(!html.includes('<button data-sec="library">'), 'and no Library nav button');
+  assert.ok(html.includes('id="pagesListSection"'), 'the pages management list survives, on Your mineral');
 });
 
 test('Telegram is a Connections row, not a page (merged 2026-08-09, R4)', () => {
@@ -111,34 +109,34 @@ test('Privacy & access folds exactly Secrets (Sharing retired 2026-09-01)', () =
 // org-only Pebbles with the org face; Communities (the commons-repo model) is
 // the box-to-box surface that remains, and it carries no face class because
 // there is only one face.
-test('Network folds exactly Map and Communities', () => {
-  const g = items('network');
-  assert.match(g, /<button data-sec="network">/, 'Map inside the group');
-  assert.match(g, /<button data-sec="commons">/, 'Communities inside the group, no face class');
-  assert.ok(!g.includes('data-sec="rocks"'), 'no Rocks tab: the Organisations page retired');
-  assert.ok(!g.includes('data-sec="pebbles"'), 'no Pebbles tab: there are no hosted pebbles');
-  assert.ok(!g.includes('data-sec="rockbrain"'), 'and no Rock brain tab');
-  assert.equal((g.match(/data-sec="/g) || []).length, 2, 'nothing else in the group');
-  assert.match(g, />Map</, 'the network tab is labelled Map now');
+test('the Network group is RETIRED (2026-09-09): no Map, no group header, the roster lives on Your mineral', () => {
+  assert.ok(!html.includes('data-group="network"'), 'no Network group wrapper');
+  assert.ok(!html.includes('id="grp-network"'), 'no Network group container');
+  assert.ok(!html.includes('<button data-sec="network">'), 'no Map tab');
+  assert.ok(!html.includes('<section data-sec="network">'), 'no Map section');
+  assert.ok(html.includes('id="devicesRows"'), 'the device roster survives');
+  const seat = html.slice(html.indexOf('<section data-sec="seat">'), html.indexOf('</section>', html.indexOf('<section data-sec="seat">')));
+  assert.ok(seat.includes('id="devicesRows"'), 'and it lives on Your mineral');
 });
 
-test('old deep links land on the regrouped tabs: #map, #communities, #devices, #rocks, #rockbrain', () => {
-  assert.match(html, /if \(h === 'map'\) h = 'network';/, 'secFromHash maps #map');
-  assert.match(html, /if \(h === 'communities'\) h = 'commons';/, 'secFromHash maps #communities to the Communities page');
-  assert.match(html, /if \(h === 'devices'\) h = 'network';/, 'secFromHash maps #devices');
-  assert.match(html, /if \(name === 'map'\) name = 'network';/, 'activateSec maps map too');
-  // the org pages died 2026-09-01; their hashes land on Communities rather
-  // than nowhere, by both routes, or a hashchange arrival strands
-  assert.match(html, /if \(h === 'rocks' \|\| h\.indexOf\('rocks\/'\) === 0 \|\| h === 'rockbrain'\) h = 'commons';/,
-    'secFromHash maps the retired org hashes');
-  assert.match(html, /if \(name === 'rocks' \|\| name\.indexOf\('rocks\/'\) === 0 \|\| name === 'rockbrain'\) name = 'commons';/,
+test('old deep links land somewhere living: #map, #devices, #network, #communities, #rocks, #rockbrain', () => {
+  // the Map retired 2026-09-09; its hashes and the old Devices tab land on
+  // Your mineral, where the roster now lives
+  assert.match(html, /if \(h === 'devices' \|\| h === 'map' \|\| h === 'network'\) h = 'seat';/, 'secFromHash maps #map, #devices and #network to the seat');
+  assert.match(html, /if \(name === 'devices' \|\| name === 'map' \|\| name === 'network'\) name = 'seat';/, 'activateSec maps them too');
+  // the org pages died 2026-09-01 and Communities 2026-09-09; their hashes
+  // land on Your mineral rather than nowhere, by both routes, or a hashchange
+  // arrival strands
+  assert.match(html, /if \(h === 'rocks' \|\| h\.indexOf\('rocks\/'\) === 0 \|\| h === 'rockbrain' \|\| h === 'commons' \|\| h === 'communities'\) h = 'seat';/,
+    'secFromHash maps the retired org and community hashes');
+  assert.match(html, /if \(name === 'rocks' \|\| name\.indexOf\('rocks\/'\) === 0 \|\| name === 'rockbrain' \|\| name === 'commons' \|\| name === 'communities'\) name = 'seat';/,
     'activateSec maps them too, per-rock deep links included');
   assert.ok(!html.includes('<section data-sec="rockbrain"'), 'and the section itself is gone');
   assert.ok(!html.includes('<section data-sec="rocks"'), 'so is the Rocks section');
 });
 
 test('each grouped tab exists once — inside its group, never also at top level', () => {
-  for (const sec of ['skills', 'library', 'connections', 'brain', 'publish', 'secrets', 'network', 'commons']) {
+  for (const sec of ['skills', 'connections', 'brain', 'secrets']) {
     const hits = html.match(new RegExp('<button[^>]* data-sec="' + sec + '">', 'g')) || [];
     assert.equal(hits.length, 1, `${sec} appears exactly once in the nav`);
   }
@@ -155,7 +153,7 @@ test('the ungrouped tabs stay flat', () => {
 });
 
 test('group headers are disclosure buttons: toggle hook + aria wiring + chevron', () => {
-  for (const gid of ['assistant', 'privacy', 'network']) {
+  for (const gid of ['assistant', 'privacy']) {
     assert.match(html, new RegExp(
       '<button class="ghead" data-group-toggle="' + gid + '" aria-expanded="false" aria-controls="grp-' + gid + '">'),
       `${gid} header carries the toggle + aria contract`);

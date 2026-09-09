@@ -36,12 +36,13 @@ test('promote is RETIRED (2026-09-01): there is no rock edition to promote into'
   assert.ok(!html.includes('id="seatPromoteHandle"'), 'no handle input');
 });
 
-test('Origin and Danger fold shut instead of holding permanent scroll', () => {
+test('Origin folds shut instead of holding permanent scroll; the Danger fold is gone (2026-09-09)', () => {
   assert.match(seat, /<details>\s*<summary[^>]*>Origin<\/summary>/, 'Origin is a fold');
-  assert.match(seat, /<summary[^>]*>Advanced<\/summary>[\s\S]*id="seatDanger"/, 'Danger sits behind Advanced');
+  assert.ok(!seat.includes('id="seatDanger"'), 'no Danger card: stop hosting left with the tie machinery');
+  assert.ok(seat.includes('id="devicesRows"') && seat.includes('id="pagesListSection"'), 'the roster and the pages list live here now');
 });
 
-test('the seat points at the Communities tab for joining, wired not decorative', () => {
-  assert.ok(seat.includes('id="seatGoComms"'), 'the pointer exists');
-  assert.match(html, /\$\('seatGoComms'\)\.onclick[\s\S]{0,200}activateSec\('commons'\)/, 'and actually switches sections');
+test('the seat no longer points at a Communities tab (retired 2026-09-09)', () => {
+  assert.ok(!seat.includes('id="seatGoComms"'), 'the pointer is gone');
+  assert.ok(!seat.includes('Part of a community?'), 'and so is its card');
 });

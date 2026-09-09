@@ -19,9 +19,10 @@
 // instead of on a member's box.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { VERBS } from './panel-server.mjs';
+import { MEMBER_VERBS } from './panel-server.mjs';
 
-const build = (verb, args) => VERBS[verb].build(args);
+// the one served table (the org VERBS table was deleted 2026-09-09)
+const build = (verb, args) => MEMBER_VERBS[verb].build(args);
 // A 400 from the arg validators is how a refusal looks on this surface.
 const refuses = (verb, args) => {
   try {
@@ -155,6 +156,6 @@ test('the list verb is built from the allow-list, not a second hand-written one'
 
 test('the read verbs stay read-only', () => {
   for (const verb of ['brain-list', 'brain-read', 'brain-image']) {
-    assert.notEqual(VERBS[verb].mutating, true, `${verb} must not be a mutating verb`);
+    assert.notEqual(MEMBER_VERBS[verb].mutating, true, `${verb} must not be a mutating verb`);
   }
 });

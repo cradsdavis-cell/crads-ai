@@ -14,22 +14,21 @@ const main = html.slice(html.indexOf('<main>'), html.indexOf('</main>'));
 // The face collapse (2026-09-01) took Decisions and Your rock out of R17's
 // ordering: one face, so the nav reads Overview · Your mineral · Network ·
 // Your assistant · Privacy & access · Terminal for everyone.
-test('R17: the nav reads Overview · Your mineral · Network · Your assistant · Privacy & access · Terminal', () => {
+test('R17: the nav reads Overview · Your mineral · Your assistant · Privacy & access · Terminal', () => {
   // groups by their wrapper, tabs by their button; the Map tab inside the
   // Network group is data-sec="network" and is not what this pin orders.
   const top = nav.replace(/<div class="gitems"[\s\S]*?<\/div>/g, '');
   const order = [...top.matchAll(/<button[^>]*data-sec="([a-z]+)"|<div class="navgroup" data-group="([a-z]+)"/g)].map((m) => m[1] || m[2]);
-  const want = ['dashboard', 'seat', 'network', 'assistant', 'privacy', 'terminal'];
+  // the Network group left 2026-09-09 with the Map (its roster is on the seat)
+  const want = ['dashboard', 'seat', 'assistant', 'privacy', 'terminal'];
   const seen = order.filter((x) => want.includes(x) || ['decisions', 'yourrock', 'pebbles', 'rocks'].includes(x));
   assert.deepEqual(seen, want, `nav order is ${seen.join(' · ')}`);
-  const net = nav.slice(nav.indexOf('id="grp-network"'), nav.indexOf('</div>', nav.indexOf('id="grp-network"')));
-  // Communities joined the group 2026-09-01 (commons-repo model); Rocks and
-  // Pebbles left with the org face the same day.
-  assert.deepEqual([...net.matchAll(/data-sec="([a-z]+)"/g)].map((m) => m[1]), ['network', 'commons'], 'Network = Map, Communities');
+  assert.ok(!nav.includes('id="grp-network"'), 'no Network group at all');
   const ast = nav.slice(nav.indexOf('id="grp-assistant"'), nav.indexOf('</div>', nav.indexOf('id="grp-assistant"')));
   // Library rejoined the group 2026-08-26 (step 7a), after Skills: Pages,
   // Prompts and Files moved off Skills onto their own page.
-  assert.deepEqual([...ast.matchAll(/data-sec="([a-z]+)"/g)].map((m) => m[1]), ['brain', 'skills', 'library', 'connections', 'publish'], 'Your assistant = Brain, Skills, Library, Connections, Catalogue');
+  // The Catalogue and the Library left the group 2026-09-09 (simple assistant).
+  assert.deepEqual([...ast.matchAll(/data-sec="([a-z]+)"/g)].map((m) => m[1]), ['brain', 'skills', 'connections'], 'Your assistant = Brain, Skills, Connections');
 });
 
 test('R17: the Claude Code tab and section are gone; old deep links land on Help', () => {
@@ -116,13 +115,6 @@ test('R19b is RETIRED (2026-09-01): the Decisions page left with the org face', 
     'an old #decisions deep link lands on the seat rather than nowhere');
 });
 
-// ---- R22: the Map heading -----------------------------------------------------
-test('R22: the data-sec="network" section is headed Map; Network is only the nav group', () => {
-  const sec = html.slice(html.indexOf('<section data-sec="network">'), html.indexOf('</div>', html.indexOf('<section data-sec="network">')));
-  assert.match(sec, /<h2>Map(<button class="info"[^>]*>\?<\/button>)?<\/h2>/, 'the heading says Map');
-  assert.match(nav, /data-group-toggle="network"[^>]*>[\s\S]*?Network<svg/, 'the group header says Network');
-  assert.match(nav, /data-sec="network">[\s\S]*?Map<\/button>/, 'the tab says Map');
-});
 
 // 2026-08-23: a three-way merge of the style block left conflict markers in
 // the page and every test stayed green, because CSS swallows garbage lines.

@@ -23,7 +23,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { VERBS, MEMBER_VERBS } from './panel-server.mjs';
+import { MEMBER_VERBS } from './panel-server.mjs';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
 
 // A payload that writes a marker file if the shell ever evaluates it.
@@ -54,17 +54,6 @@ test('box-rename: a name containing $(...) is stored, never executed', () => {
 // legacy-reason CLEAR on release, proven below: same argv-not-sed shape, same
 // reason it exists (an apostrophe used to close the sed quote and execute).
 
-test('member-set-status: resume clears the reason without tripping the empty-string guard', () => {
-  // shq() refuses an empty string, so the resume path needs its own literal.
-  const dir = tmpDir('inj-resume-');
-  const row = join(dir, 'row.yaml');
-  writeFileSync(row, 'slug: "jane01"\npaused_reason: "was paused"\n');
-  const full = VERBS['member-set-status'].build({ slug: 'jane01', status: 'active', reason: '' }).command;
-  const start = full.indexOf('; R=') + 2;   // NB: not indexOf('R='), which matches BR="$(...)"
-  const end = full.indexOf('"$R"; ', start) + '"$R"; '.length;
-  execFileSync('bash', ['-c', full.slice(start, end).replaceAll('"$f"', JSON.stringify(row))], { encoding: 'utf8' });
-  assert.match(readFileSync(row, 'utf8'), /^paused_reason: ""$/m, 'resume clears it');
-});
 
 test('console-answer is RETIRED (2026-09-01): the verb, and its injection surface, stay gone', () => {
   // Its two tests ran the node-built request-body fragment and proved a note
@@ -77,7 +66,7 @@ test('console-answer is RETIRED (2026-09-01): the verb, and its injection surfac
   // quietly, because each was a fresh chance to nest a shq word in "...".
   for (const verb of ['console-answer', 'invite-member', 'rock-state', 'rock-answer',
     'rock-tie-end', 'console-request', 'console-withdraw', 'org-topology-state']) {
-    assert.ok(!(verb in VERBS) && !(verb in MEMBER_VERBS), `${verb} stays out of both verb tables`);
+    assert.ok(!(verb in MEMBER_VERBS), `${verb} stays out of the one verb table`);
   }
 });
 
@@ -122,7 +111,7 @@ test('no verb pastes a shq-quoted value inside a double-quoted string', () => {
     pubkey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyMaterialForTheTestOnly0 t',
   };
   const offenders = [];
-  for (const [table, V] of [['org', VERBS], ['member', MEMBER_VERBS]]) {
+  for (const [table, V] of [['member', MEMBER_VERBS]]) {
     for (const [name, spec] of Object.entries(V)) {
       let cmd;
       try { cmd = spec.build({ ...ARGS })?.command || ''; } catch { continue; }

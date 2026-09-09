@@ -15,14 +15,15 @@ only door**: a key that is not on it does not work, and removing a key from it
 genuinely shuts that machine out. There is no account behind it, no password
 reset, and no vendor who can let anyone in.
 
-The list lives below the map on [Map](/docs/map-page), and anything that
-changes it is written to a log you can read and pushed to your Telegram.
+The list lives on [Your pebble](/docs/your-pebble-page), under the backup
+card, and anything that changes it is written to a log you can read and
+pushed to your Telegram.
 
 ## Where keys come from
 
 **The first key is born with the box.** The wizard that built your mineral put
 this computer's key on the server at creation, as its only key. Nobody else
-ever held one: not a host, not a community, not Crads AI.
+ever held one: not a host, not Crads AI.
 
 **Every later key is vouched for by an earlier one.** A computer that already
 opens the mineral lets a new one in, over SSH, straight to your own box:

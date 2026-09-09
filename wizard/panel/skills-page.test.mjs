@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { MEMBER_VERBS, VERBS } from './panel-server.mjs';
+import { MEMBER_VERBS } from './panel-server.mjs';
 
 const html = readFileSync(new URL('./member.html', import.meta.url), 'utf8');
 const CATEGORIES = ['briefing', 'capture', 'comms', 'box', 'org', 'other'];
@@ -40,7 +40,6 @@ test('the org edition does not gain a member skill-runner', () => {
   // The rock's own-box Skills page is a later pass; nothing here may quietly
   // widen the org verb table (org-side verb narrowing is an open item in the
   // three-layer model).
-  assert.ok(!VERBS['skill-run'], 'no skill-run in the org verb table');
 });
 
 // ---- member.html wiring ------------------------------------------------------
@@ -98,10 +97,9 @@ test('every engine skill carries a human title', () => {
 test('the renderer groups by the six spec categories and badges provenance', () => {
   for (const key of CATEGORIES) assert.match(html, new RegExp(`key: '${key}'`), `category '${key}' rendered`);
   assert.match(html, /'built-in'/, 'engine badge');
-  // The org-source fallback stopped naming "your rock" with the face collapse
-  // (2026-09-01): a rock is a role a community hub plays, so the badge speaks
-  // of the community instead.
-  assert.match(html, /'from your community'/, 'org badge (community unknown)');
+  // The org badge ("from <rock>", then "from your community") left with the
+  // community surfaces (2026-09-09): a skill is built in, a starter, or yours.
+  assert.ok(!html.includes("'from your community'"), 'no org badge remains');
   assert.match(html, /'starter'/, 'seed badge');
   assert.match(html, /'yours'/, 'member badge');
 });

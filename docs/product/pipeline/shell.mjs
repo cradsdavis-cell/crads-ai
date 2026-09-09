@@ -34,29 +34,12 @@ const NAV = `
     <span class="nav-toggle-bar"></span><span class="nav-toggle-bar"></span><span class="nav-toggle-bar"></span>
   </button>
   <div class="nav-links" id="site-nav-links">
-    <div class="nav-group" data-open="false" data-group="system">
-      <a href="/system" class="nav-trigger">The System</a>
-      <button class="nav-caret" type="button" aria-expanded="false" aria-label="Show The System pages">▾</button>
-      <div class="nav-menu">
-        <a href="/system" class="nav-menu-hub">The system, in one place →</a>
-        <a href="/overview">What it does</a>
-        <a href="/anatomy">Anatomy of an AI-OS</a>
-        <a href="/dashboard">See it live</a>
-      </div>
-    </div>
-    <div class="nav-group" data-open="false" data-group="coaching">
-      <a href="/coaching" class="nav-trigger">Coaching</a>
-      <button class="nav-caret" type="button" aria-expanded="false" aria-label="Show Coaching pages">▾</button>
-      <div class="nav-menu">
-        <a href="/coaching" class="nav-menu-hub">How we work together →</a>
-        <a href="/how-it-works">How it works</a>
-        <a href="/offer">Pricing</a>
-      </div>
-    </div>
     <a href="/docs" class="nav-simple current">Docs</a>
+    <a href="/how-it-works" class="nav-simple">How it works</a>
+    <a href="/offer" class="nav-simple">Setup and support</a>
     <a href="/about" class="nav-simple">About</a>
-    <a href="/book" class="nav-simple nav-book">Book →</a>
-    <a href="/account/login" class="nav-account">Sign in</a>
+    <a href="/book" class="nav-simple nav-book">Book a call</a>
+    <a href="/download" class="nav-simple nav-cta">Download</a>
   </div>
 </nav>`;
 
@@ -66,7 +49,6 @@ const FOOTER = `
   <div><a href="mailto:cradsdavis@gmail.com">cradsdavis@gmail.com</a></div>
   <div><a href="https://linkedin.com/in/samuel-davis4" target="_blank" rel="noopener">linkedin.com/in/samuel-davis4</a></div>
   <div><a href="/book">Book a 30-minute call →</a></div>
-  <div><a href="/account/login">Sign in</a></div>
   <div class="location">Coogee, Sydney.</div>
 </footer>`;
 
@@ -275,7 +257,7 @@ const STYLE = `
   .docs-badge.lg { font-size: 10.5px; padding: 2px 9px; margin-left: 10px; }
 
   /* ---- landing: doors + card grids ------------------------------------------ */
-  .docs-doors { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2);
+  .docs-doors { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-2);
     margin: var(--space-3) 0 var(--space-4); font-family: var(--sans); }
   .docs-doors .door { border: 1px solid var(--rule); border-radius: 12px;
     padding: 18px 20px; background: var(--bg-soft); }

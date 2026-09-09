@@ -33,18 +33,4 @@ test('the Waits card is honestly static: no ask can be staged any more', () => {
     'one sentence, no phantom rows');
 });
 
-test('Stop hosting renders only where stopping is possible: ownership tier rock', () => {
-  const gate = html.slice(html.indexOf("if ($('seatDanger'))"), html.indexOf("var b = st.backup || {};"));
-  assert.match(gate, /var liveDanger = own\.tier === 'rock';/, 'the gate reads the real tier');
-  assert.match(gate, /\$\('seatDanger'\)\.style\.display = liveDanger \? '' : 'none';/,
-    'a personal mineral never sees the control');
-  assert.match(gate, /fold\.style\.display = liveDanger \? '' : 'none';/,
-    'and the Advanced fold hides with it, so no empty summary invites a click');
-});
 
-test('the armed control still demands the typed phrase before it can fire', () => {
-  const gate = html.slice(html.indexOf("if ($('seatDanger'))"), html.indexOf("var b = st.backup || {};"));
-  assert.match(gate, /rtBtn\.disabled = rtIn\.value\.trim\(\)\.toLowerCase\(\) !== 'stop hosting';/,
-    'the button stays dead until the exact phrase is typed');
-  assert.match(gate, /fetch\('\/demote'/, 'and it runs the mineral-local demote, nothing central');
-});

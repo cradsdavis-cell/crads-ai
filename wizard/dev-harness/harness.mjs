@@ -302,28 +302,6 @@ const server = createServer(async (req, res) => {
       : { ok: true, enrolled: false, slug: 'work-laptop' });
     return;
   }
-  if (req.method === 'POST' && path === '/topology/world') {
-    await readBody(req);
-    // the org face (P3): a rock-shaped world with a fleet shelf
-    if (surface === 'panel') {
-      sendJson(res, state === 'empty'
-        ? { ok: true, rock: true, box: { label: 'ic', tier: 'rock' }, org: { label: 'Crads AI', anchor: true }, devices: [], support: { active: false }, fleet: [] }
-        : { ok: true, rock: true, box: { label: 'ic', tier: 'rock' },
-            org: { label: 'Crads AI', anchor: true },
-            devices: [{ slug: 'laptop', label: 'This computer', last_seen: new Date().toISOString() }],
-            support: { active: false },
-            fleet: [
-              { slug: 'jane01', label: 'Jane Doe', tie: 'anchored', status: 'active', last_seen: new Date().toISOString() },
-              { slug: 'amir', label: 'Amir', tie: 'anchored', status: 'paused', last_seen: '' },
-              { slug: 'ken', label: 'Ken', tie: 'joined', status: 'active', last_seen: '' },
-            ] });
-      return;
-    }
-    // ?world=org on the PAGE url (read via referer) flips to the org-owned world
-    const org = /[?&]world=org/.test(String(req.headers.referer || ''));
-    sendJson(res, FX.topologyWorld(state, org));
-    return;
-  }
 
   // ---- terminal ---------------------------------------------------------------
   if (req.method === 'POST' && path === '/term/open') {

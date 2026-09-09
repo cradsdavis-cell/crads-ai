@@ -4,8 +4,8 @@ summary: What is stored, where it runs, what leaves your mineral, and why almost
 audience: public
 access: public
 mode: legal
-version: 0.10
-effective: 2026-09-01
+version: 0.11
+effective: 2026-09-09
 order: 10
 ---
 
@@ -28,7 +28,9 @@ and its sharing switches, the setup key a community-built mineral was born
 with, EU-only hosting, and the sub-processor table describing our vendors are
 gone because the machinery they disclosed is gone. What survives is the
 support-access disclosure and everything about the machine itself, which was
-always yours.*
+always yours. Changed in 0.11: the community model (a shared repository your
+mineral pulled read-only) was removed from the software on 2026-09-09, so the
+one sentence about it is gone; nothing else changed.*
 
 ## The short version
 
@@ -93,12 +95,6 @@ Only what you set up, and each goes to an account of your own:
    through a service you connected (a draft in your Gmail, an event in your
    calendar) happens at that service, on your account, because you set it up
    and asked for it.
-3. **A community's commons, in the read direction only.** If you join a
-   community, your mineral pulls the community's shared repository. Nothing
-   about you, your machine or your activity is written back up, and the
-   community's owner receives no data about you through the software. The
-   member-facing statement is
-   [what your community can see](/docs/what-your-community-can-see).
 
 ## Services you connect
 

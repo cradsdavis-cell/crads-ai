@@ -7,40 +7,10 @@
       "group": null
     },
     {
-      "sec": "decisions",
-      "label": "Decisions",
-      "face": "rock",
-      "group": null
-    },
-    {
-      "sec": "yourrock",
-      "label": "Your rock",
-      "face": "rock",
-      "group": null
-    },
-    {
       "sec": "seat",
-      "label": "Your pebble",
-      "face": "pebble",
-      "group": null
-    },
-    {
-      "sec": "network",
-      "label": "Map",
+      "label": "Your mineral",
       "face": "both",
-      "group": "Network"
-    },
-    {
-      "sec": "commons",
-      "label": "Communities",
-      "face": "pebble",
-      "group": "Network"
-    },
-    {
-      "sec": "pebbles",
-      "label": "Members",
-      "face": "rock",
-      "group": "Network"
+      "group": null
     },
     {
       "sec": "brain",
@@ -55,32 +25,14 @@
       "group": "Your assistant"
     },
     {
-      "sec": "library",
-      "label": "Library",
-      "face": "both",
-      "group": "Your assistant"
-    },
-    {
       "sec": "connections",
       "label": "Connections",
       "face": "both",
       "group": "Your assistant"
     },
     {
-      "sec": "publish",
-      "label": "Catalogue",
-      "face": "rock",
-      "group": "Your assistant"
-    },
-    {
       "sec": "secrets",
       "label": "Secrets",
-      "face": "both",
-      "group": "Privacy & access"
-    },
-    {
-      "sec": "sharing",
-      "label": "Sharing",
       "face": "both",
       "group": "Privacy & access"
     },
@@ -93,40 +45,38 @@
   ],
   "navGroups": [
     {
-      "group": "network",
-      "label": "Network",
-      "sections": [
-        "network",
-        "commons",
-        "pebbles"
-      ]
-    },
-    {
       "group": "assistant",
       "label": "Your assistant",
       "sections": [
         "brain",
         "skills",
-        "library",
-        "connections",
-        "publish"
+        "connections"
       ]
     },
     {
       "group": "privacy",
       "label": "Privacy & access",
       "sections": [
-        "secrets",
-        "sharing"
+        "secrets"
       ]
     }
   ],
   "unreachableSections": [
-    "help",
-    "rockreader",
-    "rocks"
+    "help"
   ],
   "memberVerbs": [
+    {
+      "verb": "ask-answer",
+      "mutating": true
+    },
+    {
+      "verb": "box-refresh",
+      "mutating": true
+    },
+    {
+      "verb": "box-rename",
+      "mutating": true
+    },
     {
       "verb": "box-version",
       "mutating": false
@@ -138,14 +88,6 @@
     {
       "verb": "cadence-write",
       "mutating": true
-    },
-    {
-      "verb": "catalog-install",
-      "mutating": true
-    },
-    {
-      "verb": "catalog-list",
-      "mutating": false
     },
     {
       "verb": "dashboard-data",
@@ -176,12 +118,12 @@
       "mutating": true
     },
     {
-      "verb": "dir-remove",
+      "verb": "layout-write",
       "mutating": true
     },
     {
-      "verb": "library-list",
-      "mutating": false
+      "verb": "leave-org",
+      "mutating": true
     },
     {
       "verb": "mcp-add",
@@ -220,6 +162,18 @@
       "mutating": true
     },
     {
+      "verb": "member-console-state",
+      "mutating": false
+    },
+    {
+      "verb": "mineral-claim",
+      "mutating": true
+    },
+    {
+      "verb": "mineral-identity",
+      "mutating": false
+    },
+    {
       "verb": "open-folder",
       "mutating": false
     },
@@ -233,10 +187,6 @@
     },
     {
       "verb": "pages-list",
-      "mutating": false
-    },
-    {
-      "verb": "prompt-list",
       "mutating": false
     },
     {
@@ -811,19 +761,9 @@
       "category": "briefing"
     },
     {
-      "name": "write-folder",
-      "title": "Write a folder",
-      "category": "org"
-    },
-    {
       "name": "write-page",
       "title": "Write a page",
-      "category": "org"
-    },
-    {
-      "name": "write-prompt",
-      "title": "Write a prompt",
-      "category": "org"
+      "category": "box"
     }
   ],
   "machineryJobs": [
@@ -849,18 +789,16 @@
     "error"
   ],
   "totals": {
-    "navSections": 15,
+    "navSections": 7,
     "navByFace": {
-      "both": 9,
-      "rock": 4,
-      "pebble": 2
+      "both": 7
     },
-    "memberVerbs": 46,
-    "mutatingVerbs": 30,
+    "memberVerbs": 49,
+    "mutatingVerbs": 34,
     "connectors": 62,
     "featuredConnectors": 6,
-    "engineSkills": 13,
+    "engineSkills": 11,
     "machineryJobs": 15,
-    "surfaceStates": 45
+    "surfaceStates": 21
   }
 }

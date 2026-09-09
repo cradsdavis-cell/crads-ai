@@ -86,14 +86,16 @@ export function unreachableSections() {
 }
 
 // --- member actions ---------------------------------------------------------
-// SELF_VERBS is what a member may do to their own mineral. It is the action
-// denominator: 43 of them, against roughly 6 described in v1.
+// MEMBER_VERBS is what a member may do to their own mineral: the one served
+// table since the face collapse (SELF_VERBS, the old wall-crossing list, went
+// with it on 2026-09-01). It is the action denominator.
 export function memberVerbs() {
   const src = readFileSync(path.join(REPO, 'wizard', 'panel', 'panel-server.mjs'), 'utf8');
-  const block = /const SELF_VERBS = \[([\s\S]*?)\];/.exec(src);
-  if (!block) throw new Error('inventory: SELF_VERBS not found; panel-server changed');
-  const verbs = [...block[1].matchAll(/'([a-z][a-z0-9_-]+)'/g)].map((m) => m[1]);
-  if (!verbs.length) throw new Error('inventory: SELF_VERBS parsed empty');
+  const start = src.indexOf('export const MEMBER_VERBS = {');
+  if (start < 0) throw new Error('inventory: MEMBER_VERBS not found; panel-server changed');
+  const block = [src.slice(start, src.indexOf('\n};\n', start))];
+  const verbs = [...block[0].matchAll(/^  '([a-z][a-z0-9_-]+)': \{/gm)].map((m) => m[1]);
+  if (!verbs.length) throw new Error('inventory: MEMBER_VERBS parsed empty');
   // mutating verbs change the member's mineral and are the ones a doc must be
   // most careful about, so mark them
   const mutating = new Set();

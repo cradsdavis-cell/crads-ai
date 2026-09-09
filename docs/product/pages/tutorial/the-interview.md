@@ -42,8 +42,8 @@ who walks away mid-interview comes back to something with a name rather than to
 "your assistant".
 
 **One name, everywhere.** The mineral and the assistant share it: the sidebar,
-your seat page, the network map and the greeting all say the same word, and the
-Rename button changes that one thing. Renaming never touches the address, the
+your pebble page and the greeting all say the same word, and the Rename button
+changes that one thing. Renaming never touches the address, the
 connection or the keys.
 
 If your mineral already has a name, it will not ask. If you have no preference, it
@@ -91,10 +91,6 @@ covered is assessed, not assumed: each layer has a checklist behind it, and
 every turn your answers so far are checked against it. A point counts when it
 has been meaningfully addressed, not merely touched.
 
-**It knows who it is talking to.** The same interview serves a person and a
-rock, and it works out which from what is on the mineral rather than asking.
-Its first message says which scope it detected.
-
 ## You can stop whenever you like
 
 There is no pause button because none is needed: just stop answering, close
@@ -132,31 +128,6 @@ corrections stick.
 Only then is the brain seeded. You can see the result on the
 [Brain](/docs/brain-page) page, and the count on your
 [Overview](/docs/overview-page) reads eight of eight.
-
-## If your community already answered some of it
-
-If a community you joined has shared its own context with you and you
-installed it, the interview reads it first and **skips what your community
-already establishes**, telling you so as it goes.
-
-Your brain then *points at* that shared context rather than copying it, which
-means when your community updates it, you get the update instead of a stale copy.
-
-## If you are setting up a rock
-
-The same eight layers, asked about the community instead of about a person: what
-it is for, what it stands for, who is in it, what it promises its members, how it
-operates. You do not have to tell it which interview it is running: it detects
-rock scope from what is on the mineral, and says so in its first message.
-
-**Do this before you publish anything.** Everything your community's shared
-library says about the community inherits its coherence from these answers,
-so the interview comes before the curation, not after the first cohort.
-
-One rule holds harder here than anywhere: it never invents your cohort.
-Anything you have not decided yet (who is in, who the experts are) is recorded
-as to-confirm rather than filled in with something plausible. A rock brain
-with invented members would be worse than an empty one.
 
 ## What it will not do
 

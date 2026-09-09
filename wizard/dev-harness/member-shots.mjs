@@ -112,13 +112,11 @@ add('member-brain', '/member', { waitMs: 2500, after: nav('brain', 3500) });
 // flash to catch. Deleted rather than repointed: the only clickable node left
 // is a rock's fleet card, which exists solely in the org world and navigates
 // away to Pebbles, so a shot of it would document the Pebbles page, not this one.
-add('member-network', '/member', { waitMs: 2500, after: nav('network', 2000) });
-add('member-network-org', '/member?world=org', { waitMs: 2500, after: nav('network', 2000) });
+// The Map itself retired 2026-09-09 (simple assistant): the device roster it
+// carried is photographed on Your mineral (member-seat).
 // The rock-brain reader died with the Organisations page (face collapse,
-// 2026-09-01): a commons shares files, not a live-read wiki, so there is no
-// tie-gated page walk left to photograph. The Communities page below is the
-// membership surface now.
-add('member-communities', '/member', { waitMs: 2500, after: nav('commons', 1800) });
+// 2026-09-01) and the Communities page with the simple-assistant strip
+// (2026-09-09): nothing box-to-box is left to photograph.
 // Cadence + Library folded into Skills (2026-08-09 audit R6): one page carries
 // the rows, the inline editors and the rock catalogue sections.
 add('member-skills', '/member', { waitMs: 2500, after: nav('skills', 1500) });

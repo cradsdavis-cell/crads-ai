@@ -613,7 +613,6 @@
   /* sub-pages end on structure, not open canvas: a guidecard-width content
      column plus a quiet end rule + one mono line closing every settings page */
   section[data-sec="cadence"],section[data-sec="sharing"],section[data-sec="help"],section[data-sec="terminal"],
-  section[data-sec="secrets"],section[data-sec="skills"],section[data-sec="library"]{max-width:840px}
   /* ---- network: the map (rebuilt 2026-08-10) ----
      The Orbit map (spec 2026-08-04) is gone. Its device chips rotated about the
      STAGE centre while the ring was drawn about a hard-coded x=430, so on any
@@ -623,46 +622,15 @@
      positions are computed from the world rather than assigned to fixed slots:
      no caps, no overlaps, and any fleet size fits by zooming rather than by
      running off the edge. ---- */
-  .netstage{position:relative;border:1px solid var(--line);border-radius:var(--r-card);background:var(--card);box-shadow:var(--shadow-1);overflow:hidden;margin-bottom:22px;height:430px}
-  .netstage[data-lone="1"]{height:240px}
-  .netrosterhead{font-size:15px;margin:0 0 4px}
-  .netrostersub{color:var(--soft);font-size:12.5px;margin:0 0 12px}
-  #netMap{position:absolute;inset:0;overflow:hidden;cursor:grab;
     background-image:radial-gradient(color-mix(in srgb,var(--line-2) 70%,transparent) 1px,transparent 1px);
     background-size:22px 22px}
-  #netMap.npan{cursor:grabbing}
-  #netMap .nworld{position:absolute;left:0;top:0;transform-origin:0 0}
-  #netMap svg.nwires{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
-  #netMap .nwires text{font-family:var(--mono);font-size:9.5px;fill:var(--soft-2)}
   /* one card grammar. Shape carries kind (square-ish = rock, pill = pebble), so
      the tag can stay quiet and only name what the shape cannot. */
-  #netMap .nbx{position:absolute;width:196px;background:var(--card);border:1px solid var(--line-2);
     border-radius:12px;box-shadow:var(--shadow-1);padding:9px 13px 11px}
-  #netMap .nbx[data-kind="pebble"]{border-radius:22px}
-  #netMap .nbx[data-role="anchor"]{border-color:color-mix(in srgb,var(--accent) 45%,var(--line-2));
     background:color-mix(in srgb,var(--accent) 4%,var(--card))}
-  #netMap .nbx[data-me="1"]{border-color:var(--good);box-shadow:0 0 0 1px var(--good),var(--shadow-2)}
-  #netMap .nbx[data-tie="joined"]{border-style:dashed}
-  #netMap .nbx[data-unreadable="1"]{border-style:dashed;opacity:.8}
-  #netMap .nbx[data-click="1"]{cursor:pointer;transition:border-color .12s,box-shadow .12s}
-  #netMap .nbx[data-click="1"]:hover{border-color:var(--accent);box-shadow:var(--shadow-2)}
-  #netMap .nbx .nhd{display:flex;align-items:center;gap:6px;margin-bottom:1px;min-height:12px}
-  #netMap .nbx .ntag{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
-  #netMap .nbx[data-role="anchor"] .ntag{color:var(--accent)}
-  #netMap .nbx .nyouchip{margin-left:auto;background:var(--good);color:var(--on-accent);font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;padding:2px 7px;border-radius:99px}
-  #netMap .nbx .nnm{font-size:14.5px;font-weight:650;letter-spacing:-.012em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #netMap .nbx[data-kind="pebble"]:not([data-me="1"]) .nnm{font-size:13.5px;font-weight:600}
-  #netMap .nbx .nfact{font-size:11.5px;color:var(--soft-2);margin-top:2px;line-height:1.4;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  #netMap .nbx .npres{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:var(--faint)}
-  #netMap .nbx .npd{width:6px;height:6px;border-radius:50%;background:var(--faint);flex:none}
-  #netMap .nbx .npd.ok{background:var(--good)}
-  #netMap .nlive{position:absolute;left:14px;bottom:11px;font-family:var(--mono);font-size:10.5px;color:var(--faint);
     background:color-mix(in srgb,var(--card) 86%,transparent);padding:3px 8px;border-radius:7px;pointer-events:none}
-  #netMap .nzoom{position:absolute;right:12px;bottom:11px;display:flex;gap:5px}
-  #netMap .nzoom button{font-family:inherit;font-size:12px;color:var(--soft);background:var(--card);
     border:1px solid var(--line-2);border-radius:8px;padding:4px 10px;cursor:pointer;box-shadow:var(--shadow-1)}
-  #netMap .nzoom button:hover{color:var(--ink);border-color:var(--accent)}
   .devrow.flash{animation:netrowflash 1.6s ease}
   @keyframes netrowflash{0%,60%{background:color-mix(in srgb,var(--accent) 9%,transparent)}100%{background:none}}
   /* Add-a-secret form. Was raw inline styles on every field, which is why it read as
@@ -827,7 +795,6 @@
      page it now serves. */
   /* the rock's fleet draws with the same card grammar as everything else on the
      map (2026-08-10): the shelf's own chip class is gone. */
-  #netMap svg.nwires line.njoinwire{stroke-dasharray:4 4}
   /* staged New-pebble flow (2026-08-09: the door's question shape, on the rock) */
   .qhead{font-weight:650;font-size:15px;margin:2px 0 10px}
   .qcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
@@ -840,9 +807,6 @@
      2026-08-09: every ported org form rendered with browser-default inline
      labels and unsized inputs). Scoped to the org surfaces so the member
      pages' own scoped form styles stay untouched. */
-  section[data-sec="publish"] label{display:block;font-size:10.5px;color:var(--soft);margin:14px 0 6px;font-family:var(--mono);letter-spacing:.12em}
-  section[data-sec="publish"] input,section[data-sec="publish"] select,section[data-sec="publish"] textarea{width:100%;padding:9px 12px;border-radius:var(--r-input);border:1px solid var(--line-2);background:var(--card);color:var(--ink);font-size:14px;font-family:inherit;box-sizing:border-box}
-  section[data-sec="publish"] .check input{width:auto;margin-top:3px;flex:none;accent-color:var(--accent)}
   /* The public-door card (2026-08-10). It used to be a bare checkbox, which the
      two rules above wrecked in the only way they could: `.orgsec input` stretched
      the box to width:100% and `.orgsec label` turned its own words into an
@@ -1159,7 +1123,6 @@
      segment and the vendor fold are gone; the rules below that served them
      (.seg, .picker, .foldrow, .stickysave, .auds) are retired with them. The
      new rules live in the iteration-2 block at the end of this sheet. */
-  #catRows{max-width:820px}
   .catzone{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:22px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
   .catzone:first-child{margin-top:0}
   .catzone b{font-size:13px;letter-spacing:.02em}
@@ -1353,7 +1316,6 @@
     .auds,.fleetgrid,.qcards,#tgRow.tghero #tgDetail{grid-template-columns:1fr}
     .mcp-dir-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
     .mcp-dir-card .nm{padding-right:68px}
-    #catRows{max-width:none}
     .pendrow input,.pendrow select{flex:1 1 100%;width:100%;min-width:0}
     .pendrow .act{flex:1 1 auto}
     table{display:block;overflow-x:auto;max-width:100%}
@@ -1367,9 +1329,6 @@
   /* ===== iteration 2: sharing / map / organisations ===== */
   /* R22: the Mountain node. Quiet and distinct from a rock: dashed hairline,
      inset ground, no accent. Declared after the anchor rule so it wins. */
-  #netMap .nbx[data-kind="mountain"]{border-style:dashed;border-color:var(--line-2);background:var(--card-2);box-shadow:none}
-  #netMap .nbx[data-kind="mountain"] .ntag{color:var(--soft)}
-  #netMap .nbx[data-kind="mountain"] .nnm{font-weight:600}
   /* ===== iteration 2: catalogue / members ===== */
   /* Catalogue (R13): one member grid per skill row, Publish on the row. */
   .catgrid{margin-top:14px;padding-top:6px;border-top:1px solid var(--line)}
@@ -1524,21 +1483,6 @@
       <!-- org face (2026-08-09): the rock's own tabs. Sec ids are the ruled names
            (yourrock / publish / pebbles / decisions; orgbrain retired in S5); the
            member never sees these (.orgonly + activateSec gating, both ways). -->
-      <!-- Network group (Sam, 2026-08-09 rock-dashboard ruling): one umbrella for
-           everything box-to-box. Map = the page previously called Network (the
-           orbit drawing + device roster); Rocks = the community ties + board.
-           The rock face adds a Pebbles sub-tab here; a pebble never sees it.
-           Sec ids stay stable (network / rocks) so hash routing, tests and the
-           shots rig keep addressing the same selectors; only labels + grouping
-           changed. #map and #communities aliases land on the renamed tabs. -->
-      <div class="navgroup" data-group="network">
-        <button class="ghead" data-group-toggle="network" aria-expanded="false" aria-controls="grp-network"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="2"/><circle cx="2.6" cy="3.4" r="1.3"/><circle cx="13.4" cy="3.4" r="1.3"/><circle cx="8" cy="14" r="1.3"/><path d="M3.7 4.4 6.4 6.8M12.3 4.4 9.6 6.8M8 10v2.7"/></svg>Network<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></button>
-        <div class="gitems" id="grp-network" hidden>
-          <button data-sec="network"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="m10.7 5.3-1.6 3.8-3.8 1.6 1.6-3.8z"/></svg>Map</button>
-          <!-- Communities (commons-repo model, 2026-09-01): member face only;
-               the rock owner's half is the Commons card on the Catalogue page. -->
-          <button data-sec="commons"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 2.4l4.9 2.8v5.6L8 13.6l-4.9-2.8V5.2L8 2.4z"/><circle cx="8" cy="8" r="1.7"/></svg>Communities</button>
-        </div>
       <div class="navgroup" data-group="assistant">
         <!-- Speech bubble, NOT the brain glyph: nav-icons.test.mjs pins that no
              two visible entries on one face share an icon, and the brain glyph
@@ -1547,13 +1491,7 @@
         <div class="gitems" id="grp-assistant" hidden>
           <button data-sec="brain"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="5.6"/><path d="M8 2.4v11.2"/><path d="M5.1 5.4c1 .6 1 1.9 0 2.6M10.9 5.4c-1 .6-1 1.9 0 2.6"/></svg>Brain</button>
           <button data-sec="skills"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 1.9l1.7 3.5 3.8.5-2.8 2.7.7 3.8L8 10.6l-3.4 1.8.7-3.8-2.8-2.7 3.8-.5L8 1.9z"/></svg>Skills</button>
-          <!-- Library (2026-08-26, step 7a): the name reclaimed. Pages,
-               Prompts and Files moved here from Skills, which had grown to
-               six rendered blocks on one scroll. Shared with the org face
-               like Skills and Connections; only Catalogue stays org-only. -->
-          <button data-sec="library"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 2.6h3.4v10.8H3z"/><path d="M8.6 2.6H12v10.8H8.6z"/><path d="M3 5.6h3.4M8.6 5.6H12"/></svg>Library</button>
           <button data-sec="connections"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6.4 9.6 9.6 6.4"/><path d="M8.4 4.4 10 2.8a2.6 2.6 0 0 1 3.7 3.7l-1.6 1.6"/><path d="M7.6 11.6 6 13.2a2.6 2.6 0 0 1-3.7-3.7l1.6-1.6"/></svg>Connections</button>
-          <button data-sec="publish"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2.4 3.4h11.2v9.2H2.4z"/><path d="M2.4 6.4h11.2M6 6.4v6.2"/></svg>Catalogue</button>
         </div>
       <div class="navgroup" data-group="privacy">
         <button class="ghead" data-group-toggle="privacy" aria-expanded="false" aria-controls="grp-privacy"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="5" cy="11" r="2.6"/><path d="m6.9 9.1 6.6-6.6M10.9 5.1l1.6 1.6"/></svg>Privacy &amp; access<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></button>
@@ -2037,13 +1975,21 @@
              by clicking the button, not by a test of the file. -->
         <div id="seatObLive" style="margin-top:10px"></div>
       </div>
+      <div class="guidecard" id="seatDevicesCard">
+        <div class="gtitle">Every computer that can open this mineral</div>
+        <div class="hint" style="margin:0 0 10px">Revoking one takes effect the next time it tries to connect. If a laptop is lost or stolen, revoke it here.</div>
+        <div id="devicesRows" class="hint" style="margin:0 0 12px;color:var(--ink)">Checking&hellip;</div>
+        <div class="notice" id="devicesNotice" style="display:none"></div>
+      </div>
+      <div class="guidecard" id="seatPagesCard">
+        <div class="gtitle">Your pages</div>
+        <div class="notice" id="pagesNotice"></div>
+        <div class="empty" id="pagesEmpty" style="display:none"><b>No pages yet.</b> Your assistant can build you one: run /write-page in Claude Code on your mineral.</div>
+        <div id="pagesListSection"></div>
+      </div>
       <div class="guidecard">
         <div class="gtitle">Waiting on you</div>
         <div id="seatWaits" class="hint" style="margin:0;color:var(--ink)">Checking&hellip;</div>
-      </div>
-      <div class="guidecard">
-        <div class="gtitle">Part of a community?</div>
-        <div class="hint" style="margin:0">Joining happens on the <a href="#commons" id="seatGoComms">Communities tab</a>: open the join link (or paste the invitation) a community owner hands you. Joining costs nothing and nothing about your mineral moves.</div>
       </div>
       <div class="guidecard">
         <!-- 2026-08-09 audit (R3): Origin folds shut — lineage is worth keeping,
@@ -2058,36 +2004,8 @@
       </div>
       <div class="notice" id="seatNotice" style="display:none"></div>
       <div class="pageend">Everything here reads live from your mineral.</div>
-      <details class="zonegap">
-        <summary class="subhead" style="cursor:pointer">Advanced</summary>
-        <div class="card dangercard" id="seatDanger" style="display:none">
-          <p class="hint" style="margin:0" id="seatDangerBody"></p>
-        </div>
-      </details>
     </section>
 
-    <!-- Network, NATIVE (2026-08-04, spec 2026-08-04-member-network-page-design).
-         The framed topology sandbox is gone: it showed members the pricing model's
-         example figures as if they were a bill, and drowned three cards in
-         instrument chrome. Nothing on this page is platform, money, or nudge.
-         The law of the MAP was revised 2026-08-10 (Sam): above you is whatever
-         has a claim on you, below you is whatever you anchor. Devices and open
-         support windows left the drawing for the roster below it, which already
-         owns their rows and their Revoke: one page still sees AND acts on reach. -->
-    <section data-sec="network">
-      <div class="pagehead">
-        <h2>Map<button class="info" type="button" aria-label="What is this?" data-tip="Live from your mineral: this mineral, the communities it belongs to, and every computer that can open it, listed below the map.">?</button></h2>
-        <p>Your devices and communities, live from your mineral.</p>
-      </div>
-      <div class="netstage" id="netStage"><div id="netMap" aria-label="Your network, drawn live from your mineral"></div></div>
-      <h3 class="netrosterhead">Every computer that can open this mineral</h3>
-      <p class="netrostersub">Revoking one takes effect the next time it tries to connect. If a laptop is lost or stolen, revoke it here.</p>
-      <div class="guidecard">
-        <div id="devicesRows" class="hint" style="margin:0 0 12px;color:var(--ink)">Checking…</div>
-        <div class="notice" id="devicesNotice" style="display:none"></div>
-      </div>
-      <div class="pageend">Everything here reads live from your mineral.</div>
-    </section>
 
     <!-- Skills, the one page (2026-08-09 audit, R6): the Cadence editor lives
          on every row and the Library's installable catalogue renders below, so
@@ -2125,7 +2043,6 @@
       <div class="empty" id="skillsEmpty" style="display:none"><b>No skills found yet.</b> That usually means the mineral is still setting itself up; try again in a minute.</div>
       <button class="act primary" id="cadenceSave" style="display:none">Save schedules</button>
       <div class="notice" id="skillsNotice"></div>
-      <div class="notice" id="libraryNotice"></div>
       <!-- "Read the skill" (R11): SKILL.md rendered with mdRender in a side
            panel, origin block above it when the skill came from a rock. -->
       <div class="skreader" id="skReader" role="dialog" aria-modal="true" aria-labelledby="skReaderTitle">
@@ -2139,194 +2056,9 @@
       <div class="pageend">Everything here reads live from your mineral.</div>
     </section>
 
-    <!-- Library (2026-08-26, step 7a). Pages, Prompts and Files, relocated
-         out of Skills: the Skills page had grown to six rendered blocks on
-         one scroll as five build phases landed, and Sam's ruling split it in
-         two. Skills keeps what runs (the cadence gate, the two skill
-         groups); Library keeps what a rock gave the member to use as is.
-         Same zones, same ids, same behaviour as they had on Skills: this is
-         a relocation, not a redesign. -->
-    <section data-sec="library">
-      <div class="pagehead">
-        <h2>Library<button class="info" type="button" aria-label="What is this?" data-tip="What your communities have given you: pages, prompts and files, ready to use as they are. Nothing here runs on a schedule; that lives on Skills.">?</button></h2>
-        <p>Pages, prompts and files your communities have given you.</p>
-      </div>
-      <!-- Pages (2026-08-25, spec § 5.4; moved here from Skills 2026-08-26,
-           step 7a). A management list, not where pages render: each
-           installed page already has its own nav entry under "Your pages".
-           Removal reuses deleteMemberPage, the same confirm and the same
-           page-delete verb the page's own header uses. -->
-      <h3 class="subhead zonegap">Pages<button class="info" type="button" aria-label="What is this?" data-tip="The pages on your mineral, and who published them. Open one from the sidebar under Your pages. Removing takes it off your box; a seeded example can be made again if you ask your assistant.">?</button></h3>
-      <div class="notice" id="pagesNotice"></div>
-      <div class="empty" id="pagesEmpty" style="display:none"><b>No pages yet.</b> Your assistant can build you one, and your communities can publish them too.</div>
-      <div id="pagesListSection"></div>
-      <div id="pagesOffered"></div>
-      <!-- Prompts tab (2026-08-25, pack content types spec § 5.4; moved here
-           from Skills 2026-08-26, step 7a). Inert text a rock leaves in this
-           box's inbox: never installed, never a skill, just words to copy
-           into a chat. Dormant (old image, no engine script) and empty (no
-           prompts offered yet) read as different things on purpose, same
-           distinction /catalog-list already draws. -->
-      <h3 class="subhead zonegap">Prompts<button class="info" type="button" aria-label="What is this?" data-tip="Prompts your communities offer you. Copy one and paste it to your assistant. Nothing is installed and nothing changes on your box: these are just words you can use.">?</button></h3>
-      <div class="notice" id="promptsNotice"></div>
-      <div class="empty" id="promptsEmpty" style="display:none"><b>No prompts yet.</b> When a community offers you some, they appear here ready to copy.</div>
-      <div id="promptsList"></div>
-      <!-- Files (2026-08-25, pack content types spec § 5.4; moved here from
-           Skills 2026-08-26, step 7a). Directories a rock offers, installed
-           into library/<pack>/<id> in this box's brain. A group, not a tab:
-           panel iteration 2 removed this page's tabs on 2026-08-23 and that
-           direction governs. Install and Remove ride the phase-2 verbs;
-           nothing new mutates here. -->
-      <h3 class="subhead zonegap">Files<button class="info" type="button" aria-label="What is this?" data-tip="Folders of material your communities offer you: templates, reference, whatever they put together. Installing copies the folder into your own brain, where it is yours. Removing takes it out again.">?</button></h3>
-      <div class="notice" id="filesNotice"></div>
-      <div class="empty" id="filesEmpty" style="display:none"><b>No files yet.</b> When a community offers you a folder, it appears here ready to install.</div>
-      <div id="filesInstalled"></div>
-      <div id="filesOffered"></div>
-      <div class="pageend">Everything here reads live from your mineral. Your communities choose what appears in their catalogues; installing never needs a further approval.</div>
+
     </section>
 
-    <!-- Communities (commons-repo model, self-host pivot 2026-09-01). A
-         community is a rock's commons: a git repo this box pulls read-only.
-         Joining is pasting a bundle; everything that arrives is an OFFER in
-         the catalogue, installed only by this member's own act. Leaving stops
-         the sync and keeps what was installed. Member face only: the rock
-         owner's half lives on the Catalogue page's Commons card. -->
-    <section data-sec="commons">
-      <div class="pagehead">
-        <div>
-          <h2>Communities<button class="info" type="button" aria-label="What is this?" data-tip="Communities you belong to. Each one has a shared library: skills, prompts, pages and folders its owner curates. Your mineral syncs each shared library on its own rhythm; what arrives is offered here and in your catalogue, and installs only when you choose. This box never sends anything back, and no community can reach inside it.">?</button></h2>
-          <p>The communities this mineral belongs to, and what each one shares with you.</p>
-        </div>
-        <div class="acts"><button class="act" id="commRefresh">Refresh</button></div>
-      </div>
-      <div class="notice" id="commNotice"></div>
-      <div class="empty" id="commEmpty" style="display:none"><b>No communities yet.</b> When someone invites you to a community, open their join link (or paste the invitation below) and their shared library appears here.</div>
-      <div id="commList"></div>
-      <details class="secfold" id="commJoinFold">
-        <summary>Join a community<span class="sum2">Open the owner's join link, or paste their invitation here</span></summary>
-        <div class="fbody">
-          <label>Invitation</label>
-          <textarea id="commBundle" rows="3" placeholder="cradscommons1:..." autocomplete="off" spellcheck="false"></textarea>
-          <p class="hint">A community owner hands you a join link (opening it fills this in) or this one-line invitation directly. It names their shared repository; your mineral pulls it read-only. If their library is private on GitHub, they also send your GitHub account an invitation, and this mineral needs its GitHub sign-in connected to read it.</p>
-          <button class="act primary" id="commJoinBtn" style="margin-top:10px">Join</button>
-          <div class="log" id="commJoinOut"></div>
-        </div>
-      </details>
-      <div class="pageend">What you install from a community is yours and stays if you leave. Nothing installs by itself: every item waits for you until you take it.</div>
-    </section>
-
-    <!-- Catalogue (Sam, 2026-08-10; was "Publishing"). Iteration 2 (R3/R4/R13,
-         2026-08-23): ONE audience (your members), ONE control per skill per
-         member (the offer toggle), and publish lives ON THE ROW. The tied-rock
-         segment, the "Skills from Crads AI" fold, the "Install for…" push panel
-         and the page-level sticky save bar are gone; each row carries its own
-         "Not published yet" line with Publish + Undo. loadCatalogue() still
-         refuses to clobber unpublished rows when you come back. -->
-    <section data-sec="publish">
-      <div class="pagehead">
-        <div>
-          <h2>Catalogue<button class="info" type="button" aria-label="What is this?" data-tip="Your library and the commons it publishes into. Everything in the library zones below is published whole: in a commons, membership (read access to the repository) is the entitlement, and members install what they choose. This is not the same list as Skills, which is what this mineral can run itself.">?</button></h2>
-          <p>What this mineral shares when it hosts a community.</p>
-        </div>
-      </div>
-      <!-- The commons (commons-repo model, self-host pivot 2026-09-01) LEADS
-           the page: it is the owner's whole hosting surface. Point at a git
-           repo you own, publish the catalogue into it, and hand members join
-           bundles. Membership IS read access to that repo; the Access roster
-           below is this mineral's own ledger of who was granted what, and it
-           never enters the commons. -->
-      <h3 class="subhead" id="commonsCard">Commons<button class="info" type="button" aria-label="What is this?" data-tip="Your community's shared library: a git repository you own. Publish puts everything on this page into it, laid out so members' minerals can offer and install it. A member joins with the bundle you hand them; for a private GitHub repo you also invite their GitHub account as a read collaborator. Revoking marks your roster and you remove their repo access; what they installed stays theirs.">?</button></h3>
-      <div class="notice" id="commonsNotice"></div>
-      <div id="commonsState"><p class="hint" style="margin:0">Loading…</p></div>
-      <!-- Start a community (ruling 1, 2026-09-02): ONE field. The box derives
-           the id, creates the private <id>-commons repo under the OWNER'S
-           GitHub with its own stored token, seeds the README, and wires the
-           commons config. The old 4-field + deploy-key form survives whole in
-           the Advanced fold below for bring-your-own-repository. -->
-      <div id="commonsStart" style="display:none">
-        <div class="row">
-          <div><label>Community name</label><input id="commonsName" placeholder="Harbour Guild" autocomplete="off"></div>
-        </div>
-        <label class="check" style="display:flex;gap:8px;align-items:flex-start;margin-top:8px"><input type="checkbox" id="commonsOpenCk"> <span>Open community: anyone with the link can pull the library</span></label>
-        <p class="hint">One press: this hub creates a private repository named after the community on your own GitHub, puts a README in it, and wires everything up here. Publishing and sharing happen on this card afterwards.</p>
-        <button class="act primary" id="commonsCreateBtn" style="margin-top:10px">Start the community</button>
-        <div id="commonsGhConnect" style="display:none;margin-top:10px">
-          <p class="hint" style="margin:0 0 6px">This hub has no GitHub sign-in yet. Connect one here (the same sign-in the Backup card uses); the community is created right after.</p>
-          <button class="act" id="commonsGhBtn" type="button">Connect my GitHub</button>
-          <div id="commonsGhLive" style="margin-top:8px"></div>
-        </div>
-        <div class="log" id="commonsCreateOut"></div>
-      </div>
-      <details class="secfold" id="commonsSetupFold">
-        <summary>Advanced: bring your own repository<span class="sum2">Any git host, your own URL and key</span></summary>
-        <div class="fbody">
-          <div class="row">
-            <div><label>Repository URL</label><input id="commonsUrl" placeholder="https://github.com/your-org/your-commons" autocomplete="off"></div>
-            <div><label>Branch (optional)</label><input id="commonsBranch" placeholder="main" autocomplete="off"></div>
-          </div>
-          <div class="row">
-            <div><label>Community name (lowercase, what members see as the id)</label><input id="commonsOrg" placeholder="harbour-guild" autocomplete="off"></div>
-            <div><label>Display name</label><input id="commonsDisplay" placeholder="Harbour Guild" autocomplete="off"></div>
-          </div>
-          <p class="hint">A private GitHub repo with invited collaborators is the usual choice; a public repo makes an open community. Publishing to a GitHub URL uses this mineral's own GitHub sign-in, the one the Backup card on <b>Your mineral</b> connects; for an ssh URL you can paste a write deploy key below.</p>
-          <label>Deploy key (optional, for ssh URLs)</label>
-          <textarea id="commonsKey" rows="3" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" autocomplete="off" spellcheck="false"></textarea>
-          <button class="act primary" id="commonsInitBtn" style="margin-top:10px">Save commons settings</button>
-          <div class="log" id="commonsInitOut"></div>
-        </div>
-      </details>
-      <div id="commonsActions" style="display:none;margin-top:12px">
-        <button class="act primary" id="commonsPublishBtn">Publish catalogue to the commons</button>
-        <div class="log" id="commonsPublishOut"></div>
-        <h4 class="subhead" style="margin-top:16px">Access<button class="info" type="button" aria-label="What is this?" data-tip="Your own ledger of join bundles handed out. It lives in this mineral's brain, never in the commons. Revoking marks the row; removing their read access on your git host is what actually ends the feed, and the copy reminds you each time.">?</button></h4>
-        <div id="commonsRoster"></div>
-        <div class="row" style="margin-top:8px">
-          <div><label>Who is this grant for?</label><input id="commonsGrantLabel" placeholder="Astrid H" autocomplete="off"></div>
-          <div><label>Their GitHub username (optional)</label><input id="commonsGrantGithub" placeholder="astrid-h" autocomplete="off"></div>
-        </div>
-        <button class="act" id="commonsGrantBtn" style="margin-top:10px">Share with them</button>
-        <p class="hint" style="margin:8px 0 0">This records them on your roster, sends their GitHub invitation when you give their username, and makes their join link. Send the link in a direct message, never a public post; opening it lands them on their Communities page with everything filled in.</p>
-        <div id="commonsGrantCopy" style="display:none;margin-top:8px"></div>
-        <div class="log" id="commonsGrantOut"></div>
-      </div>
-      <!-- The library inventory: what a publish ships. Read-only here; the
-           per-member offer grid died with the hosted push-down (2026-09-01),
-           because a commons has no per-member entitlement. -->
-      <h3 class="subhead zonegap">Your library</h3>
-      <p class="hint" style="margin:6px 0 0">Everything below is published whole when you press Publish above. Author a skill in the Claude Code app with <code>/write-skill</code> and it appears here.</p>
-      <div class="catstate" id="catState" style="display:none"></div>
-      <div id="catRows"><p class="hint" style="margin:0">Loading…</p></div>
-      <div class="empty" id="catEmpty" style="display:none"><b>Your library is empty.</b> Author a skill in the Claude Code app with <code>/write-skill</code> and it appears here, published to nobody until you set up a commons and press Publish.</div>
-      <div class="notice" id="catNotice"></div>
-      <div class="log" id="skillLog"></div>
-      <!-- Pack content (Phase 5, task 3, 2026-08-25): editing a prompt or page
-           inside a pack that already exists. Creating a pack, or editing
-           pack.yaml, stays out of scope on purpose: a pack is still made in
-           Claude Code, not through a form. There is no verb that reads a
-           file's current text back (prompt-write and page-write only write),
-           so this box is create/replace only. It never preloads what is
-           already on disk; saving always writes exactly what is typed here,
-           whole, in place of the file. That is said plainly in the copy
-           below rather than left for someone to assume. -->
-      <h3 class="subhead zonegap">Pack content<button class="info" type="button" aria-label="What is this?" data-tip="Edit a prompt or page inside a pack that already exists. This box never loads a file's current text: saving always writes exactly what is typed here, replacing the file whole. A pack itself is made in Claude Code, not here.">?</button></h3>
-      <div class="notice" id="packAuthNotice"></div>
-      <div class="empty" id="packAuthEmpty" style="display:none"><b>No packs yet.</b> A pack is made in Claude Code. Once one exists on this mineral, its prompts and pages can be edited here.</div>
-      <div id="packAuthBody" style="display:none">
-        <div class="row">
-          <div><label>Pack</label><select id="packAuthPack"></select></div>
-        </div>
-        <div id="packAuthFiles"></div>
-        <p class="hint">This box starts empty for every pack and every name below. It does not load a file's current text: saving replaces the whole file with exactly what is typed here.</p>
-        <div class="row">
-          <div><label>Kind</label><select id="packAuthKind"><option value="prompt">Prompt</option><option value="page">Page</option></select></div>
-          <div><label>File name (lowercase letters, numbers, hyphens)</label><input id="packAuthName" placeholder="kickoff" autocomplete="off"></div>
-        </div>
-        <label>Content</label>
-        <textarea id="packAuthText" rows="12" placeholder="Type the full content to save"></textarea>
-        <button class="act primary" id="packAuthSave" style="margin-top:10px">Save</button>
-        <div class="log" id="packAuthLog"></div>
-      </div>
-    </section>
     <!-- the orgbrain flat-list section died in S5 (2026-08-09): the org face
          mounts the shared data-sec="brain" graph viewer instead. -->
   </main>
@@ -2335,11 +2067,6 @@
 
 <script src="/vendor/xterm.js"></script>
 <script src="/vendor/xterm-addon-fit.js"></script>
-<!-- the counting oracle (wizard/panel/tie-counts.mjs, served with its export
-     stripped). One arithmetic for "how many members": this page, panel-server
-     and the tests all run the SAME function. If the script is missing (an old
-     server), the counting sites render their honest fallbacks. -->
-<script src="/tie-counts.js"></script>
 <script>
 (function(){
   'use strict';
@@ -2831,23 +2558,23 @@
   // Tab-entry warmth: re-opening a tab within 60s serves what is already on
   // screen instead of re-firing its SSH verbs. Explicit actions (save, run,
   // refresh) call the loaders directly and are never gated by this.
-  var connWarmAt = 0, skillsWarmAt = 0, libraryWarmAt = 0;
+  var connWarmAt = 0, skillsWarmAt = 0;
   function activateSec(name){
-    if (name === 'devices') name = 'network';   // the Devices tab merged into Network (2026-08-04)
-    if (name === 'communities') name = 'commons';   // the commons model's Communities page (2026-09-01)
+    if (name === 'devices' || name === 'map' || name === 'network') name = 'seat';   // the Map retired 2026-09-09; the roster lives on Your mineral
     if (name === 'telegram') name = 'connections';   // merged 2026-08-09 (audit R4); old deep links still land
     if (name === 'cadence') name = 'skills';   // merged 2026-08-09 (audit R6); cadence really does live on Skills
     // 'library' STOPPED rewriting here 2026-08-26 (step 7a): it is its own
     // section again, reclaimed from the 2026-08-09 merge for a different
     // purpose (Pages/Prompts/Files, not the old tabbed catalogue). A
     // pre-2026-08-26 #library bookmark now lands on the new Library page.
-    if (name === 'map') name = 'network';   // the Network page became Map inside the Network group (2026-08-09)
     if (name === 'orgbrain') name = 'brain';   // S5: the org brain rides the shared graph viewer; old deep links still land
     if (name === 'claudecode') name = 'help';   // the tab retired 2026-08-23 (R17): its guide lives on Help
     // The face collapse (2026-09-01): the org pages and the Organisations page
     // are gone, and every mineral serves the one nav. Old deep links land on
     // the nearest living surface rather than nowhere.
-    if (name === 'rocks' || name.indexOf('rocks/') === 0 || name === 'rockbrain') name = 'commons';
+    if (name === 'rocks' || name.indexOf('rocks/') === 0 || name === 'rockbrain' || name === 'commons' || name === 'communities') name = 'seat';
+    if (name === 'publish') name = 'skills';   // the Catalogue retired 2026-09-09 (simple assistant)
+    if (name === 'library') name = 'seat';     // the Library retired 2026-09-09; your pages are listed on Your mineral   // communities retired 2026-09-09 (simple assistant)
     if (name === 'sharing') name = 'help';   // Sharing retired; support access lives on Help
     if (name === 'pebbles' || name === 'decisions' || name === 'yourrock') name = 'seat';
     var lit = name;
@@ -2858,15 +2585,6 @@
     groupReveal(document.querySelector('#nav button.on'));
     if (name === 'brain') brainOpen();
     if (name === 'skills' && Date.now() - skillsWarmAt > 60000) { skillsWarmAt = Date.now(); loadSkills(); }
-    // Library (step 7a): its own warm gate, the same 60s tab-entry pattern as
-    // Skills above. loadLibraryPage calls loadLibrary too (not just
-    // loadPrompts/loadFiles), because state.catalog is what the Files and
-    // Pages Offered halves read, and a member may open Library without ever
-    // having opened Skills first.
-    if (name === 'library' && Date.now() - libraryWarmAt > 60000) { libraryWarmAt = Date.now(); loadLibraryPage(); }
-    // Communities (commons-repo model, 2026-09-01): read on every entry; the
-    // list is one cheap verb and staleness here reads as a broken sync.
-    if (name === 'commons') loadCommunities();
     // Split from the single 'sharing' case when Secrets and Devices became their own
     // pages. Each page now loads only what it actually shows, so opening Sharing no
     // longer fires four box round-trips for cards that are not on it.
@@ -2876,8 +2594,9 @@
     // Same law as the Telegram poll below: the map's 20s poll costs three SSH
     // round-trips, so it runs only while the map is on screen (found as the
     // top queue-saturator in the 2026-08-09 lag audit).
-    if (name === 'network') netOpen(); else netClose();
-    if (name === 'seat') loadSeat();
+    // The roster rode the Map (netOpen) until 2026-09-09; it lives on the seat now.
+    // syncVaultKey rides along because revoking a device rewraps every sealed secret.
+    if (name === 'seat') { loadSeat(); healDevices(); syncVaultKey(); }
     // Dialled only when Help is opened: an older box has no open-folder verb,
     // and a refusal on load would be a verb-table miss fired at every visitor.
     if (name === 'help') { loadOpenFolder(); loadSupport(); }
@@ -2892,13 +2611,6 @@
       else if (!tgTimer && tgLastS && tgLastS.token && !tgLastS.chat) tgStatus();
     } else tgStop();
     if (name.indexOf('page:') === 0) openMemberPage(name.slice(5));
-    if (name === 'publish') loadCatalogue();
-    // Pack content editor (Phase 5, task 3): a second, separate condition on
-    // the same section rather than folding into the line above, so
-    // community-pipe.test.mjs's exact-text pin on "opening the Catalogue
-    // still loads it" keeps matching untouched.
-    if (name === 'publish') loadPackAuthoring();
-    if (name === 'publish') loadCommons();
   }
   $('nav').addEventListener('click', function(e){
     var b = e.target.closest('button');
@@ -2926,13 +2638,13 @@
   // a section, so nothing is buried behind a default tab (2026-07-30)
   function secFromHash(){
     var h = (location.hash || '').replace(/^#/, '');
-    if (h === 'devices') h = 'network';   // merged tab: old deep links still land
-    if (h === 'map') h = 'network';       // Map is the tab's name since 2026-08-09; the sec id stayed
-    if (h === 'communities') h = 'commons'; // the commons model's page (2026-09-01)
+    if (h === 'devices' || h === 'map' || h === 'network') h = 'seat';   // the Map retired 2026-09-09; the roster is on Your mineral
     if (h === 'telegram') h = 'connections'; // merged 2026-08-09 (audit R4): hashchange arrivals land too
     if (h === 'cadence') h = 'skills'; // merged 2026-08-09 (audit R6): hashchange arrivals land too
     // 'library' STOPPED rewriting here 2026-08-26 (step 7a): see activateSec.
-    if (h === 'rocks' || h.indexOf('rocks/') === 0 || h === 'rockbrain') h = 'commons';   // the Organisations page retired with the face collapse (2026-09-01)
+    if (h === 'rocks' || h.indexOf('rocks/') === 0 || h === 'rockbrain' || h === 'commons' || h === 'communities') h = 'seat';
+    if (h === 'publish') h = 'skills';   // the Catalogue retired 2026-09-09
+    if (h === 'library') h = 'seat';     // the Library retired 2026-09-09   // Organisations (2026-09-01) and Communities (2026-09-09) retired
     if (h === 'claudecode') h = 'help';   // R17: old deep links land on Help
     if (h === 'sharing') h = 'help';      // Sharing retired (2026-09-01); support access lives on Help
     if (h === 'pebbles' || h === 'decisions' || h === 'yourrock') h = 'seat';   // the org pages retired with the face collapse (2026-09-01); mirrors activateSec
@@ -3142,16 +2854,6 @@
     if (!wanted && /[#&]sec=terminal(?:&|$)/.test(location.hash)) {
       activateSec('terminal');
       if (/[#&]run=signin(?:&|$)/.test(location.hash)) openTerm({ autorun: SIGNIN_OPENER });
-    }
-    // #sec=commons&join=<token> (2026-09-02): a crads-ai://join-community link
-    // lands on the Communities page with the join panel open and the
-    // invitation pre-filled. join= is DATA on a whitelisted charset
-    // ([A-Za-z0-9_-], the invitation's base64url body): it only ever becomes
-    // the invitation field's value, never a command and never a verb call.
-    if (!wanted && /[#&]sec=commons(?:&|$)/.test(location.hash)) {
-      activateSec('commons');
-      var joinTok = (location.hash.match(/[#&]join=([A-Za-z0-9_-]{1,4096})(?:&|$)/) || [])[1];
-      if (joinTok) prefillJoin(joinTok);
     }
     connect();
     // self-completing, same promise as the door: a box that isn't up yet gets
@@ -3387,19 +3089,6 @@
       state.strength.backupConnected = !!(st.backup && st.backup.connected && !st.backup.last);
       renderCards();
     }).catch(forgetMember);
-    // Communities (commons model, 2026-09-01): the count gates the ladder's
-    // install rung, read from the mineral itself. The list feeds the Map too.
-    run('community-list', {}).then(function(r){
-      state.strength = state.strength || {};
-      if (!r.ok) { delete state.strength.communities; renderCards(); return; }
-      var line = outLines(r).filter(function(l){ return l.indexOf('COMMUNITIES_STATE ') === 0; })[0];
-      var cs = {};
-      try { cs = line ? JSON.parse(line.slice('COMMUNITIES_STATE '.length)) : {}; } catch (e) { cs = {}; }
-      if (cs.dormant || cs.error) { delete state.strength.communities; renderCards(); return; }
-      state.communities = cs.communities || [];
-      state.strength.communities = state.communities.length;
-      renderCards();
-    }).catch(function(){});
   }
 
   // ---- the card library: renders whatever the box's data.json describes.
@@ -3509,8 +3198,6 @@
       sched ? 'A scheduled task is set' : 'Set one on the Skills page',
       'Jobs run with nobody at the keyboard, so they need this mineral\u2019s own sign-in',
       sched ? null : { label: 'Set one', to: 'skills' });
-    // Communities (commons model): null until the community list has been read.
-    var comms = (sx.communities === undefined) ? null : (sx.communities > 0);
     var backup = (sx.backup === undefined && sx.backupConnected === undefined) ? null : sx.backup === true;
     return {
       rungs: [
@@ -3521,20 +3208,11 @@
           act: { label: 'Open Help', to: 'help' } },
         { done: backup, name: 'Make your first backup',
           why: sx.backupConnected ? 'GitHub is connected; the first push has not landed yet'
-                                  : 'Your brain survives this mineral \u00b7 a home for your community and your brain backup',
+                                  : 'Your brain survives this mineral \u00b7 a private GitHub repo holds every backup',
           act: { label: 'Back it up', to: 'seat', focus: 'seatBackupCard' } },
       ],
       caps: [
         schedRow,
-        comms ? { st: 'ok', name: 'Joined a community', pill: sx.communities + ' joined',
-                  why: 'Their shared skills, pages and files land in your catalogue' }
-              : { st: 'ok', name: 'Join a community', pill: 'Ready',
-                  why: 'Open a join link (or paste the invitation) from a community owner',
-                  act: { label: 'Join one', to: 'commons' } },
-        row(comms, 'Install skills from your community', 'Ready',
-          'What your communities publish lands in your Library and Skills',
-          'Offers appear once you join a community',
-          { label: 'Open Skills', to: 'skills' }),
         { st: 'ok', name: 'Add another device', pill: 'Ready',
           why: 'Approve it from a computer that already has access' },
         row(true, 'Connect email + calendar',
@@ -3546,10 +3224,6 @@
           tg === true ? 'Your assistant is on your phone'
                       : 'Message your assistant from your phone',
           '', tg === true ? null : { label: 'Set it up', to: 'connections' }),
-        // The commons model's hosting rung: any mineral can host a community.
-        row(true, 'Host a community', 'Ready',
-          'Point the Commons card at a git repository you own and publish your catalogue into it',
-          '', { label: 'Open the Commons card', to: 'publish', focus: 'commonsCard' }),
       ],
     };
   }
@@ -4727,7 +4401,7 @@
       try { state.cardTpls = (JSON.parse(seg('__CARDS__', '__OWNERSHIP__').trim() || '{}').cards) || []; } catch(e){ state.cardTpls = []; }
       try { state.ownership = JSON.parse(seg('__OWNERSHIP__', '__ORGCONTACT__').trim() || '{}'); } catch(e){ state.ownership = {}; }
       try { state.orgContact = JSON.parse(seg('__ORGCONTACT__').trim() || '{}'); } catch(e){ state.orgContact = {}; }
-      renderMemberNav(); renderPagesSection(); renderOwnership(); renderCards(); renderOrgContact(); renderPagesOffered();
+      renderMemberNav(); renderPagesSection(); renderOwnership(); renderCards(); renderOrgContact();
     });
   }
   // Pages management list (2026-08-25, spec § 5.4). Always called straight after
@@ -4760,75 +4434,6 @@
       card.appendChild(head); card.appendChild(where); card.appendChild(btn);
       box.appendChild(card);
     });
-  }
-  // The offered half of Pages (2026-08-26-delivery-model § 5b), the same
-  // problem renderFilesOffered already solved for Files. An offer reaches
-  // state.catalog.items in two shapes: a standalone page is its own
-  // top-level item, kind: 'page' (what catalog-reconcile's step-3 change
-  // stages into offers-pages/); a page bundled in a pack rides that pack's
-  // contents.pages, which is STILL A COUNT today, not a list - contents.dirs
-  // already made this jump for Files, contents.pages makes it in step 5c,
-  // rock-side. Array.isArray guards that branch so a number renders nothing
-  // rather than throwing; nothing here changes what contents.pages IS.
-  //
-  // Dedupe two ways, same as renderFilesOffered: against pages already
-  // installed (state.pagesManifest.pages, keyed by id) and against EACH
-  // OTHER with a `seen` set, since a pack and a standalone item could in
-  // principle name the same id.
-  //
-  // Called from both loadPagesList (pages-list resolves) and loadLibrary's
-  // catalog-list callback (state.catalog resolves): the same two-separate-
-  // async-round-trips race renderFilesOffered already carries, and for the
-  // same reason - whichever resolves last has to be the one that paints it.
-  function renderPagesOffered(){
-    var offeredBox = $('pagesOffered'), empty = $('pagesEmpty');
-    if (!offeredBox || !empty) return;
-    offeredBox.innerHTML = '';
-    var installed = (state.pagesManifest && state.pagesManifest.pages) || [];
-    if (!Array.isArray(installed)) installed = [];
-    var installedIds = {};
-    installed.forEach(function(p){ if (p && p.id) installedIds[p.id] = true; });
-    var seen = {};
-    var offers = [];
-    ((state.catalog && state.catalog.items) || []).forEach(function(it){
-      if (!it) return;
-      if (it.kind === 'page' && typeof it.id === 'string'){
-        if (installedIds[it.id] || seen[it.id]) return;
-        seen[it.id] = true;
-        offers.push({ id: it.id, title: it.title || it.id, pack: '', rock: it.rock || '', rock_id: it.rock_id || '' });
-        return;
-      }
-      if (it.kind === 'pack' && it.contents && Array.isArray(it.contents.pages)){
-        it.contents.pages.forEach(function(id){
-          if (typeof id !== 'string' || installedIds[id] || seen[id]) return;
-          seen[id] = true;
-          offers.push({ id: id, title: id, pack: it.id, rock: it.rock || '', rock_id: it.rock_id || '' });
-        });
-      }
-    });
-
-    offers.forEach(function(o){
-      var card = document.createElement('div'); card.className = 'guidecard'; card.style.marginTop = '14px';
-      var head = document.createElement('p'); head.className = 'gtitle';
-      head.textContent = o.title + ' · offered by ' + (o.rock || 'your community');
-      var where = document.createElement('p'); where.className = 'hint'; where.style.margin = '2px 0 10px';
-      where.textContent = o.pack ? ('Part of ' + o.pack + '. Installing adds it to your pages.') : 'Installing adds it to your pages.';
-      var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'act primary'; btn.textContent = 'Install';
-      btn.addEventListener('click', function(){
-        btn.disabled = true;
-        var args = { id: o.id, kind: 'page' };
-        if (o.rock_id) args.rock = o.rock_id;
-        run('catalog-install', args).then(function(rr){
-          notice('pagesNotice', outLines(rr).slice(-2).join('\n'));
-          btn.disabled = false;
-          loadPagesList();
-        });
-      });
-      card.appendChild(head); card.appendChild(where); card.appendChild(btn);
-      offeredBox.appendChild(card);
-    });
-
-    empty.style.display = (installed.length || offers.length) ? 'none' : 'block';
   }
   function renderMemberNav(){
     var nav = $('nav');
@@ -5263,7 +4868,7 @@
       var st; try { st = JSON.parse(line.slice('CONSOLE_STATE '.length)); } catch (e) { notice('seatNotice', 'Your mineral replied with an unreadable state line.'); return; }
       var own = st.ownership || {}, org = st.org || {}, orgHandle = String(org.name || '').trim();
       var orgName = String(org.display || '').trim() || orgHandle;
-      var tierWord = own.tier === 'rock' ? 'community host' : 'mineral';
+      var tierWord = 'mineral';
       // One name (2026-08-09): the box's name IS the assistant's name, and it
       // titles this page. The tier word lives in the subtitle, never the title.
       var nm = String(st.name || '').trim();
@@ -5279,44 +4884,6 @@
           'This mineral is yours, and it goes with you.')
         + seatRow('Hosting', 'Your own hosting account',
           'This mineral runs on a server you hold the keys to.');
-      // Danger (R19c rule): the zone renders NOTHING unless a destructive
-      // action is live and unlocked for THIS mineral. The one that exists is
-      // mineral-local stop-hosting: a mineral upgraded in place to host
-      // (tier rock) reverses that upgrade. Nothing is destroyed: the seat,
-      // the brain and the machine all stay. Deleting the mineral itself is
-      // done where it lives, at your hosting provider.
-      if ($('seatDanger')) {
-        var liveDanger = own.tier === 'rock';
-        var db = $('seatDangerBody');
-        db.innerHTML = '';
-        if (liveDanger) {
-          db.innerHTML = '<b>Stop hosting</b>'
-            + '<div class="hint" style="margin:6px 0 0">This mineral was upgraded in place to host a community. Stopping reverses that: it becomes a personal mineral again and <b>nothing is destroyed</b>: this seat, the brain and the machine all stay.</div>'
-            + '<div style="margin:10px 0 0"><label>Type exactly: <span style="font-family:var(--mono)">stop hosting</span></label>'
-            + '<input id="rtConfirm" autocomplete="off" spellcheck="false" style="display:block;margin-top:6px;font:inherit;font-size:13.5px;padding:6px 10px;border:1px solid var(--line);border-radius:var(--r-input);background:var(--paper);color:var(--ink);width:60%"></div>'
-            + '<button class="act dangerline" id="rtBtn" disabled style="margin-top:8px">Stop hosting</button>'
-            + '<div class="log" id="rtLog" style="display:none"></div>';
-          var rtIn = $('rtConfirm'), rtBtn = $('rtBtn');
-          rtIn.addEventListener('input', function(){ rtBtn.disabled = rtIn.value.trim().toLowerCase() !== 'stop hosting'; });
-          rtBtn.onclick = function(){
-            rtBtn.disabled = true;
-            var log = $('rtLog'); log.style.display = 'block'; log.textContent = 'Working\u2026';
-            fetch('/demote', { method: 'POST', headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ host: state.host, confirm: rtIn.value.trim() }) })
-              .then(function(r){ return r.text().then(function(t){ return { ok: r.ok, t: t }; }); })
-              .then(function(x){
-                var msg = x.t; try { msg = JSON.parse(x.t).msg || x.t; } catch (e) { /* plain refusal text */ }
-                log.textContent = msg;
-                if (!x.ok) { rtBtn.disabled = false; return; }
-                loadSeat(); loadDashboard(true);
-              })
-              .catch(function(e){ rtBtn.disabled = false; log.textContent = 'Could not reach the app server: ' + e.message; });
-          };
-        }
-        $('seatDanger').style.display = liveDanger ? '' : 'none';
-        var fold = $('seatDanger').closest('details');
-        if (fold) fold.style.display = liveDanger ? '' : 'none';
-      }
       var b = st.backup || {};
       $('seatBackup').innerHTML = b.connected
         ? '<b>' + seatEsc(b.repo || 'your private repository') + '</b>'
@@ -5377,63 +4944,10 @@
   // a surface to show every member. The /handover-ask route and the accept path
   // under "Waiting on you" survive untouched, so a transfer a rock stages still
   // completes here.
-  $('seatGoComms').onclick = function(e){
-    e.preventDefault(); activateSec('commons');
-    try { history.replaceState(null, '', '#commons'); } catch (er) {}
-  };
 
-  // The community install, shared with libRow on the Skills page so the
-  // notice-then-reload order that trap 23 was reported on lives in ONE place.
-  function rockInstall(l, btn, noticeId){
-    // ONE INSTALLER (one-inbox, 2026-08-17). This forked: an anchor-catalogue row
-    // ran catalog-install, and a community row fetched the package from the
-    // directory and wrote it with community-skill-apply. Both of those are gone
-    // on the second branch: every package a box can install is already in its
-    // inbox, put there by the rock that offers it, so there is one call and no
-    // network leg. The sign-in-needed and directory-unreachable failures went
-    // with the fetch, because there is nothing left to dial.
-    var it = l.it, label = btn.textContent;
-    btn.disabled = true; btn.textContent = 'Installing…';
-    // rock_id names the inbox the offer sits in (multi-tie, 2026-08-23), so
-    // two rocks offering one id install from the one this card belongs to.
-    var args = { id: it.id, version: it.version || 0 };
-    if (it.rock_id) args.rock = it.rock_id;
-    run('catalog-install', args).then(function(rr){
-      notice(noticeId, outLines(rr).slice(-2).join('\n'));
-      loadLibrary(true);
-    });
-  }
-  // R11 Remove, called from the x on a Skills card AFTER its are-you-sure. The
-  // verb's OK line (rock-published vs self-authored wording) is the notice.
-  function rockRemove(id, btn, noticeId){
-    btn.disabled = true;
-    if (!btn.classList.contains('skx')) btn.textContent = 'Removing…';
-    run('skill-remove', { id: id }).then(function(rr){
-      notice(noticeId, outLines(rr).slice(-2).join('\n'));
-      loadSkills(true);
-    });
-  }
-  // ---- Network: the map + roster ------------------------------------------
-  // The law of the map, revised with Sam 2026-08-10 (the 2026-08-04 spec's
-  // devices-only law is superseded):
-  //
-  //   ABOVE you is anything with a claim on you — the anchor solid, the rocks
-  //   you joined dashed. BELOW you is anything you anchor. Nothing else.
-  //
-  // Devices and open support windows are no longer drawn. They live in the
-  // roster underneath, which already owns their rows, their Revoke and their
-  // End now, so nothing was lost by moving them off the drawing.
-  //
-  // Layout is the topology page's tidy tree (measure / place / curve). The old
-  // Orbit map assigned six hard-coded slots on a fixed 860x440 canvas and
-  // rotated them about the STAGE centre while drawing its ring about a
-  // hard-coded x=430; on any window wider than the minimum the two decoupled
-  // and a device chip drifted off alone, off-stage for part of the cycle.
-  // Nothing here is positioned by hand and no count is capped: a bigger fleet
-  // fits by zooming, not by running off the edge.
-  var netTimer = null, netSig = '', netReadAt = 0, netShape = '';
-  var netView = { z: 1, tx: 0, ty: 0 };
-  var NBW = 196, NBH = 92, NBVGAP = 84, NBHGAP = 28;
+
+  // "connected now" / "seen HH:MM UTC" / "last seen YYYY-MM-DD": the wording
+  // the device roster paints per row (it rode the Map until 2026-09-09).
   function netPresence(ls){
     if (!ls) return { cls: '', txt: 'no record yet' };
     var t = Date.parse(ls); if (isNaN(t)) return { cls: '', txt: 'no record yet' };
@@ -5444,206 +4958,6 @@
       return { cls: '', txt: 'seen ' + ls.replace('T', ' ').slice(11, 16) + ' UTC' };
     return { cls: '', txt: 'last seen ' + ls.slice(0, 10) };
   }
-  // -- tidy tree, ported from topology.html ---------------------------------
-  function netMeasure(id, kidsOf, w){
-    var ch = kidsOf(id);
-    if (!ch.length){ w[id] = NBW; return w; }
-    ch.forEach(function(c){ netMeasure(c.id, kidsOf, w); });
-    w[id] = Math.max(NBW, ch.reduce(function(s, c){ return s + w[c.id]; }, 0) + NBHGAP * (ch.length - 1));
-    return w;
-  }
-  function netPlace(id, left, depth, w, pos, kidsOf){
-    pos[id] = { x: left + w[id] / 2 - NBW / 2, y: depth * (NBH + NBVGAP) };
-    var x = left;
-    kidsOf(id).forEach(function(c){ netPlace(c.id, x, depth + 1, w, pos, kidsOf); x += w[c.id] + NBHGAP; });
-    return pos;
-  }
-  function netCurve(x1, y1, x2, y2){
-    return 'M' + x1 + ' ' + y1 + ' C' + x1 + ' ' + (y1 + 40) + ', ' + x2 + ' ' + (y2 - 40) + ', ' + x2 + ' ' + y2;
-  }
-  // Every label rides a backing rect. The old map drew "anchor · hosting"
-  // straight onto the canvas, where the anchor card clipped it in every render.
-  function netLabel(mx, my, txt, tone){
-    var bw = txt.length * 5.4 + 14;
-    return '<rect x="' + (mx - bw / 2) + '" y="' + (my - 10) + '" width="' + bw + '" height="15" rx="4" fill="var(--card)"/>'
-      + '<text x="' + mx + '" y="' + (my + 1) + '" text-anchor="middle" fill="' + tone + '">' + esc(txt) + '</text>';
-  }
-
-  // -- the world, as cards -----------------------------------------------------
-  // Facts only, and only facts this mineral states about itself. The hosted
-  // model's Mountain node, anchor wires and fleet fan died with the face
-  // collapse (2026-09-01): nothing hosts a self-hosted mineral, so nothing is
-  // drawn above it but the communities it chose to join (read from the
-  // mineral's own community list, dashed, informational).
-  function netModel(w){
-    var nodes = [];
-    var comms = state.communities || [];
-    nodes.push({ id: 'you', me: true, kind: 'pebble',
-      tag: 'your mineral', label: w.box.label,
-      fact: 'You own this mineral \u00b7 on your own server' });
-    comms.forEach(function(c, i){
-      nodes.push({ id: 'ja' + i, role: 'joinedAbove', kind: 'rock', tie: 'joined', tag: 'community',
-        label: c.org_display || c.org, wiresTo: 'you', wire: 'joined',
-        fact: 'A commons this mineral pulls \u00b7 your mineral stays yours' });
-    });
-    return nodes;
-  }
-  function netLayout(nodes){
-    var kidsOf = function(id){ return nodes.filter(function(n){ return n.rock === id; }); };
-    var w = {}; netMeasure('you', kidsOf, w);
-    var pos = {}; netPlace('you', 0, 0, w, pos, kidsOf);
-    // the top row: the anchor dead centre above you, joined rocks alternating
-    // right then left so the row stays balanced however many there are
-    var top = nodes.filter(function(n){ return n.role === 'anchor'; })
-      .concat(nodes.filter(function(n){ return n.role === 'joinedAbove'; }));
-    if (top.length){
-      Object.keys(pos).forEach(function(k){ pos[k].y += NBH + NBVGAP; });
-      var youX = pos.you.x;
-      top.forEach(function(n, i){
-        var slot = i === 0 ? 0 : (i % 2 ? Math.ceil(i / 2) : -i / 2);
-        pos[n.id] = { x: youX + slot * (NBW + NBHGAP), y: 0 };
-      });
-    }
-    return pos;
-  }
-
-  function netRender(w){
-    var nodes = netModel(w), pos = netLayout(nodes);
-    var map = $('netMap');
-    var cards = nodes.map(function(n){
-      var click = n.slug ? ' data-fleet-slug="' + esc(n.slug) + '" data-click="1"'
-        : n.more ? ' data-fleet-more="1" data-click="1"' : '';
-      return '<div class="nbx" data-id="' + esc(n.id) + '" data-kind="' + n.kind + '"'
-        + (n.me ? ' data-me="1"' : '') + (n.role === 'anchor' ? ' data-role="anchor"' : '')
-        + (n.tie ? ' data-tie="' + n.tie + '"' : '') + (n.status ? ' data-status="' + n.status + '"' : '')
-        + (n.unreadable ? ' data-unreadable="1"' : '') + click
-        + ' style="left:' + pos[n.id].x + 'px;top:' + pos[n.id].y + 'px">'
-        + (n.tag || n.me ? '<div class="nhd">' + (n.tag ? '<span class="ntag">' + esc(n.tag) + '</span>' : '')
-            + (n.me ? '<span class="nyouchip">YOU</span>' : '') + '</div>' : '')
-        + '<div class="nnm">' + esc(n.label) + '</div>'
-        + (n.fact ? '<div class="nfact">' + esc(n.fact) + '</div>' : '')
-        + (n.pres ? '<div class="npres"><span class="npd ' + n.pres.cls + '"></span>' + esc(cap(n.pres.txt)) + '</div>' : '')
-        + '</div>';
-    }).join('');
-    map.innerHTML = '<div class="nworld">' + cards + '</div>'
-      + '<div class="nlive">Live · read from your mineral · updated '
-      + (netReadAt ? Math.max(0, Math.round((Date.now() - netReadAt) / 1000)) + 's ago' : 'just now') + '</div>'
-      + '<div class="nzoom"><button data-z="out" aria-label="zoom out">–</button>'
-      + '<button data-z="in" aria-label="zoom in">+</button><button data-z="fit">Fit</button></div>';
-    var world = map.querySelector('.nworld');
-
-    // Wires are drawn on MEASURED card heights, not a nominal one: a card with
-    // no fact line is 20px shorter than one with two, and a wire that leaves a
-    // constant is a wire that floats off its own card.
-    var hOf = {};
-    nodes.forEach(function(n){
-      var el = world.querySelector('[data-id="' + n.id + '"]');
-      hOf[n.id] = el ? el.offsetHeight : NBH;
-    });
-    var edges = [];
-    nodes.forEach(function(n){ if (n.rock) edges.push({ from: n.rock, to: n.id, via: n }); });
-    nodes.forEach(function(n){ if (n.wiresTo) edges.push({ from: n.id, to: n.wiresTo, via: n }); });
-    var wires = edges.map(function(e){
-      var a = pos[e.from], b = pos[e.to], n = e.via;
-      if (!a || !b) return '';
-      var x1 = a.x + NBW / 2, y1 = a.y + hOf[e.from], x2 = b.x + NBW / 2, y2 = b.y;
-      var joined = n.tie === 'joined';
-      var tone = joined ? 'var(--faint)' : 'var(--accent)';
-      var out = '<path d="' + netCurve(x1, y1, x2, y2) + '" fill="none" stroke="' + tone + '" stroke-width="'
-        + (joined ? 1.1 : 1.4) + '"' + (joined ? ' stroke-dasharray="4 4" opacity=".75"' : ' opacity=".85"') + '/>';
-      // one label per wire that says something the card does not. A fan of
-      // identical wires is labelled once, below.
-      if (n.wire && !n.rock) out += netLabel((x1 + x2) / 2, (y1 + y2) / 2 + 3, n.wire, tone);
-      else if (n.wire && n.id === 'you') out += netLabel((x1 + x2) / 2, (y1 + y2) / 2 + 3, n.wire, tone);
-      return out;
-    }).join('');
-    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'nwires');
-    svg.innerHTML = wires;
-    world.insertBefore(svg, world.firstChild);
-
-    // fit only when the SHAPE changed: a heartbeat that moved one presence word
-    // must not yank the pan and zoom the member set
-    var xs = nodes.map(function(n){ return pos[n.id].x; });
-    var ys = nodes.map(function(n){ return pos[n.id].y; });
-    var box = {
-      minX: Math.min.apply(null, xs), maxX: Math.max.apply(null, xs) + NBW,
-      minY: Math.min.apply(null, ys),
-      maxY: Math.max.apply(null, nodes.map(function(n){ return pos[n.id].y + hOf[n.id]; })),
-    };
-    var shape = nodes.map(function(n){ return n.id; }).join(',');
-    var apply = function(){
-      world.style.transform = 'translate(' + netView.tx + 'px,' + netView.ty + 'px) scale(' + netView.z + ')';
-    };
-    var fit = function(){
-      var pad = 42, vw = map.clientWidth - pad * 2, vh = map.clientHeight - pad * 2;
-      var cw = box.maxX - box.minX, ch = box.maxY - box.minY;
-      netView.z = Math.max(0.35, Math.min(1, vw / cw, vh / ch));
-      netView.tx = pad + (vw - cw * netView.z) / 2 - box.minX * netView.z;
-      netView.ty = pad + (vh - ch * netView.z) / 2 - box.minY * netView.z;
-      apply();
-    };
-    // the stage resizes BEFORE fitting: a lone card gets a shorter stage, and
-    // fitting against the old height drops it below the fold (caught on camera)
-    $('netStage').setAttribute('data-lone', nodes.length === 1 ? '1' : '0');
-    if (shape !== netShape) { netShape = shape; fit(); } else apply();
-
-    Array.prototype.forEach.call(map.querySelectorAll('.nzoom button'), function(b){
-      b.onclick = function(){
-        var k = b.getAttribute('data-z');
-        if (k === 'fit') return fit();
-        netView.z = Math.max(0.35, Math.min(1.8, netView.z + (k === 'in' ? 0.15 : -0.15)));
-        apply();
-      };
-    });
-    var drag = null;
-    map.onmousedown = function(e){
-      if (e.target.closest('.nzoom')) return;
-      drag = { x: e.clientX - netView.tx, y: e.clientY - netView.ty }; map.classList.add('npan');
-    };
-    map.onmousemove = function(e){
-      if (!drag) return;
-      netView.tx = e.clientX - drag.x; netView.ty = e.clientY - drag.y; apply();
-    };
-    map.onmouseup = map.onmouseleave = function(){ drag = null; map.classList.remove('npan'); };
-  }
-  function netPoll(){
-    if (document.hidden) return;   // a hidden window earns no SSH round-trips
-    fetch('/topology/world', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ host: state.host }) })
-      .then(function(r){ return r.json(); })
-      .then(function(w){
-        if (!w || !w.ok) return;   // a blip never blanks a drawn map
-        if (state.selfDevice) run('devices-stamp', { slug: state.selfDevice });
-        // signature on presence WORDING, not raw timestamps: the self-stamp
-        // above moves last_seen every heartbeat, and a map that redraws every
-        // 20s is never stable enough to click (found by the shots rig)
-        var sig = JSON.stringify([w.box,
-          (state.communities || []).map(function(c){ return [c.org, c.org_display]; }),
-          w.devices.map(function(d){ return [d.slug, d.label, netPresence(d.last_seen).txt]; }), w.support]);
-        if (sig === netSig) return;
-        netSig = sig; netReadAt = Date.now();
-        netRender(w);
-      }).catch(function(){});
-  }
-  // healDevices self-enrols + renders the roster; syncVaultKey rides along
-  // because Revoke rewraps every sealed secret.
-  function netOpen(){
-    healDevices();
-    syncVaultKey();
-    // the map draws the communities this mineral belongs to; make sure the
-    // list has been read at least once (strengthSync keeps it fresh after)
-    if (!state.communities) run('community-list', {}).then(function(r){
-      if (!r.ok) return;
-      var line = outLines(r).filter(function(l){ return l.indexOf('COMMUNITIES_STATE ') === 0; })[0];
-      try { state.communities = (line ? JSON.parse(line.slice('COMMUNITIES_STATE '.length)) : {}).communities || []; } catch (e) { /* drawn without them */ }
-      netSig = ''; netPoll();
-    });
-    netSig = ''; netPoll();
-    if (!netTimer) netTimer = setInterval(netPoll, 20000);
-  }
-  function netClose(){ if (netTimer) { clearInterval(netTimer); netTimer = null; } }
-
   // ---- the device roster: which computers can open this box ----------------
   // The roster is the same file sshd authenticates against, so what is listed
   // here IS what can connect. Support grants ride the same file and are shown
@@ -6602,21 +5916,8 @@
   // it as s.version); without one the chip just names the rock.
   function srcBadge(s){
     if (s.source === 'engine') return 'built-in';
-    if (s.source === 'org') return (s.rock ? 'from ' + s.rock : 'from your community') + (Number(s.version) > 0 ? ' · v' + Number(s.version) : '');
     if (s.source === 'seed') return 'starter';
     return 'yours';
-  }
-  // The rock offer for an installed id, if any (R12 update): newer when the
-  // offer's version is above the installed one.
-  function offerFor(id){
-    // Same allow-list as the offers loop: an installed skill and a page offer
-    // can in principle share an id, and matching one here would put a bogus
-    // "vN available / Update" on the skill card.
-    return libEntries().filter(function(l){ return isSkillOffer(l.it) && l.it.id === id; })[0] || null;
-  }
-  function offerNewer(s){
-    var o = offerFor(s.id);
-    return (o && (Number(o.it.version) || 0) > (Number(s.version) || 0)) ? o : null;
   }
   function cadChip(id){
     // v1 and v2 cadence files both read correctly (normCadClient), so the chip
@@ -6681,7 +5982,7 @@
     try { state.planJson = JSON.parse(seg('__PLANJSON__').trim() || '{}'); } catch(e){ state.planJson = {}; }
     state.machineryLoaded = true;   // the Health card may now render machinery rows
   }
-  function loadSkills(keep){       // keep: see loadLibrary, preserve a verb's own confirmation
+  function loadSkills(keep){       // keep: preserve a verb's own confirmation
     if (!keep) notice('skillsNotice', '');
     run('cadence-list', {}).then(function(r){
       if (!r.ok){ notice('skillsNotice', 'Could not read the skills on your mineral:\n' + outText(r)); return; }
@@ -6691,23 +5992,6 @@
       renderSkills();
       renderCards();   // the Health card shows the machinery this parse refreshed
     });
-    // loadLibrary stays here (not just on the Library page): it feeds the
-    // "From your rocks" skill offers group AND sets state.catalog, which
-    // renderSkills reads on THIS page. loadPrompts/loadFiles moved to the
-    // Library page with the zones they paint (step 7a).
-    loadLibrary(keep);
-  }
-  // Library page loader (step 7a). loadPrompts and loadFiles moved here with
-  // the Pages/Prompts/Files zones. loadLibrary also runs here, not only from
-  // Skills: state.catalog is what renderFilesOffered/renderPagesOffered read,
-  // and a member can open Library without ever having visited Skills first.
-  // The Pages zone's own list (loadPagesList) is unaffected: it already
-  // reloads on the connection's rising edge, independent of which section is
-  // open, so it needs no call here.
-  function loadLibraryPage(keep){
-    loadLibrary(keep);
-    loadPrompts();
-    loadFiles();
   }
   // every skill is schedulable; a cadence entry whose skill has vanished
   // stays visible and disableable, never silently dropped
@@ -6753,55 +6037,6 @@
     });
     return row;
   }
-  function libEntries(){
-    // ONE SOURCE (one-inbox, 2026-08-17). This merged the anchor's entitled
-    // catalogue with every joined rock's community listing, because those were
-    // two delivery channels and a member had rows from both. Now every rock a
-    // box is tied to writes into that box's own inbox, so catalog-list already
-    // carries all of them and merging the shop window back in here would show
-    // every row twice. The community listing still loads, and still renders on
-    // the Organisations page, where it is what it always should have been: what
-    // a rock offers, readable before you join it.
-    var out = [];
-    var cat = state.catalog || {}, items = cat.items || [];
-    // Per-rock grouping (R12): an item names its rock when the inbox carries
-    // more than one; otherwise the catalogue's rock, then the anchor's name.
-    var rock = cat.rock || (state.orgContact || {}).org || (state.orgContact || {}).name
-      || 'your community';
-    items.forEach(function(it){ out.push({ it: it, rock: it.rock || rock, community: false }); });
-    return out;
-  }
-  // Is this catalogue item a SKILL? One rule, shared by the skills-offers loop
-  // and offerFor, and an ALLOW-list on purpose.
-  //
-  // The deny-list this replaces (kind !== 'pack') was correct only while 'pack'
-  // was the sole non-skill kind. Step 5b gave a standalone page its own
-  // top-level item, kind: 'page', and it walked straight through: a page
-  // rendered as an installable SKILL card, and its Install button called
-  // catalog-install with no kind, which takes the skill path and looks for a
-  // SKILL.md the page does not have. Exactly the bug class the pack skip was
-  // added to fix (review round 2, 2026-08-25), one kind later. An allow-list
-  // means the NEXT kind (a prompt, a file) is invisible here by default rather
-  // than mis-rendered, and has to be let in deliberately.
-  //
-  // A missing or empty kind is a skill, matching how catalog-install itself
-  // normalises the argument (panel-server.mjs § catalog-install). The merge
-  // behind catalog-list passes each rock's catalog.json items through verbatim,
-  // so a catalogue written before kind existed still carries bare skill rows.
-  function isSkillOffer(it){
-    if (!it) return false;
-    var k = it.kind;
-    return k === undefined || k === null || k === '' || k === 'skill';
-  }
-  // Is this offer already on the mineral under the same id? Packs count as
-  // installed when every skill they ship is present.
-  function offerInstalled(it, installedIds){
-    if (it.kind === 'pack') {
-      var ids = (it.contents && it.contents.skills) || [];
-      return !!ids.length && ids.every(function(id){ return installedIds[id]; });
-    }
-    return !!installedIds[it.id];
-  }
   function skGroupHead(box, text){
     var h = document.createElement('h3'); h.className = 'skgroup'; h.textContent = text;
     box.appendChild(h);
@@ -6820,11 +6055,8 @@
     var gated = mineralSignedIn() === false;
     $('cadGate').style.display = gated ? 'flex' : 'none';
     var st = state.allSkills || {}, skills = state.skillRows || [];
-    var libs = libEntries();
-    var installedIds = {}; skills.forEach(function(s){ if (!s.missing) installedIds[s.id] = true; });
     // ---- group 1: On this mineral, by category ----
-    // #skillsEmpty stays hidden: the empty state renders INSIDE its group so
-    // "From your rocks" still follows it.
+    // #skillsEmpty stays hidden: the empty state renders INSIDE its group.
     $('skillsEmpty').style.display = 'none';
     $('cadenceSave').style.display = skills.length ? '' : 'none';
     $('cadenceSave').disabled = gated;
@@ -6843,54 +6075,16 @@
       group.forEach(function(s){ box.appendChild(skillRow(s, st, gated)); });
     });
     box.appendChild(save);
-    // ---- group 2: From your rocks, one subsection per rock ----
-    var byRock = {}, order = [];
-    libs.forEach(function(l){
-      // The rock subsection is registered for EVERY library entry, packs
-      // included: a rock whose catalogue is packs-only must still get a "From
-      // <rock>" subsection, or the skills zone denies the rock exists while
-      // the Files zone below lists that same rock's folders (finding I2,
-      // 2026-08-25). Only the ROW is skipped for a non-skill offer, so a rock
-      // that publishes only packs and pages degrades to "Nothing new from
-      // <rock>." rather than vanishing.
-      if (!byRock[l.rock]) { byRock[l.rock] = []; order.push(l.rock); }
-      // Only skills get a ROW here. Everything else a rock offers has its own
-      // section and its own install path: a pack's folders go to Files via
-      // renderFilesOffered, a page (standalone or packed) goes to Pages via
-      // renderPagesOffered. None of them may reach the SKILLS offers listing,
-      // because clicking one calls catalog-install with no kind, takes the
-      // skill path, and fails (no SKILL.md to read). Widened from the original
-      // kind !== 'pack' skip to the isSkillOffer allow-list on 2026-08-26,
-      // after kind: 'page' walked through it; do not narrow it back.
-      // (review round 2, 2026-08-25; step 5b page pickup, 2026-08-26)
-      if (!isSkillOffer(l.it)) return;
-      if (!offerInstalled(l.it, installedIds)) byRock[l.rock].push(l);
-    });
-    // "attached" = anything shares with this mineral: a legacy contact card,
-    // a catalogue with a named source, or a joined community (commons model).
-    var attached = !!(state.orgContact && (state.orgContact.org || state.orgContact.name)) || !!(state.catalog || {}).rock
-      || (((state.strength || {}).communities || 0) > 0);
-    var g2 = skGroupHead(box, 'From your communities');
-    g2.setAttribute('data-group', 'rocks');
-    if (!order.length) {
-      var none = document.createElement('div'); none.className = 'empty'; none.setAttribute('data-rocks-empty', '');
-      none.innerHTML = attached
-        ? '<b>Your communities haven’t published anything yet.</b> When they publish skills to their shared library, they appear here.'
-        : '<b>No community yet.</b> Join one on the Communities page and its offers appear here.';
-      box.appendChild(none);
-      return;
-    }
-    order.forEach(function(rock){
-      var sub = document.createElement('div'); sub.className = 'skillcat skrock'; sub.setAttribute('data-rock', rock);
-      sub.textContent = 'From ' + rock;
-      box.appendChild(sub);
-      var rows = byRock[rock];
-      if (!rows.length) {
-        var e = document.createElement('div'); e.className = 'empty skrockempty'; e.textContent = 'Nothing new from ' + rock + '.';
-        box.appendChild(e);
-        return;
-      }
-      rows.forEach(function(l){ box.appendChild(libRow(l)); });
+  }
+  // Remove an installed skill. The verb prints its own last word; the page
+  // re-reads the list and keeps that word on screen (trap 23: a reload must
+  // never swallow the confirmation it should follow).
+  function removeSkill(id, btn, noticeId){
+    btn.disabled = true;
+    if (!btn.classList.contains('skx')) btn.textContent = 'Removing…';
+    run('skill-remove', { id: id }).then(function(rr){
+      notice(noticeId, outLines(rr).slice(-2).join('\n'));
+      loadSkills(true);
     });
   }
   // The installed row: slim header, full drawer. Same commit semantics as the
@@ -6903,13 +6097,8 @@
     var lr = (st.last_runs || {})[s.id];
     var health = runHealthChip(lr, (st.runs || {})[s.id], ledgerLive(st));
     var stalled = cadOverdue(entry, lr);
-    // R12: the offer for this id from a rock, when it is newer than what is
-    // installed. Drives the "vN available" chip and the Update button below.
-    var newer = s.missing ? null : offerNewer(s);
-    var newerV = newer ? (Number(newer.it.version) || 0) : 0;
     var head = '<div class="nm">' + esc(skTitle(s))
       + ' <span class="chip origin">' + esc(srcBadge(s)) + '</span>'
-      + (newer ? ' <span class="chip configured upd">v' + esc(String(newerV)) + ' available</span>' : '')
       + ' <span class="cadchip chip' + (entry.enabled ? ' ok' : '') + '">' + esc(describeCad(entry)) + '</span>'
       + health.chip + '</div>';
     var tog = document.createElement('div');
@@ -6928,8 +6117,8 @@
     var headR = [tog];
     // R11 Remove: an x on every card except engine skills (the kernel re-syncs
     // those every run, so a removal would come straight back; skill-remove
-    // refuses them by name too). The are-you-sure names the skill; a
-    // self-authored one adds that this is the only copy.
+    // refuses them by name too). The are-you-sure names the skill and says
+    // this is the only copy: since 2026-09-09 nothing else can offer it back.
     if (!s.missing && s.source !== 'engine') {
       var x = document.createElement('button'); x.type = 'button'; x.className = 'skx';
       x.setAttribute('aria-label', 'Remove ' + skTitle(s));
@@ -6938,11 +6127,9 @@
       x.onclick = function(e){
         e.stopPropagation();
         var msg = 'Remove ' + skTitle(s) + ' (/' + s.id + ') from this mineral?'
-          + (s.source === 'org'
-            ? '\n\nYour community still offers it, so you can add it again any time. Its schedule goes with it.'
-            : '\n\nThis is the only copy. Its schedule goes with it.');
+          + '\n\nThis is the only copy. Its schedule goes with it.';
         if (!confirm(msg)) return;
-        rockRemove(s.id, x, 'skillsNotice');
+        removeSkill(s.id, x, 'skillsNotice');
       };
       headR.push(x);
     }
@@ -6982,18 +6169,6 @@
       var readBtn = document.createElement('button'); readBtn.className = 'act mini skread'; readBtn.textContent = 'Read the skill';
       readBtn.onclick = function(){ openSkillReader(s); };
       acts.appendChild(readBtn);
-      // R12 Update: only when a rock offers a newer version of this id. Local
-      // edits are replaced; catalog-install keeps the old copy under
-      // .claude/skill-backups first.
-      if (newer) {
-        var updBtn = document.createElement('button'); updBtn.className = 'act mini skupdate'; updBtn.textContent = 'Update to v' + newerV;
-        updBtn.onclick = function(){
-          if (!confirm('Update ' + skTitle(s) + ' (/' + s.id + ') to v' + newerV + '?'
-            + '\n\nAny local edits you made to it are replaced by ' + (newer.rock || 'your community') + '’s new version. The old copy is kept under skill backups on your mineral.')) return;
-          rockInstall(newer, updBtn, 'skillsNotice');
-        };
-        acts.appendChild(updBtn);
-      }
       drawer.appendChild(acts);
     }
     var controls = schedControls(entry);
@@ -7119,522 +6294,6 @@
     });
   }
 
-  function libRow(l){
-    var it = l.it, isPack = it.kind === 'pack';
-    var installedBy = {};
-    (((state.allSkills || {}).skills) || []).forEach(function(s){ installedBy[s.id] = s; });
-    var packSkills = (isPack && it.contents && it.contents.skills) || [];
-    var inst = isPack
-      ? (packSkills.length && packSkills.every(function(id){ return installedBy[id]; }) ? { version: it.version } : null)
-      : installedBy[it.id];
-    var stateChip, action = null;
-    if (inst && (inst.version || 0) >= (it.version || 0)) stateChip = '<span class="chip ok">installed' + (isPack ? '' : ' v' + esc(String(inst.version || it.version || 0))) + '</span>';
-    else if (inst){ stateChip = '<span class="chip">installed v' + esc(String(inst.version || 0)) + '</span>'; action = 'Update to v' + (it.version || 0); }
-    else { stateChip = '<span class="chip">not installed</span>'; action = 'Install'; }
-    if (l.community){
-      if (isPack) action = null;                       // packs arrive via the anchor for now
-      else if (!it.has_content) action = null;         // manifest-only listing
-    }
-    var head = '<div class="nm">' + esc(it.title || skTitle(it)) + ' ' + stateChip + '</div>';
-    var row = rowShell(head, []);
-    row.setAttribute('data-lib', it.id);
-    var drawer = document.createElement('div'); drawer.className = 'drawer';
-    var contentsLine = isPack
-      ? ' Ships: ' + (packSkills.length ? packSkills.map(function(id){ return '/' + id; }).join(', ') : 'nothing?')
-        + ((it.contents && it.contents.files) ? ' + ' + it.contents.files + ' reference file' + (it.contents.files === 1 ? '' : 's') : '')
-        + ((it.contents && it.contents.pages) ? ' + ' + it.contents.pages + ' dashboard page' + (it.contents.pages === 1 ? '' : 's') : '')
-      : '';
-    drawer.innerHTML = '<div class="sub">' + esc((it.description || '') + contentsLine) + '</div>'
-      + '<div class="dmeta"><span class="chip">/' + esc(it.id) + '</span>'
-      + ' <span class="chip">from ' + esc(l.rock || 'your rock') + '</span>'
-      + (isPack ? ' <span class="chip">pack' + (l.community ? ' (arrives via your anchor rock for now)' : '') + '</span>' : '')
-      + (it.gate ? ' <span class="chip">watch-first</span>' : '')
-      + (it.outbound ? ' <span class="chip">drafts outbound</span>' : '')
-      + (l.community && !isPack && !it.has_content ? ' <span class="chip">no content published</span>' : '')
-      + '</div>';
-    if (action){
-      var acts = document.createElement('div'); acts.className = 'dacts';
-      var btn = document.createElement('button'); btn.className = 'act mini'; btn.textContent = action;
-      // Both branches live in rockInstall since 2026-08-10, shared with the
-      // per-rock catalogue in a rock's drawer. Trap 23 (a reload swallowing the
-      // confirmation it should have followed) was a same-shape bug in one of two
-      // near-identical copies; there is now only one copy to get right.
-      btn.onclick = function(){ rockInstall(l, btn, 'libraryNotice'); };
-      acts.appendChild(btn);
-      drawer.appendChild(acts);
-    }
-    row.appendChild(drawer);
-    return row;
-  }
-  // ---- Library data (spec 2026-08-04 § 6.3): what the rocks published for
-  // THIS member. The anchor's entitled catalogue + every joined rock's ride
-  // the same fetches they always did; rendering merged into the tabbed list.
-  // keep=true: a verb has just written its own confirmation into the notice and
-  // this reload is that verb's refresh. Clearing on entry swallows it, which is
-  // what the community Install did (trap 23); every other caller was safe only
-  // because it happened to reload BEFORE writing. Callers now say which they
-  // mean instead of relying on statement order.
-  function loadLibrary(keep){
-    if (!keep) notice('libraryNotice', '');
-    // The org face dials catalog-list too (one-inbox, 2026-08-17). It used to
-    // return early here: catalog-list was a member verb by design and asking
-    // answered the merged Skills page with "unknown verb: catalog-list". That
-    // reasoning confused the two directions (the Catalogue page is what a rock
-    // GIVES OUT, catalog-list is what its box RECEIVES from rocks it joined),
-    // and the verb crossed the org wall when the community path was deleted.
-    // The early return outlived the wall by one commit, which left the rocks
-    // tab with NO source on a rock (libEntries had already stopped reading
-    // /community-catalogs) and silently removed a ruled capability: a rock
-    // installing a skill published by a rock it joined (qa-org-skills pins it).
-    run('catalog-list', {}).then(function(r){
-      if (!r.ok){ notice('libraryNotice', 'Could not read your library:\n' + outText(r)); return; }
-      var text = outText(r);
-      function seg(a, b){ var t = text.split(a)[1] || ''; return b ? t.split(b)[0] : t; }
-      // The catalogue ends at __ORGCONTACT__ (2026-08-23). catalog-list stopped
-      // emitting __REQUESTS__ with F3, and cutting at that marker alone handed
-      // JSON.parse the contact and skills blocks too, so every real box read
-      // an EMPTY catalogue and "From your rocks" never listed an offer (the
-      // harness fixture still carried the marker, which is how it hid). An
-      // old image that still prints the marker is cut at it as before.
-      try { state.catalog = JSON.parse(seg('__CATALOG__', '__ORGCONTACT__').split('__REQUESTS__')[0].trim() || '{}'); } catch(e){ state.catalog = {}; }
-      try { state.catalogRequests = text.indexOf('__REQUESTS__') >= 0 ? JSON.parse(seg('__REQUESTS__', '__ORGCONTACT__').trim() || '[]') : []; } catch(e){ state.catalogRequests = []; }
-      try { state.orgContact = JSON.parse(seg('__ORGCONTACT__', '__ALLSKILLS__').trim() || '{}'); } catch(e){ state.orgContact = {}; }
-      var am = seg('__ALLSKILLS__').match(/SKILLS_STATE (.*)/);
-      try { state.allSkills = JSON.parse(am ? am[1] : '{}'); } catch(e){ state.allSkills = {}; }
-      // The installed group renders from state.skillRows, which loadSkills
-      // builds from cadence-list. An install or update reloads through HERE
-      // (rockInstall → loadLibrary), so rebuild the rows from this fresh
-      // inventory too, or the card would not move up until the next visit.
-      // Only when the box actually answered with an inventory: an old box
-      // with no SKILLS_STATE line must not wipe the list.
-      if (am && state.allSkills && state.allSkills.skills && (state.cadence || {}).jobs) { state.skillsState = state.allSkills; state.skillRows = skillRowsFrom(state.allSkills); }
-      // Files' Offered group reads state.catalog too (F1, 2026-08-25): this
-      // catalog-list round trip is much heavier than library-list and often
-      // resolves second, so repaint Offered here rather than leaving it to
-      // whatever the library-list read saw when it last resolved. This does
-      // NOT re-run the Files reader itself: that would double the
-      // library-list round trip on every Skills-page load for no reason,
-      // since installed-dirs rendering does not depend on the catalogue.
-      renderFilesOffered();
-      renderPagesOffered();
-      renderLibrary();
-    });
-  }
-  // Prompts tab (2026-08-25). Inert text, never installed: read prompt-list,
-  // render a card per prompt with a Copy button. Old-image tolerance matches
-  // catalog-list/cadence-list: a "dormant" string in the state means the box
-  // needs an update, and that reads as a different thing to an empty rock
-  // (nothing offered yet), because collapsing them trains people to ignore
-  // the message.
-  function loadPrompts(){
-    run('prompt-list', {}).then(function(r){
-      if (!r.ok){ notice('promptsNotice', 'Could not read your prompts:\n' + outText(r)); return; }
-      var line = outLines(r).filter(function(l){ return l.indexOf('PROMPTS_STATE ') === 0; })[0];
-      var s = {};
-      try { s = line ? JSON.parse(line.slice('PROMPTS_STATE '.length)) : { prompts: [] }; }
-      catch (e) { s = { prompts: [] }; }
-      var list = $('promptsList'), empty = $('promptsEmpty');
-      if (!list || !empty) return;
-      list.innerHTML = '';
-      if (s.dormant) { notice('promptsNotice', s.dormant); empty.style.display = 'none'; return; }
-      // a genuine read failure (s.error) must not render the same as a box
-      // with nothing offered: the wording never repeats the raw engine text.
-      if (s.error) { notice('promptsNotice', 'Could not read your prompts just now. Try again in a moment.'); empty.style.display = 'none'; return; }
-      notice('promptsNotice', '');
-      var items = s.prompts || [];
-      empty.style.display = items.length ? 'none' : 'block';
-      items.forEach(function(p){
-        var card = document.createElement('div'); card.className = 'guidecard'; card.style.marginTop = '14px';
-        var h = document.createElement('p'); h.className = 'gtitle'; h.textContent = p.title || p.id;
-        var meta = document.createElement('p'); meta.className = 'hint'; meta.style.margin = '2px 0 10px';
-        meta.textContent = 'From ' + (p.rock === 'anchor' ? 'your community' : p.rock);
-        var body = document.createElement('pre'); body.style.whiteSpace = 'pre-wrap'; body.style.margin = '0 0 12px';
-        body.textContent = p.body + (p.truncated ? '\n\n(Cut short. Open the file on your mineral to read the rest.)' : '');
-        var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'act'; btn.textContent = 'Copy';
-        // the copy target is the body only, never the title or the card markup
-        btn.addEventListener('click', function(){
-          navigator.clipboard.writeText(p.body).then(function(){
-            btn.textContent = 'Copied';
-            setTimeout(function(){ btn.textContent = 'Copy'; }, 1500);
-          }, function(){ notice('promptsNotice', 'Could not copy just now. Select the text and copy it by hand.'); });
-        });
-        card.appendChild(h); card.appendChild(meta); card.appendChild(body); card.appendChild(btn);
-        list.appendChild(card);
-      });
-    });
-  }
-  // ---- Communities (commons-repo model, self-host pivot 2026-09-01) --------
-  // One verb reads the list (community-list, a COMMUNITIES_STATE line); join
-  // and leave are their own verbs. The bundle travels as a verb ARG and rides
-  // stdin box-side; this page never interprets it beyond handing it over, and
-  // every string rendered here goes through textContent, never innerHTML.
-  function loadCommunities(){
-    run('community-list', {}).then(function(r){
-      if (!r.ok){ notice('commNotice', verbErr(r, 'Could not read your communities:')); return; }
-      var line = outLines(r).filter(function(l){ return l.indexOf('COMMUNITIES_STATE ') === 0; })[0];
-      var s = {};
-      try { s = line ? JSON.parse(line.slice('COMMUNITIES_STATE '.length)) : { communities: [] }; }
-      catch (e) { s = { communities: [], error: 'unreadable' }; }
-      var list = $('commList'), empty = $('commEmpty');
-      if (!list || !empty) return;
-      list.innerHTML = '';
-      if (s.dormant) { notice('commNotice', s.dormant); empty.style.display = 'none'; return; }
-      if (s.error) { notice('commNotice', 'Could not read your communities just now. Try again in a moment.'); empty.style.display = 'none'; return; }
-      notice('commNotice', '');
-      var items = s.communities || [];
-      // the ladder and the Map read the same list this page renders
-      state.communities = items;
-      state.strength = state.strength || {};
-      state.strength.communities = items.length;
-      empty.style.display = items.length ? 'none' : 'block';
-      // Day zero leads with the one thing to do: the join fold opens itself
-      // while there is nothing joined. It never force-closes a fold the
-      // member opened on a populated page.
-      var jf = $('commJoinFold');
-      if (jf && !items.length) jf.open = true;
-      items.forEach(function(c){
-        var card = document.createElement('div'); card.className = 'guidecard'; card.style.marginTop = '14px';
-        var h = document.createElement('p'); h.className = 'gtitle'; h.textContent = c.org_display || c.org;
-        var meta = document.createElement('p'); meta.className = 'hint'; meta.style.margin = '2px 0 8px';
-        meta.textContent = c.org + ' · ' + c.url + (c.joined ? ' · joined ' + String(c.joined).slice(0, 10) : '');
-        var status = document.createElement('p'); status.style.margin = '0 0 10px';
-        // A community that cannot be read gets the SPECIFIC honest sentence
-        // when the box could diagnose it (ruling 3): the unaccepted GitHub
-        // invitation, or the missing GitHub sign-in. Every stuck state gets a
-        // Check again button (community-check: one pull now + re-diagnosis),
-        // so accepting the invitation is followed by a press, not a wait.
-        var needsCheck = false;
-        if (c.status === 'access-ended' && c.access_hint === 'pending-invite') {
-          status.textContent = 'GitHub sent you an invitation email from ' + (c.invite_from || 'the community owner')
-            + ' that has not been accepted yet. Accept it on github.com (the email lands wherever your GitHub account gets mail), then press Check again.';
-          needsCheck = true;
-        } else if (c.status === 'access-ended' && c.access_hint === 'needs-github') {
-          status.textContent = 'This community’s shared library is private, and this mineral has no GitHub sign-in to read it with. Connect GitHub on Your mineral (the Backup card), then press Check again.';
-          needsCheck = true;
-        } else if (c.status === 'access-ended') {
-          status.textContent = 'Your access to this community’s shared library has ended. What you installed stays yours; new content no longer arrives. If this is unexpected, ask the community owner, then press Check again.';
-          needsCheck = true;
-        } else if (c.status === 'oversized') {
-          status.textContent = 'This community’s shared library is larger than this mineral accepts, so its content is not kept. Ask the community owner to slim it down.';
-          needsCheck = true;
-        } else if (c.last_ok) {
-          var k = c.counts || {};
-          status.textContent = 'Syncing. Last sync ' + String(c.last_ok).slice(0, 16).replace('T', ' ')
-            + (c.last_sha ? ' (' + c.last_sha + ')' : '') + '. Shared: '
-            + (k.skills || 0) + ' skills · ' + (k.packs || 0) + ' packs · ' + (k.pages || 0) + ' pages · '
-            + (k.prompts || 0) + ' prompts · ' + (k.dirs || 0) + ' folders.';
-        } else {
-          status.textContent = 'Joined; the first sync has not completed yet. The mineral keeps trying on its own rhythm.'
-            + (c.last_error ? ' Last answer: ' + c.last_error : '');
-        }
-        // Check again (ruling 3): one pull now + the same diagnosis join runs.
-        var checkWrap = null;
-        if (needsCheck) {
-          checkWrap = document.createElement('div'); checkWrap.style.margin = '0 0 10px';
-          var ckBtn = document.createElement('button'); ckBtn.type = 'button'; ckBtn.className = 'act'; ckBtn.textContent = 'Check again';
-          var ckOut = document.createElement('div'); ckOut.className = 'log'; ckOut.style.display = 'none';
-          ckBtn.addEventListener('click', function(){
-            ckBtn.disabled = true; ckOut.style.display = 'block'; ckOut.textContent = 'Checking…';
-            run('community-check', { org: c.org }).then(function(rr){
-              ckBtn.disabled = false;
-              ckOut.textContent = outText(rr) || (rr.ok ? 'Checked.' : 'Could not check just now.');
-              if (rr.ok && /^OK: /m.test(outText(rr))) loadCommunities();
-            }, function(){ ckBtn.disabled = false; ckOut.textContent = 'Could not reach the app server. Try again in a moment.'; });
-          });
-          checkWrap.appendChild(ckBtn); checkWrap.appendChild(ckOut);
-        }
-        // The shared library (ruling 4): what this community carries, new
-        // things first, each installable through the EXISTING install verb
-        // (catalog-install with this community named as the source). Opening
-        // the fold stamps the look (community-seen), so next time only what
-        // arrived or changed since reads as new.
-        var libFold = null;
-        var items = (c.items || []).slice();
-        if (items.length) {
-          items.sort(function(a, b){ return (b.fresh ? 1 : 0) - (a.fresh ? 1 : 0); });
-          libFold = document.createElement('details');
-          libFold.className = 'secfold';
-          libFold.style.margin = '0 0 10px';
-          var sum = document.createElement('summary');
-          sum.textContent = 'Shared library (' + items.length + (c.fresh_count ? ', ' + c.fresh_count + ' new' : '') + ')';
-          libFold.appendChild(sum);
-          var libBody = document.createElement('div'); libBody.className = 'fbody';
-          var KIND_WORD = { skill: 'Skill', pack: 'Pack', page: 'Page', prompt: 'Prompt', dir: 'Folder' };
-          items.forEach(function(it){
-            var row = document.createElement('div'); row.className = 'guidecard'; row.style.marginTop = '8px';
-            var t = document.createElement('p'); t.style.margin = '0';
-            t.textContent = (it.title || it.id) + ' · ' + (KIND_WORD[it.kind] || it.kind) + (it.fresh ? ' · new' : '');
-            row.appendChild(t);
-            if (it.description) {
-              var d = document.createElement('p'); d.className = 'hint'; d.style.margin = '2px 0 0';
-              d.textContent = it.description;
-              row.appendChild(d);
-            }
-            var act = document.createElement('div'); act.style.margin = '6px 0 0';
-            if (it.kind === 'skill' || it.kind === 'page' || it.kind === 'dir') {
-              var ib = document.createElement('button'); ib.type = 'button'; ib.className = 'act mini'; ib.textContent = 'Install';
-              var io = document.createElement('div'); io.className = 'log'; io.style.display = 'none';
-              ib.addEventListener('click', function(){
-                ib.disabled = true; io.style.display = 'block'; io.textContent = 'Installing…';
-                var args = { id: it.id, rock: c.org };
-                if (it.kind !== 'skill') args.kind = it.kind;
-                run('catalog-install', args).then(function(rr){
-                  ib.disabled = false;
-                  io.textContent = outLines(rr).slice(-2).join('\n') || (rr.ok ? 'Installed.' : 'Could not install that.');
-                }, function(){ ib.disabled = false; io.textContent = 'Could not reach the app server. Try again in a moment.'; });
-              });
-              act.appendChild(ib); act.appendChild(io);
-            } else {
-              var where = document.createElement('p'); where.className = 'hint'; where.style.margin = '0';
-              where.textContent = it.kind === 'prompt'
-                ? 'Read and copy it on the Library page.'
-                : 'Offered on the Skills page, with what it ships.';
-              act.appendChild(where);
-            }
-            row.appendChild(act);
-            libBody.appendChild(row);
-          });
-          libFold.appendChild(libBody);
-          libFold.addEventListener('toggle', function(){
-            // Opening IS the look: stamp it once so what is on screen keeps
-            // its "new" marks now, and only later arrivals read as new.
-            if (!libFold.open || libFold.getAttribute('data-seen')) return;
-            libFold.setAttribute('data-seen', '1');
-            run('community-seen', { org: c.org }).catch(function(){ /* the stamp is a convenience, never an error */ });
-          });
-        }
-        // Share back (community-share): stage one of your own skills, pages or
-        // folders for this community. The verb stages a clean tree on the
-        // mineral and prints what to do with it; this fold only reveals the
-        // two fields the verb needs and shows its words verbatim.
-        var shWrap = document.createElement('div'); shWrap.style.margin = '0 0 10px';
-        var shBtn = document.createElement('button'); shBtn.type = 'button'; shBtn.className = 'act'; shBtn.textContent = 'Share back\u2026';
-        var shForm = document.createElement('div'); shForm.style.display = 'none'; shForm.style.margin = '8px 0 0';
-        var shKind = document.createElement('select');
-        shKind.innerHTML = '<option value="skill">Skill</option><option value="page">Page</option><option value="dir">Folder</option>';
-        shKind.setAttribute('aria-label', 'What kind of thing to share back');
-        var shId = document.createElement('input'); shId.placeholder = 'its id, e.g. weekly-review'; shId.setAttribute('autocomplete', 'off');
-        shId.style.cssText = 'margin-left:6px;font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--line);border-radius:var(--r-input);background:var(--paper);color:var(--ink)';
-        var shGo = document.createElement('button'); shGo.type = 'button'; shGo.className = 'act'; shGo.style.marginLeft = '6px'; shGo.textContent = 'Stage it';
-        var shOut = document.createElement('div'); shOut.className = 'log'; shOut.style.display = 'none';
-        var shHint = document.createElement('p'); shHint.className = 'hint'; shHint.style.margin = '6px 0 0';
-        shHint.textContent = 'Stages a copy on your mineral, laid out for the community’s shared repository, and prints where it is. Handing it to the community owner (a pull request on their repository) is yours to do; nothing is sent anywhere by itself.';
-        shForm.appendChild(shKind); shForm.appendChild(shId); shForm.appendChild(shGo); shForm.appendChild(shHint); shForm.appendChild(shOut);
-        shBtn.addEventListener('click', function(){ shForm.style.display = shForm.style.display === 'none' ? '' : 'none'; });
-        shGo.addEventListener('click', function(){
-          var id = (shId.value || '').trim();
-          if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(id)) { shOut.style.display = 'block'; shOut.textContent = 'The id is lowercase letters, numbers and hyphens, e.g. weekly-review.'; return; }
-          shGo.disabled = true; shOut.style.display = 'block'; shOut.textContent = 'Staging\u2026';
-          run('community-share', { org: c.org, kind: shKind.value, id: id }).then(function(rr){
-            shGo.disabled = false;
-            shOut.textContent = outText(rr) || (rr.ok ? 'Staged.' : 'Could not stage that.');
-          }, function(){ shGo.disabled = false; shOut.textContent = 'Could not reach the app server. Try again in a moment.'; });
-        });
-        shWrap.appendChild(shBtn); shWrap.appendChild(shForm);
-        var leave = document.createElement('button'); leave.type = 'button'; leave.className = 'act'; leave.textContent = 'Leave';
-        leave.addEventListener('click', function(){
-          if (!window.confirm('Leave ' + (c.org_display || c.org) + '? Its shared library stops syncing to this mineral. Everything you installed from it stays yours.')) return;
-          leave.disabled = true;
-          run('community-leave', { org: c.org }).then(function(rr){
-            leave.disabled = false;
-            if (!rr.ok) { notice('commNotice', verbErr(rr, 'Could not leave that community:')); return; }
-            loadCommunities();
-          });
-        });
-        card.appendChild(h); card.appendChild(meta); card.appendChild(status);
-        if (checkWrap) card.appendChild(checkWrap);
-        if (libFold) card.appendChild(libFold);
-        card.appendChild(shWrap); card.appendChild(leave);
-        list.appendChild(card);
-      });
-    });
-  }
-  (function(){
-    var btn = $('commJoinBtn'), refresh = $('commRefresh');
-    if (refresh) refresh.addEventListener('click', function(){ loadCommunities(); });
-    if (btn) btn.addEventListener('click', function(){
-      var out = $('commJoinOut');
-      var bundle = ($('commBundle').value || '').trim();
-      if (!bundle) { out.textContent = 'Open the owner’s join link, or paste their invitation first: one line starting cradscommons1:.'; return; }
-      btn.disabled = true; out.textContent = 'Joining…';
-      run('community-join', { bundle: bundle }).then(function(r){
-        btn.disabled = false;
-        out.textContent = outText(r) || (r.ok ? 'Joined.' : 'Could not join.');
-        if (r.ok) { $('commBundle').value = ''; loadCommunities(); }
-      }, function(){ btn.disabled = false; out.textContent = 'Could not reach the app server. Try again in a moment.'; });
-    });
-  })();
-  // ---- the join deep link (crads-ai://join-community/<token>, 2026-09-02) ----
-  // The token is the invitation's base64 body, base64url-encoded so the link
-  // survives chat apps. It is DATA on a whitelisted charset: decoding it only
-  // ever fills the invitation FIELD (a .value assignment, the textContent
-  // discipline), the fold opens, and joining stays the member's own press.
-  // Nothing from a URL can run a verb here; the same law as run=signin.
-  function joinBundleFromToken(t){
-    if (!/^[A-Za-z0-9_-]{1,4096}$/.test(String(t || ''))) return '';
-    var body = String(t).replace(/-/g, '+').replace(/_/g, '/');
-    while (body.length % 4) body += '=';
-    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body)) return '';
-    return 'cradscommons1:' + body;
-  }
-  function prefillJoin(token){
-    var bundle = joinBundleFromToken(token);
-    if (!bundle) return;
-    var jf = $('commJoinFold'), ta = $('commBundle'), out = $('commJoinOut');
-    if (!jf || !ta) return;
-    jf.open = true;
-    ta.value = bundle;
-    if (out) {
-      // Several minerals on this machine: the join lands on the one shown, so
-      // say which one that is and how to point elsewhere BEFORE the press.
-      out.textContent = (state.targets && state.targets.length > 1)
-        ? 'The invitation is filled in. It will join the mineral shown at the top of this page; switch minerals up there first if you mean a different one. Then press Join.'
-        : 'The invitation is filled in. Press Join to add this community.';
-    }
-    try { ta.focus(); } catch (e) { /* focus is a nicety */ }
-  }
-
-  // Files tab (2026-08-25). Directories a rock offers, installed into
-  // library/<pack>/<id> in this box's brain via catalog-install kind:'dir',
-  // read back with library-list. Offers come from pack entries: catalog-reconcile
-  // lists a pack's dirs in contents.dirs, there is no per-dir catalogue item,
-  // so offered rows are expanded client-side from state.catalog.items. Same
-  // dormant/error/empty split as Prompts, for the same reason: a box too old
-  // to answer must not read the same as a rock with nothing offered.
-  //
-  // library-list (loadFiles, here) and catalog-list (loadLibrary, a much
-  // heavier round trip) are two SEPARATE async calls racing each other.
-  // state.catalog starts undefined and library-list usually wins, so Offered
-  // rendering cannot live only inside loadFiles's callback: whichever of the
-  // two resolves LAST has to be the one that paints it, or the group renders
-  // empty on an ordinary first load and only self-heals on the next
-  // loadSkills poll (60s) or the next install/remove. renderFilesOffered is
-  // that shared repaint, called from both loadFiles below and from
-  // loadLibrary's catalog-list callback. Installed-dirs rendering stays
-  // library-list's job alone: it is not re-fetched when the catalogue lands.
-  function loadFiles(){
-    run('library-list', {}).then(function(r){
-      var installedBox = $('filesInstalled'), empty = $('filesEmpty');
-      if (!installedBox || !empty) return;
-      // A failed refresh must not leave stale cards on screen (M2): the
-      // worst case is a card that still claims a folder is installed with a
-      // Remove button disabled from the click that triggered this very
-      // refresh, permanently dead. Clear and repaint Offered from nothing
-      // known, same as the dormant/error branches below.
-      if (!r.ok){
-        installedBox.innerHTML = '';
-        state.filesDirs = [];
-        notice('filesNotice', 'Could not read your files:\n' + outText(r));
-        renderFilesOffered();
-        return;
-      }
-      var line = outLines(r).filter(function(l){ return l.indexOf('LIBRARY_STATE ') === 0; })[0];
-      var s = {};
-      try { s = line ? JSON.parse(line.slice('LIBRARY_STATE '.length)) : { dirs: [] }; }
-      catch (e) { s = { dirs: [] }; }
-      installedBox.innerHTML = '';
-      if (s.dormant) { notice('filesNotice', s.dormant); state.filesDirs = []; renderFilesOffered(); return; }
-      // a genuine read failure (s.error) must not render the same as a box
-      // with nothing offered: the wording never repeats the raw engine text.
-      if (s.error) { notice('filesNotice', 'Could not read your files just now. Try again in a moment.'); state.filesDirs = []; renderFilesOffered(); return; }
-      notice('filesNotice', '');
-      var installed = s.dirs || [];
-      state.filesDirs = installed;
-
-      installed.forEach(function(d){
-        var card = document.createElement('div'); card.className = 'guidecard'; card.style.marginTop = '14px';
-        var head = document.createElement('p'); head.className = 'gtitle';
-        head.textContent = d.id + (d.kind ? ' · ' + d.kind : '') + ' · from ' + (d.rock || 'your community');
-        var where = document.createElement('p'); where.className = 'hint'; where.style.margin = '2px 0 10px';
-        where.textContent = 'Installed ' + (d.installed || '') + ' at library/' + d.pack + '/' + d.id;
-        var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'act'; btn.textContent = 'Remove';
-        btn.addEventListener('click', function(){
-          if (!confirm('Remove the folder "' + d.id + '"?\n\nIt is taken out of your library. This cannot be undone from here.')) return;
-          btn.disabled = true;
-          run('dir-remove', { id: d.id }).then(function(rr){
-            notice('filesNotice', outLines(rr).slice(-2).join('\n'));
-            loadFiles();
-          });
-        });
-        card.appendChild(head); card.appendChild(where); card.appendChild(btn);
-        installedBox.appendChild(card);
-      });
-
-      renderFilesOffered();
-    });
-  }
-  // The offered half of Files, split out so it can be called both from
-  // loadFiles (library-list resolves) and from loadLibrary's catalog-list
-  // callback (state.catalog resolves): see the race note above loadFiles.
-  // dir-install's install-once is ID-keyed, not pack-keyed, so two packs
-  // offering the same not-yet-installed id must render ONE Install button
-  // here, never two: a `seen` set dedupes alongside the installedIds skip.
-  function renderFilesOffered(){
-    var offeredBox = $('filesOffered'), empty = $('filesEmpty');
-    if (!offeredBox || !empty) return;
-    offeredBox.innerHTML = '';
-    var installedIds = {};
-    (state.filesDirs || []).forEach(function(d){ installedIds[d.id] = true; });
-    var seen = {};
-    var offers = [];
-    ((state.catalog && state.catalog.items) || []).forEach(function(it){
-      if (!it) return;
-      // A STANDALONE folder: its own catalogue item, with no pack around it
-      // (delivery-model step 7). Until this branch, folders were read ONLY out
-      // of contents.dirs on a pack, so a rock could publish a standalone
-      // folder, reconcile would stage it correctly into the member's
-      // offers-dirs/, and this zone would never draw a row for it: entitled,
-      // delivered, and invisible. renderPagesOffered has had the equivalent
-      // branch since pages became pickup; this is the same shape for folders.
-      if (it.kind === 'dir' && typeof it.id === 'string'){
-        if (installedIds[it.id] || seen[it.id]) return;
-        seen[it.id] = true;
-        offers.push({ id: it.id, pack: '', rock: it.rock || '', rock_id: it.rock_id || '' });
-        return;
-      }
-      if (it.kind !== 'pack' || !it.contents || !Array.isArray(it.contents.dirs)) return;
-      it.contents.dirs.forEach(function(id){
-        if (typeof id !== 'string' || installedIds[id] || seen[id]) return;
-        seen[id] = true;
-        offers.push({ id: id, pack: it.id, rock: it.rock || '', rock_id: it.rock_id || '' });
-      });
-    });
-
-    offers.forEach(function(o){
-      var card = document.createElement('div'); card.className = 'guidecard'; card.style.marginTop = '14px';
-      var head = document.createElement('p'); head.className = 'gtitle';
-      head.textContent = o.id + ' · offered by ' + (o.rock || 'your community');
-      var where = document.createElement('p'); where.className = 'hint'; where.style.margin = '2px 0 10px';
-      where.textContent = (o.pack ? 'Part of ' + o.pack + '. ' : '') + 'Installing copies it into your brain.';
-      var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'act primary'; btn.textContent = 'Install';
-      btn.addEventListener('click', function(){
-        btn.disabled = true;
-        var args = { id: o.id, kind: 'dir' };
-        if (o.rock_id) args.rock = o.rock_id;
-        // A folder can be listed in the catalogue before the rock has staged
-        // it in this box's inbox (spec § 12: only install-pack stages it), so
-        // "not in your inbox yet" is an answer, not a failure of this button.
-        run('catalog-install', args).then(function(rr){
-          notice('filesNotice', outLines(rr).slice(-2).join('\n'));
-          btn.disabled = false;
-          loadFiles();
-        });
-      });
-      card.appendChild(head); card.appendChild(where); card.appendChild(btn);
-      offeredBox.appendChild(card);
-    });
-
-    empty.style.display = ((state.filesDirs || []).length || offers.length) ? 'none' : 'block';
-  }
-  // renderLibrary survives as the name loadLibrary's fetches call back into;
-  // the sectioned library it used to draw is gone (R12) — one tabbed list.
-  // The catalogues feed TWO surfaces since 2026-08-10: the merged "From your
-  // rocks" list here, and the per-rock catalogue block inside a rock's drawer.
-  // The roster repaint is guarded on the page being on screen, so a Skills-page
-  // reload does not rebuild a roster nobody is looking at.
-  function renderLibrary(){
-    renderSkills();
-  }
 
   // ---- Cadence v2 (spec 2026-08-04 § 4) --------------------------------------
   // The file on the box is {version:2, jobs:{id:{enabled, deliver, schedule}}};
@@ -8005,667 +6664,6 @@
     var m = y.match(new RegExp('^' + key + ':\\s*"?([^"\\n#]*)"?', 'm'));
     return m ? m[1].trim() : '';
   }
-  // The catalogue, post-collapse (2026-09-01): a read-only INVENTORY of the
-  // library zones a commons publish ships, whole. The hosted era's per-member
-  // offer grid, audience policy and publish-per-row machinery died with the
-  // push-down channels: in a commons, membership is the entitlement
-  // (engine/community/commons-publish.mjs says so in its header), so there is
-  // nothing per-member left to toggle here.
-  var CAT = { items: [], loaded: false, loading: null };
-
-  function loadCatalogue(force){
-    if (!force && CAT.loading) return CAT.loading;
-    CAT.loading = Promise.all([
-      run('skill-list', {}), run('pack-list', {}),
-      run('item-list', {}).catch(function(){ return ''; }),
-    ]).then(function(rs){
-      var byId = {}, order = [];
-      function slot(id){
-        if (!byId[id]) { byId[id] = { id: id, kind: 'skill', category: '' }; order.push(id); }
-        return byId[id];
-      }
-      // 1. the skills library: every giveable skill
-      var parts = outText(rs[0]).split(/^=== (.+)$/m);
-      for (var i = 1; i < parts.length; i += 2){
-        var lit = slot(parts[i].trim()), y = parts[i + 1] || '';
-        lit.version = yamlScalar(y, 'version') || '1';
-        lit.description = yamlScalar(y, 'description');
-        lit.title = yamlScalar(y, 'title');
-        lit.category = yamlScalar(y, 'category');
-        lit.cadence = (y.match(/default:\s*"?(\w+)"?/) || [])[1] || 'off';
-        lit.outbound = /outbound:\s*true/.test(y);
-      }
-      // 2. packs
-      var kp = outText(rs[1]).split(/^=== (.+)$/m);
-      for (var k = 1; k < kp.length; k += 2){
-        var py = kp[k + 1] || '';
-        if (!/^\s+skills:\s*\[/m.test(py)) continue;   // v1 pack: not catalogable
-        var pit = slot(kp[k].trim());
-        pit.kind = 'pack';
-        pit.version = yamlScalar(py, 'version') || '1';
-        pit.description = yamlScalar(py, 'summary') || yamlScalar(py, 'title');
-        pit.packSkills = ((py.match(/^\s+skills:\s*\[([^\]]*)\]/m) || [])[1] || '')
-          .split(',').map(function(x){ return x.trim(); }).filter(Boolean);
-      }
-      // 3. the item libraries: prompts, pages and folders. item-list heads each
-      // entry "<kind>/<id>" because three roots share one stream. A mineral
-      // whose software predates the verb rejects it, and the .catch above turns
-      // that into empty text: no items, no error, the page still loads.
-      var ip = outText(rs[2]).split(/^=== (.+)$/m);
-      for (var n = 1; n < ip.length; n += 2){
-        var head = ip[n].trim(), cutAt = head.indexOf('/');
-        if (cutAt < 1) continue;
-        var ikind = head.slice(0, cutAt), iid = head.slice(cutAt + 1), iy = ip[n + 1] || '';
-        if (['prompt', 'page', 'dir'].indexOf(ikind) < 0) continue;
-        var iit = slot(iid);
-        // The kind comes from the HEADER, never from the manifest: dir.yaml
-        // carries its own unrelated `kind:` label field.
-        iit.kind = ikind;
-        iit.version = yamlScalar(iy, 'version') || '1';
-        iit.title = yamlScalar(iy, 'title');
-        iit.description = yamlScalar(iy, 'description');
-        iit.category = yamlScalar(iy, 'category');
-      }
-      CAT.items = order.map(function(id){
-        var it = byId[id];
-        it.title = it.title || skTitle({ id: id });
-        return it;
-      });
-      CAT.loaded = true; CAT.loading = null;
-      renderCatalogue();
-    }, function(e){ CAT.loading = null; throw e; });
-    return CAT.loading;
-  }
-
-  // The catalogue in zones by kind (delivery-model step 7). One flat list made
-  // four kinds read as "skills, and some other rows"; the zones say what each
-  // thing IS and what happens when a member takes one.
-  var CAT_ZONES = [
-    ['skill',  'Skills',  'Things a member can run. They choose to install.'],
-    ['prompt', 'Prompts', 'Text a member copies. Nothing is installed and nothing changes on their box.'],
-    ['page',   'Pages',   'Screens for their app. They choose to install.'],
-    ['dir',    'Folders', 'Files that land in their box. They choose to install.'],
-    ['pack',   'Packs',   'Bundles of the above, offered as one.'],
-  ];
-
-  function renderCatalogue(){
-    var rows = $('catRows'); if (!rows) return;
-    rows.innerHTML = '';
-    $('catEmpty').style.display = CAT.items.length ? 'none' : 'block';
-    $('catState').style.display = CAT.items.length ? 'flex' : 'none';
-    function zone(label, hint, items){
-      if (!items.length) return;
-      var h = document.createElement('div');
-      h.className = 'catzone';
-      h.innerHTML = '<b>' + esc(label) + '</b><span class="hint">' + esc(hint) + '</span>';
-      rows.appendChild(h);
-      items.forEach(function(it){ rows.appendChild(catRow(it)); });
-    }
-    var known = {};
-    CAT_ZONES.forEach(function(z){
-      known[z[0]] = true;
-      zone(z[1], z[2], CAT.items.filter(function(it){ return (it.kind || 'skill') === z[0]; }));
-    });
-    // A kind this app has never heard of still gets a zone: filtering to a
-    // known list would make a newer mineral's items silently vanish from the
-    // one screen that shows what a publish ships.
-    zone('Other', 'Newer kinds this app does not have a name for yet.',
-      CAT.items.filter(function(it){ return !known[it.kind || 'skill']; }));
-    renderCatState();
-  }
-  // One line of state: how many things a publish would ship.
-  function renderCatState(){
-    var byKind = {};
-    CAT.items.forEach(function(it){ var k = it.kind || 'skill'; byKind[k] = (byKind[k] || 0) + 1; });
-    var cells = [[CAT.items.length, 'In your library', !CAT.items.length]];
-    CAT_ZONES.forEach(function(z){
-      if (byKind[z[0]]) cells.push([byKind[z[0]], z[1], false]);
-    });
-    $('catState').innerHTML = cells.map(function(c){
-      return '<div class="cell' + (c[2] ? ' zero' : '') + '"><span class="n">' + c[0] + '</span><span class="k">' + esc(c[1]) + '</span></div>';
-    }).join('');
-  }
-  function catRow(it){
-    var row = document.createElement('div');
-    row.className = 'catrow';
-    row.setAttribute('data-cat-id', it.id);
-    // Only a skill is invoked as /<id>. Labelling a prompt or a page that way
-    // told the operator to type a command that does not exist.
-    var KIND_CHIP = { pack: 'pack', prompt: 'prompt', page: 'page', dir: 'folder' };
-    var chips = '<span class="chip">' + (KIND_CHIP[it.kind] ? esc(KIND_CHIP[it.kind]) : '/' + esc(it.id)) + '</span>'
-      + '<span class="chip">v' + esc(String(it.version || '1')) + '</span>';
-    if (it.kind !== 'pack' && it.cadence && it.cadence !== 'off') chips += '<span class="chip">runs ' + esc(it.cadence) + '</span>';
-    // a skill that can send on someone's behalf earns a different colour than "v3"
-    if (it.outbound) chips += '<span class="chip warnchip">sends outbound</span>';
-    var desc = it.description || '';
-    if (it.kind === 'pack' && it.packSkills && it.packSkills.length) {
-      desc += (desc ? ' ' : '') + 'Ships ' + it.packSkills.map(function(x){ return '/' + x; }).join(', ') + '.';
-    }
-    row.innerHTML = '<div class="sid"><span class="nm">' + esc(it.title) + '</span>' + chips + '</div>'
-      + (desc ? '<p class="sdesc"></p>' : '');
-    // a long description folds into a bubble (R28) so the list stays scannable
-    if (desc.length > 150) {
-      var sd = row.querySelector('.sdesc');
-      sd.textContent = desc.slice(0, 120).replace(/\s+\S*$/, '') + '\u2026 ';
-      var more = document.createElement('button'); more.className = 'info'; more.type = 'button';
-      more.setAttribute('aria-label', 'Read the whole description'); more.setAttribute('data-tip', desc);
-      more.textContent = '?';
-      sd.appendChild(more);
-    } else if (desc) row.querySelector('.sdesc').textContent = desc;
-    return row;
-  }
-  // ---- Pack content editor (Phase 5, task 3, 2026-08-25) --------------------
-  // Editing a prompt or page inside a pack that already exists. Creating a
-  // pack, or touching pack.yaml, is out of scope: a pack is still made in
-  // Claude Code. There is no verb that reads a file's current text back
-  // (prompt-write and page-write only write), so this editor is
-  // create/replace only and says so in the HTML above: it never preloads
-  // what is on disk, and Save always writes the box's text whole, in place
-  // of the file. Every dynamic string below goes through textContent, never
-  // innerHTML, per the brief's rule for brain content.
-  var PACKAUTH = { packs: [], loaded: false, targeted: null };
-  // The bare-name shape prompt-write / page-write enforce server-side
-  // (panel-server.mjs's bad() checks on the `name` / `id` argument, no
-  // extension). Used at save time below to validate what the operator TYPED
-  // into the name field.
-  var PACK_AUTH_NAME_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
-  // F2 (final review, 2026-08-26): editability is decided from the row's
-  // FULL on-disk label, matched whole, never from a derived stem.
-  // renderPackAuthFiles used to strip a literal ".md" suffix off the label
-  // if present and otherwise leave it alone, so an extension-less
-  // prompts/kickoff produced the SAME stem, "kickoff", as prompts/kickoff.md
-  // would. That stem passed PACK_AUTH_NAME_RE, so Target enabled on BOTH
-  // rows; prompt-write always appends ".md" to whatever name is saved, so
-  // targeting the extension-less row and saving silently overwrote
-  // prompts/kickoff.md, the one file members actually receive, under an
-  // overwrite confirm that named exactly what the operator believed they
-  // were editing. The F1(b) divergence guard could not catch this: the
-  // targeted name and the saved name were identical strings, "kickoff", the
-  // whole time. Requiring the FULL label (the literal on-disk name,
-  // extension included) to match removes the ambiguity outright: an
-  // extension-less file can never match a pattern that requires a trailing
-  // ".md", full stop.
-  var PROMPT_LABEL_RE = /^prompts\/[a-z0-9][a-z0-9-]{0,62}\.md$/;
-  var PAGE_LABEL_RE = /^[a-z0-9][a-z0-9-]{0,62}\.html$/;
-
-  // ---- the Commons card (org face; commons-repo model 2026-09-01) ----------
-  // Free text (settings, grant details) rides to the box as base64 verb args
-  // and lands on stdin there, never in a command string. Every rendered
-  // string goes through textContent.
-  function loadCommons(){
-    if (!$('commonsState')) return;
-    run('commons-status', {}).then(function(r){
-      if (!r.ok){ notice('commonsNotice', verbErr(r, 'Could not read the commons state:')); return; }
-      var line = outLines(r).filter(function(l){ return l.indexOf('COMMONS_STATE ') === 0; })[0];
-      var s = {};
-      try { s = line ? JSON.parse(line.slice('COMMONS_STATE '.length)) : {}; } catch (e) { s = {}; }
-      var box = $('commonsState');
-      box.innerHTML = '';
-      if (s.dormant) { notice('commonsNotice', s.dormant); return; }
-      notice('commonsNotice', '');
-      var p = document.createElement('p'); p.className = 'hint'; p.style.margin = '0';
-      var start = $('commonsStart');
-      if (start) start.style.display = s.configured ? 'none' : 'block';
-      if (!s.configured) {
-        p.textContent = 'No community yet. Name one above and this hub sets up its shared library for you, or bring your own repository below.';
-        $('commonsActions').style.display = 'none';
-      } else {
-        p.textContent = 'Sharing as "' + (s.org_display || s.org) + '" (' + s.org + ') from ' + s.url
-          + (s.branch ? ' (branch ' + s.branch + ')' : '')
-          + '. Members: ' + ((s.roster && s.roster.active) || 0) + ' active, ' + ((s.roster && s.roster.revoked) || 0) + ' revoked.'
-          + (s.last_publish ? ' Last publish: ' + String(s.last_publish.at || '').slice(0, 16).replace('T', ' ') + ', ' + s.last_publish.items + ' item(s).' : ' Never published yet.');
-        $('commonsActions').style.display = 'block';
-        loadCommonsRoster();
-      }
-      box.appendChild(p);
-    });
-  }
-  function loadCommonsRoster(){
-    run('commons-roster', {}).then(function(r){
-      var host = $('commonsRoster');
-      if (!host) return;
-      host.innerHTML = '';
-      if (!r.ok) { host.textContent = 'Could not read the roster just now.'; return; }
-      var line = outLines(r).filter(function(l){ return l.indexOf('ROSTER_STATE ') === 0; })[0];
-      var s = {}; try { s = line ? JSON.parse(line.slice('ROSTER_STATE '.length)) : {}; } catch (e) { s = {}; }
-      var gh = s.github || {};
-      // The live half (ruling 2): when the commons lives on GitHub and this
-      // hub holds a token, each row with a username says what GitHub says
-      // (invite pending / accepted / not on the repo), and a collaborator no
-      // grant names is listed too, so the two lists cannot silently disagree.
-      if (gh.live === false && gh.error) {
-        var warn = document.createElement('p'); warn.className = 'hint';
-        warn.textContent = 'GitHub could not be checked just now (' + gh.error + '); this is your ledger only.';
-        host.appendChild(warn);
-      }
-      var grants = (s.grants || []).slice().reverse();
-      if (!grants.length && !(gh.extra_collaborators || []).length) {
-        var e2 = document.createElement('p'); e2.className = 'hint'; e2.textContent = 'Nobody shared with yet.'; host.appendChild(e2); return;
-      }
-      var LIVE_WORD = { accepted: 'accepted on GitHub', pending: 'invite pending on GitHub', none: 'not on the GitHub repo' };
-      grants.forEach(function(g){
-        var row = document.createElement('div'); row.className = 'guidecard'; row.style.marginTop = '8px';
-        var t = document.createElement('p'); t.style.margin = '0';
-        t.textContent = g.label + (g.github ? ' (' + g.github + ')' : '') + ' · ' + String(g.issued || '').slice(0, 10) + ' · ' + g.status
-          + (g.status === 'active' && gh.live && g.github ? ' · ' + (LIVE_WORD[g.live] || g.live) : '')
-          + (g.status === 'active' && gh.live && !g.github ? ' · in your ledger only (no GitHub username)' : '');
-        row.appendChild(t);
-        if (g.status === 'active') {
-          var rv = document.createElement('button'); rv.type = 'button'; rv.className = 'act'; rv.style.marginTop = '6px'; rv.textContent = 'Revoke';
-          rv.addEventListener('click', function(){
-            // The confirm carries the GitHub half of the offer when there is
-            // one: with a username on the grant the revoke also removes their
-            // read access from here; without one that step stays yours.
-            var alsoGithub = !!g.github;
-            var msg = alsoGithub
-              ? 'Revoke ' + g.label + '? This marks your roster and also removes ' + g.github + '’s read access on GitHub (a pending invitation is cancelled too). What they installed stays theirs.'
-              : 'Revoke ' + g.label + '? This marks your roster; also remove their read access on your git host yourself. What they installed stays theirs.';
-            if (!window.confirm(msg)) return;
-            rv.disabled = true;
-            run('commons-revoke', alsoGithub ? { id: g.id, github: true } : { id: g.id }).then(function(rr){
-              rv.disabled = false;
-              notice('commonsNotice', rr.ok ? outText(rr) : verbErr(rr, 'Could not revoke:'));
-              loadCommonsRoster(); loadCommons();
-            });
-          });
-          row.appendChild(rv);
-        }
-        host.appendChild(row);
-      });
-      (gh.extra_collaborators || []).forEach(function(login){
-        var row = document.createElement('div'); row.className = 'guidecard'; row.style.marginTop = '8px';
-        var t = document.createElement('p'); t.style.margin = '0';
-        t.textContent = login + ' · has read access on GitHub, but is not on your roster. If you do not know them, remove them on GitHub (repository Settings, Collaborators).';
-        row.appendChild(t);
-        host.appendChild(row);
-      });
-    });
-  }
-  // Connect GitHub from the Commons card (ruling 1): the SAME device flow the
-  // Backup card runs (/own-brain/start on this box), rendered here so starting
-  // a community never throws the owner onto another page. On done the create
-  // is retried by itself.
-  var commonsObTimer = null;
-  function commonsObSay(html){ var el = $('commonsGhLive'); if (el) el.innerHTML = html; }
-  function commonsObStop(){ if (commonsObTimer) { clearInterval(commonsObTimer); commonsObTimer = null; } }
-  function commonsObPoll(){
-    fetch('/own-brain/status').then(function(r){ return r.json(); }).then(function(st){
-      var steps = (st.steps || []).map(function(l){ return '<div class="hint">' + seatEsc(l) + '</div>'; }).join('');
-      if (st.stage === 'working') { commonsObSay('<div class="hint" style="color:var(--ink)">Approved. Connecting&hellip;</div>' + steps); return; }
-      if (st.stage === 'done') {
-        commonsObStop();
-        commonsObSay('<div class="hint" style="color:var(--good)">GitHub is connected. Creating the community&hellip;</div>');
-        var gc = $('commonsGhConnect');
-        if (gc) gc.style.display = 'none';
-        commonsCreate();
-        return;
-      }
-      if (st.stage === 'failed') {
-        commonsObStop();
-        var btn = $('commonsGhBtn'); if (btn) btn.disabled = false;
-        commonsObSay('<div class="hint" style="color:var(--bad)">' + seatEsc(st.reason || 'did not complete') + '</div>' + steps
-          + '<div class="hint" style="margin-top:6px">Nothing was lost; pressing Connect my GitHub starts again.</div>');
-      }
-    }).catch(function(){ /* transient: the next tick tries again */ });
-  }
-  function commonsObStart(){
-    var btn = $('commonsGhBtn'); if (btn) btn.disabled = true;
-    commonsObSay('<div class="hint">Starting GitHub sign-in&hellip;</div>');
-    fetch('/own-brain/start', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug: String(state.host || '').replace(/-box$/, ''), box: state.host }) })
-      .then(function(r){ return r.json(); })
-      .then(function(j){
-        if (j.error) { if (btn) btn.disabled = false; commonsObSay('<div class="hint" style="color:var(--bad)">' + seatEsc(j.error) + '</div>'); return; }
-        commonsObSay('<div class="hint" style="color:var(--ink)">On any device open '
-          + '<a href="' + seatEsc(j.verificationUri) + '" target="_blank" rel="noopener" style="color:var(--accent)">'
-          + seatEsc(String(j.verificationUri || '').replace('https://', '')) + '</a> and enter this code:</div>'
-          + '<div style="font:600 22px/1.4 ui-monospace,monospace;letter-spacing:.12em;margin:6px 0">' + seatEsc(j.userCode) + '</div>'
-          + '<div class="hint">Waiting for you to approve it. This card checks by itself.</div>');
-        commonsObStop();
-        commonsObTimer = setInterval(commonsObPoll, 3000);
-      })
-      .catch(function(e){ if (btn) btn.disabled = false; commonsObSay('<div class="hint" style="color:var(--bad)">Could not reach your mineral just now (' + seatEsc(e && e.message ? e.message : e) + ').</div>'); });
-  }
-  // Start a community (ruling 1): one field through commons-create. A refusal
-  // naming the missing GitHub sign-in reveals the inline connect flow above.
-  function commonsCreate(){
-    var out = $('commonsCreateOut'), btn = $('commonsCreateBtn');
-    if (!out || !btn) return;
-    var name = ($('commonsName').value || '').trim();
-    if (!name) { out.textContent = 'Name the community first: a couple of human words, e.g. Harbour Guild.'; return; }
-    var payload = { name: name, open: !!($('commonsOpenCk') && $('commonsOpenCk').checked) };
-    btn.disabled = true; out.textContent = 'Creating…';
-    run('commons-create', { payload_b64: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))) }).then(function(r){
-      btn.disabled = false;
-      var text = outText(r) || (r.ok ? 'Created.' : 'Could not create the community.');
-      out.textContent = text;
-      if (r.ok) { loadCommons(); return; }
-      if (/no GitHub sign-in/i.test(text)) { var gc = $('commonsGhConnect'); if (gc) gc.style.display = 'block'; }
-    }, function(){ btn.disabled = false; out.textContent = 'Could not reach the app server. Try again in a moment.'; });
-  }
-  (function(){
-    var init = $('commonsInitBtn'), grant = $('commonsGrantBtn'), pub = $('commonsPublishBtn');
-    var create = $('commonsCreateBtn'), ghBtn = $('commonsGhBtn');
-    var b64 = function(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))); };
-    if (create) create.addEventListener('click', function(){ commonsCreate(); });
-    if (ghBtn) ghBtn.addEventListener('click', function(){ commonsObStart(); });
-    if (init) init.addEventListener('click', function(){
-      var out = $('commonsInitOut');
-      var body = {
-        url: ($('commonsUrl').value || '').trim(),
-        branch: ($('commonsBranch').value || '').trim(),
-        org: ($('commonsOrg').value || '').trim().toLowerCase(),
-        org_display: ($('commonsDisplay').value || '').trim(),
-      };
-      var key = ($('commonsKey').value || '').trim();
-      if (key) body.key = key;
-      init.disabled = true; out.textContent = 'Saving…';
-      run('commons-init', { payload_b64: b64(body) }).then(function(r){
-        init.disabled = false;
-        out.textContent = outText(r) || (r.ok ? 'Saved.' : 'Could not save.');
-        if (r.ok) { $('commonsKey').value = ''; loadCommons(); }
-      });
-    });
-    if (pub) pub.addEventListener('click', function(){
-      var out = $('commonsPublishOut');
-      pub.disabled = true; out.textContent = 'Publishing…';
-      run('commons-publish', {}).then(function(r){
-        pub.disabled = false;
-        out.textContent = outText(r) || (r.ok ? 'Published.' : 'Could not publish.');
-        loadCommons();
-      });
-    });
-    // The grant's output leads with what the owner actually sends: a copy
-    // button for the join link (the clickable form) and one for the raw
-    // invitation text (the fallback for anywhere the link cannot travel).
-    // Both values come straight off the verb's own lines; the full output
-    // stays underneath, verbatim.
-    var copyBtn = function(label, value){
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'act mini'; b.style.marginRight = '6px'; b.textContent = label;
-      b.addEventListener('click', function(){
-        var done = function(){ b.textContent = 'Copied'; setTimeout(function(){ b.textContent = label; }, 1600); };
-        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(value).then(done, function(){ b.textContent = 'Select it below and copy'; });
-        else b.textContent = 'Select it below and copy';
-      });
-      return b;
-    };
-    if (grant) grant.addEventListener('click', function(){
-      var out = $('commonsGrantOut'), copyBox = $('commonsGrantCopy');
-      var body = { label: ($('commonsGrantLabel').value || '').trim() };
-      var gh = ($('commonsGrantGithub').value || '').trim();
-      if (gh) body.github = gh;
-      grant.disabled = true; out.textContent = 'Recording…';
-      if (copyBox) { copyBox.style.display = 'none'; copyBox.innerHTML = ''; }
-      run('commons-grant', { payload_b64: b64(body) }).then(function(r){
-        grant.disabled = false;
-        var lines = outLines(r);
-        out.textContent = lines.join('\n') || (r.ok ? 'Recorded.' : 'Could not record.');
-        if (r.ok && copyBox) {
-          var link = (lines.filter(function(l){ return l.indexOf('JOIN_LINK ') === 0; })[0] || '').slice('JOIN_LINK '.length);
-          var bundle = lines.filter(function(l){ return l.indexOf('cradscommons1:') === 0; })[0] || '';
-          if (link) copyBox.appendChild(copyBtn('Copy join link', link));
-          if (bundle) copyBox.appendChild(copyBtn('Copy invitation text', bundle));
-          copyBox.style.display = (link || bundle) ? 'block' : 'none';
-        }
-        if (r.ok) { $('commonsGrantLabel').value = ''; $('commonsGrantGithub').value = ''; loadCommonsRoster(); loadCommons(); }
-      });
-    });
-  })();
-
-  function loadPackAuthoring(){
-    // F3 (review, 2026-08-26): resolves true only when the packs list is
-    // known-good and rendered. packAuthSave uses this to decide whether the
-    // post-save reload actually came back, instead of blindly assuming it
-    // did and stomping a refresh-failure notice with "saved" text.
-
-    return run('pack-content-list', {}).then(function(r){
-      var empty = $('packAuthEmpty'), body = $('packAuthBody');
-      if (!empty || !body) return false;
-      if (!r.ok) { notice('packAuthNotice', 'Could not read your packs:\n' + outText(r)); return false; }
-      var line = outLines(r).filter(function(l){ return l.indexOf('PACKS_STATE ') === 0; })[0];
-      var s = {};
-      try { s = line ? JSON.parse(line.slice('PACKS_STATE '.length)) : { packs: [] }; }
-      catch (e) { s = { packs: [] }; }
-      if (s.dormant) { notice('packAuthNotice', s.dormant); empty.style.display = 'none'; body.style.display = 'none'; return false; }
-      // a genuine read failure (s.error) must not render the same as a rock
-      // with no packs: the wording never repeats the raw engine text.
-      if (s.error) { notice('packAuthNotice', 'Could not read your packs just now. Try again in a moment.'); return false; }
-      notice('packAuthNotice', '');
-      PACKAUTH.packs = s.packs || [];
-      PACKAUTH.loaded = true;
-      if (!PACKAUTH.packs.length) { empty.style.display = 'block'; body.style.display = 'none'; return true; }
-      empty.style.display = 'none'; body.style.display = 'block';
-      renderPackAuthPicker();
-      return true;
-    });
-  }
-  function renderPackAuthPicker(){
-    var sel = $('packAuthPack');
-    if (!sel) return;
-    var cur = sel.value;
-    while (sel.firstChild) sel.removeChild(sel.firstChild);
-    PACKAUTH.packs.forEach(function(p){
-      var o = document.createElement('option');
-      o.value = p.id; o.textContent = (p.title || p.id) + ' (' + p.id + ')';
-      sel.appendChild(o);
-    });
-    if (cur && PACKAUTH.packs.some(function(p){ return p.id === cur; })) sel.value = cur;
-    renderPackAuthFiles();
-  }
-  // F4 (review, 2026-08-26): switching packs while a file is targeted left
-  // the old targeting notice on screen with Name/Kind still naming a file in
-  // the pack that is no longer selected. The pack picker's own onchange
-  // calls this instead of renderPackAuthFiles directly, so a pack switch
-  // always drops stale targeting state along with the stale notice.
-  function packAuthPackChanged(){
-    PACKAUTH.targeted = null;
-    notice('packAuthNotice', '');
-    var nameInp = $('packAuthName'), kindSel = $('packAuthKind');
-    if (nameInp) nameInp.value = '';
-    if (kindSel) kindSel.value = 'prompt';
-    renderPackAuthFiles();
-  }
-  function packAuthCurrent(){
-    var sel = $('packAuthPack');
-    var id = sel ? sel.value : '';
-    return PACKAUTH.packs.filter(function(p){ return p.id === id; })[0] || null;
-  }
-  // Each row names a file already on disk for the chosen pack, prompts and
-  // pages together, and whether pack.yaml's contents: actually ships it. The
-  // not-shipped line is the one required behaviour a rock could otherwise
-  // never notice: an unlisted file works fine on this screen and reaches no
-  // member at all.
-  //
-  // F1 (final review, 2026-08-26): row.shipped now means what it says --
-  // pack-content.mjs only sets it true when the file is BOTH named in the
-  // manifest AND actually deliverable (prompts-list.mjs's own rule, the
-  // spec's real delivery path). row.manifestOnly marks the distinct case of
-  // named-in-the-manifest-but-never-delivered (wrong extension, or a name
-  // outside the delivery shape): the fix there is renaming the file, not
-  // touching the manifest, so it gets its own line rather than the plain
-  // not-shipped one, which would point the operator at the wrong fix.
-  //
-  // F1(a)/F2 (review 2026-08-26, corrected in the final review): a row whose
-  // on-disk LABEL does not match the write verb's exact shape (PROMPT_LABEL_RE
-  // / PAGE_LABEL_RE) can never be saved through this panel. Whether it still
-  // ships to members is a SEPARATE fact (row.shipped) -- the original fix
-  // here claimed every non-editable row "still ships fine to members as it
-  // is", which is true for a case mismatch (Kickoff.md, delivered
-  // case-insensitively) but false for a file that fails the delivery rule
-  // outright (a space in the name, the wrong extension, no extension at
-  // all). The wording below now reads row.shipped rather than asserting it.
-  function renderPackAuthFiles(){
-    var box = $('packAuthFiles');
-    if (!box) return;
-    while (box.firstChild) box.removeChild(box.firstChild);
-    var pack = packAuthCurrent();
-    if (!pack) return;
-    var rows = [];
-    (pack.prompts || []).forEach(function(p){
-      var stem = String(p.name || '').replace(/^prompts\//, '').replace(/\.md$/, '');
-      rows.push({ kind: 'prompt', label: p.name, target: stem, shipped: !!p.shipped, manifestOnly: !!p.manifestOnly });
-    });
-    (pack.pages || []).forEach(function(p){
-      rows.push({ kind: 'page', label: p.id + '.html', target: p.id, shipped: !!p.shipped, manifestOnly: !!p.manifestOnly });
-    });
-    if (!rows.length) {
-      var none = document.createElement('p'); none.className = 'hint';
-      none.textContent = 'No prompts or pages on disk in this pack yet.';
-      box.appendChild(none);
-      return;
-    }
-    rows.forEach(function(row){
-      var card = document.createElement('div'); card.className = 'guidecard'; card.style.marginTop = '10px';
-      var head = document.createElement('p'); head.className = 'gtitle';
-      head.textContent = (row.kind === 'prompt' ? 'Prompt: ' : 'Page: ') + row.label;
-      card.appendChild(head);
-      if (row.manifestOnly) {
-        var warnM = document.createElement('p'); warnM.className = 'hint'; warnM.style.margin = '2px 0 8px';
-        warnM.textContent = 'Listed in the pack manifest, but this name will not reach members: only a ".md" file with a plain lowercase name is delivered. Renaming the file fixes this; the manifest entry is already correct.';
-        card.appendChild(warnM);
-      } else if (!row.shipped) {
-        var warn = document.createElement('p'); warn.className = 'hint'; warn.style.margin = '2px 0 8px';
-        warn.textContent = 'Not shipped. This file will not reach members until it is listed in the pack manifest.';
-        card.appendChild(warn);
-      }
-      var editable = (row.kind === 'prompt' ? PROMPT_LABEL_RE : PAGE_LABEL_RE).test(row.label);
-      if (!editable) {
-        var why = document.createElement('p'); why.className = 'hint'; why.style.margin = '2px 0 8px';
-        why.textContent = row.shipped
-          ? 'This file’s name does not fit the letters, numbers and hyphens this panel needs to save. It still ships fine to members as it is: rename or edit it in Claude Code instead.'
-          : 'This file’s name does not fit the letters, numbers and hyphens this panel needs to save, and it does not ship to members as it is either: rename or edit it in Claude Code instead.';
-        card.appendChild(why);
-      }
-      var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'act';
-      btn.textContent = 'Target this name';
-      if (!editable) btn.disabled = true;
-      btn.addEventListener('click', function(){
-        // belt and braces: a disabled button should never dispatch a click,
-        // but nothing here may ever fill in an unsaveable name regardless.
-        if (!editable) return;
-        var kindSel = $('packAuthKind'), nameInp = $('packAuthName'), text = $('packAuthText');
-        if (kindSel) kindSel.value = row.kind;
-        if (nameInp) nameInp.value = row.target;
-        // the box stays empty on purpose: clicking a row targets a name, it
-        // does not load that file's content, and the notice says so.
-        if (text) text.value = '';
-        PACKAUTH.targeted = { pack: pack.id, kind: row.kind, name: row.target };
-        notice('packAuthNotice', 'Targeting the existing ' + row.kind + ' "' + row.target + '". The box below is still empty: type the full replacement, then save.');
-      });
-      card.appendChild(btn);
-      box.appendChild(card);
-    });
-  }
-  function packAuthFileExists(pack, kind, name){
-    var list = kind === 'prompt' ? (pack.prompts || []) : (pack.pages || []);
-    return list.some(function(f){
-      return kind === 'prompt' ? f.name === 'prompts/' + name + '.md' : f.id === name;
-    });
-  }
-  // F4 (final review, 2026-08-26): was this name already shipping BEFORE
-  // this save, per the listing read at load time? A brand new file (no row
-  // at all) reads as not-shipped here, same as an existing row with
-  // shipped:false -- both are cases packAuthSave needs to flag after a
-  // successful write, per the same predicate packAuthFileExists already uses
-  // to find the row.
-  function packAuthPriorShipped(pack, kind, name){
-    var list = kind === 'prompt' ? (pack.prompts || []) : (pack.pages || []);
-    var row = list.filter(function(f){
-      return kind === 'prompt' ? f.name === 'prompts/' + name + '.md' : f.id === name;
-    })[0];
-    return !!(row && row.shipped);
-  }
-  function packAuthSave(){
-    var pack = packAuthCurrent();
-    if (!pack) { notice('packAuthNotice', 'Pick a pack first.'); return; }
-    var kindSel = $('packAuthKind'), nameInp = $('packAuthName'), textEl = $('packAuthText');
-    var kind = kindSel && kindSel.value === 'page' ? 'page' : 'prompt';
-    var name = String((nameInp && nameInp.value) || '').trim();
-    if (!PACK_AUTH_NAME_RE.test(name)) {
-      notice('packAuthNotice', 'The file name must be lowercase letters, numbers and hyphens, starting with a letter or number.');
-      return;
-    }
-    var content = (textEl && textEl.value) || '';
-    if (!content) { notice('packAuthNotice', 'Nothing to save: type the content first.'); return; }
-    var exists = packAuthFileExists(pack, kind, name);
-    // F1(b) (review, 2026-08-26): what is about to be WRITTEN can silently
-    // diverge from what was TARGETED, because the operator hand-edited the
-    // name field, or because a non-editable row never had its real name
-    // filled in at all and they typed a guess instead. Either way, if Save
-    // would write a different name than the one last targeted, that is
-    // never allowed to happen silently. It always means either a brand new
-    // file (packAuthFileExists false) or an unrelated existing file
-    // (packAuthFileExists true) is about to be touched instead of the file
-    // the operator believes they are editing.
-    var t = PACKAUTH.targeted;
-    var diverged = !!t && (t.pack !== pack.id || t.kind !== kind || t.name !== name);
-    if (diverged) {
-      var divMsg = 'You targeted the ' + t.kind + ' "' + t.name + '", but this mineral is set to save as "' + name + '" instead.\n\n'
-        + (exists
-          ? 'Saving now replaces the existing ' + kind + ' "' + name + '". It will not touch "' + t.name + '".\n\nReplace "' + name + '" anyway?'
-          : 'Saving now creates a new ' + kind + ' called "' + name + '". It will not touch "' + t.name + '".\n\nSave as "' + name + '" anyway?');
-      if (!confirm(divMsg)) return;
-    } else if (exists) {
-      // Overwrite is a deliberate act, same confirm idiom as deleteMemberPage:
-      // saving onto an existing name must ask first, never replace on a side effect.
-      if (!confirm('Replace the existing ' + kind + ' "' + name + '"?\n\nThis overwrites what is on disk now. This cannot be undone from here.')) return;
-    }
-    var args = { pack: pack.id, content_b64: b64utf8(content), overwrite: exists };
-    if (kind === 'prompt') args.name = name; else args.id = name;
-    // F4 (final review, 2026-08-26): computed BEFORE the write, from the
-    // listing already on screen, so it reflects what was true a moment ago
-    // -- exactly the case the operator needs telling about, since after the
-    // write the manifest boundary has not moved (this box never touches
-    // pack.yaml) but the file on disk just did.
-    var needsManifestNotice = !exists || !packAuthPriorShipped(pack, kind, name);
-    var btn = $('packAuthSave');
-    if (btn) btn.disabled = true;
-    notice('packAuthNotice', '');
-    run(kind === 'prompt' ? 'prompt-write' : 'page-write', args).then(function(r){
-      if (btn) btn.disabled = false;
-      // Save reports the verb's own output: a refusal (an existing lint
-      // ERROR:<file>:<line>: line, or a missing-pack refusal) prints exactly
-      // what the box said, not a paraphrase.
-      var msg = outText(r) || (r.ok ? 'Saved.' : 'Could not save.');
-      // F4: the verb's own OK line reads as published ("saved to
-      // onboarding-pack"), and until now the out-of-scope boundary was only
-      // ever stated in a per-row warning the operator has to go back and
-      // read after the reload. State the consequence right where it
-      // matters, in the same notice as the save result.
-      if (r.ok && needsManifestNotice) {
-        msg += ' This file will not reach members until it is added to the pack manifest, pack.yaml, which is edited in Claude Code, not here.';
-      }
-      if (r.ok) {
-        if (textEl) textEl.value = '';
-        PACKAUTH.targeted = null;
-        // The reload repaints the file list from what is now on disk. Its
-        // OWN notice (a read failure, dormant, or error) must survive if the
-        // reload itself did not succeed (F3, review 2026-08-26): the save
-        // genuinely worked, but telling the operator only "Saved" while
-        // silently discarding "could not read your packs" would hide a real
-        // problem behind a true-but-incomplete message.
-        loadPackAuthoring().then(function(refreshedOk){
-          if (refreshedOk) { notice('packAuthNotice', msg); return; }
-          var cur = ($('packAuthNotice') || {}).textContent || '';
-          notice('packAuthNotice', (cur ? cur + '\n\n' : '') + msg);
-        }).catch(function(e){
-          notice('packAuthNotice', msg + '\n\nCould not refresh the file list: ' + ((e && e.message) || e));
-        });
-      } else {
-        notice('packAuthNotice', msg);
-      }
-    }).catch(function(e){
-      // F2 (review, 2026-08-26): run() genuinely rejects on a network
-      // failure or a malformed stream, and without this the button stuck
-      // disabled forever with no explanation, since btn.disabled = false
-      // only ever ran inside the fulfilled branch above. Same idiom as
-      // catPublishRow's own .catch just above this block.
-      if (btn) btn.disabled = false;
-      notice('packAuthNotice', 'The save did not complete: ' + ((e && e.message) || e));
-    });
-  }
-  if ($('packAuthPack')) $('packAuthPack').onchange = packAuthPackChanged;
-  if ($('packAuthSave')) $('packAuthSave').onclick = packAuthSave;
 })();
 </script>
 <script>

@@ -19,7 +19,7 @@ import { tmpDir } from '../../tests/tmp-dir.mjs';
 process.env.AIOS_BOX_KINDS_PATH = join(tmpDir('fp-kinds-'), 'box-kinds.json');
 import { parseOwnership, probePromotedHosts } from './face-probe.mjs';
 import { listPanelTargets, registerPromotedHost, unregisterPromotedHost } from './ssh-bridge.mjs';
-import { createPanelServer, VERBS, MEMBER_VERBS } from './panel-server.mjs';
+import { createPanelServer, MEMBER_VERBS } from './panel-server.mjs';
 
 // ---------------------------------------------------------------- parsing
 test('parseOwnership: takes the outermost object, survives transport banners', () => {
@@ -110,10 +110,10 @@ test('ONE server, ONE verb table (2026-09-01): member verbs serve every alias ki
   }
   const noGhost = await post(server, '/run', { verb, host: 'ghost2-box', args: {} });
   assert.equal(noGhost.status, 400, 'an unknown host must NOT pass');
-  // an org-table verb that never made the served table is unknown everywhere,
-  // even on a rock-alias target that would once have carried it
+  // an old org-table verb is unknown everywhere (the table itself was deleted
+  // 2026-09-09), even on a rock-alias target that would once have carried it
   const orgVerb = 'people-list';
-  assert.ok(VERBS[orgVerb] && !MEMBER_VERBS[orgVerb], 'the fixture verb is org-only, or this pin tests nothing');
+  assert.ok(!MEMBER_VERBS[orgVerb], 'the fixture verb is not served, or this pin tests nothing');
   const noOrg = await post(server, '/run', { verb: orgVerb, host: 'acme-rock', args: {} });
   assert.equal(noOrg.status, 400, 'an org verb is refused even on a rock alias');
   assert.match(noOrg.text, /unknown verb/, 'as unknown, because it is not served at all');

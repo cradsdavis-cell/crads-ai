@@ -154,12 +154,12 @@ test('the retired rockbrain tab and device chips stay out of the rigs', () => {
   assert.ok(!code.includes('.ndev'),
     'the orbiting device chips were retired 2026-08-10; devices live in the roster under the map');
   // The rockreader itself died with the Organisations page (face collapse,
-  // 2026-09-01): a commons shares files, not a live-read wiki. The Communities
-  // page is the membership surface the rig photographs instead.
+  // 2026-09-01) and the Communities page with the simple-assistant strip
+  // (2026-09-09): nothing box-to-box is left to photograph.
   assert.ok(!/nav\(\s*'rocks'/.test(code) && !code.includes('rockpages'),
     'the Rocks walk stays out of the rig with the page it walked');
-  assert.ok(/nav\(\s*'commons'/.test(code),
-    'and the Communities page is photographed in its place');
+  assert.ok(!/nav\(\s*'commons'/.test(code),
+    'and so does the Communities walk');
 });
 
 test('the deleted connect page stays out of small-shots entirely', () => {

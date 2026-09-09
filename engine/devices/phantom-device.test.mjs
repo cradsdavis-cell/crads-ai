@@ -75,9 +75,3 @@ test('the Network page hides rows that cannot open the box', () => {
   assert.doesNotMatch(filter[0], /usable === true/, 'an older engine sends no flag and must not be blanked');
 });
 
-test('the orbit map draws only what can open the box', () => {
-  const srv = readFileSync(pjoin(dirname(fileURLToPath(import.meta.url)), '..', '..', 'wizard', 'panel', 'panel-server.mjs'), 'utf8');
-  const f = srv.match(/devices: \(devices \|\| \[\]\)\.filter\([^\n]+/);
-  assert.ok(f, 'the world payload must still build its device list');
-  assert.match(f[0], /usable !== false/, 'the map must not chip a phantom device');
-});

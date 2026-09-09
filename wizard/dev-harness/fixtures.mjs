@@ -697,43 +697,6 @@ function devicesList(state) {
 }
 
 // ---------------------------------------------------------------------------
-// the Network page's world (spec 2026-08-04): what can open the box, plus the
-// owner above when one exists. org=true flips to an org-owned box with an open
-// support window so the shots cover both worlds.
-// ---------------------------------------------------------------------------
-export function topologyWorld(state, org) {
-  if (state === 'error') return { ok: false, reason: 'could not read your box' };
-  const devices = devicesList(state).devices
-    .filter((d) => d.status === 'active')
-    .map((d) => ({ slug: d.slug, label: d.label, last_seen: d.last_seen }));
-  if (org) return {
-    ok: true,
-    // De-Acmed 2026-08-25: this branch still said "Acme CoLab" and "Find
-    // Your People", real names, in a fixture the dummy-content rule governs.
-    box: { label: 'Aster', tier: 'pebble', ownedByOrg: true, runs: 'crads-ai', origin: 'stamped', framework: 'Swell Windows', grafts: [] },
-    org: { label: ORG_DISPLAY },
-    // R9: every tie draws — the anchor plus a joined community satellite
-    orgs: [{ label: ORG_DISPLAY, tie: 'anchored', status: 'active' },
-           { label: 'Harbour Guild', tie: 'joined', status: 'active' }],
-    devices,
-    support: { active: true, expires_at: iso(-3 * H) },
-  };
-  // The member face draws Mel's real world: anchored to Driftwood, joined to
-  // Harbour Guild. Until audit round three this branch modelled a self-born
-  // direct pebble, so the Map shot said "the Mountain, billed directly" while
-  // every other surface said Driftwood.
-  return {
-    ok: true,
-    box: { label: 'Aster', tier: 'pebble', ownedByOrg: false, runs: 'crads-ai', origin: 'stamped', framework: '', grafts: [] },
-    org: { label: ORG_DISPLAY },
-    orgs: [{ label: ORG_DISPLAY, tie: 'anchored', status: 'active' },
-           { label: 'Harbour Guild', tie: 'joined', status: 'active' }],
-    devices,
-    support: { active: false },
-  };
-}
-
-// ---------------------------------------------------------------------------
 // own-brain (the seat's Backup card; the other member-connect endpoint
 // fixtures were deleted with the invite surface, 2026-09-01)
 // ---------------------------------------------------------------------------
@@ -1185,10 +1148,6 @@ export function runVerb(surface, verb, args, state, opts) {
       return ok(['▸ adding…', 'key installed', 'committed + pushed']);
     case 'people-revoke':
       return ok(['▸ revoking…', 'keys removed', 'committed + pushed']);
-    case 'catalog-sync':
-      return ok(['▸ pulling the vendor catalog…', '2 packages granted', 'library refreshed']);
-    case 'skill-push':
-      return ok([`▸ pushing ${A.skill_id || '?'} to ${A.slug || '?'}…`, 'staged in their inbox', 'they receive it on next sync']);
 
     // ---- member -----------------------------------------------------------
     case 'dashboard-data':
@@ -1198,150 +1157,10 @@ export function runVerb(surface, verb, args, state, opts) {
     case 'page-read':
       if (String(A.page) === 'wins.html' && state !== 'empty') return ok(WINS_PAGE_HTML.split('\n'));
       return { code: 1, lines: ['no such page'] };
-    case 'prompt-list':
-      // Prefix MUST match prompts-list.mjs exactly. A mismatched prefix renders
-      // an empty tab in the harness and hides real breakage (the skills-list
-      // lesson, 2026-08-10).
-      if (state === 'empty') return ok(['PROMPTS_STATE ' + JSON.stringify({ prompts: [] })]);
-      return ok(['PROMPTS_STATE ' + JSON.stringify({
-        prompts: [
-          { id: 'anchor/onboarding-pack/kickoff', title: 'Kick off a client', body: 'Ask me about the client, then draft the first email in my voice.', truncated: false, pack: 'onboarding-pack', rock: 'anchor', path: '/state/org-inbox/prompts/onboarding-pack/kickoff.md' },
-          { id: 'anchor/onboarding-pack/weekly', title: 'Weekly review', body: 'Walk me through last week: what shipped, what slipped, what needs me today.', truncated: false, pack: 'onboarding-pack', rock: 'anchor', path: '/state/org-inbox/prompts/onboarding-pack/weekly.md' },
-        ],
-      })]);
-    // ---- communities (commons-repo model, self-host pivot 2026-09-01;
-    // usability overhaul 2026-09-02) -----
-    // Prefix MUST match community-list.mjs exactly (the prompt-list lesson).
-    // Rich world: one healthy community WITH a shared library (fresh + seen
-    // items, every kind, so the storefront fold renders all its rows), one
-    // whose GitHub invitation is still pending (the Check again path), and
-    // one plainly access-ended; empty world reaches the empty state.
-    case 'community-list':
-      if (state === 'empty') return ok(['COMMUNITIES_STATE ' + JSON.stringify({ communities: [], error: null })]);
-      return ok(['COMMUNITIES_STATE ' + JSON.stringify({
-        communities: [
-          { org: 'harbour-guild', org_display: 'Harbour Guild', url: 'https://github.com/harbour-guild/hg-commons.git', branch: 'main', joined: '2026-09-01T02:10:00.000Z', status: 'joined', last_ok: '2026-09-01T04:00:00.000Z', last_sha: 'ab12cd3', last_error: '', counts: { skills: 3, packs: 1, pages: 2, prompts: 4, dirs: 1 },
-            items: [
-              { id: 'tide-tables', kind: 'skill', title: '', description: 'Tides for the harbour, in your morning brief.', version: 3, fresh: true },
-              { id: 'welcome', kind: 'page', title: 'Welcome to the guild', description: 'How this community works, on one screen.', version: 1, fresh: false },
-              { id: 'kickoff', kind: 'prompt', title: 'Kick off a client', description: '', version: 1, fresh: false },
-              { id: 'coaching-templates', kind: 'dir', title: 'Coaching templates', description: 'The session templates the guild runs on.', version: 2, fresh: true },
-              { id: 'onboarding-pack', kind: 'pack', title: 'Onboarding pack', description: 'Everything a new member installs first.', version: 1, fresh: false },
-            ],
-            fresh_count: 2 },
-          { org: 'tide-collective', org_display: 'Tide Collective', url: 'https://github.com/tide-collective/tc-commons.git', joined: '2026-09-01T23:00:00.000Z', status: 'access-ended', access_hint: 'pending-invite', invite_from: 'mel-harper', last_ok: '', last_sha: '', last_error: 'Repository not found', counts: { skills: 0, packs: 0, pages: 0, prompts: 0, dirs: 0 }, items: [], fresh_count: 0 },
-          { org: 'driftwood-alumni', org_display: 'Driftwood Alumni', url: 'git@github.com:driftwood/alumni-commons.git', joined: '2026-08-20T00:00:00.000Z', status: 'access-ended', last_ok: '2026-08-28T04:00:00.000Z', last_sha: '99ffee0', last_error: 'Repository not found', counts: { skills: 1, packs: 0, pages: 0, prompts: 0, dirs: 0 }, items: [], fresh_count: 0 },
-        ],
-        error: null,
-      })]);
-    case 'community-join':
-      return ok(['OK: joined Harbour Guild. Its shared library is on this box now; new and updated items appear in your catalogue for you to install when you choose.']);
-    case 'community-check':
-      return ok([`OK: ${A.org === 'tide-collective' ? 'Tide Collective is readable again and syncing' : 'that community is syncing'}. Its shared library appears in your catalogue.`]);
-    case 'community-seen':
-      return ok([`OK: caught up with ${A.org || '?'} (5 item(s) noted).`]);
-    case 'community-leave':
-      return ok([`OK: left ${A.org || '?'}. Its shared library no longer syncs to this box. Everything you installed from it stays yours.`]);
-    case 'community-share':
-      return ok(['OK: staged skills/my-skill for Harbour Guild at commons-share/harbour-guild/skills/my-skill (under this box\'s state directory).']);
-    // the org face's Commons card (same pivot); prefixes match commons-admin.mjs
-    case 'commons-status':
-      if (state === 'empty') return ok(['COMMONS_STATE ' + JSON.stringify({ configured: false, key_present: false, roster: { active: 0, revoked: 0 }, last_publish: null })]);
-      return ok(['COMMONS_STATE ' + JSON.stringify({ configured: true, url: 'https://github.com/harbour-guild/hg-commons.git', branch: 'main', org: 'harbour-guild', org_display: 'Harbour Guild', key_present: false, roster: { active: 2, revoked: 1 }, last_publish: { at: '2026-09-01T03:00:00.000Z', items: 7, skipped: 0, sha: 'ab12cd3' } })]);
-    // the merged roster (2026-09-02): live GitHub states + a collaborator no
-    // grant names, so the owner surface renders every row shape it has.
-    case 'commons-roster':
-      if (state === 'empty') return ok(['ROSTER_STATE {"grants":[],"github":{"live":false}}']);
-      return ok(['ROSTER_STATE ' + JSON.stringify({ grants: [
-        { id: 'g-aa11bb22', label: 'Astrid H', github: 'astrid-h', issued: '2026-09-01T02:00:00.000Z', status: 'active', live: 'accepted' },
-        { id: 'g-gg77hh88', label: 'Mel Harper', github: 'mel-harper', issued: '2026-09-02T01:00:00.000Z', status: 'active', live: 'pending' },
-        { id: 'g-cc33dd44', label: 'Juniper A', issued: '2026-09-01T02:05:00.000Z', status: 'active' },
-        { id: 'g-ee55ff66', label: 'Old Member', github: 'old-member', issued: '2026-08-01T00:00:00.000Z', status: 'revoked', revoked: '2026-08-28T00:00:00.000Z' },
-      ], github: { live: true, repo: 'harbour-guild/hg-commons', extra_collaborators: ['mystery-dev'] } })]);
-    // Start a community (ruling 1): the empty world answers the no-sign-in
-    // refusal so the inline connect-GitHub step is drivable; the rich world
-    // never reaches this (a commons is already configured there).
-    case 'commons-create':
-      if (state === 'empty') return ok(['ERROR: this hub has no GitHub sign-in yet, so it cannot create the repository for you. Connect GitHub first (the Backup card on Your mineral, or run connect-github in the Terminal tab), then press Start again.'], 1);
-      return ok(['OK: created harbour-guild/harbour-guild-commons on your GitHub (private: only people you share with can read it) and set it up as the Harbour Guild shared library (harbour-guild).',
-        'A README naming the community is in the repository.',
-        'Publish puts your catalogue there. Sharing with a member records them here, sends their GitHub invitation when you give their username, and prints their join link.']);
-    case 'commons-init':
-      return ok(['OK: this rock\'s commons is https://github.com/harbour-guild/hg-commons.git (branch main), shared as "Harbour Guild" (harbour-guild).', 'Publish puts your catalogue there; grants hand members their join bundle.']);
-    case 'commons-publish':
-      return ok(['OK: published 7 item(s) to the Harbour Guild commons (ab12cd3). Members receive them on their next sync, to install when they choose.']);
-    case 'commons-grant': {
-      const fxBundle = 'cradscommons1:' + Buffer.from(JSON.stringify({ org: 'harbour-guild', org_display: 'Harbour Guild', url: 'https://github.com/harbour-guild/hg-commons.git', branch: 'main' })).toString('base64');
-      return ok(['OK: New Member is recorded (g-zz99yy88). Hand them the join link (or the bundle under it) out of band: a direct message, never a public post.',
-        fxBundle,
-        'JOIN_LINK crads-ai://join-community/' + fxBundle.slice('cradscommons1:'.length).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
-        'GitHub invitation sent to new-member (read access to harbour-guild/hg-commons). They accept it from GitHub\'s email; until they do, their mineral will say the invitation is waiting.']);
-    }
-    case 'commons-revoke':
-      return ok([`OK: grant ${A.id || '?'} is marked revoked in the roster.`,
-        ...(A.github
-          ? ['Their GitHub read access to harbour-guild/hg-commons is removed too (the unaccepted invitation was cancelled). What they already installed stays theirs; that is by design.']
-          : ['Now remove their read access on your git host (GitHub: repo Settings, Collaborators, remove their account). The bundle stops working once the host access is gone. What they already installed stays theirs; that is by design.'])]);
-    case 'library-list':
-      // Prefix MUST match library-list.mjs exactly, and the empty world must
-      // reach the empty-state UI (the two lessons the prompt-list fixture
-      // already carries).
-      if (state === 'empty') return ok(['LIBRARY_STATE ' + JSON.stringify({ dirs: [] })]);
-      return ok(['LIBRARY_STATE ' + JSON.stringify({
-        dirs: [
-          { id: 'coaching-templates', pack: 'onboarding-pack', rock: 'anchor', installed: '2026-08-24', kind: 'templates' },
-        ],
-      })]);
-    case 'dir-remove':
-      // F4 (review, 2026-08-25): the Files section's Remove button had no
-      // fixture case at all, so it could never be driven end to end in the
-      // harness. Message shape matches dir-remove.mjs's real OK line.
-      return ok([`OK: ${args.id} removed from your library.`]);
     case 'cadence-list':
       return ok(cadenceListLines(state));
     case 'cadence-write':
       return ok(['saved']);
-    // the anchored rock's entitled catalog, on the merged Skills page (R6)
-    case 'catalog-list':
-      // No __REQUESTS__ block: the real verb dropped it with F3, and the
-      // fixture carrying it on masked a page parse that read every real
-      // catalogue as empty (2026-08-23).
-      if (state === 'empty') return ok(['__CATALOG__', '{}', '__ORGCONTACT__', '{}', '__ALLSKILLS__', 'SKILLS_STATE {"skills":[]}']);
-      // Panel iteration 2 (R12): inbox-triage is INSTALLED at v1 (SKILLS above)
-      // and OFFERED at v2, so the installed card carries "v2 available" +
-      // "Update to v2"; client-onboarding is not installed, so it lists under
-      // "From Harbour Guild"; the Tide Collective item is a JOINED rock's offer
-      // out of /state/org-inbox.d/tide-collective/ (multi-tie, 2026-08-23):
-      // the merge tags it rock + rock_id, and the page groups by rock.
-      return ok(['__CATALOG__', JSON.stringify({ rock: 'Harbour Guild', items: [
-        { id: 'client-onboarding', kind: 'skill', version: 2, category: 'comms', rock: 'Harbour Guild', rock_id: 'harbour-guild', description: 'walks a new client from signed to set up, one step a day' },
-        { id: 'inbox-triage', kind: 'skill', version: 2, category: 'comms', rock: 'Harbour Guild', rock_id: 'harbour-guild', description: 'sorts new email into act / read / ignore' },
-        { id: 'tide-tables', kind: 'skill', version: 1, category: 'briefing', rock: 'Tide Collective', rock_id: 'tide-collective', description: 'drops tomorrow\'s tide times and swell into your morning brief' },
-        // F4 (review, 2026-08-25): a pack offer, for the Files section's
-        // Offered group. contents.dirs names 'starter-templates', which the
-        // library-list fixture above does NOT report installed (that fixture
-        // only carries 'coaching-templates'), so Installed and Offered both
-        // have a row at once when this world is driven.
-        // category 'other' (M5, 2026-08-25): the platform taxonomy is the six
-        // buckets enforceCategories checks (brain-template control/catalog-lib.mjs
-        // CATEGORIES: briefing, capture, comms, box, org, other). 'files' is not
-        // one of them, so a real rock publishing this manifest would be refused
-        // at materialisation and this item could never exist in a real catalogue.
-        { id: 'starter-kit', kind: 'pack', version: 1, category: 'other', rock: 'Harbour Guild', rock_id: 'harbour-guild', description: 'a starter set of files for a new client', contents: { dirs: ['starter-templates'], skills: [], files: 0, pages: 0 } },
-        // Step 5b (2026-08-26-delivery-model): a standalone page offer, the
-        // new top-level shape catalog-reconcile's step 3 emits for a page
-        // that is not part of a pack. Its id ('client-brief-template') is
-        // deliberately not 'wins', the id the pages-list fixture above
-        // already reports installed, so Pages' Offered group has a row at
-        // once when this world is driven, the same reasoning as F4's
-        // starter-kit pack row above.
-        { id: 'client-brief-template', kind: 'page', version: 1, category: 'other', rock: 'Tide Collective', rock_id: 'tide-collective', title: 'Client brief template', description: 'a one-page brief your assistant can walk a new client through' },
-      ], inboxes: [{ rock_id: 'harbour-guild', rock: 'Harbour Guild', owner: 'harbour-guild-gh', anchor: true }, { rock_id: 'tide-collective', rock: 'Tide Collective', owner: 'tide-collective', anchor: false }] }),
-      '__ORGCONTACT__', JSON.stringify({ org: 'Harbour Guild' }),
-      '__ALLSKILLS__', 'SKILLS_STATE ' + JSON.stringify(allSkillsState())]);
-    // Panel iteration 2 (R11/R12): the three Skills verbs the page dials.
-    case 'catalog-install':
-      return ok([`OK: /${args.id} installed. It shows up in Skills like everything else, and runs only when you switch it on.`]);
     case 'skill-remove': {
       const meta = SKILL_META[args.id] || {};
       if (meta.source === 'org') return ok([`OK: /${args.id} removed. Your rock still offers it, so you can add it again any time.`]);
@@ -1366,8 +1185,6 @@ export function runVerb(surface, verb, args, state, opts) {
     }
     case 'secrets-discover':
       return ok([JSON.stringify({ found: secretsDiscover(state) }, null, 1)]);
-    case 'community-skill-apply':
-      return ok([`OK: /${args.id} v${args.version || 0} installed from ${args.org}. It shows up in Skills like everything else.`]);
     case 'sharing-list':
       return ok(sharingListLines(state));
     case 'sharing-write':
@@ -1416,128 +1233,6 @@ export function runVerb(surface, verb, args, state, opts) {
     case 'skills-list':
       if (state === 'empty') return ok(['SKILLS_STATE {"skills":[],"cadence":{},"runs":{}}']);
       return ok(['SKILLS_STATE ' + JSON.stringify(allSkillsState())]);
-    // Read side of the community catalogue. inbox-triage is source:'org' so the
-    // catalogue excludes it; daily-brief stands as the already-listed one, which
-    // gives the page a row in each state without any clicking.
-    case 'community-catalog-list':
-      return ok(['COMMUNITY_CATALOG ' + JSON.stringify({
-        items: state === 'empty' ? [] : [{ id: 'daily-brief', kind: 'skill', version: 3, category: 'briefing', title: 'Daily brief', has_content: true }],
-        updated: Date.now() - 3 * 60 * 60 * 1000,
-      })]);
-    case 'community-catalog-push':
-      return ok(['▸ publishing to the directory…', 'OK: the community catalogue now lists ' + ((A.ids || []).length) + ' skill(s)']);
-    // The member-entitlement legs. None of these had a fixture before 2026-08-10,
-    // so the old Publishing page's Library dropdowns rendered against a parse
-    // failure and its Save button hit "no fixture for verb" — the whole
-    // entitlement half of that page was undrivable here too.
-    case 'catalog-policy':
-      if (state === 'empty') return ok(['{}']);
-      return ok([JSON.stringify({
-        defaults: { audience: 'none' },
-        items: { 'daily-brief': { audience: 'all' }, 'inbox-triage': { audience: ['mel', 'diego'] } },
-      }, null, 2)]);
-    // R25 (panel iteration 2): the write scrubs every offered skill first. The
-    // fixture refuses whenever the posted policy offers draft-outreach to
-    // anybody, in the verb's exact words, so the per-row refusal is drivable.
-    case 'catalog-policy-write': {
-      let pol = {};
-      try { pol = JSON.parse(Buffer.from(String(A.content_b64 || ''), 'base64').toString('utf8')); } catch (e) { pol = {}; }
-      const aud = ((pol.items || {})['draft-outreach'] || {}).audience;
-      if (aud === 'all' || (Array.isArray(aud) && aud.length)) {
-        return { code: 1, lines: ['▸ writing catalog/policy.json…',
-          'ERROR: /draft-outreach cannot be published:',
-          '  SKILL.md:14: bare hostname driftwood-surf.example.com',
-          '  prompts/outreach.md:3: member slug mel of this rock',
-          'ERROR: nothing was published. Fix the lines above in the library copy and publish again.'] };
-      }
-      return ok(['▸ writing catalog/policy.json…', 'committed + pushed']);
-    }
-    case 'catalog-reconcile-run':
-      return ok(['▸ rebuilding member catalogues…', 'mel: up to date', 'diego: 1 item added', 'OK: 6 members reconciled']);
-    case 'catalog-sync':
-      return ok(['▸ checking granted packages…', 'OK: nothing new since the last check']);
-    // item-list (delivery-model step 7): the three item libraries the
-    // Catalogue could not see until this step. Header is "<kind>/<id>", NOT
-    // the bare id skill-list and pack-list emit, and member.html parses the
-    // two shapes on separate branches: a fixture that emitted a bare id here
-    // would make the zones look alive while the real verb fed them nothing.
-    // Shapes copied from what the real verb printed against a fixture brain,
-    // not invented, because an invented fixture field is exactly what made a
-    // dark feature look alive for a whole phase (spec § 13).
-    case 'item-list':
-      if (state === 'empty') return ['▸ nothing in your libraries yet'];
-      return ok(['▸ reading your libraries…',
-        '=== prompt/weekly-review',
-        'id: weekly-review', 'version: 2', 'title: "Weekly review"',
-        'description: "The questions to run your own week through on a Friday."',
-        'category: "briefing"',
-        '=== page/house-rules',
-        'id: house-rules', 'version: 1', 'title: "House rules"',
-        'description: "How this community works, on one screen."',
-        'category: "org"',
-        '=== dir/letter-templates',
-        'id: letter-templates', 'version: 3', 'title: "Letter templates"',
-        'description: "Our standard letters, ready to edit."',
-        'category: "other"', 'kind: docs']);
-    case 'pack-list':
-      if (state === 'empty') return ['▸ no packs yet'];
-      return ok(['▸ reading packs…', '=== onboarding-pack',
-        'version: "1"', 'summary: "Everything a new starter needs in week one."', '  skills: [daily-brief, inbox-triage]']);
-    // pack-content-list (Phase 5, task 3): what each pack ships versus what
-    // sits on disk, for the Catalogue page's pack content editor. Prefix
-    // MUST match pack-content.mjs exactly, same lesson as the prompt-list
-    // and library-list fixtures above. The rich world carries one shipped
-    // and one unshipped prompt in the same pack, so the not-shipped
-    // indication has something to drive against without extra clicking.
-    //
-    // 'prompts/Kickoff.md' and page id 'v2.notes' (review finding F1,
-    // 2026-08-26): pack-content.mjs applies NO character-shape rule to
-    // prompt filenames and a WIDER rule to page ids (dots and underscores
-    // allowed) than prompt-write/page-write's own kebab-only regex, so both
-    // ship (shipped:true) while being un-writable through this panel. Both
-    // seeded shipped:true on purpose: an unshipped non-kebab row would never
-    // exercise the trap, since a real rock only ever hits it on a file that
-    // already ships.
-    //
-    // Final review, 2026-08-26: three more rows for the two defects that
-    // fix round found in the same neighbourhood.
-    //   - 'prompts/kickoff' (extension-less, unlisted): the F2 collision
-    //     case, a real sibling to 'prompts/kickoff.md' above. Targeting this
-    //     row used to derive the SAME stem ("kickoff") as the real file and
-    //     enable Save; the fix disables it (its label never matches the
-    //     write verb's shape, extension included) so it cannot be aimed at
-    //     kickoff.md's name by accident.
-    //   - 'prompts/notes.txt' (F1: wrong extension, manifest-listed anyway):
-    //     shipped:false with manifestOnly:true, so the panel shows the
-    //     distinct "listed but will not reach members" line rather than the
-    //     plain not-shipped one, which would point at the wrong fix.
-    case 'pack-content-list':
-      if (state === 'empty') return ok(['PACKS_STATE ' + JSON.stringify({ packs: [] })]);
-      return ok(['PACKS_STATE ' + JSON.stringify({
-        packs: [
-          { id: 'onboarding-pack', title: 'Onboarding pack',
-            prompts: [
-              { name: 'prompts/kickoff.md', shipped: true },
-              { name: 'prompts/extra-notes.md', shipped: false },
-              { name: 'prompts/Kickoff.md', shipped: true },
-              { name: 'prompts/kickoff', shipped: false },
-              { name: 'prompts/notes.txt', shipped: false, manifestOnly: true },
-            ],
-            pages: [
-              { id: 'pipeline', shipped: true },
-              { id: 'v2.notes', shipped: true },
-            ] },
-        ],
-      })]);
-    // prompt-write / page-write: the two save paths. Message shapes match
-    // the real verbs' own OK lines exactly (panel-server.mjs), so a driven
-    // save reads the same words a real rock would print.
-    case 'prompt-write':
-      if (!A.pack || !A.name) return { code: 1, lines: ['ERROR: pack and name are required'] };
-      return ok([`OK: prompt ${A.name} saved to ${A.pack}.`]);
-    case 'page-write':
-      if (!A.pack || !A.id) return { code: 1, lines: ['ERROR: pack and id are required'] };
-      return ok([`OK: page ${A.id} saved to ${A.pack}.`]);
     case 'telegram-status':
       return ok([JSON.stringify(TG_STATE)]);
     case 'telegram-verify':

@@ -118,11 +118,8 @@ than claiming a success it cannot show.
 The "What your pebble can do" card has two halves. The left is three rungs, in
 order: **"Sign in to Claude on your mineral"**, **"Onboard your brain"**,
 **"Make your first backup"**. The right is what those rungs open: run scheduled
-tasks, join a community and install what it shares, add another device,
-connect email and calendar, and message it on Telegram. (Starting a community
-of your own is not on the ladder while the pebble-to-rock upgrade is being
-rebuilt for the commons era; [start a community](/docs/become-a-rock) has
-where that stands.)
+tasks, add another device, connect email and calendar, and message it on
+Telegram.
 
 Every capability row is in exactly one of three states. **Open**, with the way
 in on the row itself. **Locked**, marked "Not yet", with the reason spelled out
@@ -181,8 +178,7 @@ has any: pages you and your assistant build together, by asking for them
 ("build me a page that shows X") through the **Build pages & cards** skill.
 
 Each page carries its provenance. One your assistant seeded as a starting
-point wears an "Example page" chip; one you installed from a community wears
-a chip naming that community. Every page has a **Delete** button, and the confirmation
+point wears an "Example page" chip. Every page has a **Delete** button, and the confirmation
 tells you what deleting means before you commit: an example page notes "Your
 assistant can make it again if you ask", any other page that "The page file is
 removed from your mineral", and both that it cannot be undone from here.

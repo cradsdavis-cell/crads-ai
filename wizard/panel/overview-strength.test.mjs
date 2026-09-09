@@ -27,16 +27,16 @@ test('strengthSync survives the card it was named for, narrowed to self-known tr
   // The directory-fed flags (registered, listed, published, anchored, the org
   // backup) died with the directory. What a self-hosted mineral knows about
   // itself: its own backup state and the communities it has joined.
-  for (const key of ['backup', 'backupConnected', 'communities']) {
+  for (const key of ['backup', 'backupConnected']) {
     assert.ok(model.includes(`sx.${key}`), `ladderModel reads sx.${key}`);
   }
-  for (const key of ['registered', 'listed', 'published', 'orgBackup', 'anchored']) {
+  for (const key of ['registered', 'listed', 'published', 'orgBackup', 'anchored', 'communities']) {
     assert.ok(!model.includes(`sx.${key}`), `sx.${key} stays gone: nothing central answers it`);
   }
   // And the sync reads both truths from the mineral itself, never a directory.
   const sync = html.slice(html.indexOf('function strengthSync'), html.indexOf('// ---- the card library'));
   assert.match(sync, /run\('member-console-state'/, 'backup truths ride the console state');
-  assert.match(sync, /run\('community-list'/, 'community count rides the community list');
+  assert.ok(!sync.includes("run('community-list'"), 'the community list left with the community surfaces (2026-09-09)');
   assert.ok(!sync.includes('/rock-mine'), 'the directory tie read stays gone');
   assert.ok(!sync.includes('/community-catalogs'), 'and so does the catalog probe');
 });
@@ -44,28 +44,28 @@ test('strengthSync survives the card it was named for, narrowed to self-known tr
 test('the member items were absorbed, none dropped; the rock set died with the org face', () => {
   for (const name of ['Sign in to Claude on your mineral', 'Make your first backup',
     'Connect email + calendar', 'Message it on Telegram', 'Run scheduled tasks',
-    'Join a community', 'Joined a community', 'Install skills from your community',
-    'Add another device', 'Host a community']) {
+    'Add another device']) {
     assert.ok(model.includes(`'${name}'`), `"${name}" lives in the ladder`);
   }
   // The rock rungs are retired whole: a mineral that hosts a commons is still
   // a mineral, so there is no second item set.
   for (const dead of ['Onboard this rock’s brain', 'Sign in to Claude on this rock',
     'Back up the org brain', 'Reach you on Telegram', 'List publicly', 'Publish skills',
-    'Join a rock', 'Become a rock', 'Registered with Crads-AI']) {
+    'Join a rock', 'Become a rock', 'Registered with Crads-AI',
+    'Join a community', 'Joined a community', 'Install skills from your community', 'Host a community']) {
     assert.ok(!model.includes(`'${dead}'`), `"${dead}" stays gone`);
   }
 });
 
 test('the ways in survived: acts carry delegated routes into living surfaces', () => {
-  for (const route of ["to: 'skills'", "to: 'connections'", "to: 'commons'",
-    "to: 'publish', focus: 'commonsCard'", "focus: 'seatBackupCard'",
+  for (const route of ["to: 'skills'", "to: 'connections'",
+    "focus: 'seatBackupCard'",
     "to: 'terminal', run: SIGNIN_OPENER"]) {
     assert.ok(model.includes(route), `route ${route} preserved`);
   }
   // Dead landings must not come back: the Rocks page and the org custody card
   // no longer exist to land on.
-  for (const dead of ["to: 'rocks'", "focus: 'commCard'", "focus: 'rockCustodyCard'"]) {
+  for (const dead of ["to: 'rocks'", "to: 'commons'", "to: 'publish'", "focus: 'commCard'", "focus: 'commonsCard'", "focus: 'rockCustodyCard'"]) {
     assert.ok(!model.includes(dead), `route ${dead} stays gone`);
   }
 });

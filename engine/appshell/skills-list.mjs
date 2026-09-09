@@ -52,32 +52,26 @@ export function listSkills(stateDir) {
     // trim BEFORE stripping quotes: an inline comment leaves trailing spaces,
     // and `"$` cannot see a close-quote through them
     const fmGet = (k) => ((fm.match(new RegExp(`^${k}:\\s*(.+)$`, 'm')) || [])[1] || '').replace(/#.*$/, '').trim().replace(/^"|"$/g, '').trim();
-    const yaml = read(path.join(base, id, 'skill.yaml'));
-    const yGet = (k) => ((yaml.match(new RegExp(`^${k}:\\s*"?([^"\n#]*)"?`, 'm')) || [])[1] || '').trim();
-    const origin = readJson(path.join(base, id, '.origin.json'));
-
-    let category = fmGet('category') || yGet('category') || 'other';
+    // skill.yaml (org-pushed packages) and .origin.json (rock provenance)
+    // stopped meaning anything on 2026-09-09: communities are gone, so a
+    // skill is the engine's, a starter, or the member's own. A skill that
+    // once arrived from a community reads as the member's, which is honest:
+    // it is theirs now and nothing else will ever update it.
+    let category = fmGet('category') || 'other';
     if (!CATEGORIES.includes(category)) category = 'other';
 
     let source = 'member';
-    if (origin && origin.rock) source = 'org';
-    else if (yaml) source = 'org';
-    else if (engine.includes(id)) source = 'engine';
+    if (engine.includes(id)) source = 'engine';
     else if (SEED_IDS.includes(id)) source = 'seed';
 
     return {
       id,
       // The human name (2026-08-09 audit R6): the page leads with this and
       // wears the /id as a chip. Absent on old skills; the page de-kebabs.
-      title: fmGet('title') || yGet('title'),
-      description: fmGet('description') || yGet('description'),
+      title: fmGet('title'),
+      description: fmGet('description'),
       category,
       source,
-      rock: (origin && origin.rock) || '',
-      version: (origin && origin.version) || parseInt(yGet('version'), 10) || 0,
-      gate: yGet('gate'),
-      outbound: /^outbound:\s*true/m.test(yaml),
-      cadence_default: ((yaml.match(/^\s*default:\s*"?(\w+)"?/m) || [])[1] || ''),
     };
   });
 

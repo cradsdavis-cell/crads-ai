@@ -11,13 +11,13 @@
 // form stay gone.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { VERBS } from './panel-server.mjs';
+import { MEMBER_VERBS } from './panel-server.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 test('the invite-member verb is RETIRED: the verb table no longer knows it', () => {
-  assert.equal(VERBS['invite-member'], undefined, 'invite-member must stay out of VERBS');
+  assert.equal(MEMBER_VERBS['invite-member'], undefined, 'invite-member must stay out of the one verb table');
 });
 
 test('the ownership picker is RETIRED: the New Pebble form left member.html with it', () => {

@@ -53,15 +53,13 @@ export const PINNED_CLAIMS = [
   // runs on the operator's own second brain. The claim was written against an
   // assumption about the product rather than the product, and would have sat
   // pending forever against a page there is no reason to write.
-  { id: 'rock-not-in-data-chain', slug: 'hosting-a-rock', must: 'cannot read',
-    why: 'rock = referrer, never in the processing chain (Harriet objections 1 and 3)' },
 ];
 
 // --- the billing caveat -----------------------------------------------------
 // Shots that photograph a price. Pricing is DISPLAY-ONLY until the 26 Sep
 // read-date, so any page showing one of these must say so on the page: a
 // screenshot of a number reads as a commitment.
-export const BILLING_SHOTS = ['member-overview', 'rock-overview', 'rock-yourrock'];
+export const BILLING_SHOTS = ['member-overview'];
 export const BILLING_CAVEAT = 'indicative';
 
 // --- the checks, as functions ----------------------------------------------

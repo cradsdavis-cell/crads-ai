@@ -61,8 +61,9 @@ test('the retired org-face sections stay retired, in the shell and in CI', () =>
     assert.ok(gone.includes(dead), `and CI forbids the return of ${dead}`);
   }
   const sec = pinnedList('sec');
-  for (const alive of ['data-sec="seat"', 'data-sec="commons"', 'data-sec="publish"',
-    'data-sec="skills"', 'data-sec="library"']) {
+  // commons, publish and library left this list 2026-09-09 (simple
+  // assistant): all three are in $gone now.
+  for (const alive of ['data-sec="seat"', 'data-sec="skills"']) {
     assert.ok(sec.includes(alive), `CI requires the surviving section ${alive}`);
   }
 });

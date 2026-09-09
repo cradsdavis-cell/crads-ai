@@ -280,10 +280,10 @@ jobs:
           # now fails at desk-time too).
           # R17 (2026-08-23): the Claude Code tab and the help modal merged into
           # the data-sec="help" page.
-          foreach ($sec in 'data-sec="seat"','data-sec="network"','data-sec="commons"','data-sec="publish"','data-sec="brain"','data-sec="skills"','data-sec="library"','data-sec="secrets"','data-sec="terminal"','data-sec="help"','id="openFolderName"') {
+          foreach ($sec in 'data-sec="seat"','data-sec="brain"','data-sec="skills"','data-sec="secrets"','data-sec="terminal"','data-sec="help"','id="openFolderName"') {
             if ($html -notmatch [regex]::Escape($sec)) { throw "shell is missing the $sec section" }
           }
-          foreach ($gone in 'data-sec="operators"','Stall board','data-sec="chat"','data-sec="members"','data-sec="rockbrain"','data-sec="claudecode"','helpModal','data-sec="pebbles"','data-sec="decisions"','data-sec="yourrock"','data-sec="rockreader"','data-sec="rocks"','AIOS_EDITION') {
+          foreach ($gone in 'data-sec="operators"','Stall board','data-sec="chat"','data-sec="members"','data-sec="rockbrain"','data-sec="claudecode"','helpModal','data-sec="pebbles"','data-sec="decisions"','data-sec="yourrock"','data-sec="rockreader"','data-sec="rocks"','data-sec="commons"','data-sec="publish"','data-sec="library"','data-sec="network"','AIOS_EDITION') {
             if ($html -match [regex]::Escape($gone)) { throw "shell still carries the removed $gone surface" }
           }
           if ($st -notmatch '"sha"') { throw "update-status is missing the baked build identity: $st" }

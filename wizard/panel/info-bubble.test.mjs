@@ -29,7 +29,9 @@ test('the helper opens on click and focus, closes on Escape and click-outside, a
 
 test('every bubble is a real button with a tip and a label', () => {
   const bubbles = html.match(/<button class="info"[^>]*>/g) || [];
-  assert.ok(bubbles.length >= 12, `expected bubbles on the page heads, found ${bubbles.length}`);
+  // 7 since the simple-assistant strip (2026-09-09): one per surviving page
+  // head (was 12 with Library, Communities, the Catalogue and the Map).
+  assert.ok(bubbles.length >= 7, `expected bubbles on the page heads, found ${bubbles.length}`);
   for (const b of bubbles) {
     assert.match(b, /type="button"/, `${b} is type=button`);
     assert.match(b, /aria-label="[^"]+"/, `${b} has an aria-label`);
@@ -39,10 +41,10 @@ test('every bubble is a real button with a tip and a label', () => {
 });
 
 test('every static page-head line is one short sentence', () => {
-  // Twelve sections survive the face collapse (2026-09-01); ten of them carry
-  // a static page head, so the floor drops from 14 with the org pages.
+  // Eight sections survive the simple-assistant strip (2026-09-09); seven of
+  // them carry a static page head (was 14 with the org pages).
   const heads = html.match(/<div class="pagehead">[\s\S]*?<\/div>\s*<\/div>|<div class="pagehead">[\s\S]*?<\/div>/g) || [];
-  assert.ok(heads.length >= 10, `found ${heads.length} page heads`);
+  assert.ok(heads.length >= 7, `found ${heads.length} page heads`);
   for (const h of heads) {
     const p = h.match(/<p(?: id="[^"]*")?>([\s\S]*?)<\/p>/);
     if (!p) continue;

@@ -12,11 +12,7 @@ reviewed: 2026-09-01
 Software arrives on your mineral by itself. Worth understanding, because it is the
 one thing that changes your machine without you asking.
 
-**A pebble does this by itself. A rock does not.** The nightly restart is one of
-the jobs a rock is built without, so if you run one, the section at the end is
-the part that applies to you.
-
-## What happens on a pebble
+## What happens
 
 Once a night your mineral restarts onto the latest published software. The
 restart takes about a minute.
@@ -81,21 +77,6 @@ way too: when you edit a schedule, the change takes effect within a minute,
 with no restart involved. Nothing about when *your* things run is ever waiting
 on a software update, and no software update ever changes when your things
 run.
-
-## A rock does not update itself
-
-A rock's scheduler deliberately skips the self-maintenance jobs a pebble gets,
-and the nightly update is not among them. A rock stays on the software it has
-until somebody restarts it.
-
-That somebody is you, in **Help** under **Mineral software**: the button reads
-**Update and restart this mineral**. The habit that matters (part of
-[running your rock](/docs/run-your-rock)): **update when you are told a fix
-is out.** Nothing else will.
-
-Your members' pebbles are unaffected by your habit either way: each member
-runs their own machine, and it updates itself nightly from the same public
-software, whatever state your rock is in.
 
 ## What an update is not
 

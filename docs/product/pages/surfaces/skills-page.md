@@ -22,23 +22,17 @@ have to remember to ask for.
 
 Every mineral ships with the same engine set: everyday skills like `capture`,
 `connect`, `daily`, `dashboard`, `explain`, `followup`, `inbox`, `onboard`,
-`plan-week` and `weekly`, plus the authoring skills (`write-page`,
-`write-prompt`, `write-folder`) that make library content. They are also the
-terminal's slash commands (`/daily`, `/inbox` and so on), and
-[every skill your mineral ships with](/docs/skills) is the generated,
-authoritative list. Anything beyond that set arrived one of two ways: your
-community published it to you, or you wrote it.
+`plan-week` and `weekly`, plus `write-page`, which builds you a page of your
+own. They are also the terminal's slash commands (`/daily`, `/inbox` and so
+on), and [every skill your mineral ships with](/docs/skills) is the generated,
+authoritative list. Anything beyond that set is something you wrote, or asked
+your assistant to write, in the Terminal.
 
-The page has two groups. **"On this mineral"** is everything installed,
-grouped by category (briefings and planning, capture and review, inbox and
-comms, your mineral, other), and every card wears an origin chip that says
-where it came from: "built-in" for engine skills, the community's name and
-version for one you installed from a commons, "starter" for seeded ones,
-"yours" for anything you wrote. The second group lists, one subsection per
-community you have [joined](/docs/join-a-community), only the offers you have
-not installed yet; press Install and the card moves up into the first group,
-origin chip and all. A community that has published nothing gets an honest
-empty line rather than an invented one.
+The page is one list, **"On this mineral"**: everything installed, grouped by
+category (briefings and planning, capture and review, inbox and comms, your
+mineral, other), and every card wears an origin chip that says where it came
+from: "built-in" for engine skills, "starter" for seeded ones, "yours" for
+anything you wrote.
 
 Each row stays slim: the skill's name, its chips, and a switch for whether it
 runs. Everything else lives in a drawer that opens on the row.
@@ -55,20 +49,11 @@ The drawer carries the description, the `/id` it answers to, and the actions:
   lands in your brain." When it completes you get "/inbox finished." or, just
   as plainly, "/inbox did not finish:" with the tail of the output.
 - **Read the skill** opens the actual SKILL.md the mineral runs, on every
-  card, engine skills included. A community's skill carries an origin block
-  above the text: which community, which version, when it was installed. What
-  a skill does is never a summary someone wrote about it; you read the same
-  file your assistant reads.
-- **Update** appears only when a community offers a newer version of a skill
-  you have installed (the row also grows a version-available chip). The
-  confirm is explicit about the trade: any local edits you made are replaced
-  by the new version, and the old copy is kept under skill backups on your
-  mineral.
+  card, engine skills included. What a skill does is never a summary someone
+  wrote about it; you read the same file your assistant reads.
 - **Remove** (the × on the row) exists on every card except engine skills,
-  which the engine would put straight back on its next run. Removing a
-  community's skill is undoable: the community still offers it, so you can
-  add it again any time; its schedule goes with it. Removing one you wrote is
-  not: "This is the only copy. Its schedule goes with it."
+  which the engine would put straight back on its next run. The are-you-sure
+  says what is true: "This is the only copy. Its schedule goes with it."
 
 The row's chips are the honest run record. "ran 20 min ago" means a result
 was recorded; "failed 2h ago" means it was not good; "started 10 min ago"
@@ -77,9 +62,8 @@ finished, which this page refuses to report as "ran". An enabled schedule
 that has gone quiet for two of its own periods gets called out too: "hasn't
 fired since 3d ago".
 
-As the page's own footer says: communities choose what they offer, and
-**installing never needs a further approval**, in either direction: nothing
-they publish lands on your mineral until you take it.
+As the page's own footer says: everything here reads live from your mineral.
+Nothing lands on it that you did not put there.
 
 ## The schedule gate
 

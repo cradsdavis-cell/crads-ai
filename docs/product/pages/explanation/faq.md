@@ -18,7 +18,7 @@ A private AI assistant that lives on a machine of your own (we call the
 machine a **mineral**), knows your world because it interviewed you, and works
 for you on a schedule: inbox sorted before you wake, a brief that knows what
 matters, follow-ups chased. [What an AI EA actually is](/docs/what-an-ai-ea-is)
-makes the full argument; [rocks and pebbles](/docs/rocks-and-pebbles) explains
+makes the full argument; [what a mineral is](/docs/what-a-mineral-is) explains
 the two words you will keep meeting.
 
 ## What does it cost?
@@ -45,15 +45,6 @@ nothing of yours for us to hold. The one way anyone else gets in is a
 [support window you deliberately grant](/docs/grant-support-access), which
 expires on its own clock. The [privacy policy](/docs/privacy-policy) is the
 binding version.
-
-## Can my community leader read my stuff?
-
-No. A community shares a [commons](/docs/rocks-and-pebbles) with you: a git
-repository your mineral pulls read-only. Nothing travels the other way. The
-owner holds no credential for your box, sees nothing of what you do on it, and
-there is no page in their app that could show them your pages.
-[What your community can see](/docs/what-your-community-can-see) spells it
-out.
 
 ## Do I need to be technical?
 
@@ -108,8 +99,8 @@ question your assistant needs answered, not your filing cabinet.
 
 Less than you would think, which is the honest advantage of this shape.
 Nothing of yours runs through us at runtime: your machine keeps running, your
-backups keep landing in your own repository, and your community's commons is
-a git repository between you and them. What stops is new software and us. The
+backups keep landing in your own repository. What stops is new software and
+us. The
 software is headed to an open-source release precisely so that even that gap
 can be picked up by someone else.
 [What happens if Crads AI goes away](/docs/continuity) answers this at
@@ -169,28 +160,6 @@ over SSH: no account, no service in the middle.
 [Add another computer](/docs/add-another-computer) walks both halves; it
 takes about two minutes with both machines in front of you.
 
-## How do I join a community?
-
-The community's owner sends you a join link (or its one-line text
-fallback, starting `cradscommons1:`). Opening the link lands you on your
-dashboard's Communities page with the invitation filled in; press Join and
-their shared library starts arriving as offers in your catalogue.
-[Join a community](/docs/join-a-community) is the walkthrough, including the
-private-repository case.
-
-## If I install a skill from my community, whose is it?
-
-Yours. Installing needs no approval from anyone, and the installed copy stays
-yours even if the community later withdraws the offer or your membership
-ends. Nothing installs by itself: every item waits in your catalogue until
-you take it. [Skills](/docs/skills-page) has the mechanics.
-
-## If I leave a community, what happens to my assistant?
-
-Nothing. Your mineral and the community were never entangled: the community
-shared a repository with you, and leaving stops the pulls. Your brain, your
-skills, your machine and everything you installed stay exactly as they are.
-
 ## How is this different from just using ChatGPT?
 
 Ask a chat window "what should I focus on today" and you get advice-shaped
@@ -233,7 +202,7 @@ connection and set it up again rather than adding a second: see
 
 Open it. Every skill on the Skills page carries a description of what it does
 and when it runs, and the ones your assistant came with are listed there
-alongside any you build or any your community offers you. You can also turn a
+alongside any you build. You can also turn a
 skill from something you ask for into something that simply happens on a
 schedule, and delete any you do not want. The
 [Skills page](/docs/skills-page) walks through it.
@@ -250,10 +219,10 @@ tells you. If you are running out sooner than you expect, that is usually a
 strong model doing routine work, and moving the routine jobs down a level fixes
 it without you noticing a difference.
 
-## Are "rock", "pebble" and "mineral" standard industry words?
+## Are "pebble" and "mineral" standard industry words?
 
 No, they are ours. Nobody else uses them and you will not find them elsewhere,
 so if they read as jargon on first contact, that is fair. A **mineral** is the
-machine your assistant lives on. A **pebble** is one person's mineral. A
-**rock** is a community's, which shares a commons its members pull from.
-[Rocks and pebbles](/docs/rocks-and-pebbles) is the longer version.
+machine your assistant lives on. A **pebble** is one person's mineral, which
+is every mineral there is. [What a mineral is](/docs/what-a-mineral-is) is the
+longer version.

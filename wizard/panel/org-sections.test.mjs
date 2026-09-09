@@ -20,10 +20,10 @@ const html = readFileSync(new URL('./member.html', import.meta.url), 'utf8');
 test('every section is div-balanced, so the parser can never eject later sections from <main>', () => {
   const main = html.slice(html.indexOf('<main>'), html.indexOf('</main>'));
   const sections = main.split(/(?=<section )/g).filter((s) => s.startsWith('<section '));
-  // 12 since the face collapse: one nav for every mineral (dashboard, seat,
-  // network, commons, brain, skills, library, connections, publish, secrets,
-  // terminal, help), no orgsec twins.
-  assert.equal(sections.length, 12, `found the sections (${sections.length})`);
+  // 8 since the simple-assistant strip (2026-09-09): one nav for every
+  // mineral (dashboard, seat, brain, skills, connections, secrets, terminal,
+  // help), no orgsec twins.
+  assert.equal(sections.length, 8, `found the sections (${sections.length})`);
   for (const s of sections) {
     const name = (s.match(/data-sec="([^"]+)"/) || [])[1] || '?';
     const body = s.slice(0, s.indexOf('</section>'));
@@ -39,11 +39,13 @@ test('the org sections are RETIRED: no orgsec section remains, and old deep link
   for (const sec of ['pebbles', 'decisions', 'yourrock', 'rocks', 'orgbrain']) {
     assert.ok(!main.includes(`data-sec="${sec}"`), `${sec} must stay out of main`);
   }
-  // the publish section survived the collapse as the Catalogue page, faceless
-  assert.match(main, /<section data-sec="publish">/, 'publish lives on, without an edition class');
+  // the publish section survived the collapse as the Catalogue page, then
+  // retired with the commons (2026-09-09); its deep link lands on Skills
+  assert.ok(!main.includes('<section data-sec="publish">'), 'the Catalogue is gone');
+  assert.match(html, /if \(name === 'publish'\) name = 'skills';/, 'a #publish bookmark lands on Skills');
   // retired names are remapped, not dropped: a hosted-era bookmark still lands
-  assert.match(html, /if \(name === 'rocks' \|\| name\.indexOf\('rocks\/'\) === 0 \|\| name === 'rockbrain'\) name = 'commons';/,
-    'rocks deep links land on Communities');
+  assert.match(html, /if \(name === 'rocks' \|\| name\.indexOf\('rocks\/'\) === 0 \|\| name === 'rockbrain' \|\| name === 'commons' \|\| name === 'communities'\) name = 'seat';/,
+    'rocks and commons deep links land on Your mineral');
   assert.match(html, /if \(name === 'pebbles' \|\| name === 'decisions' \|\| name === 'yourrock'\) name = 'seat';/,
     'the dead org pages land on the seat');
 });

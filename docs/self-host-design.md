@@ -72,6 +72,12 @@ with a "destroy and retry" button that uses their token (never silently re-bille
 
 ## 3. Rocks as hubs: the commons-repo model
 
+> **Retired 2026-09-09.** Sam's ruling: delete community, library and network
+> from the app and keep a simple assistant. `engine/community/`, the Communities
+> and Catalogue pages, the Library page, the Map and the tie machinery were
+> deleted (ai-os commits "simple assistant 1/5" to "4/5"). This section is the
+> record of the model as it shipped on 1-2 Sep; nothing below it runs.
+
 A rock stops being a box that can mint boxes. What remains is the thing communities
 actually wanted (B5: "members want skill sharing"): a **curated commons**.
 
@@ -152,6 +158,10 @@ $35/mo pass-through, seat fees, and tier pricing are gone with the billing code.
 - 40 GitHub test-repo deletions + laptop ssh cleanup (carried from the blank slate).
 
 ## 8. Addendum — what the 1 Sep strip run established
+
+> Superseded in part on 2026-09-09: the commons model, the Library and the Map
+> described below were deleted with the simple-assistant strip; the wizard, the
+> device-add path and everything about the box itself stand.
 
 - Strip landed on `self-host-strip` (worker −6,710 lines net across 51 files; full
   suite 3,021/3,030 with both failures pre-existing on hardening-loop). Kept, by

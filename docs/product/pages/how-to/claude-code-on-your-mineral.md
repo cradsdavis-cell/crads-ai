@@ -104,9 +104,8 @@ mineral is or can do. You can read it too. It is just a file, like everything
 else here.
 
 Skills have an address as well: your own live under the brain's
-`.claude/skills/<name>/`, one folder per skill, and each one you installed
-from a community carries a small receipt naming the community and the version
-it came from. The mineral's software version is on the self-description page
+`.claude/skills/<name>/`, one folder per skill. The mineral's software
+version is on the self-description page
 too, and in the app under **Help**, in the Mineral software fold.
 
 ## The terminal in the app
@@ -121,9 +120,9 @@ working.
 ## Three cautions
 
 **You have real access.** From a session on your mineral you can delete your own
-brain. A pebble has a nightly backup and a repository in your own account, and
-neither is a reason to be casual the day you decide to reorganise everything (on
-a rock, [the backup is something you do](/docs/back-up-and-restore)).
+brain. Your mineral has a nightly backup and a repository in your own account
+([back up your mineral](/docs/back-up-and-restore)), and neither is a reason
+to be casual the day you decide to reorganise everything.
 
 **The machinery is not yours to edit.** The engine, the scheduler and the app are
 maintained by us and replaced when the mineral updates, so a change you make

@@ -76,21 +76,6 @@ add('panel-focus', '/panel', { waitMs: 3000, after: async (page) => {
   for (let i = 0; i < 3; i++) await page.keyboard.press('Tab');
   await page.waitForTimeout(250);
 } });
-// The Pebbles-page focus shots died with the page (face collapse,
-// 2026-09-01): the Catalogue's commons setup carries the primary-button and
-// input focus states now.
-add('panel-focus-primary', '/panel', { waitMs: 3000, after: async (page) => {
-  await navTo('publish', 1500)(page);
-  await page.evaluate(() => { document.getElementById('commonsSetupFold').open = true; });
-  await tabTo(page, 'commonsInitBtn');
-  await page.waitForTimeout(250);
-} });
-add('panel-focus-input', '/panel', { waitMs: 2500, after: async (page) => {
-  await navTo('publish', 800)(page);
-  await page.evaluate(() => { document.getElementById('commonsSetupFold').open = true; });
-  await page.focus('#commonsUrl');
-  await page.waitForTimeout(250);
-} });
 // R17 (2026-08-23): Help is a page, not a modal; the keyboard path lands on
 // the section and the footer link lights.
 add('panel-focus-help', '/panel', { waitMs: 3000, after: async (page) => {
@@ -117,11 +102,10 @@ add('panel-terminal', '/panel', { waitMs: 2500, after: async (page) => {
   await page.click('#termBtn');
   await page.waitForTimeout(2500);
 } });
-// The one-face Map and Communities (the Rocks and Sharing pages are gone;
-// support access lives on Help now).
+// The one-face Map (the Rocks and Sharing pages are gone; support access
+// lives on Help now; Communities and the Catalogue retired 2026-09-09).
 add('panel-map', '/panel', { waitMs: 2500, after: navTo('network', 2600) });
 add('panel-map-empty', '/panel?state=empty', { waitMs: 2500, after: navTo('network', 2600) });
-add('panel-communities', '/panel', { waitMs: 2500, after: navTo('commons', 1800) });
 add('panel-help', '/panel', { waitMs: 2500, after: async (page) => {
   await page.click('#helpLink');
   await page.waitForTimeout(400);

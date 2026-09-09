@@ -39,18 +39,6 @@ test('the directory-fed panel routes are RETIRED (2026-09-01): every one answers
   } finally { s.close(); }
 });
 
-test('console-state pulls nothing from the directory: the env slots are stubbed empty', () => {
-  // The verb keeps its box-local read (the seat still needs the mineral's own
-  // state), but the five directory pulls that used to ride it are pinned to
-  // literal "{}" with no curl anywhere near them. This is what "the directory
-  // pulls are stubbed" means as bytes, so it cannot quietly become a fetch.
-  const panel = readFileSync(new URL('./panel-server.mjs', import.meta.url), 'utf8');
-  const verb = panel.match(/'console-state':[\s\S]*?\n  \},/);
-  assert.ok(verb, 'the state verb must still exist');
-  assert.match(verb[0], /PLAT="\{\}"; HANDOVER="\{\}"; TIEREQ="\{\}"; TIES="\{\}"; PNAMES="\{\}";/,
-    'every directory slot is a stubbed empty object');
-  assert.doesNotMatch(verb[0], /curl/, 'and no network call fills any of them');
-});
 
 test('the door account row is RETIRED (2026-09-01): the account routes answer 404', async () => {
   // The row, T5 and the whole crads-account layer left with the self-host

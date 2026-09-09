@@ -163,12 +163,12 @@ export function build() {
 
   const intro = renderMarkdown([
     'Everything about how Crads AI works, in the open. The whole product manual is',
-    'public: what a mineral is, how you get one, how to connect things to it, what',
-    'your community can and cannot see, and what happens if we go away.',
+    'public: what a mineral is, how you get one, how to connect things to it, and',
+    'what happens if we go away.',
     '',
-    'The deeper usage craft, the recipe library and the hosting playbook, ships inside',
-    'the product itself, where your assistant can read it alongside everything else it',
-    'knows about you.',
+    'The deeper usage craft and the recipe library ship inside the product itself,',
+    'where your assistant can read them alongside everything else it knows about',
+    'you.',
   ].join('\n'));
 
   files.push({

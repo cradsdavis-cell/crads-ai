@@ -18,10 +18,11 @@ bar while your server builds. The interview at the end is the better part of
 an hour on top, and it is a conversation, not a form. You can stop after any
 step and come back; nothing here is lost by walking away.
 
-**You need three things:** the Crads AI app, a Claude account (make one at
-claude.ai if you do not have one), and a Hetzner account with an API token.
-The wizard explains the token as you go, and
-[get a Hetzner API token](/docs/get-a-hetzner-api-token) is the same
+**You need four things:** the Crads AI app, the Claude desktop app signed in
+to a paid Claude account (Pro is the minimum; the free tier will not run an
+assistant), a free GitHub account for your brain's private backup, and a
+Hetzner account with an API token. The wizard explains the token as you go,
+and [get a Hetzner API token](/docs/get-a-hetzner-api-token) is the same
 walkthrough as its own page if you would rather do it first.
 
 Worth knowing before you start: the machine you are about to create is yours
@@ -121,18 +122,13 @@ of these docs assume its names.
   how it is doing*. The Health card here is also where
   [the jobs your mineral runs by itself](/docs/machinery-jobs) report in.
 - [**Your pebble**](/docs/your-pebble-page) is this mineral itself: its name,
-  its backup, and the machines that can open it.
-- **Network** opens onto [**Map**](/docs/map-page), the picture of your
-  mineral and the machines around it, and **Communities**, where
-  [joining a community](/docs/join-a-community) happens.
+  its backup, the computers that can open it, and your own pages.
 - **Your assistant** opens onto [**Brain**](/docs/brain-page) (*everything
   your assistant knows*), [**Skills**](/docs/skills-page) (*what it can do,
-  and when it runs*), **[Library](/docs/library-page)** (pages, prompts and folders, including any
-  a community offers you) and [**Connections**](/docs/connections-page)
-  (*what it can reach*).
-- **Privacy & access** opens onto [**Secrets**](/docs/secrets-page) and
-  [**Sharing**](/docs/what-your-community-can-see): what your mineral holds,
-  and what, if anything, leaves it.
+  and when it runs*) and [**Connections**](/docs/connections-page) (*what it
+  can reach*).
+- **Privacy & access** opens onto [**Secrets**](/docs/secrets-page): every
+  password, token and key your mineral holds, and what each is for.
 - [**Terminal**](/docs/terminal-page) sits on its own at the bottom. That is
   where you talk to your assistant directly. "Terminal" just means a plain
   text window: you type, it answers.
@@ -231,7 +227,7 @@ That is the whole setup. From here, each new habit is one page:
 
 1. [Your first week](/docs/your-first-week), for what to actually do with it
    over the next seven days.
-2. [Rocks and pebbles](/docs/rocks-and-pebbles), if you have not yet worked
+2. [What a mineral is](/docs/what-a-mineral-is), if you have not yet worked
    out what the words mean or why it is shaped this way.
 3. [Connect Google, with your own key](/docs/connect-google), because most of
    what makes an assistant useful is what it can reach.

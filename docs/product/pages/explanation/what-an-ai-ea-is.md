@@ -53,10 +53,9 @@ The four cadences above are the daily shape; the everyday set is short enough
 to name in full: the **Daily brief**, **Inbox triage**, **Follow-ups**,
 **Plan your week**, the **Weekly review**, **Capture the session**,
 **Connect a service**, **Build pages and cards**, **Explain this system**,
-and the **Onboarding interview**. The engine also ships a small set of
-authoring skills for writing pages, prompts and folders, which a community
-host leans on when curating a commons. That is the whole built-in set:
-anything beyond it is something you or your community added, and the
+and the **Onboarding interview**. The engine also ships **Write a page**,
+which builds you a page of your own. That is the whole built-in set:
+anything beyond it is something you added, and the
 generated table at [every skill your mineral ships with](/docs/skills) is
 the authoritative list, straight from the code, of what each one does.
 
@@ -117,15 +116,9 @@ head into pages an assistant can act on: [how](/docs/the-interview).
 **A founder** is the same shape earlier: more moving parts than hours,
 relationships that die of silence, and a calendar that eats the strategy time.
 
-**A community or an organisation** is where it gets interesting, and it is what
-the [rock model](/docs/rocks-and-pebbles) exists for. A coaching practice, a
-cohort, an association: the leader curates and vouches, each member runs their
-own private assistant on their own account, and the community's shared context
-(its language, its frameworks, its playbook) reaches every member's assistant
-through a shared library the members pull from, without anyone's private
-material being pooled. The leader
-[cannot see inside anything](/docs/what-your-community-can-see), and under the
-current design cannot see anything at all: the sharing runs one way.
+**A coach or a consultant** is the same shape with other people's worlds in
+it: clients, sessions, promises made in a room and forgotten by Thursday. The
+assistant holds the history so the person can hold the relationship.
 
 ## What it is not
 
@@ -154,6 +147,5 @@ minutes because your key stays in your own hands. And it repays attention: an
 assistant you correct gets sharper, one you only consume from plateaus.
 
 If that trade sounds right, [your first hour](/docs/first-hour) is where it
-starts. If you run a community and want this for your members,
-[starting a community](/docs/become-a-rock) is yours. And if you came with one
-specific question, the [FAQ](/docs/faq) answers the usual ones straight.
+starts. And if you came with one specific question, the [FAQ](/docs/faq)
+answers the usual ones straight.

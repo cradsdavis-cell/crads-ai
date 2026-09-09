@@ -81,8 +81,9 @@ test('the edition wall is RETIRED (2026-09-01): the once-excluded member verbs a
   // same verbs as everyone.
   const s = await listen({ bridge: fakeBridge([ROCK]) });
   try {
+    // transfer-accept left with the tie machinery (2026-09-09)
     for (const verb of ['member-console-state', 'box-rename',
-      'leave-org', 'transfer-accept', 'ask-answer', 'layout-write']) {
+      'leave-org', 'ask-answer', 'layout-write']) {
       const r = await runVerb(s, verb);
       assert.ok(!r.text.includes('unknown verb'), `${verb} is in the one table now`);
     }
@@ -102,7 +103,7 @@ test('one brain: brain-list reads the mineral\'s own wiki at /state/wiki', async
   } finally { s.close(); }
 });
 
-test('vault, self-heal and the live world feed all answer on the one face', async () => {
+test('vault and self-heal answer on the one face; the world feed is RETIRED with the Map (2026-09-09)', async () => {
   const s = await listen({ bridge: worldBridge({ name: 'Aster', ownership: { tier: 'rock' } }) });
   try {
     const base = `http://127.0.0.1:${s.address().port}`;
@@ -112,35 +113,10 @@ test('vault, self-heal and the live world feed all answer on the one face', asyn
     assert.notEqual(heal.status, 404, 'self-heal exists');
     const topo = await fetch(`${base}/topology/world`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host: 'ic-rock' }) });
-    assert.equal(topo.status, 200, 'the world feed answers for a legacy -rock target too');
-    const w = await topo.json();
-    assert.equal(w.ok, true);
-    // The org/anchor/Mountain synthesis died with the hosted model: the world
-    // is the box, its devices, and any open support window. Nothing else.
-    assert.deepEqual(Object.keys(w).sort(), ['box', 'devices', 'ok', 'support'],
-      'the world carries exactly box, devices and support');
-    assert.equal(w.box.tier, 'rock', 'the ownership tier still rides the box facts');
+    assert.equal(topo.status, 404, 'no world feed: the Map that read it is gone');
   } finally { s.close(); }
 });
 
-test('the directory-edge synthesis is RETIRED (2026-09-01): no edge cache, no orgs rows', async () => {
-  // Finding 201 taught the rock world to carry its own joined ties from the
-  // directory edge cache. The directory is deleted; communities are drawn
-  // page-side from the mineral's own community-list, so the server keeps no
-  // edge cache and the world stays silent about ties.
-  const s = await listen({ bridge: worldBridge({ name: 'Aster', ownership: { tier: 'rock' } }) });
-  try {
-    s._communityMine = { edgesAt: Date.now(), edges: [
-      { rel: 'joined', slug: 'ic', org: 'qa-r2-gmail', org_display: 'QA Run Two Gmail', status: 'active' },
-    ] };
-    const r = await fetch(`http://127.0.0.1:${s.address().port}/topology/world`, {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host: 'ic-rock' }) });
-    assert.equal(r.status, 200);
-    const w = await r.json();
-    assert.equal(w.ok, true);
-    assert.ok(!('orgs' in w), 'a planted edge cache changes nothing: the world never grows orgs rows');
-  } finally { s.close(); }
-});
 
 test('the shell has one nav: the section wall and the org-only chrome are gone', async () => {
   const { readFileSync } = await import('node:fs');
@@ -161,31 +137,22 @@ test('the shell has one nav: the section wall and the org-only chrome are gone',
 // ownership, not a panel role. What the legacy Support role still gates is
 // publishing: the commons write verbs stay adminOnly in the one table.
 
-test('a Support sign-in can install on the box but cannot publish to the commons', async () => {
+test('a Support sign-in reads the box; the commons and catalogue verbs are gone, not gated', async () => {
   const bridge = fakeBridge([ROCK]);
   const s = await listen({ bridge, role: 'support' });
   try {
-    const inst = await runArgs(s, 'catalog-install', { id: 'deep-research' });
-    assert.equal(inst.status, 200, `installing from the box's own inbox is not admin-gated: ${inst.text}`);
-    for (const verb of ['commons-publish', 'commons-grant', 'commons-revoke']) {
+    const read = await runArgs(s, 'skills-list', {});
+    assert.equal(read.status, 200, `a plain read is not admin-gated: ${read.text}`);
+    // commons-publish/grant/revoke left with the Catalogue and catalog-install
+    // with the Library (both 2026-09-09): unknown verbs, not refused ones, so
+    // no role can reach a publish or a pickup path.
+    for (const verb of ['commons-publish', 'commons-grant', 'commons-revoke', 'catalog-install']) {
       const r = await runArgs(s, verb, {});
-      assert.equal(r.status, 403, `${verb} refused for Support`);
-      assert.match(r.text, /admin/i, 'and refused for being Support, not for a malformed call');
+      assert.equal(r.status, 400, `${verb} is not a served verb any more`);
     }
   } finally { s.close(); }
 });
 
-test('a box picks up from its inbox through the one installer, no directory leg', async () => {
-  const bridge = fakeBridge([ROCK]);
-  const s = await listen({ bridge });
-  try {
-    const r = await runArgs(s, 'catalog-install', { id: 'deep-research' });
-    assert.equal(r.status, 200, r.text);
-    const cmd = (bridge.ran[0] || {}).command || '';
-    assert.match(cmd, /org-inbox\/skills\/deep-research/, 'copied out of the box\'s OWN inbox');
-    assert.doesNotMatch(cmd, /curl|fetch/, 'no directory leg: everything installable is already aboard');
-  } finally { s.close(); }
-});
 
 // ---- Pages (panel iteration 2, R15, 2026-08-23) ----------------------------
 // The R15 verbs survive the collapse unchanged; only the face they were once

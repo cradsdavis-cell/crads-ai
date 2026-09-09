@@ -262,12 +262,17 @@ test('an image built without the control plane boots and says so', () => {
   assert.match(readFileSync(path.join(brain, 'control/catalog-reconcile.mjs'), 'utf8'), /OLD reconcile/);
 });
 
-test('the image actually carries it, and the three authoring skills ship with it', () => {
+test('the image actually carries it, and the one surviving authoring skill ships with it', () => {
   assert.match(readFileSync(path.join(ROOT, 'Dockerfile.rock'), 'utf8'), /^COPY brain-control\/ \.\/brain-control\/$/m);
   // engine/skills/ is re-synced into the brain on every boot; brain-template's
   // .claude/skills/ is frozen at birth. Authoring skills belong in the former.
+  // write-prompt and write-folder left with the Library (2026-09-09); a skill
+  // named here that no longer exists would break every rock's boot sync.
   const rockSkills = (bootSh.match(/^ROCK_SKILLS="\$\{ROCK_SKILLS:-([^}]*)\}"/m) || [])[1] || '';
-  for (const s of ['write-prompt', 'write-page', 'write-folder']) {
+  for (const s of ['write-prompt', 'write-folder']) {
+    assert.ok(!rockSkills.split(/\s+/).includes(s), `${s} is gone and must not be listed`);
+  }
+  for (const s of ['write-page']) {
     assert.ok(rockSkills.split(/\s+/).includes(s), `${s} must be in ROCK_SKILLS or it never reaches a rock`);
     assert.ok(existsSync(path.join(ROOT, `engine/skills/${s}.md`)), `engine/skills/${s}.md is missing`);
   }

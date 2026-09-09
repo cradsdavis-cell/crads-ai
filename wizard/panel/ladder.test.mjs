@@ -43,9 +43,9 @@ test('fresh mineral: sign-in is the pending rung and the locked rows name it', (
   const sched = m.caps.find((c) => c.name === 'Run scheduled tasks');
   assert.equal(sched.st, 'dim');
   assert.match(sched.why, /nobody at the keyboard/);
-  const install = m.caps.find((c) => /Install skills/.test(c.name));
-  assert.equal(install.st, 'dim', 'no community read as zero: offers cannot exist yet');
-  assert.match(install.why, /once you join a community/);
+  // the community rows (Join / Install from your community) left the ladder
+  // with the community surfaces (2026-09-09)
+  assert.ok(!m.caps.some((c) => /^Join a community|^Joined a community|^Install skills from your community/.test(c.name)), 'no join/install-from-community row remains');
 });
 
 test('everything unread: no rung is false, nothing dims, nothing promises', () => {
@@ -57,16 +57,12 @@ test('everything unread: no rung is false, nothing dims, nothing promises', () =
   }
 });
 
-test('fully landed: three rungs done, the community rows read the real count', () => {
+test('fully landed: three rungs done, the scheduled-task row reads the real state', () => {
   const m = modelWith({
-    state: { strength: { backup: true, communities: 2 } },
+    state: { strength: { backup: true } },
     cadenceTaskSet: () => true,
   })(signedIn);
   assert.ok(m.rungs.every((r) => r.done === true), 'all three rungs land');
-  const joined = m.caps.find((c) => c.name === 'Joined a community');
-  assert.equal(joined.pill, '2 joined', 'the joined row says how many, not just "Ready"');
-  const install = m.caps.find((c) => /Install skills/.test(c.name));
-  assert.equal(install.st, 'ok', 'offers are installable once a community exists');
   assert.equal(m.caps.find((c) => c.name === 'Run scheduled tasks').pill, 'In use');
 });
 
@@ -88,17 +84,10 @@ test('backup rung distinguishes connected-but-never-pushed; promotion is retired
   // "Become a rock" died with the directory: hosting a community is a row any
   // mineral has, not a promotion to ask for.
   assert.equal(m.caps.find((c) => c.name === 'Become a rock'), undefined, 'no promotion row');
-  const host = m.caps.find((c) => c.name === 'Host a community');
-  assert.equal(host.st, 'ok', 'hosting is open to every mineral');
-  assert.deepEqual(host.act, { label: 'Open the Commons card', to: 'publish', focus: 'commonsCard' });
+  // and hosting a community left with the Catalogue (simple assistant, 2026-09-09)
+  assert.equal(m.caps.find((c) => c.name === 'Host a community'), undefined, 'no hosting row either');
 });
 
-test('community count unread: install-from-community is unread, not locked', () => {
-  const m = modelWith({ state: { strength: {} } })(signedIn);
-  const install = m.caps.find((c) => /Install skills/.test(c.name));
-  assert.notEqual(install.st, 'dim');
-  assert.equal(install.pill, 'Checking…');
-});
 
 test('the ladder card leads the work grid: after onboarding, before the strip tiles', () => {
   const onboarding = html.indexOf("{ id: 'onboarding'");

@@ -25,7 +25,8 @@ const BOXUP = join(HERE, '..', 'box-up.sh');
 const SCRIPTS = readdirSync(HERE).filter((f) => f.endsWith('.sh'));
 
 test('every box script is present and carries no per-member templating', () => {
-  assert.ok(SCRIPTS.length >= 6, `expected the six box scripts, saw ${SCRIPTS.length}`);
+  // org-sync, heartbeat-push, org-brain-wire; the three tie scripts left 2026-09-09
+  assert.ok(SCRIPTS.length >= 3, `expected the three box scripts, saw ${SCRIPTS.length}`);
   for (const f of SCRIPTS) {
     const src = readFileSync(join(HERE, f), 'utf8');
     assert.doesNotMatch(src, /\{\{[A-Z_]+\}\}/, `${f} has a placeholder, so it is per-member and cannot ship in an image`);

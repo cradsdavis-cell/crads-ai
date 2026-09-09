@@ -13,7 +13,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { VERBS } from './panel-server.mjs';
 
 const html = readFileSync(new URL('./member.html', import.meta.url), 'utf8');
 
@@ -31,10 +30,3 @@ test('the Members page is RETIRED: no fleet surface remains in member.html', () 
     'a hosted-era #pebbles bookmark lands on the seat');
 });
 
-test('member-forget keeps its builder truths while the builder exists: admin, mutating, archive-never-delete', () => {
-  const v = VERBS['member-forget'];
-  assert.ok(v && v.adminOnly && v.mutating, 'the verb is admin + mutating');
-  const cmd = v.build({ slug: 'ravi' }).command;
-  assert.match(cmd, /\[ "\$st" = left \] \|\|/, 'refuses unless the row has ended');
-  assert.match(cmd, /registry\/archive\/ravi\.\$d\.yaml/, 'archives, never deletes');
-});

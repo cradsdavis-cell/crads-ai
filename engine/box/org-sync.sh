@@ -85,99 +85,6 @@ install_heartbeat_pipe() {
   fi
 }
 
-# seed_pages <inbox> <gh owner> [from]: one function for every inbox (2026-08-23).
-# RETIRED LEG (delivery-model step 7c, Part B): the catalogue's own reconcile
-# job now stages every entitled kind, pages included, automatically, pickup
-# only (a member takes it deliberately; nothing here auto-installs it), so
-# nothing writes <inbox>/pages/ any more except a hand-run install-pack.mjs
-# (itself deprecated). This leg no longer creates anything new: a page id that
-# already carries a dashboard/pages.json manifest entry is repaired (a missing
-# file recreated; the manifest itself never touched), and an id with no entry
-# is left alone, no file, no manifest entry, for the member to pick up
-# deliberately via page-install.mjs instead. Member edits still win, always. A
-# page the member deleted (dashboard/pages.deleted.json, written by
-# page-delete) is never re-copied. The gh-owner and from arguments below are
-# accepted for CLI-shape parity but no longer used: they only ever fed the
-# `from:`/title derivation for a BRAND NEW manifest entry, and this leg does
-# not create those any more.
-seed_pages() {
-  local INBOX="$1" ORG_GH_OWNER="$2" FROM="${3:-}"
-  if [ -d "$INBOX/pages" ] && command -v node >/dev/null 2>&1; then
-    # This script itself is a boot-time COPY sitting at $BOX/org-sync.sh
-    # (install_box_scripts in box-up.sh), not at its engine/box/ source path,
-    # so it cannot find a sibling appshell/ by relative path. The member
-    # image always carries the full engine tree at /app/engine (Dockerfile.member
-    # WORKDIR /app + COPY engine/), the same fixed path entrypoint.sh already
-    # hardcodes for box-up.sh itself, so that is the one reachable from here.
-    local seed_status=0
-    node "${AIOS_DIR:-/app}/engine/appshell/seed-org-pages.mjs" \
-      "$INBOX/pages" "$BOX/dashboard" "${ORG_GH_OWNER:-}" "$BOX" "$FROM" 2>/dev/null || seed_status=$?
-    # Fail-soft by design (org-sync also carries membership, keys and heartbeat
-    # legs that must complete regardless), but a silent skip here used to mean
-    # every org page on this box stops seeding with no signal. Name it instead.
-    [ "$seed_status" -eq 0 ] || log "page seeding did not run for $INBOX (seed-org-pages.mjs exited $seed_status); other org-sync legs continue."
-  fi
-}
-
-# --- JOINED rocks' inboxes (2026-08-23) -------------------------------------------
-# tie-claim.mjs writes /state/org-inbox.d/<owner>.conf (ORG_GH_OWNER, SLUG,
-# ORG=<handle>) and /state/secrets/org_inbox_deploy_key.<owner> for every rock
-# this box has JOINED. Each one is pulled into /state/org-inbox.d/<owner>/ with
-# its own read-only key, under the same MEMBERSHIP gate and the same
-# never-delete rule as the anchor's inbox. Runs BEFORE the anchor guards below
-# because a box with no anchor can still hold joined ties; each inbox runs in
-# its own subshell so a refused clone on one never stops the others or the
-# anchor's leg. The confs are box-written but still read by regex, never
-# sourced. Anchor-only legs (the member door, evict, re-anchor) do not apply.
-touch "$BOX/.gitignore"
-grep -qxF 'org-inbox.d/' "$BOX/.gitignore" || echo 'org-inbox.d/' >> "$BOX/.gitignore"
-
-# --- COMMUNITIES: the commons-repo pulls (self-host pivot, 2026-09-01) -----------
-# Communities joined via a cradscommons1: bundle live in /state/communities.d/
-# and their checkouts land in org-inbox.d/<org>/ exactly like a joined rock's
-# inbox, so every pickup surface reads them unchanged. commons-pull.mjs owns
-# that sync (URL validation, pinned git transports, size cap, honest
-# access-ended surfacing) and marks its conf shims COMMONS=1; the joined-rock
-# loop below skips those so the two writers never fight over one directory.
-# Runs before the anchor gate on purpose: a box with no anchor (a self-hosted
-# mineral) still gets its communities. Fail-soft like every other leg.
-if [ -f "${AIOS_DIR:-/app}/engine/community/commons-pull.mjs" ] && command -v node >/dev/null 2>&1; then
-  node "${AIOS_DIR:-/app}/engine/community/commons-pull.mjs" "$BOX" || log "commons pull did not complete; other org-sync legs continue."
-fi
-
-for jconf in "$BOX"/org-inbox.d/*.conf; do
-  [ -f "$jconf" ] || continue
-  # a COMMONS=1 conf belongs to commons-pull.mjs above, not to this loop
-  grep -qx 'COMMONS=1' "$jconf" 2>/dev/null && continue
-  (
-    set -euo pipefail
-    JOWNER="$(basename "$jconf" .conf)"
-    case "$JOWNER" in *[!A-Za-z0-9-]*|-*) log "ignoring org-inbox.d/$JOWNER.conf (bad owner name)."; exit 0;; esac
-    JSLUG="$(grep -oP '^SLUG=\K[A-Za-z0-9._-]{1,80}$' "$jconf" | head -1 || true)"
-    JORG="$(grep -oP '^ORG=\K[a-z0-9][a-z0-9-]{0,38}$' "$jconf" | head -1 || true)"
-    [ -n "$JSLUG" ] || { log "org-inbox.d/$JOWNER.conf has no usable SLUG; skipping."; exit 0; }
-    JKEY="$BOX/secrets/org_inbox_deploy_key.$JOWNER"
-    [ -f "$JKEY" ] || { log "no read key for $JOWNER; cannot sync that inbox yet."; exit 0; }
-    INBOX="$BOX/org-inbox.d/$JOWNER"
-    URL="ssh://git@github.com/$JOWNER/inbox-$JSLUG.git"
-    export GIT_SSH_COMMAND="ssh -i $JKEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
-    if [ -d "$INBOX/.git" ]; then
-      git -C "$INBOX" pull --ff-only origin main 2>/dev/null || { log "$JOWNER: pull denied (membership likely closed). keeping existing content."; exit 0; }
-    else
-      git clone --depth 1 "$URL" "$INBOX" 2>/dev/null || { log "$JOWNER: clone denied (no read access yet). skipping."; exit 0; }
-    fi
-    STATUS="active"
-    [ -f "$INBOX/MEMBERSHIP.yaml" ] && STATUS="$(grep -oP 'status:\s*\K\S+' "$INBOX/MEMBERSHIP.yaml" | head -1 || echo active)"
-    install_heartbeat_pipe "$INBOX" "$JOWNER" "$STATUS"
-    if [ "$STATUS" != "active" ]; then
-      log "$JOWNER: membership is '$STATUS'. no new content installed. existing content kept."
-      exit 0
-    fi
-    seed_pages "$INBOX" "$JOWNER" "${JORG:-$JOWNER}"
-    log "$JOWNER: synced. skills: $(ls -1d "$INBOX/skills"/*/ 2>/dev/null | wc -l), packs: $(ls -1 "$INBOX/packs" 2>/dev/null | wc -l), drops: $(ls -1 "$INBOX/drops" 2>/dev/null | wc -l)."
-  ) || true
-done
-
 [ -f "$CONF" ] || { log "no org-inbox.conf; not an org-managed box. skipping."; exit 0; }
 [ -f "$KEY" ]  || { log "no read key; cannot sync (membership may be closed)."; exit 0; }
 . "$CONF"                        # sets ORG_GH_OWNER and SLUG
@@ -185,7 +92,6 @@ done
 # Keep org content out of the member's own committed brain (the IP boundary).
 touch "$BOX/.gitignore"
 grep -qxF 'org-inbox/' "$BOX/.gitignore" || echo 'org-inbox/' >> "$BOX/.gitignore"
-grep -qxF 'org-inbox.d/' "$BOX/.gitignore" || echo 'org-inbox.d/' >> "$BOX/.gitignore"   # joined rocks' inboxes, same boundary
 grep -qxF 'ssh/' "$BOX/.gitignore" || echo 'ssh/' >> "$BOX/.gitignore"   # /state/ssh = derived key state, never committed
 
 # ssh:// scheme dodges the image's global 'git@github.com:' -> https rewrite.
@@ -280,46 +186,8 @@ SKILLS="$BOX/.claude/skills"; mkdir -p "$SKILLS"
 # Legacy pack format (pre-D49: pack.yaml + skills/*.md) auto-installed too, and
 # goes the same way for the same reason. A legacy pack still in an inbox is
 # staged like anything else; skill-install reads both layouts.
-seed_pages "$INBOX" "${ORG_GH_OWNER:-}" ""
 
 # The catalog-requests.json prune that lived here went with F3 of panel
 # iteration 2 (2026-08-23): one-inbox made pickup local, so nothing writes the
 # queue and there was nothing left to drop.
 
-# Drops stay readable in-place under $INBOX/drops (the assistant reads them there).
-log "synced. skills: $(ls -1d "$INBOX/skills"/*/ 2>/dev/null | wc -l), packs: $(ls -1 "$INBOX/packs" 2>/dev/null | wc -l), drops: $(ls -1 "$INBOX/drops" 2>/dev/null | wc -l)."
-# Re-anchor (option c, 2026-07-28): a delivered notice means the anchor moved;
-# the box re-mints its own credential and swaps channels. Mechanical (consent
-# already happened in the requests engine), fail-soft, idempotent.
-# The script itself arrives WITH the notice down the inbox (the transfer-invite
-# pattern; the cloud-init seed has no room and old boxes need it delivered too).
-# Evict (Mountain model, 2026-08-04): the anchor rock ended the tie. Nothing is
-# destroyed — the apply flips this box's own anchor record to the Mountain and
-# keeps the notice visible, so the person's screen says WHO ended it and why
-# rather than looking like an outage.
-# The apply script is always the IMAGE-TRUSTED copy, never the delivered one.
-# inbox-<slug> is rock-writable, so running the script it ships would hand the
-# rock arbitrary code execution as this box's user, reaching /state/secrets,
-# /state/.claude-auth and the member's own brain. box-up.sh installs
-# $BOX/evict-apply.sh from the image on every start, and it reads the notice
-# copied just above. A delivered script is now only a trigger, never code.
-if [ -f "$INBOX/evict/notice.json" ]; then
-  mkdir -p "$BOX/org-inbox/evict"
-  cp "$INBOX/evict/notice.json" "$BOX/org-inbox/evict/notice.json" 2>/dev/null || true
-  if [ -f "$BOX/evict-apply.sh" ]; then
-    bash "$BOX/evict-apply.sh" "$BOX" || true
-  else
-    log "evict notice delivered but this image has no evict-apply.sh; skipping (update the box image)."
-  fi
-fi
-
-# Image-trusted apply, same reasoning as the evict leg above.
-if [ -f "$INBOX/re-anchor/notice.json" ]; then
-  mkdir -p "$BOX/org-inbox/re-anchor"
-  cp "$INBOX/re-anchor/notice.json" "$BOX/org-inbox/re-anchor/notice.json" 2>/dev/null || true
-  if [ -f "$BOX/re-anchor-apply.sh" ]; then
-    bash "$BOX/re-anchor-apply.sh" "$BOX" || true
-  else
-    log "re-anchor notice delivered but this image has no re-anchor-apply.sh; skipping (update the box image)."
-  fi
-fi

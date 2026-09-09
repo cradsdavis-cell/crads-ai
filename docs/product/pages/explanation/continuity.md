@@ -49,15 +49,14 @@ anyway, and works with nothing of mine involved.
 **Nothing routes through me at runtime.** There is no Crads AI account, no
 directory, no billing, no tunnel, no service in the path between you and your
 assistant. Your assistant is your Claude account talking to your files on
-your machine. Your community, if you have one, is a git repository between
-you and its owner. If every piece of my infrastructure went dark tonight,
+your machine. If every piece of my infrastructure went dark tonight,
 nothing you use tomorrow would notice.
 
 **The software is headed into the open.** Crads-AI is free, and the code is
 being prepared for a public open-source release. Once it lands, the last
 remaining dependency on me (new software, fixes for the connectors that rot
 when Google or Microsoft change something) becomes something anyone can pick
-up: you, someone you hire, or whoever in the community cares enough.
+up: you, someone you hire, or whoever cares enough.
 
 ## What you would actually lose
 
@@ -73,11 +72,6 @@ I would rather be specific than reassuring.
 - **Me.** The judgement, the docs staying current, the person to ask. That is
   the one part with no mitigation, and pretending otherwise would be
   marketing.
-
-The narrower version members used to ask (*what if my community's host moves
-on?*) now barely needs a section: your community was a repository you pulled
-from. If it goes quiet, your mineral carries on unchanged, and everything you
-installed stays. [Rocks and pebbles](/docs/rocks-and-pebbles) has the shape.
 
 ## What I will do if I stop
 
@@ -103,7 +97,3 @@ intentions are only the improvement on it.
 One thing IS yours to do, today, and it is the difference between "survivable"
 and "survived": [back up your mineral](/docs/back-up-and-restore) has the one
 step only you can do. Do it this week, not the week you need it.
-
-If you are a community leader deciding whether to put your name on this for
-your members, the trade in one sentence: **the operator is a single point of
-failure, and nothing your members depend on runs through him.**

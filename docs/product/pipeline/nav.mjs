@@ -13,7 +13,7 @@ export const JOURNEY = [
   {
     id: 'start', title: 'Start here',
     blurb: 'What this is, whether it is for you, and the two words everything else uses.',
-    slugs: ['what-an-ai-ea-is', 'faq', 'rocks-and-pebbles'],
+    slugs: ['what-an-ai-ea-is', 'faq', 'what-a-mineral-is'],
   },
   {
     id: 'setup', title: 'Getting set up',
@@ -23,8 +23,8 @@ export const JOURNEY = [
   {
     id: 'app', title: 'Every page of the app',
     blurb: "Each screen, opening with the app's own words for it.",
-    slugs: ['overview-page', 'your-pebble-page', 'map-page', 'join-a-community', 'brain-page',
-      'skills-page', 'connections-page', 'secrets-page', 'what-your-community-can-see', 'terminal-page'],
+    slugs: ['overview-page', 'your-pebble-page', 'brain-page',
+      'skills-page', 'connections-page', 'secrets-page', 'terminal-page'],
   },
   {
     id: 'living', title: 'Living with it',
@@ -34,12 +34,6 @@ export const JOURNEY = [
       'grant-support-access', 'claude-code-on-your-mineral', 'the-three-layers', 'continuity'],
   },
   {
-    id: 'hosting', title: 'Hosting a community',
-    blurb: 'Turning your mineral into a rock, and looking after the people who pull from it.',
-    slugs: ['become-a-rock', 'share-with-your-community', 'library-page', 'manage-members', 'run-your-rock',
-      'run-a-cohort-session', 'curate-for-your-community', 'host-a-community-well', 'decisions-page'],
-  },
-  {
     id: 'reference', title: 'Reference',
     blurb: 'Generated from the software itself, so it cannot drift.',
     slugs: ['skills', 'connections', 'machinery-jobs'],
@@ -47,27 +41,22 @@ export const JOURNEY = [
   {
     id: 'legal', title: 'Legal',
     blurb: 'The written detail. Version-stamped, and it changes only with the version.',
-    slugs: ['privacy-policy', 'terms', 'hosting-a-rock', 'acceptable-use'],
+    slugs: ['privacy-policy', 'terms', 'acceptable-use'],
   },
 ];
 
-// The two doors on the index (Sam: "split doors"). Each is a short ordered
+// The doors on the index (Sam: "split doors"). Each is a short ordered
 // trail, not a group: the trails reuse pages the groups already carry.
 export const DOORS = [
   {
     id: 'thinking', title: 'Thinking about it?',
     lead: 'Deciding whether an assistant of your own is worth having.',
-    slugs: ['what-an-ai-ea-is', 'faq', 'rocks-and-pebbles'],
+    slugs: ['what-an-ai-ea-is', 'faq', 'what-a-mineral-is'],
   },
   {
     id: 'invited', title: 'Making your own?',
     lead: 'From a blank screen to an assistant that knows you, on a server of your own.',
     slugs: ['first-hour', 'the-interview', 'your-first-week'],
-  },
-  {
-    id: 'hosting', title: 'Hosting a community?',
-    lead: 'Your members run their own assistants; you curate the commons they pull from.',
-    slugs: ['become-a-rock', 'share-with-your-community', 'manage-members'],
   },
 ];
 
