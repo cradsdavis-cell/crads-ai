@@ -45,12 +45,19 @@ VENDORED=()
 # operator's product); it is allowed ONLY in that exact form, never bare.
 PERSONAL='cradsdavis(?!-cell)|samuel|caradog|coogee|sdav2732|0493 ?302|/home/sam'
 ORG='acme-collab|crads-ai\.com|ic-brain|ic-content|ic-inbox'
+# credential = a real Google OAuth client id or secret, anywhere in the tree.
+# GitHub push protection blocked the first public push of this repository
+# (2026-09-09) on exactly this: the desktop client that the private product
+# ships as a default. The public copy ships env-only defaults, and this wall
+# keeps the next sync from bringing the literal back. Fixture ids in tests
+# ("x.apps.googleusercontent.com", "GOCSPX-s") are too short to match.
+CRED='GOCSPX-[A-Za-z0-9_-]{20,}|[0-9]{10,}-[a-z0-9]{20,}\.apps\.googleusercontent\.com'
 
 fail=0
 scan(){ # $1 label, $2 pattern, $3.. roots
   local hits label="$1" pattern="$2"
   shift 2
-  hits="$(grep -rniP --binary-files=without-match "$pattern" "$@" 2>/dev/null || true)"
+  hits="$(grep -rniP --binary-files=without-match --exclude-dir=.git --exclude-dir=node_modules "$pattern" "$@" 2>/dev/null || true)"
   if [ -n "$hits" ]; then
     printf '\033[31mclean-gate FAIL [%s]:\033[0m\n%s\n' "$label" "$hits"
     fail=1
@@ -58,6 +65,7 @@ scan(){ # $1 label, $2 pattern, $3.. roots
 }
 scan personal "$PERSONAL" "${SCOPE[@]}" ${VENDORED[@]+"${VENDORED[@]}"}
 scan org "$ORG" "${SCOPE[@]}"
+scan credential "$CRED" .
 
 if [ "$fail" = 1 ]; then
   echo "clean-gate: baked product code carries personal or org-specific content. Fix the source; never allowlist a name." >&2
