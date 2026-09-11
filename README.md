@@ -1,5 +1,7 @@
 # Crads-AI
 
+**Website and docs:** <https://crads-ai.com> · **Download the app:** <https://crads-ai.com/download>
+
 Free, open-source, fully self-hosted AI assistant infrastructure. Your server,
 your SSH key, your accounts. Nothing central: no directory service, no billing,
 no accounts with us, no server of ours in the loop.
