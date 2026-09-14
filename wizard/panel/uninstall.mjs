@@ -10,7 +10,9 @@
 // and the person's local-mode brain), ~/.ssh entries, and anything on their server.
 // Those are the person's data; the app only removes the app.
 import { execFile, spawn } from 'node:child_process';
-import { existsSync, unlinkSync } from 'node:fs';
+import { existsSync, unlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 export const APP_NAME = 'Crads-AI';
 export const UNINSTALL_KEY = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\${APP_NAME}`;
@@ -52,18 +54,31 @@ export async function registerUninstall({ platform = process.platform, runner = 
   } catch (e) { return { done: false, reason: String(e.message || e) }; }
 }
 
-// The detached command line that removes the program folder once this exe has exited.
-// ping is the portable Windows sleep; taskkill closes a still-open window host; the
-// rmdir retries because a file handle can outlive the process by a beat.
-export function folderRemovalCommand(dir) {
+// The batch file that removes the program folder once this exe has exited. A file,
+// not a command line: Node quotes and escapes every argument on Windows, so a
+// multi-command string handed to `cmd /c` arrives with its inner quotes mangled
+// (the 2026-09-14 CI smoke saw the folder survive for exactly that reason). ping is
+// the portable Windows sleep; taskkill closes a still-open window host; the rmdir
+// retries because a file handle can outlive the process by a beat; the last line
+// is the standard self-deleting-batch idiom.
+export function folderRemovalScript(dir) {
   const q = dir.replace(/"/g, '');
-  return `ping 127.0.0.1 -n 3 >nul & taskkill /F /IM "crads-ai-window*" >nul 2>&1 & `
-    + `rmdir /s /q "${q}" & ping 127.0.0.1 -n 3 >nul & if exist "${q}" rmdir /s /q "${q}"`;
+  return [
+    '@echo off',
+    'ping 127.0.0.1 -n 3 >nul',
+    'taskkill /F /IM "crads-ai-window*" >nul 2>&1',
+    `rmdir /s /q "${q}"`,
+    'ping 127.0.0.1 -n 3 >nul',
+    `if exist "${q}" rmdir /s /q "${q}"`,
+    '(goto) 2>nul & del "%~f0"',
+    '',
+  ].join('\r\n');
 }
 
 export async function uninstall({
   platform = process.platform, dir, shortcuts = [], runner = run,
   spawner = (cmd, args, opts) => spawn(cmd, args, opts), rm = unlinkSync, exists = existsSync,
+  writeScript = (text) => { const p = join(tmpdir(), `crads-ai-uninstall-${process.pid}.cmd`); writeFileSync(p, text); return p; },
 } = {}) {
   if (platform !== 'win32') return { done: false, reason: `nothing installed on ${platform}` };
   const removed = [], failed = [];
@@ -76,7 +91,8 @@ export async function uninstall({
   let folder = 'kept';
   if (dir) {
     try {
-      const child = spawner('cmd.exe', ['/d', '/c', folderRemovalCommand(dir)], { detached: true, stdio: 'ignore', windowsHide: true });
+      const script = writeScript(folderRemovalScript(dir));
+      const child = spawner('cmd.exe', ['/d', '/c', script], { detached: true, stdio: 'ignore', windowsHide: true });
       if (child && child.unref) child.unref();
       folder = 'scheduled';
     } catch { folder = 'failed'; failed.push(dir); }

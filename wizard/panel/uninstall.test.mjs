@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { wantsUninstall, uninstallEntryCommands, registerUninstall, uninstall, folderRemovalCommand, UNINSTALL_KEY, PROTOCOL_KEY } from './uninstall.mjs';
+import { wantsUninstall, uninstallEntryCommands, registerUninstall, uninstall, folderRemovalScript, UNINSTALL_KEY, PROTOCOL_KEY } from './uninstall.mjs';
 
 const facts = { target: 'C:\\Users\\a\\AppData\\Local\\Programs\\Crads-AI\\Crads-AI.exe', dir: 'C:\\Users\\a\\AppData\\Local\\Programs\\Crads-AI', ico: 'C:\\Users\\a\\AppData\\Local\\Programs\\Crads-AI\\crads-ai.ico', version: 'abcdef12', sizeBytes: 89 * 1024 * 1024, installDate: '20260914' };
 
@@ -43,13 +43,14 @@ test('registerUninstall runs every command on windows, is an honest no-op elsewh
 });
 
 test('uninstall removes shortcuts + both registry keys, then schedules the folder removal detached', async () => {
-  const regs = [], spawned = [], rmd = [];
+  const regs = [], spawned = [], rmd = [], scripts = [];
   const shortcuts = ['C:\\u\\Start Menu\\Crads-AI.lnk', 'C:\\u\\Desktop\\Crads-AI.lnk', 'C:\\u\\gone.lnk'];
   const r = await uninstall({
     platform: 'win32', dir: facts.dir, shortcuts,
     runner: async (c, a) => { regs.push([c, ...a].join(' ')); },
     spawner: (cmd, args, opts) => { spawned.push({ cmd, args, opts }); return { unref() {} }; },
     rm: (p) => rmd.push(p), exists: (p) => !p.endsWith('gone.lnk'),
+    writeScript: (text) => { scripts.push(text); return 'C:\\Temp\\crads-ai-uninstall-1.cmd'; },
   });
   assert.equal(r.done, true);
   assert.deepEqual(rmd, shortcuts.slice(0, 2), 'a shortcut the person already deleted is not an error');
@@ -58,7 +59,9 @@ test('uninstall removes shortcuts + both registry keys, then schedules the folde
   assert.equal(spawned.length, 1);
   assert.equal(spawned[0].cmd, 'cmd.exe');
   assert.equal(spawned[0].opts.detached, true, 'the folder removal must outlive this process');
-  assert.match(spawned[0].args.at(-1), /rmdir \/s \/q "C:\\Users\\a\\AppData\\Local\\Programs\\Crads-AI"/);
+  assert.deepEqual(spawned[0].args, ['/d', '/c', 'C:\\Temp\\crads-ai-uninstall-1.cmd'], 'cmd runs a script path, never a quoted multi-command string');
+  assert.equal(scripts.length, 1);
+  assert.match(scripts[0], /rmdir \/s \/q "C:\\Users\\a\\AppData\\Local\\Programs\\Crads-AI"/);
 });
 
 test('a missing protocol key (never registered) does not fail the uninstall as a whole', async () => {
@@ -67,10 +70,14 @@ test('a missing protocol key (never registered) does not fail the uninstall as a
   assert.equal(r.folder, 'kept');
 });
 
-test('the removal command waits, closes the window host, and retries the rmdir once', () => {
-  const c = folderRemovalCommand('C:\\p\\Crads-AI');
-  assert.match(c, /^ping 127\.0\.0\.1 -n 3 >nul & taskkill/);
+test('the removal script waits, closes the window host, retries the rmdir once, and deletes itself', () => {
+  const c = folderRemovalScript('C:\\p\\Crads-AI');
+  const lines = c.split('\r\n');
+  assert.equal(lines[0], '@echo off');
+  assert.match(lines[1], /^ping 127\.0\.0\.1 -n 3 >nul$/);
+  assert.match(lines[2], /^taskkill/);
   assert.equal((c.match(/rmdir \/s \/q "C:\\p\\Crads-AI"/g) || []).length, 2);
+  assert.match(lines.at(-2), /del "%~f0"/);
 });
 
 test('app.mjs wires the flag before the single-instance dance and registers the entry from selfInstall', () => {
