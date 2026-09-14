@@ -16,7 +16,8 @@ An AI executive assistant is an assistant that **lives in your working life
 rather than in a tab**. It holds a real, readable model of your world (your
 goals, your people, your commitments, your voice) and it acts on a schedule as
 well as on request. The difference is not intelligence. It is context and
-residence.
+residence, and [how your assistant thinks](/docs/how-your-assistant-thinks)
+is the one model that makes the rest of these pages make sense.
 
 ## The test that separates it from a chatbot
 
@@ -28,6 +29,8 @@ Ask an assistant that holds your goals, reads your calendar and your inbox, and
 knows which three commitments are slipping, and the same question has an actual
 answer. That is the entire category difference in one question. Everything else
 follows from it.
+
+![Mind, memory, senses: what it can reach and what it knows feed the assistant, and what it gives you feeds the memory.](diagram:brain-memory-senses)
 
 ## What changes about a week, concretely
 
@@ -144,7 +147,8 @@ hosting bill of your own, because it runs on a server in your own account and
 nobody hosts it for you. It needs [connections](/docs/connections-page) to
 your real accounts, with the [Google one](/docs/connect-google) costing ten
 minutes because your key stays in your own hands. And it repays attention: an
-assistant you correct gets sharper, one you only consume from plateaus.
+assistant you correct gets sharper, one you only consume from plateaus, and
+[grow the brain](/docs/grow-the-brain) is how.
 
 If that trade sounds right, [your first hour](/docs/first-hour) is where it
 starts. And if you came with one specific question, the [FAQ](/docs/faq)

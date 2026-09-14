@@ -1,6 +1,7 @@
 ---
 title: Let someone look at your mineral
 summary: Granting support access: what it opens, when it closes, and how to end it early.
+outcome: let someone look at your mineral for a fixed time, and end it early.
 audience: public
 access: public
 mode: how-to

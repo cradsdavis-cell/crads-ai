@@ -36,6 +36,19 @@ export const SUBJECTS = [
   { slug: 'connections', re: /\bwhat you can connect\b/i },
   { slug: 'fix-a-broken-connection', re: /\bfix a (?:broken )?connection\b/i },
   { slug: 'claude-code-on-your-mineral', re: /\bClaude Code on your mineral\b/i },
+  // Working with your EA (2026-09-10)
+  { slug: 'how-your-assistant-thinks', re: /\bhow your assistant thinks\b/i },
+  { slug: 'a-day-with-your-assistant', re: /\ba day with your assistant\b/i },
+  { slug: 'the-crit-method', re: /\bCRIT\b/ },
+  { slug: 'prompting-habits', re: /\bprompting habits\b/i },
+  { slug: 'grow-the-brain', re: /\bgrow(?:ing)? the brain\b/i },
+  { slug: 'teach-it-your-voice', re: /\bteach it your voice\b/i },
+  { slug: 'write-your-own-skill', re: /\bwrite your own skill\b/i },
+  { slug: 'starter-recipes', re: /\bstarter recipes\b/i },
+  { slug: 'what-it-will-not-do', re: /\bwhat it will not do\b/i },
+  { slug: 'find-what-you-do-not-know', re: /\bfind what you do not know\b/i },
+  { slug: 'glossary', re: /\bthe glossary\b/i },
+  { slug: 'where-these-ideas-come-from', re: /\bwhere these ideas come from\b/i },
 ];
 
 // A link is only a link for readers who can see both ends. Tiers are

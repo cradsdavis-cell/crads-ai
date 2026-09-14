@@ -1,6 +1,7 @@
 ---
 title: Get a DigitalOcean API token
 summary: The five-minute walk from no account to the token the setup wizard asks for when you pick DigitalOcean, and what that token actually is.
+outcome: make a DigitalOcean account and hand the wizard a token that can build in Sydney.
 audience: public
 access: public
 mode: how-to

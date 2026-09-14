@@ -612,6 +612,31 @@
 
   /* sub-pages end on structure, not open canvas: a guidecard-width content
      column plus a quiet end rule + one mono line closing every settings page */
+  /* ---- the LOCAL face (2026-09-11): a brain folder on this computer. body[data-face]
+     is the ONE face axis the shell has: "local" hides everything that needs a
+     server (data-needs-box) and shows the one-line note beside each hidden
+     group (data-needs-box-note) plus the local-only copy (data-local-only).
+     Nothing is deleted from the markup: the exe smoke greps every section. ---- */
+  [data-needs-box-note]{display:none}
+  [data-local-only]{display:none}
+  body[data-face="local"] [data-needs-box]{display:none !important}
+  /* the pinned surfaces (the exe smoke and a dozen file tests grep their exact
+     opening tags) are gated by selector rather than by an attribute on the tag */
+  body[data-face="local"] section[data-sec="connections"],
+  body[data-face="local"] section[data-sec="secrets"],
+  body[data-face="local"] section[data-sec="terminal"],
+  body[data-face="local"] #nav button[data-sec="connections"],
+  body[data-face="local"] #nav button[data-sec="terminal"],
+  body[data-face="local"] #nav .navgroup[data-group="privacy"],
+  body[data-face="local"] #cadGate,
+  body[data-face="local"] #cadenceSave{display:none !important}
+  body[data-face="local"] [data-needs-box-note]{display:block}
+  body[data-face="local"] [data-local-only]{display:block}
+  body[data-face="local"] span[data-local-only]{display:inline !important}
+  /* the per-row schedule strip on Skills: switch, cadence chip, editor */
+  body[data-face="local"] section[data-sec="skills"] .cadrow .toggle,
+  body[data-face="local"] section[data-sec="skills"] .cadrow .cadchip,
+  body[data-face="local"] section[data-sec="skills"] .cadrow .sched{display:none !important}
   section[data-sec="cadence"],section[data-sec="sharing"],section[data-sec="help"],section[data-sec="terminal"],
   /* ---- network: the map (rebuilt 2026-08-10) ----
      The Orbit map (spec 2026-08-04) is gone. Its device chips rotated about the
@@ -1409,6 +1434,7 @@
   .connlist li.marked>span[style*="display:flex"]{grid-column:4;grid-row:1/span 2;justify-content:flex-end;min-width:0}
   .connlist li.marked .sub{grid-column:2/-1;white-space:normal}
   .connlist li.marked .connfix[data-mcp-remove],.connlist li.marked .connfix[data-mcp-google-setup]{color:var(--soft)}
+  #mcpRows .connfix[data-mcp-google-add]{color:var(--soft)}
   .connlist li.marked .connfix[data-mcp-remove]:hover{color:var(--bad)}
   #mcpAccountFold .connlist li.marked{grid-template-columns:28px minmax(0,1fr)}
   .mark{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;flex:none;font-family:var(--sans);font-size:12px;font-weight:650;line-height:1;color:var(--on-accent);background:var(--card-2);overflow:hidden}
@@ -1511,7 +1537,7 @@
       <a class="navlink" id="homeLink" href="/door" style="display:none"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6.5 2.5h-3v11h3"/><path d="M10 5.5 12.5 8 10 10.5"/><path d="M12.5 8H6"/></svg>Start screen</a>
     </div>
     <div id="ownLine" style="display:none"></div>
-    <div class="foot"><b>Your mineral, your data.</b> This window only reads what your own assistant already knows. Nothing here is visible to anyone else. To talk to your assistant, use the <b>Terminal</b> tab above; the <b>Claude Code</b> app is the fuller desktop experience (see <b>Help</b>).</div>
+    <div class="foot"><b>Your mineral, your data.</b> This window only reads what your own assistant already knows. Nothing here is visible to anyone else. <span data-needs-box>To talk to your assistant, use the <b>Terminal</b> tab above; the <b>Claude Code</b> app is the fuller desktop experience (see <b>Help</b>).</span><span data-local-only style="display:none">To talk to your assistant, open your brain folder in <b>Claude Code</b> (see <b>Help</b> for the path).</span></div>
   </aside>
 
   <main>
@@ -1609,8 +1635,16 @@
       <!-- Named here because the opposite is the intuitive read, and acting on it
            costs hours: members connected the app, watched "not signed in yet" stay
            put, and concluded the platform was broken. -->
-      <p class="hint" style="color:var(--ink)"><b>This is an extra, not a step.</b> Connecting the app signs in <b>your laptop</b> and reaches into your mineral over SSH. It does not sign the <b>mineral</b> in, so it does not switch on scheduled jobs, and nothing it does makes the Overview checklist tick. That one is the Terminal tab: open it and run <b style="font-family:var(--mono)">claude</b> once.</p>
-      <div class="guidecard">
+      <p class="hint" data-local-only style="color:var(--ink)"><b>Claude Code on this computer is the whole assistant.</b> Open the folder below in Claude Code and every skill is there; there is nothing to sign in on this side, and nothing runs while the folder is closed.</p>
+      <div class="guidecard" data-local-only id="ohLocalCard">
+        <p class="gtitle">Your brain folder</p>
+        <div class="hostbox"><code id="ohPath">&hellip;</code><button class="act" id="ohPathCopy" style="margin-top:0">Copy</button></div>
+        <p class="hint" style="margin:12px 0 0"><b>Open this folder in Claude Code:</b> open Claude Code, choose <b>Open folder</b> (or drop the folder onto the window), pick the folder above, and say <b>&ldquo;introduce yourself&rdquo;</b>. Your assistant already knows who you are and takes it from there.</p>
+        <p class="hint" style="margin:10px 0 0">No account yet? Create one at claude.ai first; the software needs the plan Claude Code itself needs: Claude Pro or above. <a class="openlink" href="https://claude.ai/download" target="_blank" rel="noopener">Get the Claude Code app</a></p>
+      </div>
+      <p class="hint" data-needs-box-note>Scheduled jobs, Telegram and connections need a server. This folder is only awake while you have it open.</p>
+      <p class="hint" data-needs-box style="color:var(--ink)"><b>This is an extra, not a step.</b> Connecting the app signs in <b>your laptop</b> and reaches into your mineral over SSH. It does not sign the <b>mineral</b> in, so it does not switch on scheduled jobs, and nothing it does makes the Overview checklist tick. That one is the Terminal tab: open it and run <b style="font-family:var(--mono)">claude</b> once.</p>
+      <div class="guidecard" data-needs-box>
         <p class="gtitle">Your connection name</p>
         <div class="hostbox"><code id="ohHost">…</code><button class="act" id="ohCopy" style="margin-top:0">Copy</button></div>
         <p class="hint" style="margin:12px 0 0"><b>Next:</b> open Claude Code, pick this connection in the <b>Environment</b> dropdown, and say <b>&ldquo;introduce yourself&rdquo;</b>. Your assistant already knows who you are and takes it from there.</p>
@@ -1642,13 +1676,13 @@
            terms ("the software YOUR ROCK has published for it") and a rock has
            its own, below, so an ungated card meant a rock owner saw the same
            restart twice under two different names. -->
-      <div class="guidecard" style="margin-top:14px">
+      <div class="guidecard" style="margin-top:14px" data-needs-box>
         <p class="gtitle">Software update: restart your assistant's mineral</p>
         <p class="hint" style="margin:6px 0 12px" id="boxRefreshHint">If you were told an update is out, or your assistant seems stuck, this restarts its mineral and picks up the software the Crads-AI release channel has published for it. It takes about a minute; everything of yours (your brain, your files, your settings) stays exactly as it is.</p>
         <button class="act" id="boxRefreshBtn">Update and restart</button>
         <div class="notice" id="boxRefreshNotice" style="display:none"></div>
       </div>
-      <div class="guidecard" style="margin-top:14px">
+      <div class="guidecard" style="margin-top:14px" data-needs-box>
         <p class="gtitle">Support access</p>
         <p class="hint" style="margin:6px 0 12px">If something on your mineral needs fixing, you can let Crads AI (the software maker) in for a limited time. There is no standing access: nothing opens until you grant it, it expires on its own, you can revoke it at any moment, and every grant is logged right here.</p>
         <div id="supportState" class="hint" style="margin:0 0 12px;color:var(--ink)">Checking…</div>
@@ -1758,8 +1792,17 @@
            behind it). -->
       <div class="guidecard" id="gwWizard" style="margin-top:14px;display:none">
         <div style="display:flex;align-items:baseline;gap:10px">
-          <p class="gtitle" style="margin:0">Google Workspace, with your own key</p>
+          <p class="gtitle" style="margin:0" id="gwTitle">Google Workspace, with your own key</p>
           <button class="connfix" type="button" id="gwHide" style="margin-left:auto">Close</button>
+        </div>
+        <!-- Several accounts (2026-09-14): a further account needs a name, which
+             becomes its row ("Google Workspace (work)") and the key its server
+             answers to. Shown only when adding another; the first account is
+             simply "Google". -->
+        <div id="gwLabelWrap" style="display:none;margin:0 0 12px">
+          <p class="hint" style="margin:6px 0 6px">What do you call this account? One or two words: <b>work</b>, <b>acme</b>, <b>second gmail</b>. It names the row on this page and the account in your assistant's tools, so pick something you will recognise.</p>
+          <input id="gwLabel" type="text" autocomplete="off" spellcheck="false" maxlength="24" placeholder="work" style="width:100%;max-width:240px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+          <p class="hint" id="gwKeyNote" style="margin:6px 0 0"></p>
         </div>
         <p class="hint" style="margin:6px 0 12px">You'll create your own private key for your Google account. It stays yours: Crads-AI never sees your Google password, and the key works nowhere but this mineral. You sign in once, and you choose exactly what it can reach: email, calendar, files, each has its own tick-box on Google's screen, and you can change your mind later by signing in again.</p>
         <div class="fsteps" id="gwLadder" style="margin:0 0 12px">
@@ -1812,7 +1855,7 @@
         <details class="secfold" id="gwStep2" style="margin-top:10px">
           <summary>Step 2: Drop the file<span class="sum2">The JSON you just downloaded</span></summary>
           <div class="fbody">
-            <p class="hint" style="margin:6px 0 12px">The email of the Google account this key belongs to, and the client_secret file from step 1. The file goes to your mineral and nowhere else; this page never shows what is inside it.</p>
+            <p class="hint" style="margin:6px 0 12px">The email of the Google account this key belongs to, and the client_secret file from step 1. The file goes to your mineral and nowhere else; this page never shows what is inside it. Every Google account gets its own key: a key made in one account does not sign another in.</p>
             <input id="gwEmail" type="email" autocomplete="off" spellcheck="false" placeholder="you@gmail.com" style="width:100%;max-width:340px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
             <div id="gwDrop" style="margin-top:10px;border:1px dashed var(--line-2);border-radius:12px;padding:18px;text-align:center;color:var(--soft);font-size:13px;cursor:pointer">
               Drag the downloaded <code>client_secret_…json</code> file here, or click to choose it
@@ -1975,7 +2018,8 @@
              by clicking the button, not by a test of the file. -->
         <div id="seatObLive" style="margin-top:10px"></div>
       </div>
-      <div class="guidecard" id="seatDevicesCard">
+      <p class="hint" data-needs-box-note>Scheduled jobs, Telegram and connections need a server.</p>
+      <div class="guidecard" id="seatDevicesCard" data-needs-box>
         <div class="gtitle">Every computer that can open this mineral</div>
         <div class="hint" style="margin:0 0 10px">Revoking one takes effect the next time it tries to connect. If a laptop is lost or stolen, revoke it here.</div>
         <div id="devicesRows" class="hint" style="margin:0 0 12px;color:var(--ink)">Checking&hellip;</div>
@@ -1987,7 +2031,7 @@
         <div class="empty" id="pagesEmpty" style="display:none"><b>No pages yet.</b> Your assistant can build you one: run /write-page in Claude Code on your mineral.</div>
         <div id="pagesListSection"></div>
       </div>
-      <div class="guidecard">
+      <div class="guidecard" id="seatWaitsCard" data-needs-box>
         <div class="gtitle">Waiting on you</div>
         <div id="seatWaits" class="hint" style="margin:0;color:var(--ink)">Checking&hellip;</div>
       </div>
@@ -2021,6 +2065,7 @@
            Claude sign-in: the kernel shells headless `claude -p` against
            /state/.claude-auth. Shown only on a KNOWN-pending mineral; while the
            answer is unknown nothing is locked. -->
+      <p class="hint" data-needs-box-note>Scheduled jobs, Telegram and connections need a server. Skills still run in Claude Code on this folder whenever you ask.</p>
       <div class="ccbanner" id="cadGate" style="display:none">
         <div class="txt"><b>Your mineral is not signed in to Claude yet.</b>
           <div class="sub">Scheduled jobs run with nobody at the keyboard, so they need the mineral&rsquo;s <b>own</b> sign-in. Connecting the Claude Code desktop app does not give it one: that signs in your laptop and reaches in over SSH. Open a terminal here and run <b style="font-family:var(--mono)">claude</b> once. Running and scheduling stay locked until it lands.</div>
@@ -2675,6 +2720,8 @@
     // reads the query to know which mineral to bring up, the surface reads the
     // fragment to know which one to show. Switching here hit the identical
     // dead-end the door did, because it routes through the identical /go/ pair.
+    // a brain folder on this computer (tier 'local') rides its alias too
+    if (r.tier === 'local') { var la = encodeURIComponent(r.alias); return picker.base + '/go/member?host=' + la + '#host=' + la; }
     var id = encodeURIComponent(r.tier === 'rock' ? r.alias : r.slug);
     return picker.base + (r.tier === 'rock'
       ? '/go/panel?host=' + id + '#host=' + id
@@ -2691,7 +2738,7 @@
     var html = '';
     picker.rows.forEach(function(r){
       var here = r.onDevice && r.alias === state.host;
-      var tier = r.tier === 'rock' ? 'Rock' : 'Pebble';
+      var tier = r.tier === 'rock' ? 'Rock' : r.tier === 'local' ? 'On this computer' : 'Pebble';
       if (r.onDevice) {
         html += '<button class="pickrow" role="menuitem" data-go="' + esc(r.alias) + '"'
           + (here ? ' aria-current="true"' : '') + '>'
@@ -2804,6 +2851,7 @@
     // for -rock aliases); the one face honours both conventions
     askedHost = (location.hash.match(/^#host=([A-Za-z0-9._-]+)(?:&|$)/) || [])[1] || askedHost;
     state.host = state.targets.some(function(x){ return x.host === askedHost; }) ? askedHost : state.targets[0].host;
+    applyFace();
     // the picker marks the current mineral, and state.host is only known here:
     // pickerLoad's first render may well have finished before this line ran
     pickerRender();
@@ -2825,6 +2873,7 @@
     // an empty host on the board and call a listed rock PRIVATE.
     sel.onchange = function(){
       state.host = sel.value; state.pages = []; state.data = null;
+      applyFace();
       // FINDING 89: a rock's Custody card showed ANOTHER rock's backup repository.
       // Every store was individually correct; the UI attributed one mineral's
       // fact to another, which is the one class of bug no store-level reconcile
@@ -2881,9 +2930,34 @@
     }, 60000);
   });
 
+  // ---- THE FACE (2026-09-11): a target's kind from /targets. 'local' is a
+  // brain folder on this computer: body[data-face] hides what needs a server
+  // (see the CSS block), and the few controls that pointed at the Terminal
+  // point at the Help page's folder copy instead. Everything else on the
+  // page reads the folder through the same verbs it reads a box with.
+  function applyFace(){
+    var t = state.targets.filter(function(x){ return x.host === state.host; })[0] || {};
+    state.kind = t.kind === 'local' ? 'local' : 'box';
+    state.localPath = t.kind === 'local' ? String(t.path || '') : '';
+    document.body.dataset.face = state.kind;
+    if ($('ohPath')) $('ohPath').textContent = state.localPath || '\u2026';
+    var local = state.kind === 'local';
+    $('ccBannerBtn').textContent = local ? 'Open it in Claude Code \u2192' : 'Meet your assistant \u2192';
+    var sub = document.querySelector('#ccBanner .sub');
+    if (sub) sub.textContent = local
+      ? 'Open this folder in Claude Code and say hello. Help has the path and a copy button.'
+      : 'Right here, nothing to install. One sign-in to Claude and you\u2019re talking.';
+  }
   // ---- Claude Code connect guide: the connection name IS the SSH host alias
   $('ccBannerBtn').onclick = function(){ activateSec('terminal'); openTerm({ autorun: MEET_OPENER }); };
   $('heroTalk').onclick = function(){ activateSec('terminal'); };
+  // On the local face both land on the Help page's folder copy instead: there
+  // is no terminal to ramp into, and Claude Code on the folder is the meeting.
+  (function(){
+    var meet = $('ccBannerBtn').onclick, talk = $('heroTalk').onclick;
+    $('ccBannerBtn').onclick = function(){ if (state.kind === 'local') return activateSec('help'); return meet.apply(this, arguments); };
+    $('heroTalk').onclick = function(){ if (state.kind === 'local') return activateSec('help'); return talk.apply(this, arguments); };
+  })();
 
   // ---- connection state: presence dot + friendly error with folded detail ----
   function renderSkeletons(){
@@ -2939,6 +3013,7 @@
   // Defined here rather than beside healDevices because that sits in a
   // different inline script block, and this one runs during boot.
   function enrolThisMachine(){
+    if (state.kind === 'local') return;   // a folder has no roster to be on
     fetch('/devices/self-heal', { method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ host: state.host }) })
       .then(function(r){ return r.json(); })
@@ -2966,6 +3041,7 @@
         // the row exists, so the steady state is one cheap devices-list.
         if (!wasOk) enrolThisMachine();
         $('connStat').textContent = 'Connected to your mineral';
+        if (state.kind === 'local') $('connStat').textContent = 'Open on this computer';
         // Only re-pull the heavy data on a RISING edge. dashboard-data re-runs the
         // cockpit builder and walks the whole wiki on the box, so polling it every
         // 20s on a healthy connection would be a wiki walk per 20s for nothing.
@@ -3048,6 +3124,7 @@
   // rides SELF_VERBS on the org edition.
   var machineryAt = 0;
   function machinerySync(){
+    if (state.kind === 'local') return;   // no machinery runs on a folder; the Health card says so
     var now = Date.now();
     if (now - machineryAt < 120000) return;
     machineryAt = now;
@@ -3193,12 +3270,43 @@
     var onboarded = (d && d.onboarding) ? ((d.onboarding || {}).phase === 'done') : null;
     var claudeWhy = 'Open the Terminal tab and run claude once. The desktop app signs in your laptop, not this mineral';
     var sched = cadenceTaskSet();
-    var schedRow = row(claude === true && sched === null ? null : claude, 'Run scheduled tasks',
-      sched ? 'In use' : 'Ready',
-      sched ? 'A scheduled task is set' : 'Set one on the Skills page',
-      'Jobs run with nobody at the keyboard, so they need this mineral\u2019s own sign-in',
-      sched ? null : { label: 'Set one', to: 'skills' });
+    var local = state.kind === 'local';
+    var NEEDS_SERVER = 'Needs a server. This brain lives on this computer.';
+    var schedRow = local
+      ? row(false, 'Run scheduled tasks', '', '', NEEDS_SERVER)
+      : row(claude === true && sched === null ? null : claude, 'Run scheduled tasks',
+        sched ? 'In use' : 'Ready',
+        sched ? 'A scheduled task is set' : 'Set one on the Skills page',
+        'Jobs run with nobody at the keyboard, so they need this mineral\u2019s own sign-in',
+        sched ? null : { label: 'Set one', to: 'skills' });
     var backup = (sx.backup === undefined && sx.backupConnected === undefined) ? null : sx.backup === true;
+    if (local) {
+      // The folder has no sign-in of its own: Claude Code on this computer IS
+      // the sign-in. The first rung is opening it, and the way in is the Help
+      // page's folder copy, never a terminal. The three server capabilities
+      // read Not yet with the reason, rather than offering a button that
+      // opens a hidden page.
+      return {
+        rungs: [
+          { done: onboarded === true ? true : null, name: 'Open your brain in Claude Code',
+            why: 'Open the folder ' + (state.localPath || '') + ' in Claude Code; Help has the path and a copy button',
+            act: { label: 'Open Help', to: 'help' } },
+          { done: onboarded, name: 'Onboard your brain',
+            why: 'The 8 layers \u00b7 run /onboard in Claude Code',
+            act: { label: 'Open Help', to: 'help' } },
+          { done: backup, name: 'Make your first backup',
+            why: sx.backupConnected ? 'GitHub is connected; the first push has not landed yet'
+                                    : 'Your brain survives this computer \u00b7 a private GitHub repo holds every backup',
+            act: { label: 'Back it up', to: 'seat', focus: 'seatBackupCard' } },
+        ],
+        caps: [
+          schedRow,
+          row(false, 'Add another device', '', '', NEEDS_SERVER),
+          row(false, 'Connect email + calendar', '', '', NEEDS_SERVER),
+          row(false, 'Message it on Telegram', '', '', NEEDS_SERVER),
+        ],
+      };
+    }
     return {
       rungs: [
         { done: claude, name: 'Sign in to Claude on your mineral', why: claudeWhy,
@@ -3697,20 +3805,24 @@
     // Google connects with the member's OWN key (byo === 'google', contract 2):
     // every press routes to the wizard card, never into mcpStartSignin or
     // mcpDirConnect — those are DCR OAuth and this row has no url. Disconnect
-    // is the ordinary mcp-remove path, key 'google'.
+    // is the ordinary mcp-remove path. Since contract 3 (2026-09-14) there may
+    // be several such rows, one per Google account (keys google, google-<slug>):
+    // every button carries its row's key, and the row shows whose account it is.
     if (s.byo === 'google') {
-      if (s.state === 'off') btns = '<button class="connfix" type="button" data-mcp-google-setup>Set up</button>';
+      var gk = s.key || 'google';
+      if (s.state === 'off') btns = '<button class="connfix" type="button" data-mcp-google-setup="' + esc(gk) + '">Set up</button>';
       else if (s.state === 'needs-auth') btns =
-        '<button class="connfix" type="button" data-mcp-google-signin>Sign in</button>'
-        + '<button class="connfix" type="button" data-mcp-remove="google">Disconnect</button>';
-      else btns = '<button class="connfix" type="button" data-mcp-remove="google">Disconnect</button>';
+        '<button class="connfix" type="button" data-mcp-google-signin="' + esc(gk) + '">Sign in</button>'
+        + '<button class="connfix" type="button" data-mcp-remove="' + esc(gk) + '">Disconnect</button>';
+      else btns = '<button class="connfix" type="button" data-mcp-remove="' + esc(gk) + '">Disconnect</button>';
       // rekey_due_at only arrives from an older box still on the Testing-mode
       // weekly clock (pre-2026-08-24 engine): honour its countdown, say
       // nothing extra for a published (permanent) key
       var gsub = (s.state === 'on' && s.rekey_due_at)
         ? '<div class="sub" style="margin:2px 0 0">You\'ll re-sign-in around ' + esc(gwRekeyDay(s.rekey_due_at)) + '. Google\'s rule for personal keys; we\'ll remind you the day before.</div>' : '';
+      var gwho = s.email ? esc(s.email) + ' · ' : '';
       return '<li class="marked">' + markSpan('google', s.label) + '<span class="nm">' + esc(s.label) + '</span>'
-        + '<span class="why">' + esc(s.blurb) + '</span><span style="display:flex;gap:4px">' + btns + '</span>'
+        + '<span class="why">' + gwho + esc(s.blurb) + '</span><span style="display:flex;gap:4px">' + btns + '</span>'
         + '<span class="chip ' + (MCP_CHIP[s.state] || '') + '">' + esc(s.status) + '</span>' + gsub + '</li>';
     }
     // mine=false is a server the member created by hand in Claude Code: shown
@@ -3765,7 +3877,8 @@
     // below it. chat-only rows stay: they have a button (Use in jobs too).
     var yours = services.filter(function(s){ return s.state !== 'account' && (s.configured || s.byo === 'google' || s.state === 'chat-only' || s.state === 'dead-end'); });
     var account = services.filter(function(s){ return s.state === 'account'; });
-    gwRow = services.filter(function(s){ return s.byo === 'google'; })[0] || null;
+    gwRows = services.filter(function(s){ return s.byo === 'google'; });
+    gwRow = gwRows[0] || null;
     mcpDir.connectedKeys = {}; mcpDir.connectedUrls = {};
     services.forEach(function(s){ if (s.configured) { mcpDir.connectedKeys[s.key] = true; if (s.url) mcpDir.connectedUrls[s.url] = true; } });
     var fold = $('mcpAccountFold');
@@ -3776,7 +3889,13 @@
       hydrateMarks(fold);
     }
     if (!yours.length) { $('mcpRows').innerHTML = '<p class="hint" style="margin:0">Nothing connected yet. Add one below.</p>'; return; }
-    $('mcpRows').innerHTML = '<ul class="connlist">' + yours.map(mcpRowHtml).join('') + '</ul>';
+    // Several Google accounts (contract 3, 2026-09-14): once one Google row is
+    // set up, offer the next. A 2-box never sees the button: it would answer
+    // the add with a plain "google" row and silently overwrite the first.
+    var gwMore = (mcpContract >= 3 && gwRows.some(function(s){ return s.configured; }))
+      ? '<div style="margin:8px 0 0"><button class="connfix" type="button" data-mcp-google-add>Add another Google account</button>'
+        + '<span class="hint" style="margin-left:8px">A second Google account (work, a client, another Gmail) gets its own row and its own key.</span></div>' : '';
+    $('mcpRows').innerHTML = '<ul class="connlist">' + yours.map(mcpRowHtml).join('') + '</ul>' + gwMore;
     hydrateMarks($('mcpRows'));
     mcpBindRowActions();
   }
@@ -4062,6 +4181,11 @@
   // a NEW field, so a behind box is told to update instead of failing oddly.
   //   1 = rows carry `url`, which the sign-in cannot start without
   var MCP_CONTRACT_NEEDED = 1;
+  // What the box last said it can do (mcp-status / any mcp-* reply carries it).
+  // Features newer than MCP_CONTRACT_NEEDED gate on this instead of refusing
+  // the whole page: 3 = several Google accounts (the "Add another" button).
+  var mcpContract = 0;
+  function mcpNoteContract(d){ if (d && d.ok && typeof d.contract === 'number') mcpContract = d.contract; }
   function mcpErr(d, r){ return d && d.error === 'box-too-old' ? MCP_TOO_OLD : ((d && d.error) || outText(r)); }
 
   // The sign-in is run by THIS app: it registers a client with its own loopback
@@ -4106,6 +4230,7 @@
       // Sign in press: a raw error for what is really this same one-click state.
       // So the box now reports what it can DO, and the page checks it.
       if (d && d.ok && (d.contract || 0) < MCP_CONTRACT_NEEDED) d = { error: 'box-too-old' };
+      mcpNoteContract(d);
       if (d && d.error === 'box-too-old') {
         $('mcpRows').innerHTML = '<p class="hint" style="margin:0">This page needs a newer version of your mineral than it is running.'
           + ' Open the <b>Claude Code</b> tab and press <b>Update and restart</b>, then come back here.'
@@ -4146,8 +4271,35 @@
   // (step 2), and signs in through the app's loopback flow (step 3). The page
   // only ever calls the app's /google-connect/* routes plus the ordinary
   // mcp-status / mcp-remove verbs; the box-side verbs are the routes' business.
-  var gwRow = null;    // the box's google row from the last mcp-status render (email prefill + presence)
+  var gwRow = null;    // the box's primary google row from the last mcp-status render (email prefill + presence)
+  var gwRows = [];     // every google row the box reported (contract 3: one per account)
+  var gwKey = 'google';   // the account row the open card is working for
+  var gwNaming = false;   // adding a further account: the name field decides gwKey
   var gwPoll = null;
+  // what the member types -> the slug half of the row key, the same rule the
+  // box applies (engine/lib/google-byo.mjs googleSlug)
+  function gwSlug(label){
+    return String(label || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20).replace(/-+$/g, '');
+  }
+  function gwRowFor(key){ return gwRows.filter(function(s){ return s.key === key; })[0] || null; }
+  // The name field settles gwKey for a further account. Empty, or a name that
+  // collides with a row already on the box, is said in words and blocks the drop.
+  function gwSettleKey(){
+    if (!gwNaming) return true;
+    var slug = gwSlug($('gwLabel').value);
+    var note = $('gwKeyNote');
+    if (!slug) { gwKey = ''; note.textContent = ''; return false; }
+    var key = 'google-' + slug;
+    if (gwRowFor(key) && gwRowFor(key).configured) {
+      gwKey = '';
+      note.textContent = 'You already have a row called Google Workspace (' + slug + '). Pick another name, or use that row.';
+      return false;
+    }
+    gwKey = key;
+    note.textContent = 'This account will appear as Google Workspace (' + slug + ').';
+    return true;
+  }
+  $('gwLabel').addEventListener('input', gwSettleKey);
   function gwRekeyDay(ms){
     try { return new Date(ms).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }); }
     catch (e) { return ''; }
@@ -4163,12 +4315,22 @@
     });
     [1, 2, 3].forEach(function(i){ var f = $('gwStep' + i); if (f) f.open = (i === n); });
   }
-  function gwOpen(rekey){
+  // key: the row the card works for ('google' for the first account, google-<slug>
+  // for a further one); '' means "a new further account", so the name field opens.
+  function gwOpen(rekey, key){
+    gwStop();
+    gwNaming = key === '';
+    gwKey = gwNaming ? '' : (key || 'google');
+    $('gwLabelWrap').style.display = gwNaming ? '' : 'none';
+    $('gwLabel').value = ''; $('gwKeyNote').textContent = '';
+    var row = gwNaming ? null : gwRowFor(gwKey);
+    $('gwTitle').textContent = gwNaming ? 'Another Google account, with its own key'
+      : (row && row.key !== 'google' ? row.label + ', with its own key' : 'Google Workspace, with your own key');
     $('gwWizard').style.display = 'block';
     $('gwDone').style.display = 'none';
     notice('gwNotice', '');
     var em = $('gwEmail');
-    if (!em.value && gwRow && gwRow.email) em.value = gwRow.email;
+    em.value = (row && row.email) ? row.email : '';
     // re-key: the key already lives on the box, so steps 1-2 are done work.
     // Start the sign-in straight away; a restarted app whose client stash is
     // gone answers "drop your key file first", which re-opens step 2 below.
@@ -4193,6 +4355,7 @@
   function gwSendClient(file){
     if (!file) return;
     var email = ($('gwEmail').value || '').trim();
+    if (!gwSettleKey()) { notice('gwNotice', gwKey === '' && !gwSlug($('gwLabel').value) ? 'Give this account a name first (work, acme, second gmail), then drop the file again.' : $('gwKeyNote').textContent); return; }
     if (!email) { notice('gwNotice', 'Add the email of the Google account this key belongs to first, then drop the file again.'); return; }
     var rd = new FileReader();
     rd.onerror = function(){ notice('gwNotice', 'That file could not be read. Try choosing it again.'); };
@@ -4200,7 +4363,7 @@
       notice('gwNotice', '');
       $('gwFileNote').textContent = 'Checking ' + file.name + '…';
       fetch('/google-connect/client', { method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ host: state.host, email: email, client_json_b64: gwB64Bytes(rd.result) }) })
+        body: JSON.stringify({ host: state.host, key: gwKey, email: email, client_json_b64: gwB64Bytes(rd.result) }) })
         .then(function(r){ return r.json(); }).then(function(d){
           if (!d || d.ok === false) {
             $('gwFileNote').textContent = '';
@@ -4210,6 +4373,9 @@
             return;
           }
           $('gwFileNote').textContent = 'Key accepted. It lives on your mineral now; this page never shows it.';
+          // the row exists on the box from here: the name is settled, so the
+          // field closes and the card stops being "another" and becomes this one
+          if (gwNaming) { gwNaming = false; $('gwLabelWrap').style.display = 'none'; $('gwTitle').textContent = 'Google Workspace (' + gwKey.replace(/^google-/, '') + '), with its own key'; }
           gwSetStep(3);
         })
         .catch(function(e){ $('gwFileNote').textContent = ''; notice('gwNotice', 'Could not reach your mineral just now (' + (e && e.message ? e.message : e) + ').'); });
@@ -4226,10 +4392,11 @@
     gwSendClient(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
   });
   function gwStart(){
+    if (!gwKey) { gwSetStep(2); notice('gwNotice', 'Give this account a name and drop its key file first.'); return; }
     var btn = $('gwSigninBtn'); if (btn) btn.disabled = true;
     gwSay('<div class="hint">Starting the Google sign-in&hellip;</div>');
     fetch('/google-connect/start', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ host: state.host }) })
+      body: JSON.stringify({ host: state.host, key: gwKey }) })
       .then(function(r){ return r.json(); })
       .then(function(d){
         if (!d || d.ok === false) {
@@ -4251,7 +4418,7 @@
       .catch(function(e){ if (btn) btn.disabled = false; gwSay('<div class="hint" style="color:var(--bad)">Could not reach your mineral just now (' + esc(e && e.message ? e.message : e) + ').</div>'); });
   }
   function gwPollOnce(){
-    fetch('/google-connect/status?host=' + encodeURIComponent(state.host))
+    fetch('/google-connect/status?host=' + encodeURIComponent(state.host) + '&key=' + encodeURIComponent(gwKey))
       .then(function(r){ return r.json(); }).then(function(st){
         if (!st) return;
         // steps[] is append-only on the route; painting all of it each tick
@@ -4278,7 +4445,8 @@
     [1, 2, 3].forEach(function(i){ var f = $('gwStep' + i); if (f) f.open = false; });
     var btn = $('gwSigninBtn'); if (btn) btn.disabled = false;
     var when = st.rekey_due_at ? gwRekeyDay(st.rekey_due_at) : '';
-    $('gwDone').innerHTML = '<p class="hint" style="color:var(--good);margin:0">Google is connected: working, including in scheduled jobs.</p>'
+    var gwName = gwKey === 'google' ? 'Google' : 'Google Workspace (' + gwKey.replace(/^google-/, '') + ')';
+    $('gwDone').innerHTML = '<p class="hint" style="color:var(--good);margin:0">' + esc(gwName) + ' is connected: working, including in scheduled jobs.</p>'
       + (when ? '<p class="hint" style="margin:6px 0 0">You\'ll re-sign-in around ' + esc(when) + '. We\'ll remind you the day before; it is two clicks.</p>'
               : '<p class="hint" style="margin:6px 0 0">Your sign-in stays put. If Google ever drops it, this page will ask you once to sign in again.</p>');
     $('gwDone').style.display = 'block';
@@ -4292,12 +4460,18 @@
     var btn = $('gwSigninBtn'); if (btn) btn.disabled = false;
     gwSay('<div class="hint">Stopped. Nothing changed; sign in whenever you are ready.</div>');
     fetch('/google-connect/cancel', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ host: state.host }) }).catch(function(){});
+      body: JSON.stringify({ host: state.host, key: gwKey }) }).catch(function(){});
   };
 
   document.querySelector('section[data-sec="connections"]').addEventListener('click', function(e){
     var gs = e.target.closest('[data-mcp-google-setup],[data-mcp-google-signin]');
-    if (gs) { gwOpen(gs.hasAttribute('data-mcp-google-signin')); return; }
+    if (gs) {
+      var rekey = gs.hasAttribute('data-mcp-google-signin');
+      gwOpen(rekey, gs.getAttribute(rekey ? 'data-mcp-google-signin' : 'data-mcp-google-setup') || 'google');
+      return;
+    }
+    // a further Google account: no key yet, the name field decides it
+    if (e.target.closest('[data-mcp-google-add]')) { gwOpen(false, ''); return; }
     var ad = e.target.closest('[data-mcp-adopt]');
     if (ad) {
       var ak = ad.getAttribute('data-mcp-adopt');
@@ -4330,6 +4504,7 @@
       var d = jsonOut(r);
       if (d && d.error === 'box-too-old') { b.disabled = false; loadMcp(); return; }   // the page says it in words
       if (!d || d.ok === false) { notice('mcpNotice', (d && d.error) || outText(r)); b.disabled = false; return; }
+      mcpNoteContract(d);
       if (d.services) renderMcpYours(d.services); else loadMcp();
       // R8: the verb says what a disconnect did (credential destroyed on the
       // box) and what it did not (the grant at the provider). Verbatim.
@@ -4660,6 +4835,7 @@
   // have none), and when a key was JUST published, re-seal existing cold
   // secrets so this computer can open them too. Quiet unless it did something.
   function syncVaultKey(){
+    if (state.kind === 'local') return;   // no vault on a folder
     vaultCall('sync').then(function(r){
       if (!r || !r.ok || !r.published) return;
       vaultCall('rewrap').then(function(w){
@@ -4882,9 +5058,20 @@
       $('seatDials').innerHTML =
         seatRow('Ownership', own.owner === 'member' ? 'Yours' : (orgName || own.owner_slug || 'Yours'),
           'This mineral is yours, and it goes with you.')
-        + seatRow('Hosting', 'Your own hosting account',
-          'This mineral runs on a server you hold the keys to.');
+        + (state.kind === 'local'
+          ? seatRow('Hosting', 'This computer', 'The folder ' + (state.localPath || st.path || '') + '. Only awake while you have it open; nothing runs on a schedule.')
+          : seatRow('Hosting', 'Your own hosting account',
+            'This mineral runs on a server you hold the keys to.'));
       var b = st.backup || {};
+      // A folder is already on this computer: "download a copy" would be a
+      // copy of a copy, so the local face offers GitHub and nothing else.
+      if (state.kind === 'local') {
+        $('seatBackup').innerHTML = b.connected
+          ? '<b>' + seatEsc(b.repo || 'your private repository') + '</b>'
+            + '<div class="hint" style="margin:2px 0 8px">last sent ' + seatEsc(b.last || 'not recorded yet') + ' \u00b7 private, in your own GitHub account, whenever this app opens</div>'
+          : 'Your brain is the folder on this computer and nowhere else.'
+            + '<div style="margin-top:8px"><button class="act" id="seatBackupGh">Connect my GitHub</button></div>';
+      } else
       $('seatBackup').innerHTML = b.connected
         ? '<b>' + seatEsc(b.repo || 'your private repository') + '</b>'
           + '<div class="hint" style="margin:2px 0 8px">last sent ' + seatEsc(b.last || 'not recorded yet')
@@ -4969,6 +5156,7 @@
   // box cannot see. Listing first would show "no devices" on a box you are
   // demonstrably using, and there is no Add control here to fix it by hand.
   function healDevices(){
+    if (state.kind === 'local') return;
     fetch('/devices/self-heal', { method:'POST', headers:{'content-type':'application/json'},
       body: JSON.stringify({ host: state.host }) })
       .then(function(r){ return r.json(); })
@@ -5060,6 +5248,7 @@
 
   // ---- consent-gated support access (three-layer model, L1 repair) ----------
   function loadSupport(){
+    if (state.kind === 'local') return;   // support access is a server grant
     run('support-status', {}).then(function(r){
       if (!r.ok) return;
       var st = {}; try { st = JSON.parse(outText(r)); } catch(e){ return; }
@@ -5569,7 +5758,7 @@
       // a page the rock marked public wears a dot, so the shared set reads at a
       // glance instead of one-click-at-a-time through the reader (org face only:
       // brainPub never loads elsewhere)
-      var pi = path && brainPub.loaded && brainPub.map[path];
+      var pi = path && (typeof brainPub !== 'undefined') && brainPub.loaded && brainPub.map[path]; // brainPub is org-face only; the member face must not throw here (2026-09-10)
       if (pi && pi.public) chips += '<span class="pub" title="Shared with tied pebbles"></span>';
       b.innerHTML = '<span class="tw">' + tw + '</span><span class="nm">' + esc(name) + '</span>' + chips;
       b.onclick = onclick;
@@ -6148,6 +6337,7 @@
     if (!s.missing){
       var acts = document.createElement('div'); acts.className = 'dacts';
       var runBtn = document.createElement('button'); runBtn.className = 'act mini'; runBtn.textContent = 'Run now';
+      runBtn.setAttribute('data-needs-box', '');   // the kernel that runs it lives on a server
       // Run now goes through the same kernel as a scheduled fire, so it needs the
       // same credential. Letting it through on a signed-out mineral only buys a
       // confusing failure two minutes later.
@@ -6433,6 +6623,7 @@
   // a job is not ok, so a healthy card is three lines and a sick one shows the
   // row that needs the look without a click. The per-job rows are unchanged.
   function machineryHtml(rows, sick){
+    if (state.kind === 'local') return '<div class="sub" data-needs-box-note>Scheduled jobs, Telegram and connections need a server.</div>';
     rows = rows || machineryRows();
     if (!rows.length) return '';
     if (sick == null) sick = rows.filter(function(m){ return !m.ok; }).length;
@@ -6628,6 +6819,10 @@
   $('ohCopy').onclick = function(){
     if (navigator.clipboard) navigator.clipboard.writeText($('ohHost').textContent).then(function(){ $('ohCopy').textContent = 'Copied'; });
     setTimeout(function(){ $('ohCopy').textContent = 'Copy'; }, 2000);
+  };
+  $('ohPathCopy').onclick = function(){
+    if (navigator.clipboard) navigator.clipboard.writeText($('ohPath').textContent).then(function(){ $('ohPathCopy').textContent = 'Copied'; });
+    setTimeout(function(){ $('ohPathCopy').textContent = 'Copy'; }, 2000);
   };
   // Help is a page since R17 (2026-08-23), not a modal: the footer link and
   // the onboarding banner both land on it like any other section.

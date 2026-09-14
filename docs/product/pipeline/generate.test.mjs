@@ -43,13 +43,21 @@ test('no em dash reaches generated copy', () => {
   }
 });
 
-test('nothing hand-written lives in pages/reference/', () => {
+// pages/reference/ also holds hand-written reference (the glossary, starter
+// recipes, 2026-09-10). The line is not the directory but the claim: a page
+// that says generated: true must come out of the generator, and a page the
+// generator makes must not be silently replaced by a hand-written one.
+test('nothing hand-written in pages/reference/ claims to be generated', () => {
   if (!existsSync(OUT)) return;
   const expected = new Set(generate().map((p) => p.file));
   const found = readdirSync(OUT).filter((f) => f.endsWith('.md'));
-  const orphans = found.filter((f) => !expected.has(f));
-  assert.deepEqual(orphans, [],
-    'a hand-written page is sitting in the generated directory; it belongs elsewhere in pages/');
+  const liars = found.filter((f) => {
+    if (expected.has(f)) return false;
+    const { fm } = parseFrontmatter(readFileSync(path.join(OUT, f), 'utf8'), f);
+    return String(fm.generated) === 'true';
+  });
+  assert.deepEqual(liars, [],
+    'a hand-written page in pages/reference/ carries generated: true; drop the flag or move it to the generator');
 });
 
 // The extractors are the fragile half: each reads a shape another file owns.

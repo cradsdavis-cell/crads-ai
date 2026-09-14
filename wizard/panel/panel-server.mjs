@@ -36,6 +36,8 @@ import { inventoryRoutes } from './inventory-routes.mjs';
 import { writeLastUsed } from './last-used.mjs';
 import { BRAIN_ROOT_SH } from '../../engine/lib/brain-root.mjs';
 import { crossOriginBlocked, refuseCrossOrigin } from './same-origin.mjs';
+import { LOCAL_VERBS } from './local-verbs.mjs';
+import { ownBrainDispatch, precheckDispatch } from './local-routes.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -57,6 +59,10 @@ const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$/;         // 2..32, DNS-safe
 const ORG_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const HOST_RE = /^[a-z0-9][a-z0-9-]{0,62}-rock$/;
 const MEMBER_HOST_RE = /^[a-z0-9][a-z0-9-]{0,62}-box$/;      // member edition (D44)
+// The no-server face (2026-09-11): a brain FOLDER on this computer, listed by
+// local-targets.mjs, served the LOCAL_VERBS table below and nothing that needs
+// a box. The suffix is the third alias shape the one face admits.
+const LOCAL_HOST_RE = /^[a-z0-9][a-z0-9-]{0,62}-local$/;
 // (The platform-lane set PLATFORM_LANES and the edge machinery that read it
 // died with the hosted model: the face collapse removed /rock-mine, ties.json
 // syncing and the anchor wiring, 2026-09-01.)
@@ -66,7 +72,7 @@ const MEMBER_HOST_RE = /^[a-z0-9][a-z0-9-]{0,62}-box$/;      // member edition (
 // boxes slice 1 had just taught the app to list. The real authorisation is
 // membership of this edition's configured target list, which is strictly
 // stronger than any name pattern.
-const hostShapeOk = (host) => HOST_RE.test(host) || MEMBER_HOST_RE.test(host);
+const hostShapeOk = (host) => HOST_RE.test(host) || MEMBER_HOST_RE.test(host) || LOCAL_HOST_RE.test(host);
 const B64_RE = /^[A-Za-z0-9+/=\r\n]+$/;
 const PUBKEY_RE = /^ssh-ed25519 [A-Za-z0-9+/]+={0,3}( [A-Za-z0-9@._-]{1,64})?$/;
 const pubkeyArg = (v) => {
@@ -1468,11 +1474,21 @@ export function createPanelServer(opts = {}) {
   // table (hosted-era people/fleet/transfer/governance verbs nothing had
   // served since 2026-09-01). MEMBER_VERBS is the one table.
   const verbs = MEMBER_VERBS;
-  // Both alias shapes open the same face: <slug>-box (the ordinary mineral)
-  // and the legacy <org>-rock. The probe-set promoted flag still admits a
-  // promoted host under its -box alias.
-  const hostRe = { test: (h) => MEMBER_HOST_RE.test(h) || HOST_RE.test(h) };
-  const kindOk = (t) => matchesKind(t, 'member') || matchesKind(t, 'rock');
+  // THE VERB TABLE FOLLOWS THE TARGET'S KIND (2026-09-11). A box, whatever its
+  // alias, gets the member table; a local brain folder gets LOCAL_VERBS, a
+  // strict subset with no cadence, Telegram, MCP, secrets or devices verbs, so
+  // /run's own unknown-verb 400 is what keeps a server-only action off a
+  // folder. Nothing else in this file needs to know which face it is on.
+  const verbsFor = (host, targets) => {
+    const t = (targets || []).find((x) => x && x.host === host);
+    return t && matchesKind(t, 'local') ? LOCAL_VERBS : MEMBER_VERBS;
+  };
+  const isLocalHost = (host, targets) => (targets || []).some((t) => t && t.host === host && matchesKind(t, 'local'));
+  // Three alias shapes open the same face: <slug>-box (the ordinary mineral),
+  // the legacy <org>-rock, and <slug>-local (a brain folder on this computer).
+  // The probe-set promoted flag still admits a promoted host under its -box alias.
+  const hostRe = { test: (h) => MEMBER_HOST_RE.test(h) || HOST_RE.test(h) || LOCAL_HOST_RE.test(h) };
+  const kindOk = (t) => matchesKind(t, 'member') || matchesKind(t, 'rock') || matchesKind(t, 'local');
   // Host gate: valid = present in the bridge's target list AND (matches an
   // alias shape OR carries the probe-set promoted flag). The flag travels on
   // the target row, which only the server-side face probe writes; request
@@ -1491,7 +1507,11 @@ export function createPanelServer(opts = {}) {
   // an org console has no personal brain to make yours.
   const ownBrainTargets = () => { try { return (bridge.targets() || []).filter(kindOk); } catch { return []; } };
   const ownBrainRoute = createOwnBrainRoutes({
-    opts,
+    // A -local alias runs the folder flow (own-brain-local.mjs); a box alias
+    // runs own-brain.mjs exactly as before. One Backup button on every face.
+    opts: { ...opts,
+      ownBrain: ownBrainDispatch({ targets: () => ownBrainTargets().filter((t) => matchesKind(t, 'local')), box: opts.ownBrain }),
+      precheckBridge: precheckDispatch({ targets: () => ownBrainTargets().filter((t) => matchesKind(t, 'local')), ssh: opts.precheckBridge }) },
     defaultHost: () => { const t = ownBrainTargets(); return t.length ? t[0].host : null; },
     // Reuses the same gate every other box-addressed route uses, so a caller cannot
     // name a host this app does not manage and have it dialled.
@@ -1509,6 +1529,7 @@ export function createPanelServer(opts = {}) {
       const targets = (() => { try { return (bridge.targets() || []).filter(kindOk); } catch { return []; } })();
       const h = validTarget(host, targets) ? host : (targets[0] && targets[0].host);
       if (!h) throw new Error('this app is not connected to a mineral');
+      if (isLocalHost(h, targets)) throw new Error('connections need a server; this brain lives on this computer');
       const spec = MEMBER_VERBS['mcp-token-set'].build({
         payload_b64: Buffer.from(JSON.stringify(payload), 'utf8').toString('base64'),
       });
@@ -1535,6 +1556,7 @@ export function createPanelServer(opts = {}) {
         const targets = (() => { try { return (bridge.targets() || []).filter(kindOk); } catch { return []; } })();
         const h = validTarget(host, targets) ? host : (targets[0] && targets[0].host);
         if (!h) throw new Error('this app is not connected to a mineral');
+        if (isLocalHost(h, targets)) throw new Error('connections need a server; this brain lives on this computer');
         const spec = MEMBER_VERBS[verb].build(args);
         const r = await runCollect(h, spec);
         if (r.code !== 0 || !/\"ok\":true/.test(String(r.out))) {
@@ -1958,6 +1980,10 @@ export function createPanelServer(opts = {}) {
         if (!validTarget(host, targets)) {
           res.writeHead(400); res.end('host must be a configured target'); return;
         }
+        // A brain folder has no terminal transport and needs none: the
+        // member's own terminal is right there. Refused in words, before the
+        // tty check, so the answer is the same on a build that has a tty.
+        if (isLocalHost(host, targets)) { res.writeHead(500); res.end('this brain lives on this computer, so there is no server terminal to open. Open the folder in Claude Code instead (Help has the path).'); return; }
         if (!bridge.tty) { res.writeHead(500); res.end('this build has no terminal transport'); return; }
         if (terms.size >= TERM_MAX) { res.writeHead(429); res.end('too many open terminals; close one first'); return; }
         let pebble;
@@ -2263,14 +2289,16 @@ export function createPanelServer(opts = {}) {
         let form;
         try { form = JSON.parse(body); } catch { res.writeHead(400); res.end('bad json'); return; }
 
-        const spec = verbs[form.verb];
+        const host = String(form.host ?? '');
+        let targets = [];
+        try { targets = (bridge.targets() || []).filter(kindOk); } catch { targets = []; }
+        // the table is the target's (a folder serves LOCAL_VERBS), so a verb
+        // outside it is "unknown" on that host, exactly like an org verb
+        const spec = verbsFor(host, targets)[form.verb];
         if (!spec) { res.writeHead(400); res.end(`unknown verb: ${String(form.verb).slice(0, 60)}`); return; }
         if (spec.adminOnly && role === 'support') {
           res.writeHead(403); res.end(`this action needs an Admin login: you are signed in as Support (verb ${form.verb} is admin-only)`); return;
         }
-        const host = String(form.host ?? '');
-        let targets = [];
-        try { targets = (bridge.targets() || []).filter(kindOk); } catch { targets = []; }
         if (!validTarget(host, targets)) {
           res.writeHead(400); res.end('host must be a configured <slug>-box (or legacy <org>-rock) target'); return;
         }

@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DOORS } from './nav.mjs';
 import { build } from './publish.mjs';
+import { skills } from './generate.mjs';
 import { loadTree, visibleTo } from './source.mjs';
 import { NAV_HTML, SITE_NAME } from './shell.mjs';
 
@@ -61,9 +62,54 @@ test('the index links every published page', () => {
   const doored = new Set(DOORS.flatMap((d) => d.slugs));
   for (const s of slugs) {
     const hits = index.content.split(`href="/docs/${s}"`).length - 1;
-    const max = doored.has(s) ? 3 : 2;
+    // the skills page earns one more: the "What it can do" strip's closing link
+    const max = (doored.has(s) ? 3 : 2) + (s === 'skills' ? 1 : 0);
     assert.ok(hits >= 1 && hits <= max, `${s} appears ${hits} times on the index (allowance ${max})`);
   }
+});
+
+test('the index opens with a search you can see, six doors by goal, and what it can do', () => {
+  const { files } = build();
+  const index = files.find((f) => f.rel === path.join('docs', 'index.html')).content;
+  assert.match(index, /<div class="docs-search-in-wrap hero"><input type="search" class="docs-search-in"/, 'hero search');
+  for (const d of DOORS) {
+    const sec = index.slice(index.indexOf(`id="goal-${d.id}"`));
+    assert.ok(sec.length > 100, `door ${d.id} is on the index`);
+    const card = sec.slice(0, sec.indexOf('</section>'));
+    assert.match(card, /<svg class="glyph" aria-hidden="true"/, `door ${d.id} carries its glyph`);
+    const links = (card.match(/href="\/docs\/[a-z0-9-]+"/g) || []).length;
+    assert.ok(links >= 2, `door ${d.id} lists at least two pages`);
+  }
+  assert.ok(index.includes('id="what-it-can-do"'), 'the strip');
+  const escd = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  for (const sk of skills()) assert.ok(index.includes(`<b>${escd(sk.title)}</b><span>/${sk.name}</span>`), `strip lists ${sk.name}`);
+  assert.ok(index.includes('href="/docs/skills"'), 'and points at the generated page');
+  assert.ok(index.includes('"u":"#goal-fix"'), 'the doors are in the search index');
+});
+
+test('a doored page carries its trail by goal; an undoored page does not', () => {
+  const { files } = build();
+  const doored = new Set(DOORS.flatMap((d) => d.slugs));
+  for (const f of files) {
+    const slug = f.rel.split(path.sep)[1];
+    if (slug === 'index.html') continue;
+    const has = f.content.includes('class="docs-trail"');
+    assert.equal(has, doored.has(slug), `${slug}: trail ${has ? 'present' : 'absent'}`);
+    if (has) assert.match(f.content, /<li class="here" aria-current="step">/, `${slug}: marks its own step`);
+  }
+  const first = DOORS[0];
+  const page = files.find((f) => f.rel.split(path.sep)[1] === first.slugs[0]).content;
+  assert.ok(page.includes(`href="/docs/${first.slugs[1]}"`), 'the trail links the next step');
+  assert.ok(page.includes(`href="/docs#goal-${first.id}"`), 'and the door it belongs to');
+});
+
+test('only the current page\'s sidebar group starts open', () => {
+  const { files } = build();
+  const page = files.find((f) => f.rel.includes('first-hour')).content;
+  const side = page.slice(page.indexOf('class="docs-side"'), page.indexOf('</aside>'));
+  const open = (side.match(/<details class="navgrp" open>/g) || []).length;
+  assert.equal(open, 1, 'one group open');
+  assert.match(side, /<details class="navgrp goals">/, 'the goals group is there, closed');
 });
 
 test('every page carries the reading surface', () => {
@@ -71,6 +117,8 @@ test('every page carries the reading surface', () => {
   const pages = files.filter((f) => f.rel !== path.join('docs', 'index.html'));
   for (const f of pages) {
     assert.ok(f.content.includes('class="docs-side"'), `${f.rel} has no sidebar`);
+    assert.ok(f.content.includes('class="docs-search-in"'), `${f.rel} has no visible search`);
+    assert.ok(f.content.includes('class="docs-lede"'), `${f.rel} has no lede`);
     assert.ok(f.content.includes('aria-current="page"'), `${f.rel} does not mark itself current in the nav`);
     assert.ok(f.content.includes('class="docs-shell"'), `${f.rel} is not in the docs layout`);
   }

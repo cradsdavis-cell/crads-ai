@@ -90,6 +90,11 @@ export function validatePage(fm, file = '<page>') {
   // or both. Only 'host' exists as a value on purpose: a "for members" badge
   // on thirty pages would be noise.
   if (fm.persona && fm.persona !== 'host') errs.push(`persona may only be "host", got ${fm.persona}`);
+  // `outcome`: the one line under the title that says what the reader will be
+  // able to do (2026-09-10, Sam: the docs should say up front what a page is
+  // for). Required on every public tutorial and how-to by gates.test.mjs, not
+  // here, so a craft-tier page can still be drafted without one.
+  if (fm.outcome && fm.outcome.length > 160) errs.push(`outcome must fit on one line (${fm.outcome.length} chars)`);
   if (errs.length) throw new Error(`${file}: ${errs.join(' · ')}`);
   return {
     title: fm.title, summary: fm.summary, audience: fm.audience,
@@ -102,6 +107,7 @@ export function validatePage(fm, file = '<page>') {
     persona: fm.persona || null,
     pins: fm.pins ? fm.pins.split(',').map((x) => x.trim()).filter(Boolean) : [],
     reviewed: fm.reviewed || null,
+    outcome: fm.outcome || null,
   };
 }
 

@@ -38,6 +38,7 @@
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { connectionLabel } from '../lib/connection-labels.mjs';
+import { googleEntries, PRIMARY_GOOGLE_KEY } from '../lib/google-byo.mjs';
 import { listSecrets } from './vault.mjs';
 
 // Files under <state>/secrets/ that are not member credentials at all.
@@ -188,22 +189,34 @@ export function discover(stateDir, env = process.env) {
     push({ name, label, what, where: rel, set: looksSet(p), kind, revoke, updated: when(p), readable_by_box: true });
   }
 
-  // 4. The member's own Google key: one file per signed-in email, written by
-  //    mcp-token.mjs set-google, read by workspace-mcp for the google connection.
+  // 4. The member's own Google keys: one file per signed-in email, written by
+  //    mcp-token.mjs set-google, read by workspace-mcp for that account's
+  //    connection. Since 2026-09-14 a box may hold several (one row each,
+  //    engine/lib/google-byo.mjs); the oauth store says which row a file
+  //    belongs to, and that row is where Disconnect lives.
+  const oauthF = join(stateDir, '.kernel', 'mcp-oauth.json');
+  const store = rdJSON(oauthF);
   const gdir = join(stateDir, '.kernel', 'google-creds');
   if (existsSync(gdir)) {
+    const rowOf = (fname, email) => {
+      const hit = googleEntries(store).find(([, v]) => (v.creds_file && v.creds_file.endsWith('/' + fname)) || v.email === email);
+      return hit ? hit[0] : PRIMARY_GOOGLE_KEY;
+    };
     try {
       for (const e of readdirSync(gdir, { withFileTypes: true })) {
         if (!e.isFile() || !e.name.endsWith('.json')) continue;
         const email = emailOf(e.name);
+        const key = rowOf(e.name, email);
         push({
           name: `google-creds:${email}`,
           label: `Google Workspace (${email})`,
-          what: 'Your own Google key and sign-in, used by the Google connection and its jobs.',
+          what: key === PRIMARY_GOOGLE_KEY
+            ? 'Your own Google key and sign-in, used by the Google connection and its jobs.'
+            : `Your own Google key and sign-in for this account, used by the ${connectionLabel(key)} connection and its jobs.`,
           where: `.kernel/google-creds/${e.name}`,
           set: looksSet(join(gdir, e.name)),
           kind: 'connection',
-          revoke: { via: 'connections', key: 'google' },
+          revoke: { via: 'connections', key },
           updated: when(join(gdir, e.name)),
           readable_by_box: true,
         });
@@ -212,10 +225,8 @@ export function discover(stateDir, env = process.env) {
   }
 
   // 5. MCP OAuth refresh material, one entry per connection (mcp-token.mjs set).
-  //    The google entry there is a clock, not a credential: its key is the file
-  //    above, so it is skipped here rather than listed twice.
-  const oauthF = join(stateDir, '.kernel', 'mcp-oauth.json');
-  const store = rdJSON(oauthF);
+  //    The google entries there are clocks, not credentials: their keys are the
+  //    files above, so they are skipped here rather than listed twice.
   if (store && typeof store === 'object') {
     for (const [k, v] of Object.entries(store)) {
       if (!v || typeof v !== 'object' || v.provider === 'google-byo') continue;

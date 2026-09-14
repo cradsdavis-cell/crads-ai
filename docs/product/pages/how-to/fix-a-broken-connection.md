@@ -1,6 +1,7 @@
 ---
 title: Fix a connection that has stopped working
 summary: What an expired token looks like, why it happens, and the one place that tells you the truth.
+outcome: tell an expired sign-in from a real fault, and put it right from the one page that knows.
 audience: public
 access: public
 mode: how-to

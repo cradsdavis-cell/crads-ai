@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, readFileSync, statSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, statSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
 
@@ -171,4 +171,53 @@ test('show reports state and NEVER a value', () => {
   assert.equal(s.connected, true);
   assert.equal(s.expired, true);
   assert.equal(s.renews, true);
+});
+
+// ---- several Google accounts (2026-09-14): set-google takes a key --------
+
+test('set-google keys the store entry by account row; the primary is the default', () => {
+  const d = box();
+  const r = run(d, ['set-google'], b64({ ...GSET, key: 'google-work', email: 'jane@acme.example' }));
+  assert.equal(r.ok, true);
+  assert.equal(r.name, 'google-work');
+  const g = oauth(d)['google-work'];
+  assert.equal(g.provider, 'google-byo');
+  assert.equal(g.email, 'jane@acme.example');
+  assert.ok(g.creds_file.endsWith('/.kernel/google-creds/jane@acme.example.json'));
+  assert.ok(!oauth(d).google, 'the primary entry is not created as a side effect');
+  run(d, ['set-google'], b64(GSET));
+  assert.ok(oauth(d).google, 'no key = the primary row');
+  assert.equal(run(d, ['set-google'], b64({ ...GSET, key: 'Work' })).ok, false, 'a key outside the grammar is refused');
+});
+
+test('one email, one row: set-google refuses the same account under a second key', () => {
+  const d = box();
+  run(d, ['set-google'], b64(GSET));
+  const r = run(d, ['set-google'], b64({ ...GSET, key: 'google-twin' }));
+  assert.equal(r.ok, false);
+  assert.match(r.error, /already connected as "google"/);
+  assert.ok(!oauth(d)['google-twin']);
+});
+
+test('re-keying a row with a different email retires the orphaned key file', () => {
+  const d = box();
+  run(d, ['set-google'], b64({ ...GSET, key: 'google-work' }));
+  const old = path.join(d, '.kernel', 'google-creds', 'jane.doe@gmail.com.json');
+  assert.ok(existsSync(old));
+  run(d, ['set-google'], b64({ ...GSET, key: 'google-work', email: 'jane@acme.example' }));
+  assert.ok(!existsSync(old), 'the file nothing points at any more is gone');
+  assert.ok(existsSync(path.join(d, '.kernel', 'google-creds', 'jane@acme.example.json')));
+  assert.equal(oauth(d)['google-work'].email, 'jane@acme.example');
+});
+
+test('forget google-work deletes that key file and leaves the primary alone', () => {
+  const d = box();
+  run(d, ['set-google'], b64(GSET));
+  run(d, ['set-google'], b64({ ...GSET, key: 'google-work', email: 'jane@acme.example' }));
+  const fw = path.join(d, '.kernel', 'google-creds', 'jane@acme.example.json');
+  assert.equal(run(d, ['forget', 'google-work']).ok, true);
+  assert.ok(!existsSync(fw));
+  assert.ok(!oauth(d)['google-work']);
+  assert.ok(existsSync(path.join(d, '.kernel', 'google-creds', 'jane.doe@gmail.com.json')));
+  assert.ok(oauth(d).google);
 });

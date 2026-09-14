@@ -66,6 +66,16 @@ function renderShot(alt, id, shotsDir) {
     + (a ? `<figcaption>${a}</figcaption>` : '') + legend + '</figure>';
 }
 
+// The callout a blockquote asks for. Exported so the gate can check every
+// page's quotes without rendering them.
+export const CALLOUTS = ['Tip', 'Careful'];
+export function calloutKind(text) {
+  const m = /^([A-Z][a-z]+):\s+/.exec(text);
+  if (!m) return { cls: '', text };
+  if (CALLOUTS.includes(m[1])) return { cls: m[1].toLowerCase(), text: text.slice(m[0].length) };
+  return { error: `unknown callout "${m[1]}:"; a quote is a Note, or starts with ${CALLOUTS.map((c) => `${c}:`).join(' or ')}` };
+}
+
 // A heading's id: lowercase, words joined by hyphens, deduped within the page.
 // Markup and punctuation are dropped so the id survives an emphasis change.
 export function headingId(text, seen) {
@@ -168,7 +178,15 @@ export function renderMarkdown(md, opts = {}) {
     if (/^>\s?/.test(line)) {
       const buf = [];
       while (i < lines.length && /^>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/, ''));
-      out.push(`<blockquote><p>${inline(buf.join(' '))}</p></blockquote>`); continue;
+      // Three callout flavours (2026-09-10). A bare quote is a Note; a first
+      // word of Tip: or Careful: picks the other two and is stripped, the
+      // label being drawn by CSS. Any other Word: prefix is refused rather
+      // than rendered as a Note wearing a stray label, because that is how a
+      // typo becomes a fourth flavour nobody designed.
+      const text = buf.join(' ');
+      const kind = calloutKind(text);
+      if (kind.error) throw new Error(kind.error);
+      out.push(`<blockquote${kind.cls ? ` class="${kind.cls}"` : ''}><p>${inline(kind.text)}</p></blockquote>`); continue;
     }
     if (/^\|/.test(line) && /^\|[\s:|-]+\|$/.test(lines[i + 1] || '')) {
       const cells = (l) => l.split('|').slice(1, -1).map((c) => c.trim());
@@ -198,6 +216,12 @@ export function renderMarkdown(md, opts = {}) {
 export function renderPage(page, opts = {}) {
   const bits = [`<article data-mode="${page.mode}" data-audience="${page.audience}" id="${esc(page.slug)}">`,
     `<h1>${esc(page.title)}</h1>`];
+  // The summary under the title (2026-09-10): until now it reached only the
+  // index cards, the search index and <meta description>, never the reader
+  // who had already arrived. `outcome` is the one line a practical page owes:
+  // what you will be able to do when you have read it.
+  if (page.summary) bits.push(`<p class="docs-lede">${esc(page.summary)}</p>`);
+  if (page.outcome) bits.push(`<p class="docs-outcome"><span>You will be able to</span> ${esc(page.outcome)}</p>`);
   if (page.mode === 'legal') bits.push(`<p class="legal-stamp">Version ${esc(page.version)}, effective ${esc(page.effective)}. Samuel Davis trading as Crads AI.</p>`);
   bits.push(renderMarkdown(page.body, opts));
   if (page.mode === 'how-to' && page.installs) {

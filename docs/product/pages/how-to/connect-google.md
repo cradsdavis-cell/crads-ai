@@ -1,12 +1,13 @@
 ---
 title: Connect Google, with your own key
-summary: Five console visits, one file, one sign-in. Your Google key never touches our infrastructure, and here is why we made you do it the hard way.
+summary: Five console visits, one file, one sign-in, per account. Your Google key never touches our infrastructure, and here is why we made you do it the hard way.
+outcome: give your assistant your mail, calendar and files with a key that stays yours.
 audience: public
 access: public
 mode: how-to
 order: 15
-pins: wizard/panel/google-connect-routes.mjs, docs/design-google-byo-connect.md
-reviewed: 2026-09-01
+pins: wizard/panel/google-connect-routes.mjs, docs/design-google-byo-connect.md, engine/lib/google-byo.mjs
+reviewed: 2026-09-14
 ---
 
 Connecting Google takes about ten minutes and it is the only connection in the
@@ -193,10 +194,49 @@ first", it has restarted since the file was dropped and its working copy is
 gone. The card opens the file step for you; download the JSON from the console
 again and carry on.
 
+## More than one Google account
+
+You can connect as many Google accounts as you like: a personal Gmail and a
+work account, two Gmails, an account at a client's organisation. Each one is
+**its own row** on the Connections page and **its own key**. The first account
+you connect is simply *Google Workspace*; every further one carries the name
+you give it, *Google Workspace (work)*, *Google Workspace (acme)*, and that
+name is also how your assistant tells them apart. Ask it to "check my work
+calendar" and it reaches the work account, not the personal one.
+
+Once one Google row is working, the Connections page offers **Add another
+Google account** beneath your connections. Press it and the same card opens
+with one extra step at the top: a name for the account. One or two words. Then
+it is the walk you already know, start to finish: five console visits, the
+file, the sign-in.
+
+**Every account needs its own key.** This is deliberate, and it is the reason
+the walk repeats rather than reusing the key you already made. A key made in
+one Google account can, in principle, sign another account in, but a key made
+in your personal Gmail is a key your personal account owns, and a Google
+Workspace administrator at your employer or a client may block it outright
+(they often do, for apps their organisation has not verified). A key made
+**inside** that account, by you, in that account's own console, is one nobody
+else's policy can quietly turn off, and it stays with the account it belongs
+to. Ten minutes per account, once, and each key lives and dies on its own.
+
+If the account you are adding is on a Google Workspace domain you administer,
+step 4 has a shortcut: choose **Internal** instead of External and you never
+see the unverified-app screen at all. Everything else is identical.
+
+Each account is watched separately, in the way described above. If one key
+dies you hear about that one, by name, and the others carry on. Disconnect
+also works per row: removing the work account leaves the personal one exactly
+as it was.
+
+One rule the page enforces: an account can be connected once. If you try to
+add an email that already has a row, the card says which row, and the fix is
+to use that row (or disconnect it first).
+
 ## Disconnecting
 
-**Disconnect** on the Google row destroys the credential on your mineral and
-says exactly that: "Google Workspace is disconnected and its credential is gone
+**Disconnect** on a Google row destroys that account's credential on your
+mineral and says exactly that: "Google Workspace is disconnected and its credential is gone
 from this box. The permission you granted at Google Workspace is yours to
 revoke there." The second sentence is the honest half: your mineral cannot reach
 into your Google account, so the grant you made on Google's side stays until you
@@ -227,9 +267,9 @@ scheduled jobs get it too. The two can coexist; they are different things.
 
 ## Where the key lives afterwards
 
-The [Secrets](/docs/secrets-page) page lists it as its own row, named for your
-Google account ("Google Workspace (you@gmail.com)"), with a pointer back to the
-Connections page as the place to revoke it. Nothing on any page ever shows the
+The [Secrets](/docs/secrets-page) page lists each key as its own row, named
+for its Google account ("Google Workspace (you@gmail.com)"), with a pointer
+back to that account's row on the Connections page as the place to revoke it. Nothing on any page ever shows the
 key itself: the only fragment ever displayed is the last six characters of the
 client id, enough for you to recognise your own key on the card and useless to
 anyone else.

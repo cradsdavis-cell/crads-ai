@@ -306,6 +306,11 @@
              the product now, so it leads; the others connect and join. -->
         <button class="bigcard" data-make="selfhost"><b>Set up my own</b>
           <span>Free and self-hosted. Your brain runs on a server in your own hosting account, and you pay the host directly. Nothing is stored with Crads-AI.</span></button>
+        <!-- The no-server door (Sam's ruling 2026-09-11): a brain folder on
+             this computer. Same offer, no metal. Honest about what it is not:
+             nothing runs while the folder is closed. -->
+        <button class="bigcard" data-make="local"><b>On this computer</b>
+          <span>Free, no server, no schedules: a brain folder on this computer, only awake when you are. Claude Code opens the folder; the app reads it. Scheduled jobs, Telegram and connections need a server.</span></button>
         <!-- Hosted-era cards ("I have an invitation", "Join a community")
              stripped 2026-09-01 on Sam's call: nobody can be invited TO a box
              any more, and the community board was a central directory read.
@@ -454,6 +459,53 @@
          hold", and its rows already carry the Connect button. This flow creates
          nothing, which is the whole point of it existing next to four doors that
          do. -->
+    <!-- the "On this computer" flow (2026-09-11): one screen in, the finish
+         checklist out. There is no native folder picker on a loopback-served
+         page, so the folder is a typed path with a default the app fills in. -->
+    <div id="localFlow" style="display:none">
+      <a href="#" class="back" id="loBack">&#8249; back</a>
+      <h2>On this computer</h2>
+      <div id="loForm">
+        <p class="hint">Your brain becomes a folder on this computer. Claude Code opens the folder and every skill is there; this app reads the same folder. It is free and needs no server. It is also only awake when you are: <b>scheduled jobs, Telegram and connections need a server</b>, and can be added later by moving the folder to one.</p>
+        <label for="loName">Name your assistant</label>
+        <input id="loName" placeholder="e.g. Idris" autocomplete="off" spellcheck="false" maxlength="60">
+        <label for="loPath">Where the folder goes</label>
+        <input id="loPath" placeholder="leave empty for the default" autocomplete="off" spellcheck="false">
+        <p class="hint" id="loPathHint">Empty means the default: <span class="mono">~/Crads-AI/&lt;name&gt;</span>. An empty folder works, and so does a folder that is already a brain (it is adopted, nothing in it is changed).</p>
+        <button class="act primary" id="loMakeBtn">Make it</button>
+      </div>
+      <div id="loBusy" style="display:none"><p class="hint">Making the folder&#8230;</p></div>
+      <div id="loDone" style="display:none">
+        <p><b>Your brain folder is ready.</b> It lives at <span class="mono" id="loPathStr"></span> <button class="act" id="loPathCopy" style="margin-top:0">Copy</button></p>
+        <p class="hint">Two finishing steps make it fully yours. Both can wait, and both are always available later in the app.</p>
+
+        <div class="steprow">
+          <b>Open it</b>
+          <p class="hint">The app is where you see your brain. Everything below can also be done from in there.</p>
+          <button class="act primary" id="loOpenBtn">Open it</button>
+        </div>
+
+        <div class="steprow" id="loRowGh">
+          <span class="stepchip" id="loGhChip">Checking&hellip;</span>
+          <b>Back up your brain to your GitHub</b>
+          <p class="hint">A private repository in your own GitHub account. Once connected, this app pushes the folder there whenever it opens: your data, your backup, on an account you control. No GitHub account yet? Make one at <span class="mono">github.com</span> first; the free kind is fine.</p>
+          <p class="hint" id="loGhDoneLine" style="display:none"></p>
+          <button class="act" id="loGhBtn">Connect GitHub</button>
+          <div id="loGhRun" style="display:none">
+            <p class="hint" id="loGhCode" style="margin-top:10px"></p>
+            <div class="hint" id="loGhSteps"></div>
+          </div>
+          <div class="msg" id="loGhMsg"></div>
+        </div>
+
+        <div class="steprow" id="loRowClaude">
+          <b>Open it in Claude Code</b>
+          <p class="hint">Claude Code on this computer is the whole assistant: open Claude Code, choose <b>Open folder</b>, pick the folder above and say &ldquo;introduce yourself&rdquo;. There is nothing to sign in on this side beyond your own Claude account, and nothing runs while the folder is closed.</p>
+        </div>
+      </div>
+      <div class="msg" id="loMsg"></div>
+    </div>
+
     <div id="haveFlow" style="display:none">
       <a href="#" class="back" id="haveBack">&#8249; back</a>
       <h2>Connect this computer</h2>
@@ -536,6 +588,7 @@
          existing users had no path to the self-host wizard at all). The
          invitation link left with the hosted-era cards, same day. -->
     <a href="#" id="newSelfhost">Set up my own <span class="chev">›</span></a>
+    <a href="#" id="newLocal">On this computer <span class="chev">›</span></a>
   </div>
 
   <div class="foot">This screen checks each mineral by itself; dots flip live.</div>
@@ -610,7 +663,7 @@
       // A box that DOES answer can let another computer in (device enrolment,
       // 2026-09-01): this machine's working connection is the authority now,
       // not an account. Member rows only; the append lands in the member lane.
-      if (r.onDevice && state.status[r.alias] === true && r.tier !== 'rock') box.appendChild(addDeviceRow(r));
+      if (r.onDevice && state.status[r.alias] === true && r.tier !== 'rock' && r.tier !== 'local') box.appendChild(addDeviceRow(r));
     });
   }
 
@@ -623,7 +676,12 @@
   // still out and the account unheard — the state that painted Harriet's rock
   // "Pebble" for a whole session (2026-08-18). Say "Checking…" instead;
   // repollUnsureTiers below re-reads until the probe settles it.
+  // a brain folder on this computer (2026-09-11): no server, only awake while
+  // it is open. Its own chip, so kindChip stays the two-noun function the
+  // tier-honesty pins read.
+  function localChip(){ return '<span class="kind" title="A brain folder on this computer: no server, only awake while it is open">This computer</span>'; }
   function kindChip(r){
+    if (r && r.tier === 'local') return localChip();
     if (r && r.tierKnown === false) return '<span class="kind" title="Confirming whether this is a rock or a pebble…">Checking…</span>';
     var tier = r && typeof r === 'object' ? r.tier : r;
     return '<span class="kind">' + (tier === 'rock' ? 'Rock' : 'Pebble') + '</span>';
@@ -639,6 +697,13 @@
     return '';
   }
 
+  // A brain folder on this computer (2026-09-11) rides its alias, like a rock:
+  // its slug is not a -box alias, so the #box= convention would miss it. The
+  // query carries both so the app's lazy starter can find it either way.
+  function localRowHref(r){
+    var la = encodeURIComponent(r.alias);
+    return '/go/member?host=' + la + '&box=' + encodeURIComponent(r.slug) + '#host=' + la;
+  }
   function deviceRow(r, isLast){
     var st = state.status[r.alias];                           // undefined | true | false
     var b = document.createElement('button');
@@ -647,6 +712,7 @@
     // box, including standalone pebbles that have no rock at all (QA 2026-07-30).
     // The door only knows the box did not answer, so it says that.
     var sub = st === undefined ? 'Checking…' : (st ? 'Connected' : 'Not answering yet');
+    if (r.tier === 'local') sub = st === false ? 'Folder not found' : (r.path ? esc(r.path) : 'On this computer');
     b.title = st === undefined ? 'Checking whether this mineral answers…'
       : st ? 'Connected: this mineral is answering. Press Enter or click to open it.'
       : 'This mineral is not answering yet. That is normal for a minute after it is built. If it belongs to a rock, it stays this way until an Admin approves your key. This screen keeps checking by itself.';
@@ -677,6 +743,7 @@
     // door-identity-target.test.mjs reads the handler with a bounded window.)
     b.onclick = function(){
       rememberUse(r.alias);
+      if (r.tier === 'local') { location.href = localRowHref(r); return; }
       var id = encodeURIComponent(r.tier === 'rock' ? r.alias : r.slug);
       location.href = r.tier === 'rock'
         ? '/go/panel?host=' + id + '#host=' + id
@@ -712,14 +779,19 @@
   }
 
   function forgetRow(r){
-    var noun = r.tier === 'rock' ? 'rock' : 'pebble';
+    var noun = r.tier === 'rock' ? 'rock' : r.tier === 'local' ? 'brain folder' : 'pebble';
     var f = document.createElement('div'); f.className = 'forget';
     var a = document.createElement('a'); a.href = '#';
     a.textContent = 'Forget this ' + noun + ' on this computer';
-    a.title = 'Removes only this computer’s key and connection entry. No mineral, brain or account anywhere is touched.';
+    a.title = r.tier === 'local'
+      ? 'Removes only this app’s memory of the folder. The folder and everything in it stay exactly where they are.'
+      : 'Removes only this computer’s key and connection entry. No mineral, brain or account anywhere is touched.';
     a.onclick = function(ev){
       ev.preventDefault();
-      if (!confirm('Remove "' + r.label + '" from this computer?\n\nThis deletes only this computer\'s key and connection entry for it; no mineral or brain anywhere is touched. If the ' + noun + ' still exists, another of your computers can let it back in.')) return;
+      var ask = r.tier === 'local'
+        ? 'Forget "' + r.label + '" in this app?\n\nThe folder and everything in it stay where they are; only this app stops listing it. Add it back any time from On this computer with the same path.'
+        : 'Remove "' + r.label + '" from this computer?\n\nThis deletes only this computer\'s key and connection entry for it; no mineral or brain anywhere is touched. If the ' + noun + ' still exists, another of your computers can let it back in.';
+      if (!confirm(ask)) return;
       fetch('/forget', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host: r.alias }) })
         .then(function(x){ if (x.ok) { load(); } else { x.text().then(function(msg){ alert('Could not remove it: ' + (msg || x.status)); }); } });
     };
@@ -769,6 +841,7 @@
     if (!card) return;
     var make = card.getAttribute('data-make');
     if (make === 'selfhost') { startShFlow(); }
+    else if (make === 'local') { startLocalFlow(); }
     else if (make === 'have') { startHaveFlow(''); }
   });
 
@@ -833,6 +906,7 @@
     document.getElementById('inv').style.display = 'none';
     document.getElementById('pebbleIntro').style.display = 'none';
     document.getElementById('haveFlow').style.display = 'none';
+    document.getElementById('localFlow').style.display = 'none';
     document.getElementById('devApproveFlow').style.display = 'none';
     document.getElementById('shFlow').style.display = 'block';
     shErr('');
@@ -852,9 +926,143 @@
     exitPebbleFlow();
   }
   document.getElementById('shBack').addEventListener('click', function(e){ e.preventDefault(); exitShFlow(); });
+
+  // ---- the "On this computer" flow (2026-09-11) ------------------------------
+  // Thin, like the self-host wizard above: the decisions (path validation,
+  // adopt-vs-scaffold, the registry) live in local-routes.mjs; this walks two
+  // screens. GitHub rides the same /own-brain routes the box checklist uses;
+  // the server dispatches a -local alias to the folder flow.
+  var loBox = { alias: '', slug: '', path: '' };
+  var loStepsTimer = null;
+  var loGhPoll = null;
+  function loErr(text){
+    var m = document.getElementById('loMsg');
+    m.className = text ? 'msg on' : 'msg';
+    m.textContent = text || '';
+  }
+  function loShow(stage){
+    ['loForm','loBusy','loDone'].forEach(function(id){ document.getElementById(id).style.display = (id === stage) ? 'block' : 'none'; });
+  }
+  function startLocalFlow(){
+    pebbleFlowActive = true;
+    document.getElementById('creatorHome').style.display = 'block';
+    document.getElementById('inv').style.display = 'none';
+    document.getElementById('pebbleIntro').style.display = 'none';
+    document.getElementById('shFlow').style.display = 'none';
+    document.getElementById('haveFlow').style.display = 'none';
+    document.getElementById('devApproveFlow').style.display = 'none';
+    document.getElementById('localFlow').style.display = 'block';
+    loErr('');
+    loShow('loForm');
+    document.getElementById('loName').focus();
+  }
+  function exitLocalFlow(){
+    if (loStepsTimer) { clearInterval(loStepsTimer); loStepsTimer = null; }
+    if (loGhPoll) { clearInterval(loGhPoll); loGhPoll = null; }
+    document.getElementById('localFlow').style.display = 'none';
+    document.getElementById('pebbleIntro').style.display = '';
+    exitPebbleFlow();
+    load();
+  }
+  document.getElementById('loBack').addEventListener('click', function(e){ e.preventDefault(); exitLocalFlow(); });
+  document.getElementById('loName').addEventListener('input', function(){
+    var slug = this.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'brain';
+    document.getElementById('loPathHint').innerHTML = 'Empty means the default: <span class="mono">~/Crads-AI/' + esc(slug) + '</span>. An empty folder works, and so does a folder that is already a brain (it is adopted, nothing in it is changed).';
+  });
+  document.getElementById('loMakeBtn').addEventListener('click', function(){
+    var name = document.getElementById('loName').value.trim();
+    var path = document.getElementById('loPath').value.trim();
+    if (!name) { loErr('Give your assistant a name first.'); return; }
+    loErr(''); loShow('loBusy');
+    fetch('/local/create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: name, path: path }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        if (!x.ok || !x.d.ok) { loShow('loForm'); loErr((x.d && x.d.error) || 'Could not make the folder.'); return; }
+        loReady(x.d);
+      })
+      .catch(function(){ loShow('loForm'); loErr('The app did not answer. Quit it and open it again, then retry.'); });
+  });
+  function loReady(d){
+    loShow('loDone'); loErr('');
+    loBox = { alias: d.alias || '', slug: d.slug || '', path: d.path || '' };
+    document.getElementById('loPathStr').textContent = loBox.path;
+    document.getElementById('loPathCopy').onclick = function(){
+      var btn = this;
+      if (navigator.clipboard) navigator.clipboard.writeText(loBox.path).then(function(){ btn.textContent = 'Copied'; setTimeout(function(){ btn.textContent = 'Copy'; }, 2000); });
+    };
+    document.getElementById('loOpenBtn').onclick = function(){
+      rememberUse(loBox.alias);
+      location.href = '/go/member?host=' + encodeURIComponent(loBox.alias) + '&box=' + encodeURIComponent(loBox.slug) + '#host=' + encodeURIComponent(loBox.alias);
+    };
+    loStepsSync();
+    if (loStepsTimer) clearInterval(loStepsTimer);
+    loStepsTimer = setInterval(loStepsSync, 5000);
+  }
+  function loStepsSync(){
+    if (!loBox.alias) return;
+    fetch(stepsUrl(loBox.alias)).then(function(r){ return r.json(); }).then(function(st){
+      if (!st || st.reachable === false) { if (document.getElementById('loGhChip').textContent === 'Checking…') shChip('loGhChip', 'Could not check', false); return; }
+      var ghConnected = !!(st.github && st.github.connected);
+      if (!loGhPoll) {
+        shChip('loGhChip', ghConnected ? 'Done' : 'Not yet', ghConnected);
+        document.getElementById('loGhBtn').style.display = ghConnected ? 'none' : '';
+        var dl = document.getElementById('loGhDoneLine');
+        dl.style.display = ghConnected ? '' : 'none';
+        if (ghConnected) dl.innerHTML = 'Connected: <span class="mono">' + esc(st.github.repo || '') + '</span>. From here it pushes whenever this app opens.';
+      }
+    }).catch(function(){ /* one missed poll is nothing */ });
+  }
+  function loGhErr(text){
+    var m = document.getElementById('loGhMsg');
+    m.className = text ? 'msg on' : 'msg';
+    m.textContent = text || '';
+  }
+  document.getElementById('loGhBtn').addEventListener('click', function(){
+    loGhErr('');
+    var btn = document.getElementById('loGhBtn');
+    btn.disabled = true; btn.textContent = 'Starting…';
+    fetch('/own-brain/start', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slug: loBox.slug, box: loBox.alias }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        if (!x.ok) { btn.disabled = false; btn.textContent = 'Connect GitHub'; loGhErr((x.d && x.d.error) || 'Could not start the GitHub connection.'); return; }
+        btn.style.display = 'none';
+        document.getElementById('loGhRun').style.display = 'block';
+        document.getElementById('loGhCode').innerHTML =
+          'Your code is <b class="mono">' + esc(x.d.userCode || '') + '</b>. Enter it at '
+          + '<a href="' + esc(x.d.verificationUri || 'https://github.com/login/device') + '" target="_blank" rel="noopener">github.com/login/device</a>'
+          + ' and approve the sign-in. This screen notices by itself.';
+        shChip('loGhChip', 'Waiting for GitHub…', false);
+        if (loGhPoll) clearInterval(loGhPoll);
+        loGhPoll = setInterval(loGhTick, 2000);
+      })
+      .catch(function(){ btn.disabled = false; btn.textContent = 'Connect GitHub'; loGhErr('The app did not answer. Quit it and open it again, then retry.'); });
+  });
+  function loGhTick(){
+    fetch('/own-brain/status').then(function(r){ return r.json(); }).then(function(st){
+      document.getElementById('loGhSteps').innerHTML = (st.steps || []).map(function(t){ return '✓ ' + esc(t); }).join('<br>');
+      if (st.stage === 'working') shChip('loGhChip', 'Working…', false);
+      if (st.stage === 'done') {
+        clearInterval(loGhPoll); loGhPoll = null;
+        document.getElementById('loGhRun').style.display = 'none';
+        shChip('loGhChip', 'Done', true);
+        var dl = document.getElementById('loGhDoneLine');
+        dl.style.display = '';
+        dl.innerHTML = 'Connected: <span class="mono">' + esc((st.result && st.result.repo) || '') + '</span>. From here it pushes whenever this app opens.';
+      }
+      if (st.stage === 'failed') {
+        clearInterval(loGhPoll); loGhPoll = null;
+        document.getElementById('loGhRun').style.display = 'none';
+        var b = document.getElementById('loGhBtn'); b.style.display = ''; b.disabled = false; b.textContent = 'Connect GitHub';
+        shChip('loGhChip', 'Not yet', false);
+        loGhErr(st.reason || 'GitHub did not complete the connection.');
+      }
+    }).catch(function(){ /* keep polling */ });
+  }
   // The "New here?" strip's own door into the wizard: startShFlow already
   // forces the takeover open over an inventory that has rows.
   document.getElementById('newSelfhost').addEventListener('click', function(e){ e.preventDefault(); startShFlow(); });
+  document.getElementById('newLocal').addEventListener('click', function(e){ e.preventDefault(); startLocalFlow(); });
   document.getElementById('shCostsOk').addEventListener('click', function(){ shShow('shForm'); });
 
   document.getElementById('shCheckBtn').addEventListener('click', function(){
@@ -990,9 +1198,12 @@
     c.textContent = text;
     c.classList.toggle('done', !!done);
   }
+  // a -local alias (a brain folder on this computer) reads its steps off the
+  // folder; a box alias still probes the box over ssh
+  function stepsUrl(alias){ return (/-local$/.test(alias) ? '/local/setup-steps?box=' : '/setup-steps?box=') + encodeURIComponent(alias); }
   function shStepsSync(){
     if (!shBox.alias) return;
-    fetch('/setup-steps?box=' + encodeURIComponent(shBox.alias))
+    fetch(stepsUrl(shBox.alias))
       .then(function(r){ return r.json(); })
       .then(function(st){
         if (!st || st.reachable === false) {
@@ -1129,6 +1340,7 @@
     document.getElementById('inv').style.display = 'none';
     document.getElementById('pebbleIntro').style.display = 'none';
     document.getElementById('shFlow').style.display = 'none';
+    document.getElementById('localFlow').style.display = 'none';
     document.getElementById('devApproveFlow').style.display = 'none';
     document.getElementById('haveFlow').style.display = 'block';
     var msg = document.getElementById('haveMsg'); msg.className = 'msg'; msg.innerHTML = '';
@@ -1315,6 +1527,7 @@
     document.getElementById('inv').style.display = 'none';
     document.getElementById('pebbleIntro').style.display = 'none';
     document.getElementById('shFlow').style.display = 'none';
+    document.getElementById('localFlow').style.display = 'none';
     document.getElementById('haveFlow').style.display = 'none';
     document.getElementById('devApproveFlow').style.display = 'block';
     document.getElementById('devApproveKey').value = '';

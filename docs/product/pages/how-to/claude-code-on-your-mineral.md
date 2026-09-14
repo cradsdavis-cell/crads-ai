@@ -1,12 +1,13 @@
 ---
 title: Use Claude Code on your mineral
 summary: The fuller way in, for people who want a terminal and their whole brain in one session.
+outcome: open your whole brain in one Claude Code session and work on it directly.
 audience: public
 access: public
 mode: how-to
 order: 60
 pins: wizard/panel/member.html
-reviewed: 2026-09-02
+reviewed: 2026-09-10
 ---
 
 The app is the everyday way to talk to your assistant, and for most people it is
@@ -104,7 +105,8 @@ mineral is or can do. You can read it too. It is just a file, like everything
 else here.
 
 Skills have an address as well: your own live under the brain's
-`.claude/skills/<name>/`, one folder per skill. The mineral's software
+`.claude/skills/<name>/`, one folder per skill, which is what
+[write your own skill](/docs/write-your-own-skill) walks you through. The mineral's software
 version is on the self-description page
 too, and in the app under **Help**, in the Mineral software fold.
 

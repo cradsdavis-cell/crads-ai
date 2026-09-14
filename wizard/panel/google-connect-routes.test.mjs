@@ -93,7 +93,7 @@ test('happy path: client -> start -> done, with the box fed in the right order a
 
     // the box saw the definition first, then the full record
     assert.deepEqual(st.seen.verbs.map((v) => v.verb), ['mcp-add-google', 'mcp-token-set-google']);
-    assert.deepEqual(st.seen.verbs[0].payload, { email: 'jane@example.com' });
+    assert.deepEqual(st.seen.verbs[0].payload, { email: 'jane@example.com', key: 'google' }, 'no key named = the primary row, so an older page keeps working');
     const rec = st.seen.verbs[1].payload;
     assert.equal(rec.client_id, INSTALLED.installed.client_id);
     assert.equal(rec.client_secret, INSTALLED.installed.client_secret);
@@ -299,10 +299,10 @@ test('the stashed secret is dropped from memory once a flow finishes, either way
   const s = await listen(createGoogleConnectRoutes({ state, opts: st.opts }));
   try {
     await post(s, '/google-connect/client', { host: 'h-box', email: 'jane@example.com', client_json_b64: b64(INSTALLED) });
-    assert.ok(state.clients.get('h-box'), 'stashed after the drop');
+    assert.ok(state.clients.get('h-box|google'), 'stashed after the drop, per host and account');
     await post(s, '/google-connect/start', { host: 'h-box' });
     await until(s, 'h-box', ['done', 'failed']);
-    assert.equal(state.clients.get('h-box'), undefined, 'gone on done: the box holds the only copy');
+    assert.equal(state.clients.get('h-box|google'), undefined, 'gone on done: the box holds the only copy');
   } finally { s.close(); }
 });
 
@@ -323,6 +323,86 @@ test('status with nothing in flight reports idle', async () => {
   const s = await listen(createGoogleConnectRoutes({ opts: stubs().opts }));
   try {
     const j = await (await get(s, '/google-connect/status?host=nobody-box')).json();
-    assert.deepEqual(j, { ok: true, stage: 'idle', steps: [], reason: null, email: null, rekey_due_at: null });
+    assert.deepEqual(j, { ok: true, key: 'google', stage: 'idle', steps: [], reason: null, email: null, rekey_due_at: null });
+  } finally { s.close(); }
+});
+
+// ---- several Google accounts (2026-09-14, Sam's ruling) --------------------
+// Every account is its own row and its own key; the routes carry `key` on
+// every request and keep one stash + one flow per host AND account, so a
+// second account can be signed in while the first one's card sits done.
+
+test('a second account (key google-work) rides its own verbs, stash and status', async () => {
+  const state = {};
+  const st = stubs({
+    runVerb: async (host, verb, args) => {
+      const payload = JSON.parse(Buffer.from(args.payload_b64, 'base64').toString('utf8'));
+      st.seen.verbs.push({ host, verb, payload });
+      if (verb === 'mcp-token-set-google') return { ok: true, name: payload.key, email: payload.email, keyed_at: 1000 };
+      return { ok: true, key: payload.key };
+    },
+  });
+  const s = await listen(createGoogleConnectRoutes({ state, opts: st.opts }));
+  try {
+    const r1 = await (await post(s, '/google-connect/client', { host: 'jane01-box', key: 'google-work', email: 'jane@acme.example', client_json_b64: b64(INSTALLED) })).json();
+    assert.equal(r1.ok, true);
+    assert.equal(r1.key, 'google-work', 'the reply names the row the key landed on');
+    assert.ok(state.clients.get('jane01-box|google-work'));
+    assert.equal(state.clients.get('jane01-box|google'), undefined, 'the primary stash is untouched');
+    // the primary's status is idle while the work account is mid-flow
+    const r2 = await (await post(s, '/google-connect/start', { host: 'jane01-box', key: 'google-work' })).json();
+    assert.equal(r2.ok, true);
+    assert.equal(r2.key, 'google-work');
+    const primary = await (await get(s, '/google-connect/status?host=jane01-box')).json();
+    assert.equal(primary.stage, 'idle', 'a flow on one account is invisible on another');
+    let body;
+    for (let i = 0; i < 80; i++) {
+      body = await (await get(s, '/google-connect/status?host=jane01-box&key=google-work')).json();
+      if (['done', 'failed'].includes(body.stage)) break;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    assert.equal(body.stage, 'done');
+    assert.equal(body.key, 'google-work');
+    assert.equal(body.email, 'jane@acme.example');
+    // both box verbs carried the key: the definition and the credential record
+    assert.deepEqual(st.seen.verbs.map((v) => [v.verb, v.payload.key]), [['mcp-add-google', 'google-work'], ['mcp-token-set-google', 'google-work']]);
+    assert.equal(st.seen.verbs[0].payload.email, 'jane@acme.example');
+    assert.equal(state.clients.get('jane01-box|google-work'), undefined, 'the work stash is dropped on done');
+  } finally { s.close(); }
+});
+
+test('a malformed account key is refused in words, before anything reaches the box', async () => {
+  const st = stubs();
+  const s = await listen(createGoogleConnectRoutes({ opts: st.opts }));
+  try {
+    for (const key of ['Work Account', 'google-', 'google-' + 'x'.repeat(21), 'notion', '../google']) {
+      const r = await (await post(s, '/google-connect/client', { host: 'h-box', key, email: 'jane@example.com', client_json_b64: b64(INSTALLED) })).json();
+      assert.equal(r.ok, false, key);
+      assert.match(r.reason, /account name/i, key);
+    }
+    const r = await (await post(s, '/google-connect/start', { host: 'h-box', key: 'Work Account' })).json();
+    assert.equal(r.ok, false);
+    assert.equal(st.seen.verbs.length, 0, 'no verb ran');
+  } finally { s.close(); }
+});
+
+test('cancel is per account: cancelling the work flow leaves the primary flow running', async () => {
+  const state = {};
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const st = stubs({ signIn: async (args) => { await gate; return { ok: true, tokens: { access_token: 'at', refresh_token: 'rt', expires_in: 10, scope: 'openid https://www.googleapis.com/auth/calendar' } }; } });
+  const s = await listen(createGoogleConnectRoutes({ state, opts: st.opts }));
+  try {
+    for (const key of ['google', 'google-work']) {
+      await post(s, '/google-connect/client', { host: 'h-box', key, email: `${key}@example.com`, client_json_b64: b64(INSTALLED) });
+      await post(s, '/google-connect/start', { host: 'h-box', key });
+    }
+    await post(s, '/google-connect/cancel', { host: 'h-box', key: 'google-work' });
+    assert.equal(state.flows.get('h-box|google-work'), undefined, 'the work flow is gone');
+    assert.ok(state.flows.get('h-box|google'), 'the primary flow is still in flight');
+    assert.ok(state.clients.get('h-box|google-work'), 'the work stash survives a cancel, so Sign in again needs no new file');
+    release();
+    const body = await until(s, 'h-box', ['done', 'failed']);
+    assert.equal(body.stage, 'done', 'the primary finishes untouched by the other account\'s cancel');
   } finally { s.close(); }
 });

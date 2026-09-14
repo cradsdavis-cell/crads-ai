@@ -22,6 +22,12 @@ in your own hosting account, holding your files, that you alone hold the key
 to. The desktop app on your computer is the window onto it; the mineral is
 the thing.
 
+It does not have to be a rented server. The app's **On this computer** mode
+makes the mineral a folder on your own machine: free, nothing to rent, the
+same brain. What that mode cannot do is anything that needs a machine that
+stays on: no scheduled jobs, no Telegram, no connections. It is only awake
+when you are. The rest of this page describes the server kind.
+
 That distinction does most of the work. When your assistant knows your
 business, it knows it because your brain is a folder of readable, linked pages
 sitting on your own server. You can open them. You can rewrite them. You can
@@ -52,7 +58,8 @@ server from its first boot is yours.
 The costs, plainly, because they are the first screen of the wizard too:
 
 - a cloud server, roughly €4 to €30 a month depending on the size you pick,
-  billed to you by your hosting provider
+  billed to you by your hosting provider (or nothing, in On this computer
+  mode)
 - your own Claude subscription, billed to you by Anthropic
 - nothing to Crads-AI, ever
 
@@ -60,6 +67,8 @@ Your identity here is your SSH key, not an email or a password. There is no
 sign-in because there is nothing to sign in to: the app on your computer talks
 straight to your box, and a second computer gets in because a computer you
 already trust [lets it in](/docs/add-another-computer).
+
+![Who can see what: your brain and credentials stay on the mineral; your providers run the pieces you pay them for; Crads AI reaches it only when you let us in.](diagram:who-sees-what)
 
 ## Why a box each, and not one system with accounts
 

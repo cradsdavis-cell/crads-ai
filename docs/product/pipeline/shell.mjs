@@ -87,12 +87,22 @@ const STYLE = `
     .docs-side > details > *:not(summary) { display: revert; }
     .docs-side > details::details-content { content-visibility: visible; display: revert; block-size: auto; }
   }
-  .docs-search-btn { display: flex; align-items: center; gap: 8px; width: 100%;
-    font-family: var(--sans); font-size: 13px; color: var(--ink-faint);
+  /* The visible search (2026-09-10). A real input in the sidebar and a larger
+     one on the index; focusing either opens the palette with what was typed. */
+  .docs-search-in-wrap { position: relative; margin: 0 0 var(--space-2); }
+  .docs-search-in { width: 100%; box-sizing: border-box; font: 13.5px/1.3 var(--sans); color: var(--ink-deep);
     background: var(--bg-main); border: 1px solid var(--rule); border-radius: 8px;
-    padding: 7px 10px; cursor: pointer; margin: 0 0 var(--space-2); text-align: left; }
-  .docs-search-btn:hover { border-color: var(--ink-faint); color: var(--ink-soft); }
-  .docs-search-btn .k { margin-left: auto; }
+    padding: 8px 44px 8px 12px; outline: none; }
+  .docs-search-in::placeholder { color: var(--ink-faint); }
+  .docs-search-in:hover { border-color: var(--ink-faint); }
+  .docs-search-in:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .docs-search-in-wrap .docs-kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); }
+  .docs-search-in-wrap.hero { max-width: 560px; margin: var(--space-2) 0 var(--space-4); }
+  .docs-search-in-wrap.hero .docs-search-in { font-size: 16px; padding: 13px 52px 13px 16px; border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+  .docs-side .navgrp .cnt { margin-left: 6px; font-size: 10.5px; font-weight: 600; color: var(--ink-faint); }
+  .docs-side .navgrp.goals > summary { color: var(--accent-deep); }
+  .docs-side .navgrp.goals ul a { border-left-color: var(--accent-glow); }
   .docs-kbd { font-family: var(--sans); font-size: 10.5px; font-weight: 600;
     color: var(--ink-faint); border: 1px solid var(--rule); border-bottom-width: 2px;
     border-radius: 5px; padding: 1px 5px; background: var(--bg-soft); }
@@ -146,6 +156,10 @@ const STYLE = `
   .docs-article h2 { font-size: 19px; line-height: 1.3; font-weight: 650; margin: 34px 0 10px; }
   .docs-article h3 { font-size: 16px; line-height: 1.35; font-weight: 650; margin: 24px 0 6px; }
   .docs-article p, .docs-article li { font-family: var(--sans); font-size: 15px; line-height: 1.65; color: var(--ink-soft); }
+  /* site.css zeroes every margin; without this two body paragraphs run into
+     one block (seen on the 2026-09-10 republish), which reads as a wall */
+  .docs-article p { margin: 0 0 0.9em; }
+  .docs-article li { margin: 0 0 0.35em; }
   .docs-article strong, .docs-article b { color: var(--ink-deep); font-weight: 620; }
   .docs-article ul, .docs-article ol { padding-left: 24px; margin: 10px 0; }
   .docs-article li { margin: 4px 0; }
@@ -155,6 +169,15 @@ const STYLE = `
   .docs-article a:hover { border-bottom-color: var(--accent-deep); }
   .docs-article .docs-summary { font-family: var(--sans); font-size: 15.5px; color: var(--ink-faint);
     margin: 0 0 var(--space-3); line-height: 1.55; }
+  /* the lede under the title, and the one line a practical page owes (2026-09-10) */
+  .docs-article .docs-lede { font-family: var(--sans); font-size: 16.5px; color: var(--ink-soft);
+    line-height: 1.55; margin: 0 0 var(--space-2); }
+  .docs-article .docs-outcome { font-family: var(--sans); font-size: 14px; color: var(--ink-soft);
+    background: var(--bg-soft); border: 1px solid var(--rule); border-left: 3px solid var(--good);
+    border-radius: 8px; padding: 10px 14px; margin: 0 0 var(--space-3); line-height: 1.5; }
+  .docs-article .docs-outcome span { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--good); margin-bottom: 2px; }
+  .docs-article .docs-h { margin-top: var(--space-4); }
   .docs-article em { color: inherit; }
   .docs-article h2, .docs-article h3 { scroll-margin-top: var(--space-3); }
   .docs-article h2 .anchor, .docs-article h3 .anchor { opacity: 0; text-decoration: none;
@@ -193,6 +216,10 @@ const STYLE = `
     font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
     color: var(--accent-deep); margin-bottom: 4px; }
   .docs-article blockquote p { margin: 0; font-size: 14.5px; }
+  .docs-article blockquote.tip { border-left-color: var(--good); }
+  .docs-article blockquote.tip::before { content: "Tip"; color: var(--good); }
+  .docs-article blockquote.careful { border-left-color: var(--accent-deep); background: var(--accent-glow); }
+  .docs-article blockquote.careful::before { content: "Careful"; }
 
   /* ---- screenshots + annotations ----------------------------------------- */
   .docs-article figure.shot { margin: var(--space-3) 0; }
@@ -268,7 +295,45 @@ const STYLE = `
     background: var(--accent); color: #fff; font-size: 11.5px; font-weight: 700;
     line-height: 20px; text-align: center; }
   .docs-doors a { font-weight: 600; text-decoration: none; font-size: 14px; }
+  .docs-doors .glyph { width: 28px; height: 28px; color: var(--accent-deep); margin-bottom: 8px; display: block; }
+  .docs-doors .door:hover { background: var(--bg-card); }
   @media (max-width: 900px) { .docs-doors { grid-template-columns: 1fr; } }
+  /* the index drops the empty rail column so the doors have room (2026-09-10) */
+  .docs-index .docs-shell { grid-template-columns: 240px minmax(0,1fr); }
+  @media (max-width: 820px) { .docs-index .docs-shell { grid-template-columns: minmax(0,1fr); } }
+  .docs-index-groups h2 .cnt { margin-left: 8px; font-size: 11.5px; font-weight: 600; color: var(--ink-faint); letter-spacing: 0; }
+
+  /* ---- what it can do (index strip) ------------------------------------------ */
+  .docs-cando { font-family: var(--sans); margin: 0 0 var(--space-4); padding: 18px 20px 14px;
+    border: 1px solid var(--rule); border-radius: 12px; background: var(--bg-main); }
+  .docs-cando h2 { font-family: var(--sans); font-size: 18px; letter-spacing: -0.01em; margin: 0 0 2px; }
+  .docs-cando .docs-summary { margin-bottom: 12px; font-size: 14px; }
+  .docs-cando .cat { margin: 0 0 10px; }
+  .docs-cando h3 { font-family: var(--sans); font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 0 0 6px; font-weight: 650; }
+  .docs-cando .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .docs-cando .chip { display: inline-flex; align-items: baseline; gap: 6px; text-decoration: none;
+    border: 1px solid var(--rule); border-radius: 99px; padding: 4px 11px; background: var(--bg-soft);
+    transition: border-color .12s; }
+  .docs-cando .chip:hover { border-color: var(--accent-deep); }
+  .docs-cando .chip b { font-size: 13px; font-weight: 600; color: var(--ink-deep); }
+  .docs-cando .chip span { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+  .docs-cando .more { margin: 8px 0 0; font-size: 13.5px; }
+
+  /* ---- the trail by goal at a page's foot -------------------------------------- */
+  .docs-trail { font-family: var(--sans); margin-top: var(--space-5); padding: 14px 16px;
+    border: 1px solid var(--rule); border-radius: 10px; background: var(--bg-soft); }
+  .docs-trail .t { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 650;
+    letter-spacing: .04em; text-transform: uppercase; color: var(--accent-deep); text-decoration: none; margin-bottom: 8px; }
+  .docs-trail .t .glyph { width: 18px; height: 18px; }
+  .docs-trail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  .docs-trail li { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .docs-trail .n { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--rule);
+    color: var(--ink-deep); font-size: 11.5px; font-weight: 700; line-height: 20px; text-align: center; }
+  .docs-trail li.here .n { background: var(--accent); color: #fff; }
+  .docs-trail li.here span:last-child { font-weight: 650; color: var(--ink-deep); }
+  .docs-trail a { text-decoration: none; }
+  .docs-trail + .docs-nextprev { margin-top: var(--space-3); border-top: 0; padding-top: 0; }
   .docs-index-groups { display: grid; gap: var(--space-4); font-family: var(--sans); }
   .docs-index-groups h2 { font-family: var(--sans); font-size: 18px; letter-spacing: -0.01em;
     margin: 0 0 2px; }
@@ -360,7 +425,9 @@ const STYLE = `
     var input = box.querySelector('input'), res = box.querySelector('.res');
     var sel = 0, hits = [];
     function close() { veil.classList.remove('open'); box.classList.remove('open'); }
-    function open() { veil.classList.add('open'); box.classList.add('open'); input.value = ''; render(''); input.focus(); }
+    function open(seed) { veil.classList.add('open'); box.classList.add('open'); input.value = seed || ''; render(seed || ''); input.focus(); }
+    var DOORS = IDX.filter(function (p) { return p.u.charAt(0) === '#'; });
+    var hrefOf = function (p) { return p.u.charAt(0) === '#' ? '/docs' + p.u : '/docs/' + p.u; };
     function render(q) {
       q = q.trim().toLowerCase();
       hits = [];
@@ -374,12 +441,14 @@ const STYLE = `
         hits.sort(function (a, b) { return a.rank - b.rank; });
         hits = hits.slice(0, 10);
       } else {
-        hits = IDX.slice(0, 8).map(function (p) { return { p: p, rank: 0 }; });
+        // the empty state lists the goal doors, then the first pages
+        hits = DOORS.concat(IDX.filter(function (p) { return p.u.charAt(0) !== '#'; }).slice(0, 4))
+          .map(function (p) { return { p: p, rank: 0 }; });
       }
       sel = 0;
       res.innerHTML = hits.length
         ? hits.map(function (h, i) {
-            return '<a class="r' + (i === 0 ? ' on' : '') + '" href="/docs/' + h.p.u + '">'
+            return '<a class="r' + (i === 0 ? ' on' : '') + '" href="' + hrefOf(h.p) + '">'
               + '<span class="g">' + h.p.g + '</span>'
               + '<b>' + h.p.t + '</b><span>' + h.p.s + '</span></a>';
           }).join('')
@@ -406,8 +475,11 @@ const STYLE = `
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); open(); }
       else if (e.key === '/' && !typing && !box.classList.contains('open')) { e.preventDefault(); open(); }
     });
-    var btn = document.querySelector('.docs-search-btn');
-    if (btn) btn.addEventListener('click', open);
+    // every visible search field opens the palette, carrying what was typed
+    document.querySelectorAll('.docs-search-in').forEach(function (f) {
+      f.addEventListener('focus', function () { var v = f.value; f.blur(); open(v); });
+      f.addEventListener('input', function () { open(f.value); });
+    });
   });
 </script>`;
 
@@ -419,7 +491,7 @@ export function shell({ title, description, path, body, extraClass = '', side = 
   // write, and this template was written in violation of it: publish.test.mjs
   // caught the title of every single page. The site's own older titles use an em
   // dash; new output does not.
-  const full = `${title} · Crads AI docs`;
+  const full = `${title} · Crads-AI, a free self-hosted AI assistant`;
   const url = `${SITE}${path}`;
   return `<!DOCTYPE html>
 <html lang="en">

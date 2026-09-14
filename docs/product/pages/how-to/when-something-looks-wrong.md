@@ -1,6 +1,7 @@
 ---
 title: When something looks wrong
 summary: The short list of symptoms, what each usually means, and where to look before you worry.
+outcome: match a symptom to its usual cause and know where to look before you worry.
 audience: public
 access: public
 mode: how-to

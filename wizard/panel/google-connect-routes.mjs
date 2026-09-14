@@ -17,12 +17,22 @@
 // on every resume-after-await, same JSON-content-type gate on POST (the
 // no-preflight CSRF hole).
 //
-// Secrets: the client id + secret live in app memory only, per host, for the
-// span of one connect. They are never written to disk app-side, never echoed
-// in a response, never logged, and are dropped the moment a flow finishes
-// (either way): after that the box holds the only copy, which is also what the
-// weekly re-key needs.
+// Secrets: the client id + secret live in app memory only, per host and
+// account, for the span of one connect. They are never written to disk
+// app-side, never echoed in a response, never logged, and are dropped the
+// moment a flow finishes (either way): after that the box holds the only copy.
+//
+// Several accounts (2026-09-14, Sam's ruling): every request names the
+// account row it is for (`key`: google for the first account, google-<slug>
+// for each further one, default google so an older page keeps working). The
+// stash and the in-flight flow are per host AND key, so a member can sign a
+// second account in while the first one's card sits done.
 import { signInForTokens } from './google-signin.mjs';
+
+// Mirrors GOOGLE_KEY_RE in engine/lib/google-byo.mjs by hand: the app bundle
+// must not pull the engine tree in for one regex. google-byo.test.mjs pins
+// the two equal.
+export const GOOGLE_KEY_RE = /^google(-[a-z0-9][a-z0-9-]{0,19})?$/;
 
 // The EXACT scope union the box seeds into the workspace-mcp credential file,
 // byte-for-byte from the installed package's auth/scopes.py (v1.24.1 recon):
@@ -102,8 +112,11 @@ export const expiryFrom = (expiresIn, now = Date.now()) =>
  * @returns {(req, res, path) => boolean} true when the request was handled
  */
 export function createGoogleConnectRoutes({ state = {}, opts = {} } = {}) {
-  state.clients = state.clients || new Map();   // host -> {email, client_id, client_secret}
-  state.flows = state.flows || new Map();       // host -> the in-flight flow
+  state.clients = state.clients || new Map();   // host|key -> {email, client_id, client_secret}
+  state.flows = state.flows || new Map();       // host|key -> the in-flight flow
+  // the account row a request is for; '' when the key does not parse
+  const keyOf = (v) => { const k = String(v || 'google').trim().toLowerCase(); return GOOGLE_KEY_RE.test(k) ? k : ''; };
+  const slot = (host, key) => `${host}|${key}`;
 
   const json = (res, code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
   const readBody = (req, res, cb) => {
@@ -127,8 +140,10 @@ export function createGoogleConnectRoutes({ state = {}, opts = {} } = {}) {
     if (req.method === 'POST' && path === '/google-connect/client') {
       readBody(req, res, (form) => {
         const host = String(form.host || '');
+        const key = keyOf(form.key);
         const email = String(form.email || '').trim().toLowerCase();
         if (!host) { json(res, 400, { ok: false, reason: 'no box named' }); return; }
+        if (!key) { json(res, 200, { ok: false, reason: 'that account name does not look right: up to 20 letters, digits or hyphens' }); return; }
         if (!EMAIL_RE.test(email) || email.length > 254) { json(res, 200, { ok: false, reason: 'that does not look like an email address' }); return; }
         let doc;
         try { doc = JSON.parse(Buffer.from(String(form.client_json_b64 || ''), 'base64').toString('utf8')); }
@@ -153,12 +168,12 @@ export function createGoogleConnectRoutes({ state = {}, opts = {} } = {}) {
             // The server DEFINITION lands first (no secret in it); the
             // credential material only ships after a proven sign-in.
             await opts.runVerb(host, 'mcp-add-google', {
-              payload_b64: Buffer.from(JSON.stringify({ email }), 'utf8').toString('base64'),
+              payload_b64: Buffer.from(JSON.stringify({ email, key }), 'utf8').toString('base64'),
             });
-            state.clients.set(host, { email, client_id: clientId, client_secret: clientSecret });
+            state.clients.set(slot(host, key), { email, key, client_id: clientId, client_secret: clientSecret });
             // Last 6 chars only: enough for the member to recognise their own
             // key on the card, useless to anyone else.
-            json(res, 200, { ok: true, client: '…' + clientId.slice(-6) });
+            json(res, 200, { ok: true, key, client: '…' + clientId.slice(-6) });
           } catch (e) {
             json(res, 200, { ok: false, reason: String(e.message || e).slice(0, 200) });
           }
@@ -171,16 +186,19 @@ export function createGoogleConnectRoutes({ state = {}, opts = {} } = {}) {
     if (req.method === 'POST' && path === '/google-connect/start') {
       readBody(req, res, (form) => {
         const host = String(form.host || '');
-        const client = state.clients.get(host);
+        const key = keyOf(form.key);
+        if (!key) { json(res, 200, { ok: false, reason: 'that account name does not look right: up to 20 letters, digits or hyphens' }); return; }
+        const id = slot(host, key);
+        const client = state.clients.get(id);
         if (!client) { json(res, 200, { ok: false, reason: 'drop your key file first' }); return; }
-        const st = { stage: 'waiting', steps: [], email: client.email };
-        state.flows.set(host, st);
-        json(res, 200, { ok: true, stage: 'waiting' });
+        const st = { stage: 'waiting', steps: [], email: client.email, key };
+        state.flows.set(id, st);
+        json(res, 200, { ok: true, stage: 'waiting', key });
         (async () => {
           const fail = (reason) => {
             st.stage = 'failed'; st.reason = reason;
             // the secret's job is over either way; the box holds the only copy
-            state.clients.delete(host);
+            state.clients.delete(id);
           };
           try {
             st.steps.push('opening your browser');
@@ -190,7 +208,7 @@ export function createGoogleConnectRoutes({ state = {}, opts = {} } = {}) {
               clientId: client.client_id, clientSecret: client.client_secret,
               scopes: GOOGLE_WORKSPACE_SCOPES, loginHint: client.email,
             });
-            if (state.flows.get(host) !== st) return;   // superseded: newest flow owns the state
+            if (state.flows.get(id) !== st) return;   // superseded: newest flow owns the state
             if (!r.ok) { fail(r.reason || 'the sign-in did not complete'); return; }
             st.stage = 'working';
             const tokens = r.tokens || {};
@@ -218,8 +236,8 @@ export function createGoogleConnectRoutes({ state = {}, opts = {} } = {}) {
               const fetcher = opts.fetcher || fetch;
               let probe;
               try { probe = await fetcher(probeFor.url, { headers: { authorization: `Bearer ${tokens.access_token}` } }); }
-              catch (e) { if (state.flows.get(host) !== st) return; fail(`Google could not be reached to test the key: ${String(e.message || e).slice(0, 120)}`); return; }
-              if (state.flows.get(host) !== st) return;
+              catch (e) { if (state.flows.get(id) !== st) return; fail(`Google could not be reached to test the key: ${String(e.message || e).slice(0, 120)}`); return; }
+              if (state.flows.get(id) !== st) return;
               if (probe.status !== 200) { fail(`Google would not show your ${probeFor.label} with this key (HTTP ${probe.status}): ${probeFor.fix}`); return; }
             } else {
               // docs/sheets-only grants have no safe id-free probe; the first
@@ -228,7 +246,7 @@ export function createGoogleConnectRoutes({ state = {}, opts = {} } = {}) {
             }
             st.steps.push('delivering the key to your box');
             const payload = {
-              email: client.email, client_id: client.client_id, client_secret: client.client_secret,
+              email: client.email, key, client_id: client.client_id, client_secret: client.client_secret,
               access_token: tokens.access_token, refresh_token: tokens.refresh_token,
               scopes,
               expiry: expiryFrom(tokens.expires_in),
@@ -239,11 +257,11 @@ export function createGoogleConnectRoutes({ state = {}, opts = {} } = {}) {
                 payload_b64: Buffer.from(JSON.stringify(payload), 'utf8').toString('base64'),
               });
             } catch (e) {
-              if (state.flows.get(host) !== st) return;
+              if (state.flows.get(id) !== st) return;
               fail(`the box did not store the key: ${String(e.message || e).slice(0, 160)}`);
               return;
             }
-            if (state.flows.get(host) !== st) return;
+            if (state.flows.get(id) !== st) return;
             // runVerb already refused a non-ok reply; this belt covers an
             // injected runner that resolves with a refusal instead of throwing.
             if (!reply || reply.ok !== true) { fail('the box did not confirm the key landed'); return; }
@@ -251,9 +269,9 @@ export function createGoogleConnectRoutes({ state = {}, opts = {} } = {}) {
             st.email = String(reply.email || client.email);
             st.rekey_due_at = reply.rekey_due_at;
             st.steps.push('your box can use Google now, including in its scheduled jobs');
-            state.clients.delete(host);
+            state.clients.delete(id);
           } catch (e) {
-            if (state.flows.get(host) !== st) return;
+            if (state.flows.get(id) !== st) return;
             fail(String(e.message || e).slice(0, 200));
           }
         })();
@@ -262,12 +280,14 @@ export function createGoogleConnectRoutes({ state = {}, opts = {} } = {}) {
     }
 
     if (req.method === 'GET' && path === '/google-connect/status') {
-      const host = new URL(req.url, 'http://x').searchParams.get('host') || '';
-      const st = state.flows.get(host);
-      const stash = state.clients.get(host);
+      const q = new URL(req.url, 'http://x').searchParams;
+      const host = q.get('host') || '';
+      const key = keyOf(q.get('key')) || 'google';
+      const st = state.flows.get(slot(host, key));
+      const stash = state.clients.get(slot(host, key));
       json(res, 200, st
-        ? { ok: true, stage: st.stage, steps: st.steps, reason: st.reason || null, email: st.email || null, rekey_due_at: st.rekey_due_at || null }
-        : { ok: true, stage: 'idle', steps: [], reason: null, email: (stash && stash.email) || null, rekey_due_at: null });
+        ? { ok: true, key, stage: st.stage, steps: st.steps, reason: st.reason || null, email: st.email || null, rekey_due_at: st.rekey_due_at || null }
+        : { ok: true, key, stage: 'idle', steps: [], reason: null, email: (stash && stash.email) || null, rekey_due_at: null });
       return true;
     }
 
@@ -277,7 +297,7 @@ export function createGoogleConnectRoutes({ state = {}, opts = {} } = {}) {
         // point re-checks identity against the map, so the abandoned run stands
         // down at its next await. The stashed client survives, so the member
         // can press Sign in again without re-dropping the file.
-        state.flows.delete(String(form.host || ''));
+        state.flows.delete(slot(String(form.host || ''), keyOf(form.key) || 'google'));
         json(res, 200, { ok: true });
       });
       return true;

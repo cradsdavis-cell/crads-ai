@@ -22,19 +22,24 @@
 //   Dev / CI smoke:  AIOS_NO_LAUNCH=1 node wizard/app.mjs   (prints the URL, no window)
 //   Windows:         practice-partner-setup.exe
 import { spawn, spawnSync } from 'node:child_process';
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPanelServer } from './panel/panel-server.mjs';
-import { listPanelTargets, registerPromotedHost, unregisterPromotedHost } from './panel/ssh-bridge.mjs';
+import { listPanelTargets, registerPromotedHost, unregisterPromotedHost, systemBridge } from './panel/ssh-bridge.mjs';
 import { probePromotedHosts } from './panel/face-probe.mjs';
 import { getBuildInfo, checkForUpdate, cleanupOld, applyUpdate } from './panel/updater.mjs';
 import { createDoorServer } from './panel/door-server.mjs';
 import { extractBox, registerProtocolHandler } from './panel/protocol.mjs';
+import { wantsUninstall, uninstall, registerUninstall } from './panel/uninstall.mjs';
 import { pushOwnedBrains } from './panel/brain-push.mjs';
 import { runSsh } from './panel/ssh-bridge.mjs';
 import { launchTarget, readLastUsed, lastUsedPath } from './panel/last-used.mjs';
+import { listLocalTargets } from './panel/local-targets.mjs';
+import { localBridge, composeBridge } from './panel/local-bridge.mjs';
+import { loadEngineAssets } from './panel/local-scaffold.mjs';
+import { pushLocalBrains } from './panel/own-brain-local.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP_NAME = 'Crads-AI';
@@ -56,6 +61,27 @@ function setHostTag(sea) {
 function macBundleRoot() {
   const m = String(process.execPath).match(/^(.*?\/[^/]+\.app)\/Contents\/MacOS\//);
   return m ? m[1] : '';
+}
+
+// Where the Windows shortcuts live; shared by selfInstall and --uninstall so the
+// two can never disagree about what to create and what to remove.
+function winShortcutPaths() {
+  return {
+    startMenu: join(process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', `${APP_NAME}.lnk`),
+    desktop: join(homedir(), 'Desktop', `${APP_NAME}.lnk`),
+  };
+}
+
+// `Crads-AI.exe --uninstall`: what the Add/Remove Programs entry runs. Handled
+// before the single-instance / hidden-relaunch dance so it never opens a window.
+async function runUninstall() {
+  const dir = join(process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local'), 'Programs', APP_NAME);
+  const { startMenu, desktop } = winShortcutPaths();
+  const r = await uninstall({ dir, shortcuts: [startMenu, desktop] });
+  dbg(`uninstall: ${JSON.stringify(r)}`);
+  console.log(r.done
+    ? `${APP_NAME} uninstalled: shortcuts and the Windows entry removed; ${dir} is being deleted. Your data folder (${RUN_DIR}) was left alone.`
+    : `${APP_NAME} uninstall finished with problems: ${r.failed.join(', ')}. Delete ${dir} by hand if it is still there.`);
 }
 
 // First-run self-install (packaged app only). Windows: copy the exe to
@@ -120,8 +146,15 @@ function selfInstall(sea) {
       '$W=New-Object -ComObject WScript.Shell;' + lnks.map(mk).join('')],
     { stdio: 'ignore', windowsHide: true, timeout: 20000 });
     const nudgeIconCache = () => { try { spawnSync('ie4uinit.exe', ['-show'], { stdio: 'ignore', windowsHide: true, timeout: 10000 }); } catch { /* cache nudge only */ } };
-    const startMenu = join(process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', `${APP_NAME}.lnk`);
-    const desktop = join(homedir(), 'Desktop', `${APP_NAME}.lnk`);
+    const { startMenu, desktop } = winShortcutPaths();
+    // The Add/Remove Programs entry (per-user, idempotent): SignPath Foundation's
+    // terms want a self-installing app to be uninstallable the normal Windows way.
+    // Fail-silent like everything else here; `Crads-AI.exe --uninstall` is what it runs.
+    const registerEntry = () => registerUninstall({
+      target, dir, ico: existsSync(ico) ? ico : '', version: HOST_TAG,
+      sizeBytes: (() => { try { return statSync(target).size; } catch { return 0; } })(),
+      installDate: new Date().toISOString().slice(0, 10).replace(/-/g, ''),
+    }).then((r) => dbg(`uninstall entry: ${r.done ? 'registered' : r.reason}`)).catch(() => {});
     if (resolve(process.execPath).toLowerCase() === resolve(target).toLowerCase()) {
       // Already installed. Migration for installs that predate the .ico: write
       // it and re-point only the shortcuts that still exist (a deliberately
@@ -134,6 +167,7 @@ function selfInstall(sea) {
         if (stale.length) refresh(stale);
         nudgeIconCache();
       } else if (state === 'updated') nudgeIconCache();        // same path, new pixels: cache is the only stale layer
+      registerEntry();
       return;
     }
     mkdirSync(dir, { recursive: true });
@@ -143,7 +177,8 @@ function selfInstall(sea) {
     writeHost();
     sweepHosts();
     refresh([startMenu, desktop]);
-    console.log(`installed: ${target} (Start menu + desktop shortcuts created)`);
+    registerEntry();
+    console.log(`installed: ${target} (Start menu + desktop shortcuts created; uninstall from Windows Settings > Apps, or run "${target}" --uninstall)`);
   } catch { /* best-effort by design */ }
 }
 
@@ -168,6 +203,7 @@ async function main() {
   let sea = null;
   try { const m = await import('node:sea'); if (m.isSea()) sea = m; } catch { /* dev: no SEA module */ }
   if (sea) setHostTag(sea);
+  if (wantsUninstall(process.argv)) { await runUninstall(); process.exit(0); }
   dbg(`main() start: platform=${process.platform} sea=${!!sea} execPath=${process.execPath} NO_LAUNCH=${process.env.AIOS_NO_LAUNCH || ''} RELAUNCHED=${process.env.AIOS_RELAUNCHED || ''}`);
   // No visible console (the SEA exe is a console binary, so a double-click
   // opens a terminal): the first launch respawns itself HIDDEN and exits; a
@@ -212,6 +248,10 @@ async function main() {
     try {
       pushOwnedBrains({ targets: listPanelTargets(), bridge: runSsh, log: dbg })
         .then((r) => dbg(`brain-push: ${r.pushed.length} synced, ${r.failed.length} skipped`))
+        .catch(() => {});
+      // the same promise for brain folders on this computer (own-brain-local)
+      pushLocalBrains({ targets: listLocalTargets(), log: dbg })
+        .then((r) => dbg(`local brain-push: ${r.pushed.length} synced, ${r.failed.length} skipped`))
         .catch(() => {});
     } catch { /* never blocks startup */ }
   }, 15000);
@@ -263,12 +303,25 @@ async function main() {
     try { vendor[name] = asset(name, join(HERE, 'panel', 'vendor', name)); } catch { /* dev checkout missing vendor: route falls back to disk */ }
   }
 
+  // The engine files a LOCAL brain is scaffolded from and served with (the
+  // no-server face, 2026-09-11). Same rule as the cloud-init sources below:
+  // SEA assets in the packaged exe, the repo tree in a dev checkout, both
+  // through asset() so neither half can ship without the other.
+  const localAssets = loadEngineAssets({ read: (name, fsPath) => asset(name, fsPath) });
+  // ONE bridge for the one panel: ssh for boxes, in-process for brain folders
+  // on this computer. The panel's gates route by the target's kind.
+  const bridge = composeBridge({ ssh: systemBridge(), local: localBridge({ targets: listLocalTargets, assets: localAssets }) });
+  // Every mineral this computer can open: the ssh config's boxes plus the
+  // brain folders in ~/.crads-ai/local-brains.json. Re-read on demand so a
+  // brain made at the door mid-session is opened without a restart.
+  const allTargetsNow = () => [...listPanelTargets(), ...listLocalTargets()];
+
   // D47: the DOOR is the app's front. What OPENS is the single identity's
   // dashboard when there is exactly one, else the door (0 identities: the
   // door's takeover offers self-host create + device-add). The org setup
   // wizard server (wizard/ui/) was DELETED 2026-09-01: the door's own
   // "Set up my own" flow (provision-routes) is the only create path.
-  const allTargets = listPanelTargets();
+  const allTargets = allTargetsNow();
   let panelFlipUrl = '';
   let memberUrl = '';
   let doorUrl = '';
@@ -283,6 +336,7 @@ async function main() {
     const panel = createPanelServer({
       port: 0,
       host: '127.0.0.1',
+      bridge,
       htmlText: asset('member.html', join(HERE, 'panel', 'member.html')),
       doorUrl: () => doorUrl,
       vendor,
@@ -322,8 +376,10 @@ async function main() {
   const door = createDoorServer({
     port: 0,
     host: '127.0.0.1',
+    bridge,
     htmlText: asset('door.html', join(HERE, 'panel', 'door.html')),
     provision: { files: selfHostFiles },
+    local: { assets: localAssets },
     vendor,
     updater,
     urls: {
@@ -357,17 +413,18 @@ async function main() {
     // mineral is named (host= for legacy rock aliases, box= for slugs).
     start: {
       panel: (want) => {
-        const targets = listPanelTargets();
+        const targets = allTargetsNow();
         const host = want && want.host;
         const has = host ? targets.some((t) => t.host === host) : targets.length > 0;
         if (!has) return false;
         startPanel();
       },
       member: (want) => {
-        const targets = listPanelTargets();
+        const targets = allTargetsNow();
         const slug = want && want.box;
-        const has = slug
-          ? targets.some((t) => t.org === slug || t.host === `${slug}-box`)
+        const host = want && want.host;
+        const has = slug || host
+          ? targets.some((t) => t.org === slug || t.host === `${slug}-box` || (host && t.host === host))
           : targets.length > 0;
         if (!has) return false;
         startPanel();
@@ -409,6 +466,9 @@ async function main() {
           openUrl = `${panelFlipUrl}#host=${encodeURIComponent(pick.host)}`; label = `panel(last:${pick.host})`;
         } else if (pick.open === 'member' && panelFlipUrl) {
           openUrl = `${panelFlipUrl}#box=${encodeURIComponent(pick.slug)}`; label = `panel(last:${pick.slug})`;
+        } else if (pick.open === 'local' && panelFlipUrl) {
+          // a brain folder rides the alias convention (#host=), like a rock
+          openUrl = `${panelFlipUrl}#host=${encodeURIComponent(pick.host)}`; label = `panel(last:${pick.host})`;
         } else {
           dbg(`launch: door (${pick.why})`);
         }
@@ -541,14 +601,15 @@ function openAppWindow(url) {
 
 main().catch((err) => {
   // The hidden relaunch has no console, so a crash there was silent (the "flash then nothing" bug).
-  // Persist it to a log the user can send us: %LOCALAPPDATA%\Crads-AI\error.log.
+  // Persist it to a log the user can send us: RUN_DIR/error.log (next to startup.log).
   const msg = `${(() => { try { return new Date().toISOString(); } catch { return 'now'; } })()} crads-ai: ${err && err.stack ? err.stack : (err && err.message ? err.message : err)}`;
   try { dbg(`FATAL ${err && err.stack ? err.stack : (err && err.message ? err.message : err)}`); } catch { /* startup.log best-effort */ }
   try { console.error(msg); } catch { /* no console (hidden relaunch) */ }
   try {
-    const dir = join(process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local'), APP_NAME);
-    mkdirSync(dir, { recursive: true });
-    appendFileSync(join(dir, 'error.log'), msg + '\n');
+    // RUN_DIR, not the Windows path on every platform (2026-09-11): on a Mac
+    // this used to land in ~/AppData/Local, where nobody looks
+    mkdirSync(RUN_DIR, { recursive: true });
+    appendFileSync(join(RUN_DIR, 'error.log'), msg + '\n');
   } catch { /* best-effort */ }
   process.exit(1);
 });

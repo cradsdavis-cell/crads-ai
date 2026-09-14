@@ -41,9 +41,17 @@ export const CONNECTION_LABELS = {
   telegram: 'Telegram',
 };
 
+// A further Google account (2026-09-14): `google-<slug>` is one of the
+// member's own Google rows, named for the label they gave it. Rendered as
+// "Google Workspace (work)", never "Google Work", so every Google row reads
+// as the same kind of thing with a different account in the bracket.
+const GOOGLE_EXTRA_RE = /^google-([a-z0-9][a-z0-9-]{0,19})$/;
+
 export function connectionLabel(key) {
   const k = key == null ? '' : String(key).trim();
   if (CONNECTION_LABELS[k]) return CONNECTION_LABELS[k];
+  const gx = k.match(GOOGLE_EXTRA_RE);
+  if (gx) return `Google Workspace (${gx[1]})`;
   const words = k.split(/[-_]+/).filter(Boolean);
   if (!words.length) return k;
   return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');

@@ -174,6 +174,12 @@ add('member-overview', 'member', 'rich', {
 add('member-brain', 'member', 'rich', { sec: 'brain', full: true, waitMs: 2500, clicks: ['#gFit'],
   note: 'the brain graph: the member owns a folder of files, drawn live at render time; Fit pressed so the layout is framed, not racing' });
 add('member-skills', 'member', 'rich', { sec: 'skills', note: 'installed skills; the library ships empty, so this is the engine set' });
+// The row is the drawer handle (member.html rowShell): clicking its .info
+// opens the description, the /name, Run now and Read the skill. A skill a
+// member wrote opens to exactly the same drawer, which is the point of the
+// shot on write-your-own-skill.
+add('member-skills-drawer', 'member', 'rich', { sec: 'skills', waitMs: 1500, clicks: ['#skillsGroups .cadrow .info'],
+  note: 'one skill row opened: the drawer every skill gets, built-in or yours' });
 add('member-connections', 'member', 'rich', { sec: 'connections', note: 'wired MCPs and their auth state: an expired token is SEEN here, not discovered weeks later' });
 // member-seat was out of the roster 2026-08-24 to 2026-08-25 (audit finding
 // A5): the seat page's one data source is the `member-console-state` verb and

@@ -7,7 +7,7 @@ mode: reference
 surface: terminal
 order: 104
 pins: wizard/panel/member.html
-reviewed: 2026-08-25
+reviewed: 2026-09-10
 ---
 
 *Meet your assistant.*
@@ -21,16 +21,16 @@ here.
 
 ## What it is for
 
-**Asking.** Anything your assistant could reasonably know from your brain, your
-mail or your calendar.
+Three things, and the third is the underrated one. **Asking**: anything your
+assistant could reasonably know from your brain, your mail or your calendar.
+**Running a skill by name**: `/onboard` starts the interview, `/daily` produces
+the brief now rather than waiting for its schedule. **Telling it things**: when
+the brief keeps choosing the wrong priorities, the fix is almost never the
+schedule, it is what your brain does not yet say, and this is where you say it.
 
-**Running a skill by name.** Typing `/onboard` starts the interview. `/daily`
-produces the brief now rather than waiting for its schedule.
-
-**Telling it things.** This is the underrated one. If the morning brief keeps
-choosing the wrong three priorities, the fix is almost never the schedule: it is
-that your brain does not yet say what matters to you this quarter. Say so here,
-and let it write that down.
+How to shape an ask that matters is [the CRIT method](/docs/the-crit-method);
+why telling it things matters more than any schedule is
+[grow the brain](/docs/grow-the-brain).
 
 ## The commands
 

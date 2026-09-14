@@ -24,7 +24,8 @@ Harper Driftwood Surf School Advanced External Publish Production Testing Deskto
 Members Skills Connections Overview Terminal Help Sharing Privacy Network Your Rock Rocks Pebbles
 Billing Cron Update Refresh Monday Tuesday Wednesday Thursday Friday Saturday Sunday January
 September August AEST Diataxis Linux JSON SSH MCP API APIs Nuremberg Falkenstein Helsinki Germany
-Finland Wales South New Briefings Capture Everything I A The`.split(/\s+/).filter(Boolean));
+Finland Wales South New Sydney Briefings Capture Everything I A The
+Woods Geoff Herk Nate Isenberg Greg Karpathy Andrej CRIT Leader Driven Exa`.split(/\s+/).filter(Boolean));
 
 const midSentenceWords = (text) => String(text)
   .replace(/^\s*\d+[.)]\s*/, '')                      // drop a leading enumerator
@@ -48,6 +49,7 @@ export function caseProblems(pages) {
   for (const pg of pages) {
     check(pg.slug, 'title', pg.title);
     check(pg.slug, 'summary', pg.summary);
+    check(pg.slug, 'outcome', pg.outcome);
     for (const line of String(pg.body).split('\n')) {
       const h = /^#{1,4}\s+(.*)$/.exec(line);
       if (!h) continue;

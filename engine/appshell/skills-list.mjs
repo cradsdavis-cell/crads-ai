@@ -19,6 +19,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { lastRunBySkill, lastRunByJob } from '../lib/run-ledger.mjs';
 import { resolveBrainRoot } from '../lib/brain-root.mjs';
+import { isMain } from '../lib/is-main.mjs';
 
 // The engine's own skill catalog. Overridable for tests and for staged runs on
 // boxes whose /app predates this file (same escape hatch as scheduler.mjs).
@@ -88,7 +89,7 @@ export function listSkills(stateDir) {
 }
 
 // CLI: node skills-list.mjs <state-dir>
-if (process.argv[1] && import.meta.url.endsWith(path.basename(process.argv[1]))) {
+if (isMain(import.meta.url)) {
   const stateDir = path.resolve(process.argv[2] || process.env.STATE_DIR || '/state');
   console.log('SKILLS_STATE ' + JSON.stringify(listSkills(stateDir)));
 }

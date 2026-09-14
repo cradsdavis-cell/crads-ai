@@ -138,6 +138,12 @@ jobs:
           if ($visible) { Write-Host 'host window forces itself visible even when spawned SW_HIDE' }
           else { Write-Host '::warning::host window NOT visible when spawned SW_HIDE (invisible-window regression?)' }
 
+      # The LOCAL face's engine files (2026-09-11) ride the sea-config block
+      # below (and its twin on the other platform): a brain folder on the
+      # member's own computer is scaffolded from them and its skills are
+      # classified against them. Keys are the repo-relative paths, enumerated
+      # in wizard/panel/local-scaffold.mjs LOCAL_ASSET_FILES and pinned by
+      # selfhost-assets.test.mjs. JSON has no comments, so this note lives here.
       - name: Build the SEA blob (bundle + embedded assets)
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
@@ -179,7 +185,27 @@ jobs:
               "build-info.json": "dist/build-info.json",
               "cloud-init.template.yaml": "provisioning/managed/cloud-init.template.yaml",
               "aios-host-update": "provisioning/host/aios-host-update",
-              "enter-aios": "provisioning/host/enter-aios"
+              "enter-aios": "provisioning/host/enter-aios",
+              "engine/onboarding/interview-spec.yaml": "engine/onboarding/interview-spec.yaml",
+              "config/profile.schema.yaml": "config/profile.schema.yaml",
+              "engine/lib/brain-ignore.txt": "engine/lib/brain-ignore.txt",
+              "engine/lib/local-claude-md.md": "engine/lib/local-claude-md.md",
+              "engine/appshell/templates/pages.json": "engine/appshell/templates/pages.json",
+              "engine/appshell/templates/cards.json": "engine/appshell/templates/cards.json",
+              "engine/appshell/templates/pages/ask-me.html": "engine/appshell/templates/pages/ask-me.html",
+              "engine/appshell/templates/pages/my-people.html": "engine/appshell/templates/pages/my-people.html",
+              "engine/appshell/templates/pages/welcome.html": "engine/appshell/templates/pages/welcome.html",
+              "engine/skills/capture.md": "engine/skills/capture.md",
+              "engine/skills/connect.md": "engine/skills/connect.md",
+              "engine/skills/daily.md": "engine/skills/daily.md",
+              "engine/skills/dashboard.md": "engine/skills/dashboard.md",
+              "engine/skills/explain.md": "engine/skills/explain.md",
+              "engine/skills/followup.md": "engine/skills/followup.md",
+              "engine/skills/inbox.md": "engine/skills/inbox.md",
+              "engine/skills/onboard.md": "engine/skills/onboard.md",
+              "engine/skills/plan-week.md": "engine/skills/plan-week.md",
+              "engine/skills/weekly.md": "engine/skills/weekly.md",
+              "engine/skills/write-page.md": "engine/skills/write-page.md"
             }
           }
           '@ | Set-Content -Encoding utf8 sea-config.json
@@ -199,12 +225,24 @@ jobs:
           $env:AIOS_NO_INSTALL = '1'
           $p = Start-Process -FilePath .\dist\crads-ai.exe -PassThru -NoNewWindow `
             -RedirectStandardOutput dist\smoke-out.log -RedirectStandardError dist\smoke-err.log
-          Start-Sleep -Seconds 6
-          $out = Get-Content dist\smoke-out.log -Raw
-          if ($out -notmatch 'http://127\.0\.0\.1:(\d+)') {
-            if (Test-Path dist\smoke-err.log) { Get-Content dist\smoke-err.log -Raw | Write-Host }
-            throw "exe did not print its URL; stdout was: $out"
+          # Same shape as the mac smoke (2026-09-11): wait for the URL or for the
+          # process to leave, then print every log whatever happened, so a boot
+          # that dies before its first line is diagnosable from this step alone.
+          # app.mjs writes startup.log + error.log under %LOCALAPPDATA%\Crads-AI.
+          $out = ''
+          foreach ($i in 1..40) {
+            Start-Sleep -Milliseconds 500
+            $out = if (Test-Path dist\smoke-out.log) { [string](Get-Content dist\smoke-out.log -Raw) } else { '' }
+            if ($out -match 'http://127\.0\.0\.1:(\d+)') { break }
+            if ($p.HasExited) { break }
           }
+          $runDir = Join-Path $env:LOCALAPPDATA 'Crads-AI'
+          Write-Host ('--- app process: ' + $(if ($p.HasExited) { "exited $($p.ExitCode) on its own" } else { 'still running (expected)' }))
+          foreach ($f in 'dist\smoke-out.log', 'dist\smoke-err.log', (Join-Path $runDir 'startup.log'), (Join-Path $runDir 'error.log')) {
+            Write-Host "--- $f"
+            if (Test-Path $f) { Get-Content $f -Raw | Write-Host } else { Write-Host '(not written)' }
+          }
+          if (-not ($out -match 'http://127\.0\.0\.1:(\d+)')) { throw 'exe did not print its URL (the logs above say why)' }
           $html = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$($Matches[1])/").Content
           Stop-Process -Id $p.Id -Force
           if ($html -notmatch 'Crads-AI') { throw 'door HTML not served from the SEA assets' }
@@ -383,6 +421,30 @@ jobs:
           }
           Write-Host 'smoke OK: first run self-installs to LOCALAPPDATA'
 
+      # The way OUT (SignPath Foundation terms, 2026-09-14): a self-installing app
+      # must be uninstallable the normal Windows way. The first run above must have
+      # written the per-user Add/Remove Programs entry; `--uninstall` must remove
+      # the entry, the shortcuts, and (detached, after it exits) the program folder.
+      - name: Smoke the uninstall (Add/Remove entry present, --uninstall removes it all)
+        run: |
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Crads-AI'
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\Crads-AI\Crads-AI.exe'
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\Crads-AI'
+          $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Crads-AI.lnk'
+          if (-not (Test-Path $key)) { throw 'self-install did not write the Add/Remove Programs entry' }
+          $entry = Get-ItemProperty $key
+          if ($entry.DisplayName -ne 'Crads-AI') { throw "Add/Remove DisplayName is '$($entry.DisplayName)'" }
+          if ($entry.UninstallString -ne ('"' + $exe + '" --uninstall')) { throw "UninstallString is '$($entry.UninstallString)'" }
+          $env:AIOS_NO_LAUNCH = '1'
+          $out = & $exe --uninstall 2>&1 | Out-String
+          Write-Host $out
+          if ($out -notmatch 'uninstalled') { throw 'the --uninstall run did not report success' }
+          if (Test-Path $key) { throw 'the Add/Remove Programs entry survived --uninstall' }
+          if (Test-Path $lnk) { throw 'the Start-menu shortcut survived --uninstall' }
+          Start-Sleep -Seconds 8
+          if (Test-Path $dir) { Get-ChildItem $dir | Write-Host; throw "the program folder survived --uninstall: $dir" }
+          Write-Host 'smoke OK: Add/Remove entry present after install, gone after --uninstall, folder removed'
+
       # A debugging convenience, deliberately NON-BLOCKING (2026-07-30): when the
       # account's artifact storage filled up, this step failed and SKIPPED both the
       # release publish and the public mirror, so finished builds could not ship.
@@ -478,6 +540,12 @@ jobs:
             "--define:import.meta.url=__IMPORT_META_URL" \
             "--banner:js=const __IMPORT_META_URL = require('node:url').pathToFileURL(__filename).href;"
 
+      # The LOCAL face's engine files (2026-09-11) ride the sea-config block
+      # below (and its twin on the other platform): a brain folder on the
+      # member's own computer is scaffolded from them and its skills are
+      # classified against them. Keys are the repo-relative paths, enumerated
+      # in wizard/panel/local-scaffold.mjs LOCAL_ASSET_FILES and pinned by
+      # selfhost-assets.test.mjs. JSON has no comments, so this note lives here.
       - name: Build the SEA blob (bundle + embedded assets)
         run: |
           count="$(git rev-list --count HEAD)"
@@ -498,10 +566,31 @@ jobs:
               "tokens.css": "wizard/panel/vendor/tokens.css",
               "inter/inter.css": "wizard/panel/vendor/inter/inter.css",
               "inter/InterVariable.woff2": "wizard/panel/vendor/inter/InterVariable.woff2",
+              "marks/index.mjs": "wizard/panel/vendor/marks/index.mjs",
               "build-info.json": "dist/build-info.json",
               "cloud-init.template.yaml": "provisioning/managed/cloud-init.template.yaml",
               "aios-host-update": "provisioning/host/aios-host-update",
-              "enter-aios": "provisioning/host/enter-aios"
+              "enter-aios": "provisioning/host/enter-aios",
+              "engine/onboarding/interview-spec.yaml": "engine/onboarding/interview-spec.yaml",
+              "config/profile.schema.yaml": "config/profile.schema.yaml",
+              "engine/lib/brain-ignore.txt": "engine/lib/brain-ignore.txt",
+              "engine/lib/local-claude-md.md": "engine/lib/local-claude-md.md",
+              "engine/appshell/templates/pages.json": "engine/appshell/templates/pages.json",
+              "engine/appshell/templates/cards.json": "engine/appshell/templates/cards.json",
+              "engine/appshell/templates/pages/ask-me.html": "engine/appshell/templates/pages/ask-me.html",
+              "engine/appshell/templates/pages/my-people.html": "engine/appshell/templates/pages/my-people.html",
+              "engine/appshell/templates/pages/welcome.html": "engine/appshell/templates/pages/welcome.html",
+              "engine/skills/capture.md": "engine/skills/capture.md",
+              "engine/skills/connect.md": "engine/skills/connect.md",
+              "engine/skills/daily.md": "engine/skills/daily.md",
+              "engine/skills/dashboard.md": "engine/skills/dashboard.md",
+              "engine/skills/explain.md": "engine/skills/explain.md",
+              "engine/skills/followup.md": "engine/skills/followup.md",
+              "engine/skills/inbox.md": "engine/skills/inbox.md",
+              "engine/skills/onboard.md": "engine/skills/onboard.md",
+              "engine/skills/plan-week.md": "engine/skills/plan-week.md",
+              "engine/skills/weekly.md": "engine/skills/weekly.md",
+              "engine/skills/write-page.md": "engine/skills/write-page.md"
             }
           }
           EOF
@@ -550,13 +639,38 @@ jobs:
 
       - name: Smoke the app (boots, serves the embedded door page)
         run: |
+          set -u; set +e
+          # Diagnosable from THIS log alone (2026-09-11: the app exited 1 with an
+          # empty stderr, the step printed only stderr, and the cause, an engine
+          # CLI tail firing at import time inside the SEA, sat unread in stdout).
+          # So: wait on the process instead of sleeping, report its exit code,
+          # and print stdout, stderr and the app's own trace whatever happened.
+          # app.mjs writes startup.log + error.log under RUN_DIR (darwin:
+          # ~/Library/Application Support/Crads-AI).
+          RUN_DIR="$HOME/Library/Application Support/Crads-AI"
           AIOS_NO_LAUNCH=1 AIOS_NO_INSTALL=1 ./dist/Crads-AI.app/Contents/MacOS/crads-ai > dist/smoke-out.log 2> dist/smoke-err.log &
           PID=$!
-          sleep 6
+          # the URL, or the process leaving, whichever comes first (20s cap)
+          for _ in $(seq 1 40); do
+            grep -qE 'http://127\.0\.0\.1:[0-9]+/' dist/smoke-out.log && break
+            kill -0 "$PID" 2>/dev/null || break
+            sleep 0.5
+          done
           URL="$(grep -oE 'http://127\.0\.0\.1:[0-9]+/' dist/smoke-out.log | head -1)"
-          if [ -z "$URL" ]; then cat dist/smoke-err.log; echo "app did not print its URL"; kill $PID || true; exit 1; fi
-          HTML="$(curl -s "$URL")"
-          kill $PID || true
+          HTML=''
+          if [ -n "$URL" ]; then HTML="$(curl -s "$URL")"; fi
+          if kill -0 "$PID" 2>/dev/null; then
+            kill "$PID"; wait "$PID"; STATE='still running when the smoke stopped it (expected)'
+          else
+            wait "$PID"; STATE="exited $? on its own"
+          fi
+          echo "--- app process: $STATE"
+          echo '--- dist/smoke-out.log'; cat dist/smoke-out.log
+          echo '--- dist/smoke-err.log'; cat dist/smoke-err.log
+          for f in startup.log error.log; do
+            echo "--- $RUN_DIR/$f"; cat "$RUN_DIR/$f" 2>/dev/null || echo '(not written)'
+          done
+          if [ -z "$URL" ]; then echo '::error::app did not print its URL (the logs above say why)'; exit 1; fi
           echo "$HTML" | grep -q 'Crads-AI' || { echo 'door HTML not served from the SEA assets'; exit 1; }
           # Structural hook, not button prose: see the same check in the Windows
           # job above. This is the SECOND copy of the assertion, and it is why

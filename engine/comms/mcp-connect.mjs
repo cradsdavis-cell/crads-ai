@@ -31,6 +31,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { connectionLabel } from '../lib/connection-labels.mjs';
+import { GOOGLE_KEY_RE, PRIMARY_GOOGLE_KEY, GOOGLE_CREDS_DIR, googleStateFiles } from '../lib/google-byo.mjs';
 
 const stateDir = path.resolve(process.argv[2] || '/state');
 const cmd = process.argv[3] || 'status';
@@ -58,7 +59,12 @@ const key = String(process.argv[4] || '');
 //       working against a 1-box, which sees Google as before. (rekey_due_at
 //       shipped with early 2-boxes and is gone since the 2026-08-24
 //       Production reshape; the page renders it only when present.)
-const CONTRACT = 2;
+//   3 = several Google accounts per box (2026-09-14): rows may carry MORE
+//       than one byo:'google' entry (keys google, google-<slug>), each with
+//       its own `email`, and add-google / set-google take a `key`. The page
+//       gates ONLY its "Add another Google account" button on 3; a 2-box
+//       still renders its single google row exactly as before.
+const CONTRACT = 3;
 
 const MCP_F = path.join(stateDir, '.mcp.json');
 const OAUTH_F = path.join(stateDir, '.kernel', 'mcp-oauth.json');   // read-only here; mcp-token.mjs is the writer
@@ -94,7 +100,12 @@ const FEATURED = {
 // the refresh token and writes a dead marker on a definitive invalid_grant;
 // the row reads that marker. rekey_due_at is no longer emitted (older boxes
 // still send it; the page renders it only when present).
-const GOOGLE_DEAD_F = path.join(stateDir, '.kernel', 'google-key-dead.json');
+// SEVERAL ACCOUNTS (2026-09-14, Sam's ruling): a member may connect more
+// than one Google account, each as its OWN row and its own workspace-mcp
+// server (key `google` for the first, `google-<slug>` for every further
+// one; shape in engine/lib/google-byo.mjs). Each has its own key file, its
+// own dead marker and its own probe ledger; nothing is shared between them
+// but the credentials directory, where files are named by email.
 const GWS_BIN = '/opt/gws/bin/workspace-mcp';   // baked into the image (Dockerfile.base)
 const GOOGLE_TOOLS = ['gmail', 'calendar', 'drive', 'docs', 'sheets', 'tasks', 'contacts'];
 const TOKEN_TOOL = path.join(import.meta.dirname, 'mcp-token.mjs');
@@ -188,30 +199,43 @@ function describe(k, def, { label, blurb, mine, catalogUrl }) {
   };
 }
 
-// The one BYO row. Its states are the ordinary vocabulary the page already
-// renders — only `byo: 'google'` (route presses to the wizard, not plain add)
-// is special, which is what CONTRACT 2 announces. A signed-in key counts as
-// working until the live probe proves otherwise (the dead marker); there is
-// no clock here any more, because a published key has no scheduled death.
-function googleRow(srv) {
-  const base = { key: 'google', label: connectionLabel('google'),
+// One BYO row per Google account. Its states are the ordinary vocabulary the
+// page already renders — only `byo: 'google'` (route presses to the wizard,
+// not plain add) is special, which is what CONTRACT 2 announced; CONTRACT 3
+// says there may be several. A signed-in key counts as working until the
+// live probe proves otherwise (the account's own dead marker); there is no
+// clock here any more, because a published key has no scheduled death.
+function googleRow(key, def) {
+  const base = { key, label: connectionLabel(key),
     blurb: 'gmail, calendar, drive and docs, with your own key', auth: 'byo', byo: 'google', mine: true };
-  if (!srv.google) {
+  if (!def) {
     return { ...base, state: 'off', status: 'not connected', configured: false, authorised: false, renews: null };
   }
-  const g = rdJSON(OAUTH_F, {}).google;
+  const g = rdJSON(OAUTH_F, {})[key];
   const keyed = g?.provider === 'google-byo' ? (g.keyed_at || 0) : 0;
   if (!keyed) {
     return { ...base, state: 'needs-auth', status: 'added, waiting for you to sign in once',
-      configured: true, authorised: false, renews: null, email: srv.google.env?.USER_GOOGLE_EMAIL || null };
+      configured: true, authorised: false, renews: null, email: def.env?.USER_GOOGLE_EMAIL || null };
   }
-  const dead = rdJSON(GOOGLE_DEAD_F, null);
+  const dead = rdJSON(googleStateFiles(stateDir, key).dead, null);
   if (dead && dead.keyed_at === keyed) {
     return { ...base, state: 'needs-auth', status: 'sign-in expired, needs you once more',
       configured: true, authorised: false, renews: false, email: g.email };
   }
   return { ...base, state: 'on', status: 'working, including in scheduled jobs',
     configured: true, authorised: true, renews: true, email: g.email };
+}
+
+// The Google rows in order: the primary offer (always present, off when
+// absent), then every further account this tool added, or that points at the
+// baked workspace-mcp binary (a box restored from backup has the servers but
+// may have lost mcp-added.json).
+function googleRows(srv) {
+  const mine = appAdded();
+  const extra = Object.keys(srv)
+    .filter((k) => k !== PRIMARY_GOOGLE_KEY && GOOGLE_KEY_RE.test(k) && (mine.has(k) || srv[k]?.command === GWS_BIN))
+    .sort();
+  return [googleRow(PRIMARY_GOOGLE_KEY, srv[PRIMARY_GOOGLE_KEY]), ...extra.map((k) => googleRow(k, srv[k]))];
 }
 
 function rows() {
@@ -235,7 +259,7 @@ function rows() {
     // the extras loop below reports it like any other server.
   }
 
-  list.push(googleRow(srv));
+  list.push(...googleRows(srv));
 
   const known = new Set([...Object.keys(FEATURED), 'google', ...list.map((r) => r.key)]);
   for (const k of Object.keys(srv)) {
@@ -361,7 +385,7 @@ if (cmd === 'status') {
 }
 
 if (cmd === 'add') {
-  if (key === 'google') out({ ok: false, error: 'Google connects through its own set-up flow (add-google), not a plain add' });
+  if (GOOGLE_KEY_RE.test(key)) out({ ok: false, error: 'Google connects through its own set-up flow (add-google), not a plain add' });
   const def = FEATURED[key];
   if (!def) out({ ok: false, error: UNAVAILABLE[key] ? `${connectionLabel(key)} cannot be connected this way yet` : `unknown service: ${key}` });
   const doc = rdJSON(MCP_F, {});
@@ -382,7 +406,7 @@ if (cmd === 'add-custom') {
   catch { out({ ok: false, error: 'expected base64 JSON on stdin' }); }
   const name = String(req.name || '').toLowerCase();
   if (!NAME_RE.test(name)) out({ ok: false, error: 'name must be 2-32 chars: lowercase letters, digits, - or _' });
-  if (FEATURED[name] || UNAVAILABLE[name] || name === 'google') out({ ok: false, error: `"${name}" is a featured service, connect it from its own row` });
+  if (FEATURED[name] || UNAVAILABLE[name] || GOOGLE_KEY_RE.test(name)) out({ ok: false, error: `"${name}" is a featured service, connect it from its own row` });
   let url;
   try { url = new URL(String(req.url || '')); } catch { out({ ok: false, error: 'that does not look like a URL' }); }
   if (url.protocol !== 'https:') out({ ok: false, error: 'only https servers can be connected' });
@@ -413,34 +437,44 @@ if (cmd === 'add-custom') {
 }
 
 if (cmd === 'add-google') {
-  // stdin, base64(JSON): { email }. Only the server DEFINITION lands here —
-  // the credential material takes the mcp-token.mjs set-google path, so this
-  // file never touches a secret. Order in the wizard: add-google, sign in,
-  // set-google, probe.
+  // stdin, base64(JSON): { email, key? }. Only the server DEFINITION lands
+  // here — the credential material takes the mcp-token.mjs set-google path,
+  // so this file never touches a secret. Order in the wizard: add-google,
+  // sign in, set-google, probe. `key` (default google) names the account row:
+  // google-<slug> for a second, third... account, each its own server so the
+  // assistant's tool names say which account they reach.
   let req = {};
   try { req = JSON.parse(Buffer.from(readFileSync(0, 'utf8').trim(), 'base64').toString('utf8')); }
   catch { out({ ok: false, error: 'expected base64 JSON on stdin' }); }
   const email = String(req.email || '').trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) out({ ok: false, error: 'that does not look like an email address' });
+  const gkey = String(req.key || PRIMARY_GOOGLE_KEY).trim().toLowerCase();
+  if (!GOOGLE_KEY_RE.test(gkey)) out({ ok: false, error: 'that account name does not look right: up to 20 letters, digits or hyphens' });
   const doc = rdJSON(MCP_F, {});
   doc.mcpServers = doc.mcpServers || {};
-  const prev = doc.mcpServers.google;
-  if (prev && !appAdded().has('google') && prev.command !== GWS_BIN) {
-    out({ ok: false, error: 'a hand-added "google" server already exists on this box; remove it in Claude Code first' });
+  const prev = doc.mcpServers[gkey];
+  if (prev && !appAdded().has(gkey) && prev.command !== GWS_BIN) {
+    out({ ok: false, error: `a hand-added "${gkey}" server already exists on this box; remove it in Claude Code first` });
   }
-  doc.mcpServers.google = {
+  // one email, one row: the same account under two names would be two
+  // servers over one credential file, and "disconnect" would lie for one
+  const store = rdJSON(OAUTH_F, {});
+  const twin = Object.entries(doc.mcpServers)
+    .find(([k, d0]) => k !== gkey && GOOGLE_KEY_RE.test(k) && (d0?.env?.USER_GOOGLE_EMAIL === email || store[k]?.email === email));
+  if (twin) out({ ok: false, error: `${email} is already connected as ${connectionLabel(twin[0])}; disconnect that row first` });
+  doc.mcpServers[gkey] = {
     type: 'stdio',
     command: GWS_BIN,
     args: ['--single-user', '--tools', ...GOOGLE_TOOLS],
     env: {
       MCP_SINGLE_USER_MODE: '1',
       USER_GOOGLE_EMAIL: email,
-      WORKSPACE_MCP_CREDENTIALS_DIR: path.join(stateDir, '.kernel', 'google-creds'),
-      WORKSPACE_MCP_LOG_DIR: path.join(stateDir, '.kernel', 'google-creds', 'logs'),
+      WORKSPACE_MCP_CREDENTIALS_DIR: GOOGLE_CREDS_DIR(stateDir),
+      WORKSPACE_MCP_LOG_DIR: path.join(GOOGLE_CREDS_DIR(stateDir), 'logs'),
     },
   };
-  writeMcp(doc); syncAllow('google', true); rememberAdded('google', true); ensureApproved(['google']);
-  out({ ok: true, contract: CONTRACT, key: 'google', action: 'add-google', services: rows() });
+  writeMcp(doc); syncAllow(gkey, true); rememberAdded(gkey, true); ensureApproved([gkey]);
+  out({ ok: true, contract: CONTRACT, key: gkey, action: 'add-google', services: rows() });
 }
 
 if (cmd === 'remove') {

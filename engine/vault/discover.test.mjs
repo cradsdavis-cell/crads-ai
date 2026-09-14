@@ -335,3 +335,27 @@ test('a heartbeat_deploy_key.<rock> file is labelled as that rock\'s status key,
     assert.equal(row.kind, 'platform');
   } finally { rmSync(d, { recursive: true, force: true }); }
 });
+
+// ---- several Google accounts (2026-09-14): each key file revokes on ITS row --
+
+test('a second Google key file is revoked on its own Connections row, not the primary', () => {
+  const d = tmpDir('discover-gw-');
+  mkdirSync(join(d, '.kernel', 'google-creds'), { recursive: true });
+  const fp = join(d, '.kernel', 'google-creds', 'jane@gmail.com.json');
+  const fw = join(d, '.kernel', 'google-creds', 'jane@acme.example.json');
+  writeFileSync(fp, JSON.stringify({ refresh_token: 'r1', client_secret: 's1' }));
+  writeFileSync(fw, JSON.stringify({ refresh_token: 'r2', client_secret: 's2' }));
+  writeFileSync(join(d, '.kernel', 'mcp-oauth.json'), JSON.stringify({
+    google: { provider: 'google-byo', email: 'jane@gmail.com', keyed_at: 1, creds_file: fp },
+    'google-work': { provider: 'google-byo', email: 'jane@acme.example', keyed_at: 2, creds_file: fw },
+  }));
+  const rows = discover(d, {});
+  const p = rows.find((r) => r.name === 'google-creds:jane@gmail.com');
+  const w = rows.find((r) => r.name === 'google-creds:jane@acme.example');
+  assert.ok(p && w, 'both files are listed');
+  assert.deepEqual(p.revoke, { via: 'connections', key: 'google' });
+  assert.deepEqual(w.revoke, { via: 'connections', key: 'google-work' });
+  assert.match(w.what, /Google Workspace \(work\)/);
+  assert.equal(rows.some((r) => r.name === 'oauth:google-work'), false, 'never listed twice');
+  for (const r of rows) assert.ok(!JSON.stringify(r).includes('r2') && !JSON.stringify(r).includes('s2'), 'no value leaks');
+});

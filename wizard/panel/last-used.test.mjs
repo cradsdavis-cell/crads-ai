@@ -27,7 +27,7 @@ test('only wizard-installed alias shapes are accepted, in BOTH directions', () =
   // This value picks a surface at launch, so a hand-edited or corrupted file
   // must not be able to steer the launcher. Validated on write AND on read.
   const p = tmp();
-  for (const bad of ['', '../../etc/passwd', 'aster', 'Aster-Box', 'aster-box; rm -rf /', 'http://x/']) {
+  for (const bad of ['', '../../etc/passwd', 'aster', 'Aster-Box', 'aster-box; rm -rf /', 'http://x/', 'idris-folder']) {
     assert.equal(writeLastUsed(bad, p), false, `${JSON.stringify(bad)} is refused on write`);
   }
   assert.equal(existsSync(p), false, 'and nothing was written at all');
@@ -77,6 +77,20 @@ test('a promoted box is ONE mineral, and opens its rock face', () => {
   ];
   assert.deepEqual(launchTarget(promoted, 'aster-box'),
     { open: 'panel', host: 'aster-box', why: 'last used' });
+});
+
+test('a brain folder on this computer opens on its alias, like a rock', () => {
+  // its slug is not a -box alias, so #box= would miss it; app.mjs opens
+  // #host=<alias> for open:'local'
+  // -local is the third alias shape (a brain folder on this computer)
+  const p = tmp();
+  assert.equal(writeLastUsed('idris-local', p), true);
+  assert.equal(readLastUsed(p), 'idris-local');
+  const LOCAL = { host: 'idris-local', org: 'idris', kind: 'local', path: '/home/x/Crads-AI/idris' };
+  assert.deepEqual(launchTarget([ROCK, PEB, LOCAL], 'idris-local'),
+    { open: 'local', host: 'idris-local', slug: 'idris', why: 'last used' });
+  const app = readFileSync(new URL('../app.mjs', import.meta.url), 'utf8');
+  assert.match(app, /pick\.open === 'local' && panelFlipUrl/, 'the local pick waits on the one panel URL');
 });
 
 test('junk targets never produce a launch', () => {

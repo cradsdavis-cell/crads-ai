@@ -26,7 +26,9 @@
  *  layer has not answered (offline, signed out, worker down) — honest, because
  *  it is the same guess the door has always shown, and never blank. */
 export function tierFromAlias(alias) {
-  return /-rock$/.test(String(alias || '')) ? 'rock' : 'pebble';
+  const a = String(alias || '');
+  if (/-local$/.test(a)) return 'local';     // a brain folder on this computer (2026-09-11)
+  return /-rock$/.test(a) ? 'rock' : 'pebble';
 }
 
 /** The slug a mineral host names: `aster.crads-ai.com` -> `aster`.
@@ -34,14 +36,14 @@ export function tierFromAlias(alias) {
  *  registrations) resolves to the same slug the alias does, so the join holds
  *  from both directions. */
 export function slugOfHost(host) {
-  return String(host || '').split('.')[0].replace(/-(box|rock)$/, '').toLowerCase();
+  return String(host || '').split('.')[0].replace(/-(box|rock|local)$/, '').toLowerCase();
 }
 
 /** The slug a local target names. `org` is the alias prefix; normalise it the
  *  same way as slugOfHost so the two sides of the join cannot disagree on case
  *  or on a stray suffix. */
 export function slugOfTarget(t) {
-  return String((t && t.org) || '').replace(/-(box|rock)$/, '').toLowerCase();
+  return String((t && t.org) || '').replace(/-(box|rock|local)$/, '').toLowerCase();
 }
 
 /**
@@ -73,7 +75,10 @@ export function collapseLocal(targets = []) {
       // answer). A member-only group is ONLY the `-box` suffix talking, and a
       // rock promoted or provisioned recently still wears that suffix — the
       // exact rows Harriet's door painted "Pebble" on 2026-08-18.
-      byAlias.set(alias, { alias, slug: slugOfTarget(t), tier: t.kind === 'rock' ? 'rock' : 'pebble', sure: t.kind === 'rock', promoted: !!t.promoted });
+      // a local row is never a guess either: it comes from the registry this
+      // app wrote, with the folder path alongside for the door to show
+      byAlias.set(alias, { alias, slug: slugOfTarget(t), tier: t.kind === 'rock' ? 'rock' : t.kind === 'local' ? 'local' : 'pebble',
+        sure: t.kind === 'rock' || t.kind === 'local', promoted: !!t.promoted, ...(t.kind === 'local' ? { path: t.path || '', name: t.name || '' } : {}) });
       continue;
     }
     // the box answered "rock" on one of its rows: that wins over the alias guess
@@ -142,7 +147,8 @@ export function mergeInventory({ local = [], account = null, boxes = [], email =
     rows.push({
       slug: l.slug,
       alias: l.alias,
-      label: (m && String(m.label || '').trim()) || l.slug,
+      label: (m && String(m.label || '').trim()) || l.name || l.slug,
+      ...(l.tier === 'local' ? { path: l.path || '' } : {}),
       // the ACCOUNT's tier wins when we have it (the directory holds the
       // mineral record); the alias/probe answer is the offline fallback
       tier: (m && (m.tier === 'rock' || m.tier === 'pebble')) ? m.tier : l.tier,

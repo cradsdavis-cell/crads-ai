@@ -119,6 +119,40 @@ test('ONE server, ONE verb table (2026-09-01): member verbs serve every alias ki
   assert.match(noOrg.text, /unknown verb/, 'as unknown, because it is not served at all');
 });
 
+test('the THIRD verb table (2026-09-11): a -local target is served LOCAL_VERBS, a strict subset, by kind', async (t) => {
+  // The one server, still one face, but the table follows the target's kind:
+  // a brain folder on this computer gets the local table and a box verb it
+  // does not carry is unknown THERE while known on the box beside it.
+  const { EventEmitter } = await import('node:events');
+  const { LOCAL_VERBS } = await import('./local-verbs.mjs');
+  const bridge = {
+    targets: () => [
+      { host: 'plain3-box', org: 'plain3', kind: 'member' },
+      { host: 'mine-local', org: 'mine', kind: 'local', path: '/nowhere' },
+    ],
+    stream: (host, command, o = {}) => {
+      const ee = new EventEmitter();
+      setImmediate(() => { if (o.onStdout) o.onStdout('ran'); ee.emit('close', 0); });
+      return ee;
+    },
+  };
+  const server = createPanelServer({ port: 0, host: '127.0.0.1', bridge, htmlText: '<html></html>' });
+  await new Promise((r) => server.on('listening', r));
+  t.after(() => server.close());
+  const shared = Object.keys(LOCAL_VERBS).find((v) => !LOCAL_VERBS[v].mutating);
+  assert.ok(MEMBER_VERBS[shared], 'every local verb is also a member verb');
+  for (const host of ['plain3-box', 'mine-local']) {
+    const r = await post(server, '/run', { verb: shared, host, args: {} });
+    assert.notEqual(r.status, 400, `${host} passes the one gate for ${shared} (got ${r.status}: ${r.text})`);
+  }
+  const boxOnly = Object.keys(MEMBER_VERBS).find((v) => !LOCAL_VERBS[v] && !MEMBER_VERBS[v].mutating && !MEMBER_VERBS[v].adminOnly);
+  const onFolder = await post(server, '/run', { verb: boxOnly, host: 'mine-local', args: {} });
+  assert.equal(onFolder.status, 400, `${boxOnly} is unknown on a folder`);
+  assert.match(onFolder.text, /unknown verb/);
+  const onBox = await post(server, '/run', { verb: boxOnly, host: 'plain3-box', args: {} });
+  assert.notEqual(onBox.status, 400, `${boxOnly} stays served on the box`);
+});
+
 test('/org-teardown is RETIRED (2026-09-01): 404 for everyone; stop-hosting (/demote) is the only retire path', async (t) => {
   // The hosted era deleted whole rocks through this route with re-pasted cloud
   // codes. A self-hosted server is deleted where it lives, at the hosting

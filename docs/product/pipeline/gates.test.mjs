@@ -12,7 +12,7 @@ import { bodyHash, readLock, auditLock } from './legal.mjs';
 import { ledger } from './drift.mjs';
 import { RECIPES, recipeIds, auditRecipes } from './recipes.mjs';
 import { caseProblems } from './case.mjs';
-import { DIAGRAM_LINE, DIAGRAM_ANY, renderMarkdown } from './render.mjs';
+import { DIAGRAM_LINE, DIAGRAM_ANY, renderMarkdown, calloutKind } from './render.mjs';
 import { diagramIds, renderDiagram } from './diagrams.mjs';
 import { coverage } from './coverage.mjs';
 import { audit } from './links.mjs';
@@ -197,6 +197,32 @@ test('recipes not yet documented are reported, not failed', () => {
 });
 
 // --- sentence case -----------------------------------------------------------
+// --- the line under the title -------------------------------------------------
+test('every public tutorial and how-to says what you will be able to do', () => {
+  // `outcome:` (2026-09-10) is the one line a practical page owes its reader.
+  // Explanations and reference pages are exempt: they explain or list, they
+  // do not promise a capability.
+  const missing = realPages()
+    .filter((p) => p.audience === 'public' && ['tutorial', 'how-to'].includes(p.mode) && !p.outcome)
+    .map((p) => p.slug);
+  assert.deepEqual(missing, [], 'a practical page with no outcome: line');
+});
+
+test('a callout is a Note, a Tip or a Careful, and nothing else', () => {
+  const bad = [];
+  for (const pg of realPages()) {
+    const lines = String(pg.body).split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (!/^>\s?/.test(lines[i])) continue;
+      const buf = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/, ''));
+      const k = calloutKind(buf.join(' '));
+      if (k.error) bad.push(`${pg.slug}: ${k.error}`);
+    }
+  }
+  assert.deepEqual(bad, [], 'a quote asks for a callout flavour that does not exist');
+});
+
 test('docs copy is sentence case, both directions', () => {
   assert.deepEqual(caseProblems(realPages()), []);
 });
@@ -224,6 +250,16 @@ test('every diagram a page references exists', () => {
     }
   }
   assert.deepEqual(bad, [], 'a page points at a diagram that does not exist');
+});
+
+test('every diagram is shown by some page', () => {
+  // The reverse of the test above. Three diagrams sat unreferenced for two
+  // weeks (2026-08-25 to 2026-09-10) and two of them rotted into the hosted
+  // era, which nothing caught because nothing rendered them. An orphan
+  // diagram is one nobody proofreads, so it is a failed build.
+  const used = new Set(realPages().flatMap((pg) => [...pg.body.matchAll(/!\[[^\]]*\]\(diagram:([a-z0-9-]+)\)/g)].map((m) => m[1])));
+  const orphans = diagramIds().filter((id) => !used.has(id));
+  assert.deepEqual(orphans, [], 'a diagram no page shows');
 });
 
 test('a diagram carries no hex colour, so it inherits the page', () => {

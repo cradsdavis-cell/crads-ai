@@ -33,3 +33,10 @@ test('no label in the map is itself a raw lowercase key', () => {
     assert.notEqual(v, v.toLowerCase(), `label "${v}" looks unlabelled`);
   }
 });
+
+test('a further Google account reads as the same kind of row with the account in the bracket', () => {
+  assert.equal(connectionLabel('google'), 'Google Workspace');
+  assert.equal(connectionLabel('google-work'), 'Google Workspace (work)');
+  assert.equal(connectionLabel('google-acme-ltd'), 'Google Workspace (acme-ltd)');
+  assert.equal(connectionLabel('google-Work'), 'Google Work', 'outside the grammar it is just another unknown key');
+});

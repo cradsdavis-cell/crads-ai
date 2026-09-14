@@ -59,7 +59,7 @@ const STATES = new Set(['rich', 'empty', 'error']);
 
 // ---- request context: which surface is calling, in which state -------------
 function ctxOf(req) {
-  let surface = 'panel', state = null;
+  let surface = 'panel', state = null, face = '';
   try {
     const ref = new URL(req.headers.referer || '');
     const p = ref.pathname;
@@ -67,17 +67,21 @@ function ctxOf(req) {
     else if (p.startsWith('/door')) surface = 'door';
     const s = ref.searchParams.get('state');
     if (s && STATES.has(s)) state = s;
+    // ?face=local (2026-09-11): the surface opens against a brain folder on
+    // this computer; every stub that answers by target kind reads this
+    if (ref.searchParams.get('face') === 'local') face = 'local';
   } catch { /* no referer */ }
   try {
     const own = new URL(req.url, 'http://localhost');
     const s = own.searchParams.get('state');
     if (s && STATES.has(s)) state = s;
+    if (own.searchParams.get('face') === 'local') face = 'local';
   } catch { /* ignore */ }
   if (!state) {
     const m = String(req.headers.cookie || '').match(/(?:^|;\s*)hstate=(\w+)/);
     if (m && STATES.has(m[1])) state = m[1];
   }
-  return { surface, state: state || 'rich' };
+  return { surface, state: state || 'rich', face };
 }
 
 // A page-level switch beyond the three worlds, read the same way `?state=` is
@@ -165,15 +169,15 @@ const server = createServer(async (req, res) => {
       return res.end(JSON.stringify(FX.googleConnectClient(b)));
     }
     if (req.method === 'POST' && u.pathname === '/google-connect/start') {
-      await readBody(req);
-      return res.end(JSON.stringify(FX.googleConnectStart()));
+      const b = await readBody(req);
+      return res.end(JSON.stringify(FX.googleConnectStart(b)));
     }
     if (req.method === 'GET' && u.pathname === '/google-connect/status') {
-      return res.end(JSON.stringify(FX.googleConnectStatus()));
+      return res.end(JSON.stringify(FX.googleConnectStatus(u.searchParams.get('key'))));
     }
     if (req.method === 'POST' && u.pathname === '/google-connect/cancel') {
-      await readBody(req);
-      return res.end(JSON.stringify(FX.googleConnectCancel()));
+      const b = await readBody(req);
+      return res.end(JSON.stringify(FX.googleConnectCancel(b)));
     }
     return res.end(JSON.stringify({ ok: false, reason: 'unknown' }));
   }
@@ -206,7 +210,7 @@ const server = createServer(async (req, res) => {
 
   const url = new URL(req.url, 'http://localhost');
   const path = url.pathname;
-  const { surface, state } = ctxOf(req);
+  const { surface, state, face } = ctxOf(req);
 
   // ---- pages + assets -------------------------------------------------------
   if (req.method === 'GET' && REDIRECTS[path]) {
@@ -302,13 +306,29 @@ const server = createServer(async (req, res) => {
   // followHandoff() polls this after an apply; 'idle' is the resting answer both
   // real servers give, and the one that keeps the poll harmless here.
   if (req.method === 'GET' && path === '/update-handoff') { sendJson(res, { phase: 'idle' }); return; }
-  if (req.method === 'GET' && path === '/targets') { sendJson(res, FX.targets(surface, state)); return; }
+  if (req.method === 'GET' && path === '/targets') { sendJson(res, FX.targets(surface, state, face)); return; }
+  // the "On this computer" flow (2026-09-11): create answers a ready folder,
+  // status lists it, setup-steps reads the folder's two facts. Nothing is
+  // made on disk: the harness stubs the scaffold out of existence, same as
+  // Hetzner.
+  if (req.method === 'POST' && path === '/local/create') {
+    const form = await readBody(req);
+    if (!String(form.name || '').trim()) { sendJson(res, { error: 'give your assistant a name (1 to 60 characters)' }, 400); return; }
+    const slug = String(form.name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'brain';
+    sendJson(res, { ok: true, alias: FX.LOCAL_HOST, slug, name: String(form.name).trim(), path: form.path || ('/home/mel/Crads-AI/' + slug), existed: false, created: ['wiki/', 'profile.yaml', '.claude/skills/'], git: 'initialised' });
+    return;
+  }
+  if (req.method === 'GET' && path === '/local/status') { sendJson(res, { brains: face === 'local' ? [{ alias: FX.LOCAL_HOST, slug: 'sam', name: 'Sam', path: FX.LOCAL_PATH, state: 'brain' }] : [] }); return; }
+  if (req.method === 'GET' && path === '/local/setup-steps') {
+    sendJson(res, { reachable: true, github: pageParam(req, 'setup') === 'done' ? { connected: true, repo: 'github.com/sam/sam-brain' } : { connected: false, repo: '' }, claude: null, path: FX.LOCAL_PATH });
+    return;
+  }
 
   if (req.method === 'POST' && path === '/run') {
     const form = await readBody(req);
     // ?signedout=1 on the PAGE url (read via referer, same idiom as ?world=org)
     const signedOut = /[?&]signedout=1/.test(String(req.headers.referer || ''));
-    const result = FX.runVerb(surface, String(form.verb || ''), form.args, state, { signedOut });
+    const result = FX.runVerb(surface, String(form.verb || ''), form.args, state, { signedOut, face });
     streamRun(res, result);
     return;
   }
@@ -336,8 +356,11 @@ const server = createServer(async (req, res) => {
     const t = { res: null, queue: [], host: String(form.host || 'box'), closed: false };
     terms.set(id, t);
     // feed the fake transcript in, chunk by chunk, like a live shell
-    const chunks = FX.termTranscript(t.host);
-    chunks.forEach((b64, i) => setTimeout(() => { if (!t.closed) termEmit(t, b64); }, 150 + i * 120));
+    // `?term=onboard|signin` on the page URL picks a different transcript (demo films)
+    const chunks = FX.termTranscriptFor(t.host, pageParam(req, 'term'));
+    // `?termpace=<ms>` slows the feed (demo films read at a human pace)
+    const pace = parseInt(pageParam(req, 'termpace') || '120', 10) || 120;
+    chunks.forEach((b64, i) => setTimeout(() => { if (!t.closed) termEmit(t, b64); }, 150 + i * pace));
     sendJson(res, { id });
     return;
   }
@@ -376,7 +399,7 @@ const server = createServer(async (req, res) => {
   }
 
   // ---- door --------------------------------------------------------------------
-  if (req.method === 'GET' && path === '/identities') { sendJson(res, FX.identities(state)); return; }
+  if (req.method === 'GET' && path === '/identities') { sendJson(res, FX.identities(state, face)); return; }
 
   // ---- the mineral inventory (spec 2026-08-13) ------------------------------
   // Deliberately routed through the REAL merge (wizard/panel/inventory.mjs)
@@ -396,11 +419,11 @@ const server = createServer(async (req, res) => {
   }
   if (req.method === 'GET' && path === '/inventory') {
     sendJson(res, { stage: 'local', account: 'pending',
-      rows: mergeInventory({ local: collapseLocal(FX.identities(state).identities), account: null }) });
+      rows: mergeInventory({ local: collapseLocal(FX.identities(state, face).identities), account: null }) });
     return;
   }
   if (req.method === 'GET' && path === '/inventory/full') {
-    const local = collapseLocal(FX.identities(state).identities);
+    const local = collapseLocal(FX.identities(state, face).identities);
     // 'empty' = a fresh install (the creator takeover owns the screen);
     // 'error' = signed in but the directory is unreachable, which must degrade
     // to the on-machine list plus an honest line, never to a blank screen.

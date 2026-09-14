@@ -7,36 +7,48 @@ category: box
 
 # Skill: /write-page
 
-The rock authors member pages here. Authoring is this skill; distribution is the dashboard Catalogue.
+One page, for the member's own app, written into the member's own folder. The
+companion app is a shell: beyond its built-in tabs it renders whatever lives
+under `/state/dashboard/`, which is the member's (three-layer model, layer 3).
+`/dashboard` is the wider skill (pages and cards, config, template updates);
+this one is the short path for "build me a page that shows X".
 
-A page is **pickup, never push**: it stages into each entitled member's inbox and appears on their Library page with an Install button. It does not land in their nav on its own, and an installed page is never overwritten by a later offer.
+(Rewritten 2026-09-10. Until then this body described the hosted era: a rock
+authoring pages into a Catalogue for members to pick up. There is no rock, no
+Catalogue and no pickup any more; the page lands on this mineral, in this
+member's sidebar, on the next refresh.)
 
-## What you're building
+## The page contract (follow exactly)
 
+A page is an **HTML fragment** at `dashboard/pages/<id>.html` plus a manifest
+entry in `dashboard/pages.json`:
+
+```json
+{ "template_version": 1, "pages": [ { "id": "welcome", "title": "Welcome" } ] }
 ```
-pages-library/<id>/
-  page.yaml     # manifest (id, version, title, description, category, gate)
-  page.html     # the page itself, self-contained
-```
 
-Copy `pages-library/_TEMPLATE/` if it exists; otherwise create the directory and write both files yourself.
+- `id`: kebab-case, `[a-z0-9-]`, must match the filename (`<id>.html`). A page whose id fails this pattern is ignored by the app.
+- `title` becomes the entry under **Your pages** in the sidebar.
+- The fragment renders inside a **sandboxed frame**: it cannot reach the app, its storage, or its verbs, and a CSP blocks every network request, external font, CDN and image. No `<html>`, `<head>` or `<body>`. Inline the CSS and any script.
+- Use the app's look: `<h2>` title, `<p class="hint">` for helper text, `.guidecard` for boxed content. The app's CSS variables are available inside the sandbox.
+- Optional `<script>` tags run inside the sandbox (top-level, no modules) with `window.pageApi`: `pageApi.data()` for the mineral's live `data.json` snapshot, `pageApi.run(verb, args)` for the read-only brain verbs (`'brain-list'` and `'brain-read'` only), `pageApi.esc(s)` to HTML-escape, `pageApi.refresh()` to ask the app to re-pull. Nothing else works from a page.
+- Escape ALL brain-derived text with `pageApi.esc()` before inserting it into the page's own HTML.
 
 ## How to run it
 
-1. **Establish the intent.** What does the member look at this page to find out or to do? Is it a reference they read, or something they interact with? If it needs data, whose data, and is that data already on their box?
-
-2. **Pick a kebab id**, then write `page.html`.
-
-3. **Self-contained or it does not work.** The page runs in a sandboxed iframe with a deny-all CSP and no network access. No CDN script, no external stylesheet, no web font, no `fetch`. Inline the CSS and any script. A page that breaks this renders as a blank area with no error the member can see, which is why the lint below exists.
-
-4. **Write `page.yaml`** with the same six fields as a prompt manifest. `category` is **required** and must be one of `briefing`, `capture`, `comms`, `box`, `org`, `other`; publish refuses anything else by name. `title` becomes the nav entry on the member's box. Bump `version` on every content change.
-
-5. **Lint it:** `node /app/engine/appshell/page-lint.mjs pages-library/<id>/page.html`. Fix every error. The dashboard runs the same lint at save time and refuses to save a page that fails, so a page that will not lint is a page nobody can offer.
-
-6. **Hand off.** Tell the operator: dashboard **Catalogue** page, Pages zone, switch it on for the right members, Publish.
+1. **Establish the intent.** What does the member look at this page to find out or to do? A reference they read, or something they interact with? If it needs data, is that data already in the brain or in `data.json`? One question if the ask is vague, not an interview.
+2. **Read `dashboard/pages.json`** and the existing page files: know what is already there, and do not overwrite a page the member did not ask to change.
+3. **Pick a kebab id**, write the fragment, add the manifest entry. Valid JSON, valid id, fragment only.
+4. **Lint it:** `node /app/engine/appshell/page-lint.mjs dashboard/pages/<id>.html`. Fix every error. A page that will not lint renders as a blank area with no error the member can see, which is why the lint exists.
+5. **Show the member the page before saving** when it is more than a few lines, then save.
+6. **Tell them** the page appears in the app sidebar under **Your pages** on the next refresh (the Refresh button, or reopening the app).
 
 ## Rules to hold
 
-- **Never assume the organisation can read the member.** The page runs on their box, against their data.
 - **Degrade visibly.** If something the page wants is missing, say so on the page. A member cannot debug a blank screen.
-- **Propose the draft, do not publish it.**
+- **Never edit `/app`** (the machinery). This skill only ever writes under `/state/dashboard/`.
+- **Propose the draft, do not assume it is right.** The member owns this folder.
+
+## Summary line (run history)
+
+End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the member's app (run history); without it the last output line is used.

@@ -34,6 +34,21 @@ test('the faces machinery is RETIRED (2026-09-01): every card renders on the one
     'faceCards keeps only the when() gate: conditional cards, never facial ones');
 });
 
+// The LOCAL face (2026-09-11) is the ONE face axis the shell is permitted,
+// and it is named: body[data-face], written from the target's kind by
+// applyFace() and read only by CSS. It hides what needs a server; it never
+// grows a second render path (no card declares a face, the pipeline is one).
+test('exactly one face axis, named: body[data-face] from the target kind, read by CSS, no second pipeline', () => {
+  assert.equal((html.match(/document\.body\.dataset\.face = /g) || []).length, 1, 'exactly one writer of the face axis');
+  assert.match(html, /body\[data-face="local"\] \[data-needs-box\]\{display:none !important\}/, 'the axis hides what needs a server');
+  for (const sec of ['connections', 'secrets', 'terminal']) {
+    assert.match(html, new RegExp(`body\\[data-face="local"\\] section\\[data-sec="${sec}"\\]`), `${sec} is gated by selector, its tag untouched`);
+  }
+  assert.ok(html.includes('data-needs-box-note>Scheduled jobs, Telegram and connections need a server.'), 'the honest one-liner beside each hidden group');
+  assert.ok(!lib.includes('faces:') && !lib.includes('face:'), 'no card declares a face: the axis is CSS, the pipeline stays one');
+  assert.ok(!html.includes('IS_LOCAL'), 'no second face flag: state.kind is read where it is needed, never a global');
+});
+
 test('promotion is declarative and the FLIP rig keys on the promoted set', () => {
   assert.match(html, /c\.promote && c\.promote\(state\.data\)/);
   // The pebble-gate promotion died with the gate; an unwell box still leads.

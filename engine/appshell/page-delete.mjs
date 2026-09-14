@@ -11,6 +11,7 @@
 // `ERROR: ...`. Exit 0 on OK, 1 on ERROR.
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
+import { isMain } from '../lib/is-main.mjs';
 
 const ID_RE = /^[a-z0-9][a-z0-9._-]{0,80}$/;
 
@@ -41,7 +42,7 @@ export function deletePage(box, id) {
   return { ok: true, msg: `OK: page ${id} deleted.` };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
+if (isMain(import.meta.url)) {
   const [box, id] = process.argv.slice(2);
   if (!box || !id) { console.log('ERROR: usage: page-delete.mjs <boxDir> <id>'); process.exit(1); }
   const r = deletePage(box, id);

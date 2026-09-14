@@ -108,7 +108,7 @@ async function runVerb(verb, args = {}) {
   return JSON.parse(lines[lines.length - 1]);
 }
 
-test('mcp-status: the harness box speaks contract 2 and carries the byo google row', async () => {
+test('mcp-status: the harness box speaks contract 3 and carries the byo google row', async () => {
   await fetch(base + '/state/rich');   // fresh flows
   // the fixture contract must never outrun the real engine's CONTRACT
   const engine = readFileSync(join(HERE, '..', '..', 'engine', 'comms', 'mcp-connect.mjs'), 'utf8');
@@ -116,9 +116,9 @@ test('mcp-status: the harness box speaks contract 2 and carries the byo google r
   const fixtures = readFileSync(join(HERE, 'fixtures.mjs'), 'utf8');
   const faked = Number(fixtures.match(/const MCP_CONTRACT = (\d+);/)[1]);
   assert.ok(faked <= real, `fixture contract ${faked} claims more than the engine's ${real}`);
-  assert.equal(faked, 2, 'the google row rides contract 2; the fixture must announce it');
+  assert.equal(faked, 3, 'several google rows ride contract 3; the fixture must announce it');
   const d = await runVerb('mcp-status');
-  assert.equal(d.contract, 2);
+  assert.equal(d.contract, 3);
   const g = d.services.find((s) => s.key === 'google');
   assert.ok(g, 'the google row is in the box report');
   assert.equal(g.byo, 'google');
@@ -287,4 +287,33 @@ test('provision/providers lists the registry; validate answers each provider in 
   const hz = await (await postJson('/provision/validate', { token: 'fixture-token' })).json();
   assert.equal(hz.symbol, '€');
   assert.equal((await postJson('/provision/validate', { token: 'fixture-token', provider: 'aws' })).status, 400);
+});
+
+test('/google-connect: a second account walks its own flow and lands as its own row', async () => {
+  await fetch(base + '/state/rich');   // fresh flows
+  const okc = await post('/google-connect/client', { host: 'mel-box', key: 'google-work', email: 'mel@harperandco.example',
+    client_json_b64: b64({ installed: { client_id: 'w.apps.googleusercontent.com', client_secret: 's' } }) });
+  assert.equal(okc.ok, true);
+  assert.equal(okc.key, 'google-work');
+  // the primary's flow is untouched: no stash there
+  const primary = await post('/google-connect/start', { host: 'mel-box' });
+  assert.equal(primary.ok, false);
+  assert.match(primary.reason, /drop your key file first/);
+  assert.equal((await post('/google-connect/start', { host: 'mel-box', key: 'google-work' })).ok, true);
+  let last;
+  for (let i = 0; i < 12; i++) {
+    last = await (await fetch(base + '/google-connect/status?host=mel-box&key=google-work')).json();
+    if (last.stage === 'done' || last.stage === 'failed') break;
+  }
+  assert.equal(last.stage, 'done');
+  assert.equal(last.key, 'google-work');
+  const rows = (await runVerb('mcp-status')).services.filter((s) => s.byo === 'google');
+  assert.deepEqual(rows.map((s) => s.key), ['google', 'google-work'], 'primary offer first, then the new account');
+  assert.equal(rows[1].state, 'on');
+  assert.equal(rows[1].email, 'mel@harperandco.example');
+  assert.equal(rows[1].label, 'Google Workspace (work)');
+  // a malformed key is refused in the same words the real route uses
+  const bad = await post('/google-connect/client', { host: 'mel-box', key: 'Work Account', email: 'x@y.example', client_json_b64: b64({ installed: { client_id: 'a', client_secret: 'b' } }) });
+  assert.equal(bad.ok, false);
+  assert.match(bad.reason, /account name/i);
 });

@@ -21,14 +21,21 @@ export const ORG = 'driftwood-surf';
 export const ORG_DISPLAY = 'Driftwood Surf School';
 export const ROCK_HOST = 'driftwood-rock';
 export const MEMBER_HOST = 'mel-box';
+// The LOCAL face (2026-09-11): a brain folder on this computer, no server.
+// Reached with ?face=local on a surface URL; the harness passes `face` down.
+export const LOCAL_HOST = 'sam-local';
+export const LOCAL_PATH = '/home/mel/Crads-AI/mel';
 
 const FAKE_KEY = (label) => `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF4k3m0eXAMPLEexampleEXAMPLEexampleEXAMPLEexample ${label}`;
 
 // ---------------------------------------------------------------------------
 // targets / identities
 // ---------------------------------------------------------------------------
-export function targets(surface, state) {
+export function targets(surface, state, face) {
   const base = { role: 'admin', roleAssumed: false, wizardUrl: '/wizard', doorUrl: '/door' };
+  if (face === 'local') {
+    return { targets: [{ host: LOCAL_HOST, org: 'sam', kind: 'local', path: LOCAL_PATH, name: 'Sam' }], edition: 'member', ...base };
+  }
   if (surface === 'member') {
     return { targets: state === 'empty' ? [{ host: MEMBER_HOST, org: ORG, kind: 'member' }]
       : [{ host: MEMBER_HOST, org: ORG, kind: 'member' }], edition: 'member', ...base };
@@ -36,8 +43,11 @@ export function targets(surface, state) {
   return { targets: [{ host: ROCK_HOST, org: ORG, kind: 'rock' }], edition: 'org', ...base };
 }
 
-export function identities(state) {
+export function identities(state, face) {
   if (state === 'empty') return { identities: [], open: {} };
+  if (face === 'local') {
+    return { identities: [{ host: LOCAL_HOST, org: 'sam', kind: 'local', path: LOCAL_PATH, name: 'Sam' }], open: { member: '/member' } };
+  }
   return {
     // `org` IS THE ALIAS PREFIX, not the org's display slug. listPanelTargets
     // derives it by regex from the alias (`driftwood-rock` -> `driftwood`,
@@ -61,6 +71,7 @@ export function identities(state) {
 }
 
 export function probe(host, state) {
+  if (host === LOCAL_HOST) return { ok: true, login: 'local' };
   if (state === 'error') return { ok: false, login: '' };
   return { ok: true, login: host === ROCK_HOST ? 'aios-op' : 'member' };
 }
@@ -777,6 +788,65 @@ export function termTranscript(host) {
   ].map((s) => Buffer.from(s, 'utf8').toString('base64'));
 }
 
+// Two more transcripts, picked with `?term=onboard|signin` on the member URL
+// (2026-09-10, for the product demo films). Same shape as termTranscript; the
+// words follow engine/skills/onboard.md (turn zero asks the name, then one
+// question per turn, quoting the member's own words) and the real `claude`
+// sign-in prompt. Fiction, like every other fixture here.
+export function termTranscriptFor(host, kind) {
+  if (kind === 'onboard') return termTranscriptOnboard(host);
+  if (kind === 'signin') return termTranscriptSignin(host);
+  return termTranscript(host);
+}
+function banner(host, c) {
+  return [
+    `${c('1;32', host)}:${c('1;34', '/state')}$ `,
+    'claude\r\n',
+    `\r\n${c('38;5;208', ' ▐▛███▜▌')}   ${c('1', 'Claude Code')} ${c('2', 'v2.1.0')}\r\n`,
+    `${c('38;5;208', '▝▜█████▛▘')}  ${c('2', 'Sonnet · /state/brain')}\r\n`,
+    `${c('38;5;208', '  ▘▘ ▝▝')}\r\n\r\n`,
+  ];
+}
+export function termTranscriptOnboard(host) {
+  const esc = '\x1b';
+  const c = (n, s) => `${esc}[${n}m${s}${esc}[0m`;
+  return [
+    ...banner(host, c),
+    `${c('2', 'Tips for getting started: run /onboard, or just ask anything.')}\r\n\r\n`,
+    `${c('1;32', '>')} /onboard\r\n\r\n`,
+    'Before anything else: what would you like to call me? One word is fine.\r\n\r\n',
+    `${c('1;32', '>')} Aster\r\n\r\n`,
+    'Aster it is. Written down already, so every screen will say so.\r\n\r\n',
+    "Let's start with the big picture. Five years from now, what does winning look\r\n",
+    `like for ${c('1', 'Driftwood Surf School')}?\r\n\r\n`,
+    `${c('1;32', '>')} Two sites, a coaching programme that runs without me on the beach every\r\n`,
+    '  day, and winters off.\r\n\r\n',
+    '"Winters off" is doing a lot of work in that sentence. Is that about money,\r\n',
+    'or about the school running without you?\r\n\r\n',
+    `${c('1;32', '>')} Both. Mostly the second.\r\n\r\n`,
+    'Noted, in your words. That is layer one of eight: what you are for. Next is\r\n',
+    'how you believe a surf school should be run. Take a break whenever you like;\r\n',
+    'I pick up where we stopped.\r\n\r\n',
+    `${c('2', 'Layer 1 of 8 · covered · saved to wiki/_layers/1-north-star.md')}\r\n\r\n`,
+    `${c('1;32', '>')} `,
+  ].map((s) => Buffer.from(s, 'utf8').toString('base64'));
+}
+export function termTranscriptSignin(host) {
+  const esc = '\x1b';
+  const c = (n, s) => `${esc}[${n}m${s}${esc}[0m`;
+  return [
+    ...banner(host, c),
+    `${c('1', 'Sign in to Claude.')} Opening your browser…\r\n\r\n`,
+    "Browser didn't open? Use the url below to sign in:\r\n",
+    `${c('4', 'https://claude.ai/oauth/authorize?code=true&client_id=…')}\r\n\r\n`,
+    'Paste code here if prompted > ',
+    `${c('2', '••••••••-••••')}\r\n\r\n`,
+    `${c('1;32', '✓')} Login successful. Signed in with your own Claude account.\r\n`,
+    `${c('2', 'This mineral can now run scheduled jobs and answer on Telegram.')}\r\n\r\n`,
+    `${c('1;32', host)}:${c('1;34', '/state')}$ `,
+  ].map((s) => Buffer.from(s, 'utf8').toString('base64'));
+}
+
 // ---------------------------------------------------------------------------
 // /run dispatcher
 // ---------------------------------------------------------------------------
@@ -805,40 +875,61 @@ const MCP_ON = {
   canva: { authorised: true, auth: 'oauth', renews: true },
 };
 const MCP_CHAT = { stripe: true };   // a connection made inside Claude Code (chats-only)
-const MCP_CONTRACT = 2;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
-                          // (2 = the byo google row; bumped here 2026-08-17 in
-                          // lockstep with the engine. rekey_due_at left the row
-                          // on 2026-08-24: a published key has no clock)
+const MCP_CONTRACT = 3;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
+                          // (2 = the byo google row, 2026-08-17; 3 = several
+                          // google rows, one per account, 2026-09-14. Bumped
+                          // in lockstep with the engine. rekey_due_at left the
+                          // row on 2026-08-24: a published key has no clock)
 
-// Google, with the member's own key (design-google-byo-connect.md). The box row
+// Google, with the member's own key (design-google-byo-connect.md). The box rows
 // and the app's /google-connect/* routes share one state so the wizard is
 // drivable end to end: off -> key dropped -> sign-in walked on a clock -> on.
-// AIOS_FX_GOOGLE seeds the row (needs-auth | on | expired) for shots and
-// tests — "expired" mirrors a box whose live probe wrote the dead marker; an
-// email containing "denied" drives the failure path without env plumbing, so
-// one harness process can walk both outcomes.
-let GW;
+// Several accounts (2026-09-14): one entry per account row, keyed like the
+// box keys them (google, google-<slug>). AIOS_FX_GOOGLE seeds the primary
+// (needs-auth | on | expired) for shots and tests — "expired" mirrors a box
+// whose live probe wrote the dead marker; "on" also seeds a second, working
+// account so the several-accounts shape is photographed. An email containing
+// "denied" drives the failure path without env plumbing, so one harness
+// process can walk both outcomes.
+const GW_KEY_RE = /^google(-[a-z0-9][a-z0-9-]{0,19})?$/;   // mirrors engine/lib/google-byo.mjs
+const gwFresh = () => ({ added: false, on: false, expired: false, email: '', client: false, flowAt: 0 });
+let GW;   // key -> account state
 function gwReset() {
   const seed = process.env.AIOS_FX_GOOGLE || '';
-  GW = {
+  GW = { google: {
+    ...gwFresh(),
     added: seed === 'needs-auth' || seed === 'on' || seed === 'expired',
     on: seed === 'on', expired: seed === 'expired',
-    email: seed ? 'mel@gmail.com' : '', client: false, flowAt: 0,
-  };
+    email: seed ? 'mel@gmail.com' : '',
+  } };
+  if (seed === 'on') GW['google-work'] = { ...gwFresh(), added: true, on: true, email: 'mel@harperandco.example' };
 }
 gwReset();
+const gwKeyOf = (v) => { const k = String(v || 'google').trim().toLowerCase(); return GW_KEY_RE.test(k) ? k : ''; };
+const gwAcct = (key) => GW[key] || (GW[key] = gwFresh());
+const gwLabel = (key) => key === 'google' ? 'Google Workspace' : 'Google Workspace (' + key.slice('google-'.length) + ')';
 // same four shapes engine/comms/mcp-connect.mjs googleRow() emits: auth 'byo',
 // byo 'google', NO url (the page must never route this row into a DCR sign-in)
-function gwFixtureRow() {
-  const base = { key: 'google', label: 'Google Workspace', blurb: 'gmail, calendar, drive and docs, with your own key', auth: 'byo', byo: 'google', mine: true };
-  if (!GW.added) return { ...base, state: 'off', status: 'not connected', configured: false, authorised: false, renews: null };
-  if (GW.on) return { ...base, state: 'on', status: 'working, including in scheduled jobs', configured: true, authorised: true, renews: true, email: GW.email };
-  if (GW.expired) return { ...base, state: 'needs-auth', status: 'sign-in expired, needs you once more', configured: true, authorised: false, renews: false, email: GW.email };
-  return { ...base, state: 'needs-auth', status: 'added, waiting for you to sign in once', configured: true, authorised: false, renews: null, email: GW.email || null };
+function gwFixtureRow(key, a) {
+  const base = { key, label: gwLabel(key), blurb: 'gmail, calendar, drive and docs, with your own key', auth: 'byo', byo: 'google', mine: true };
+  if (!a.added) return { ...base, state: 'off', status: 'not connected', configured: false, authorised: false, renews: null };
+  if (a.on) return { ...base, state: 'on', status: 'working, including in scheduled jobs', configured: true, authorised: true, renews: true, email: a.email };
+  if (a.expired) return { ...base, state: 'needs-auth', status: 'sign-in expired, needs you once more', configured: true, authorised: false, renews: false, email: a.email };
+  return { ...base, state: 'needs-auth', status: 'added, waiting for you to sign in once', configured: true, authorised: false, renews: null, email: a.email || null };
+}
+// primary first (always present, off when absent), then every further
+// account that has been added, by key: the order engine googleRows() emits
+function gwFixtureRows() {
+  const extra = Object.keys(GW).filter((k) => k !== 'google' && GW[k].added).sort();
+  return [gwFixtureRow('google', gwAcct('google')), ...extra.map((k) => gwFixtureRow(k, GW[k]))];
 }
 // the /google-connect/* route fixtures (harness.mjs forwards straight here);
-// refusal strings mirror wizard/panel/google-connect-routes.mjs verbatim
+// refusal strings mirror wizard/panel/google-connect-routes.mjs verbatim.
+// Every route names its account row (`key`, default google), as the real ones do.
+const GW_BAD_KEY = 'that account name does not look right: up to 20 letters, digits or hyphens';
 export function googleConnectClient(body) {
+  const key = gwKeyOf(body.key);
+  if (!key) return { ok: false, reason: GW_BAD_KEY };
   let parsed = null;
   try { parsed = JSON.parse(Buffer.from(String(body.client_json_b64 || ''), 'base64').toString('utf8')); } catch { /* not JSON */ }
   if (parsed && parsed.web) {
@@ -850,35 +941,43 @@ export function googleConnectClient(body) {
   if (!parsed.installed) {
     return { ok: false, reason: 'that JSON holds no Google OAuth client (expected an id ending .apps.googleusercontent.com): download the file again from the console' };
   }
-  GW.email = String(body.email || '');
-  GW.client = true;
-  return { ok: true, client: { client_id: parsed.installed.client_id || 'fixture.apps.googleusercontent.com' } };
+  const a = gwAcct(key);
+  a.email = String(body.email || '');
+  a.client = true;
+  // the real route runs add-google here: the row exists on the box from this point
+  a.added = true;
+  return { ok: true, key, client: { client_id: parsed.installed.client_id || 'fixture.apps.googleusercontent.com' } };
 }
-export function googleConnectStart() {
+export function googleConnectStart(body = {}) {
+  const key = gwKeyOf(body.key);
+  if (!key) return { ok: false, reason: GW_BAD_KEY };
+  const a = gwAcct(key);
   // no client stash (fresh harness, or the "app restarted" re-key case): the
   // page matches this exact reason and re-opens the file-drop step
-  if (!GW.client) return { ok: false, reason: 'drop your key file first' };
-  GW.flowAt = 1;
-  return { ok: true };
+  if (!a.client) return { ok: false, reason: 'drop your key file first' };
+  a.flowAt = 1;
+  return { ok: true, key };
 }
-export function googleConnectStatus() {
-  if (!GW.flowAt) return { ok: true, stage: 'idle', steps: [] };
-  GW.flowAt += 1;
+export function googleConnectStatus(keyArg) {
+  const key = gwKeyOf(keyArg) || 'google';
+  const a = gwAcct(key);
+  if (!a.flowAt) return { ok: true, key, stage: 'idle', steps: [] };
+  a.flowAt += 1;
   const s1 = 'Waiting for you to approve access in your Google window';
-  const s2 = 'Approved. Google handed back a key for ' + (GW.email || 'your account');
+  const s2 = 'Approved. Google handed back a key for ' + (a.email || 'your account');
   const s3 = 'Proving it works against one of the services you allowed';
-  if (GW.flowAt === 2) return { ok: true, stage: 'waiting', steps: [s1] };
-  if (GW.email.includes('denied')) {
-    GW.flowAt = 0;   // the client stash survives a refusal, so a retry can start clean
-    return { ok: true, stage: 'failed', reason: 'Google refused the sign-in (access denied)', steps: [s1] };
+  if (a.flowAt === 2) return { ok: true, key, stage: 'waiting', steps: [s1] };
+  if (a.email.includes('denied')) {
+    a.flowAt = 0;   // the client stash survives a refusal, so a retry can start clean
+    return { ok: true, key, stage: 'failed', reason: 'Google refused the sign-in (access denied)', steps: [s1] };
   }
-  if (GW.flowAt === 3) return { ok: true, stage: 'working', steps: [s1, s2] };
-  if (GW.flowAt === 4) return { ok: true, stage: 'working', steps: [s1, s2, s3] };
-  GW.flowAt = 0;
-  GW.added = true; GW.on = true; GW.expired = false;
-  return { ok: true, stage: 'done', steps: [s1, s2, s3, 'Working, including in scheduled jobs'], email: GW.email };
+  if (a.flowAt === 3) return { ok: true, key, stage: 'working', steps: [s1, s2] };
+  if (a.flowAt === 4) return { ok: true, key, stage: 'working', steps: [s1, s2, s3] };
+  a.flowAt = 0;
+  a.added = true; a.on = true; a.expired = false;
+  return { ok: true, key, stage: 'done', steps: [s1, s2, s3, 'Working, including in scheduled jobs'], email: a.email };
 }
-export function googleConnectCancel() { GW.flowAt = 0; return { ok: true }; }
+export function googleConnectCancel(body = {}) { gwAcct(gwKeyOf(body.key) || 'google').flowAt = 0; return { ok: true }; }
 function mcpRows() {
   const rows = Object.entries(MCP_FEATURED).map(([key, def]) => {
     const s = MCP_ON[key];
@@ -898,8 +997,9 @@ function mcpRows() {
   rows.push({ key: 'stripe', label: 'Stripe', blurb: 'connected in Claude Code', auth: 'oauth', state: MCP_CHAT.stripe ? 'chat-only' : undefined, adoptable: true, mine: false, configured: true, authorised: true, renews: true, status: 'in your chats only, not in scheduled jobs' });
   if (!MCP_CHAT.stripe) rows.pop();
   // contract 2 (2026-08-17): the three "unavailable" Google rows are gone from
-  // the box's report; the single connectable byo row below is the offer now.
-  rows.push(gwFixtureRow());
+  // the box's report; the connectable byo rows below are the offer now
+  // (contract 3, 2026-09-14: one per account).
+  rows.push(...gwFixtureRows());
   // R21 (panel iteration 2): a connector on the member's CLAUDE ACCOUNT, the
   // exact shape engine/comms/mcp-connect.mjs emits for one. Never adoptable,
   // never able to serve a job; the page folds it under "Connected to your
@@ -1012,6 +1112,25 @@ const SSH_FAIL = [
 // run can ask for it without a fourth harness state.
 export function runVerb(surface, verb, args, state, opts) {
   const signedOut = !!(opts && opts.signedOut);
+  const face = opts && opts.face;
+  // the local face: the folder's own console state, and the honest refusal
+  // for anything that needs a server (the real server answers 400 unknown
+  // verb; the page never asks, because those surfaces are hidden)
+  if (face === 'local') {
+    if (verb === 'member-console-state') {
+      return ok(['CONSOLE_STATE ' + JSON.stringify({
+        ownership: { owner: 'member', owner_slug: '', managed_by: 'you', tier: 'pebble', machinery_by: 'crads-ai', hosting: 'local' },
+        org: { name: '', display: '', admin_email: '' }, anchored: false, anchor: '', name: 'Sam',
+        backup: state === 'empty' ? { connected: false, last: '' } : { connected: true, repo: 'github.com/sam/sam-brain', last: iso(2 * H) },
+        custody: [], waiting: { transfer_invitation: null, ownership_grant: null, asks: [] }, lineage: null, local: true, path: LOCAL_PATH, generated: iso(0),
+      })]);
+    }
+    if (verb === 'open-folder') return ok(['sam']);
+    if (verb === 'whoami') return ok(['sam']);
+    if (/^(cadence-write|skill-run|skill-remove|telegram-|mcp-|secrets-|devices-|support-|layout-write|box-refresh)/.test(verb)) {
+      return { code: 1, lines: ['harness: ' + verb + ' is not a local verb (the real server answers 400 unknown verb)'] };
+    }
+  }
   if (state === 'error') {
     // every verb fails the way a dead box fails: ssh timeout + non-zero exit
     return { code: 255, lines: SSH_FAIL.map((l) => l.replace('box', surface === 'member' ? MEMBER_HOST : ROCK_HOST)) };
@@ -1333,6 +1452,8 @@ export function runVerb(surface, verb, args, state, opts) {
     }
     case 'mcp-remove': {
       delete MCP_ON[args.key];
+      // a Google row: the primary goes back to the off offer, a further account vanishes
+      if (GW[args.key]) { if (args.key === 'google') GW.google = gwFresh(); else delete GW[args.key]; }
       // R8: the verb's own notice, printed verbatim by the page
       const lbl = (MCP_FEATURED[args.key] || {}).label || args.key;
       return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: args.key, action: 'remove',
@@ -1345,12 +1466,21 @@ export function runVerb(surface, verb, args, state, opts) {
     // else. (The mcp-login-* trio that used to sit here was deleted 2026-08-17:
     // that verb family was removed from the box on 2026-08-09, and the file it
     // claimed to drive, engine/comms/mcp-login.mjs, never existed in this tree.)
-    case 'mcp-add-google':
-      GW.added = true;
-      return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: 'google', action: 'add-google', services: mcpRows() })]);
+    case 'mcp-add-google': {
+      const p = JSON.parse(Buffer.from(String(args.payload_b64 || ''), 'base64').toString('utf8'));
+      const key = gwKeyOf(p.key);
+      if (!key) return ok([JSON.stringify({ ok: false, error: GW_BAD_KEY })]);
+      const a = gwAcct(key);
+      a.added = true; if (p.email) a.email = String(p.email);
+      return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key, action: 'add-google', services: mcpRows() })]);
+    }
     case 'mcp-token-set-google': {
-      GW.added = true; GW.on = true; GW.expired = false;
-      return ok([JSON.stringify({ ok: true, name: 'google', email: GW.email || 'mel@gmail.com', keyed_at: Date.now() })]);
+      const p = JSON.parse(Buffer.from(String(args.payload_b64 || ''), 'base64').toString('utf8'));
+      const key = gwKeyOf(p.key);
+      if (!key) return ok([JSON.stringify({ ok: false, error: GW_BAD_KEY })]);
+      const a = gwAcct(key);
+      a.added = true; a.on = true; a.expired = false; if (p.email) a.email = String(p.email);
+      return ok([JSON.stringify({ ok: true, name: key, email: a.email || 'mel@gmail.com', keyed_at: Date.now() })]);
     }
     case 'mcp-adopt':
       delete MCP_CHAT[args.key];

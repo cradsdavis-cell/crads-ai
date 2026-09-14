@@ -76,6 +76,14 @@ function skillMeta(file) {
   };
 }
 
+// Category slugs are wire vocabulary ('box', 'briefing'); a heading is copy and
+// gets sentence case. Exported (2026-09-10) so the docs index's "What it can
+// do" strip groups skills exactly as the generated Skills page does.
+export const CATEGORY_LABEL = {
+  box: 'Your mineral', briefing: 'Briefings', capture: 'Capture',
+  comms: 'Email and messages', org: 'Your community', other: 'Everything else',
+};
+
 export function skills() {
   const dir = path.join(REPO, 'engine', 'skills');
   return readdirSync(dir).filter((f) => f.endsWith('.md')).sort()
@@ -189,10 +197,6 @@ function skillsPage() {
   // Category slugs are wire vocabulary ('box', 'briefing'); a heading is copy and
   // gets sentence case. The skills page shipped four lowercase headings until
   // the case gate caught them.
-  const CATEGORY_LABEL = {
-    box: 'Your mineral', briefing: 'Briefings', capture: 'Capture',
-    comms: 'Email and messages', org: 'Your community', other: 'Everything else',
-  };
   for (const cat of [...byCat.keys()].sort()) {
     body.push(`## ${CATEGORY_LABEL[cat] || (cat.charAt(0).toUpperCase() + cat.slice(1))}`, '');
     body.push('| Skill | What it does |', '|---|---|');

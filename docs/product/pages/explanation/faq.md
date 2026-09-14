@@ -6,7 +6,7 @@ access: public
 mode: explanation
 order: 5
 pins: wizard/panel/door.html, wizard/panel/member.html
-reviewed: 2026-09-01
+reviewed: 2026-09-10
 ---
 
 Short answers, in the order people ask them. Every answer links the page that
@@ -31,6 +31,12 @@ runs on and the AI inside it, and you pay both providers directly:
   in the setup wizard, billed to you by them
 - your own **Claude subscription**, billed to you by Anthropic
 - **nothing to Crads-AI, ever**
+
+The server is optional. The app's **On this computer** mode runs the
+assistant against a folder on your own machine instead: free, nothing to
+rent. What you give up is everything that needs a machine that stays on: no
+scheduled jobs, no Telegram, no connections to your email or calendar. It is
+only awake when you are.
 
 Those facts are also the first screen of the wizard, before anything is
 created, so the bill is never a surprise. If someone sets your mineral up for
@@ -77,7 +83,9 @@ the two are different.
 
 On the server you created, in the location you picked in the wizard, in your
 own Hetzner or DigitalOcean account, plus a backup in a private GitHub
-repository in your own account. The wizard offers whatever locations your
+repository in your own account. In **On this computer** mode there is no
+server: your brain is a folder on your own machine, plus the same GitHub
+backup if you connect one. The wizard offers whatever locations your
 host sells (DigitalOcean has Sydney; Hetzner does not), so where your
 data lives is your choice, and if you are in Australia and pick a European
 location, your data is stored overseas: the
@@ -137,6 +145,15 @@ No, that is day two. Tell your assistant, in plain words, in the Terminal:
 what it got wrong and what matters instead. It writes that down and the next
 brief reads it. An assistant you correct gets sharper every week;
 [your first week](/docs/your-first-week) builds the habit.
+
+## How do I ask it for something properly?
+
+Plainly, the way you would brief a person, with the context it cannot have
+guessed. For anything that matters, use [the CRIT method](/docs/the-crit-method):
+say the context, give it a role, let it interview you before it answers, then
+name the task. Most of what looks like a bad answer is a thin brain, and
+[grow the brain](/docs/grow-the-brain) is the fix; the vocabulary these pages
+use is in [the glossary](/docs/glossary).
 
 ## Something looks broken. Where do I start?
 

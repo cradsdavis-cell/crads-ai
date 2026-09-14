@@ -56,8 +56,15 @@ export function sshConfigPath() {
 // one gets missed and a promoted box silently loses a face, so every consumer
 // asks this instead of comparing to a single value. ('both' is tolerated for
 // safety; the two-row model never actually produces it.)
+// 'local' joined the kinds 2026-09-11 (the no-server face): a brain folder on
+// this computer, listed by local-targets.mjs, never by the ssh config. An
+// UNKNOWN kind no longer coerces to 'rock': a row nobody labelled must not be
+// admitted to a face by default. A missing kind still reads as rock, because
+// every ssh-config row is labelled and the only unlabelled rows are hand-made
+// fixtures from before kinds existed.
 export function matchesKind(target, want) {
-  const k = (target && target.kind) || 'rock';
+  if (!target) return false;
+  const k = target.kind === undefined ? 'rock' : target.kind;
   return k === want || k === 'both';
 }
 
@@ -278,7 +285,9 @@ function releaseSlot() {
 }
 
 // Attach a line-splitter to a readable stream: CRLF-safe, flushes the tail.
-function lineWire(stream, cb) {
+// Exported 2026-09-11 so local-bridge.mjs (the no-server face's transport)
+// frames its child's output exactly the way the ssh path does.
+export function lineWire(stream, cb) {
   let buf = '';
   stream.on('data', (d) => {
     buf += d.toString('utf8');

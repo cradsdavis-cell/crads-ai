@@ -501,3 +501,101 @@ test('a hand-added google server is not overwritten by add-google', () => {
   assert.equal(r.ok, false);
   assert.match(r.error, /hand-added/i);
 });
+
+// ---- several Google accounts (2026-09-14, Sam's ruling) --------------------
+// One row and one workspace-mcp server per account: google for the first,
+// google-<slug> for every further one. Each has its own key file, dead marker
+// and ledger; one email lives in exactly one row.
+
+const gseedAs = (d, key, email) => JSON.parse(execFileSync('node', [TOKEN_TOOL, d, 'set-google'], { encoding: 'utf8', input: b64({
+  key, email, client_id: `${key}.apps.googleusercontent.com`, client_secret: 'GOCSPX-s',
+  access_token: 'GAT', refresh_token: 'GRT', scopes: ['https://www.googleapis.com/auth/calendar'],
+}) }));
+
+test('contract 3: add-google takes a key, and each account is its own server + row', () => {
+  const d = box();
+  assert.ok(run(d, 'status').contract >= 3, 'contract 3 = several google rows may ride status');
+  assert.equal(run(d, 'add-google', b64({ email: 'jane@gmail.com' })).ok, true);
+  const r = run(d, 'add-google', b64({ email: 'jane@acme.example', key: 'google-work' }));
+  assert.equal(r.ok, true);
+  assert.equal(r.key, 'google-work');
+  const srv = JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers;
+  assert.equal(srv.google.env.USER_GOOGLE_EMAIL, 'jane@gmail.com', 'the first account is untouched by the second');
+  assert.equal(srv['google-work'].env.USER_GOOGLE_EMAIL, 'jane@acme.example');
+  assert.match(srv['google-work'].command, /workspace-mcp$/);
+  assert.ok(srv['google-work'].args.includes('--single-user'), 'each server pins one account: no arbitrary-credential fallback');
+  assert.ok(readFileSync(path.join(d, '.kernel', 'mcp-allow'), 'utf8').includes('mcp__google-work__*'), 'the tool names carry the account');
+  const cj = JSON.parse(readFileSync(path.join(d, '.claude-auth', '.claude.json'), 'utf8'));
+  assert.ok(cj.projects[d].enabledMcpjsonServers.includes('google-work'));
+  const rows = r.services.filter((x) => x.byo === 'google');
+  assert.deepEqual(rows.map((x) => x.key), ['google', 'google-work'], 'primary first, then the rest');
+  assert.equal(rows[1].label, 'Google Workspace (work)');
+  assert.equal(rows[1].email, 'jane@acme.example');
+  assert.equal(rows[1].state, 'needs-auth');
+});
+
+test('one email, one row: the same account cannot be added under a second name', () => {
+  const d = box();
+  run(d, 'add-google', b64({ email: 'jane@gmail.com' }));
+  const r = run(d, 'add-google', b64({ email: 'Jane@Gmail.com', key: 'google-again' }));
+  assert.equal(r.ok, false);
+  assert.match(r.error, /already connected as Google Workspace/i);
+  // re-running the SAME row with the same email is idempotent (the wizard re-runs add-google on a re-key)
+  assert.equal(run(d, 'add-google', b64({ email: 'jane@gmail.com' })).ok, true);
+  // a malformed key is refused in words (case is normalised, not refused: Google-Work and google-work are one row)
+  assert.equal(run(d, 'add-google', b64({ email: 'x@y.example', key: 'google-Work' })).ok, true);
+  assert.ok(JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers['google-work'], 'lowercased into the key');
+  assert.equal(run(d, 'add-google', b64({ email: 'x@z.example', key: 'google_work' })).ok, false);
+  assert.equal(run(d, 'add-google', b64({ email: 'x@z.example', key: 'google-' })).ok, false);
+  assert.equal(run(d, 'add-google', b64({ email: 'x@y.example', key: 'notion' })).ok, false);
+});
+
+test('each account walks its own states: a dead work key never reddens the primary', () => {
+  const d = box();
+  run(d, 'add-google', b64({ email: 'jane@gmail.com' }));
+  run(d, 'add-google', b64({ email: 'jane@acme.example', key: 'google-work' }));
+  gseed(d);
+  const w = gseedAs(d, 'google-work', 'jane@acme.example');
+  assert.equal(w.ok, true);
+  assert.equal(w.name, 'google-work');
+  let r = run(d, 'status');
+  assert.equal(svc(r, 'google').state, 'on');
+  assert.equal(svc(r, 'google-work').state, 'on');
+  // the probe finds the work key dead: only the work row flips
+  const store = JSON.parse(readFileSync(path.join(d, '.kernel', 'mcp-oauth.json'), 'utf8'));
+  writeFileSync(path.join(d, '.kernel', 'google-key-dead.work.json'), JSON.stringify({ keyed_at: store['google-work'].keyed_at, dead_at: Date.now() }));
+  r = run(d, 'status');
+  assert.equal(svc(r, 'google').state, 'on', 'the primary is untouched');
+  assert.equal(svc(r, 'google-work').state, 'needs-auth');
+  assert.match(svc(r, 'google-work').status, /expired/i);
+});
+
+test('remove google-work destroys only that account\'s key file and row', () => {
+  const d = box();
+  run(d, 'add-google', b64({ email: 'jane@gmail.com' }));
+  run(d, 'add-google', b64({ email: 'jane@acme.example', key: 'google-work' }));
+  gseed(d);
+  gseedAs(d, 'google-work', 'jane@acme.example');
+  const fp = path.join(d, '.kernel', 'google-creds', 'jane@gmail.com.json');
+  const fw = path.join(d, '.kernel', 'google-creds', 'jane@acme.example.json');
+  assert.ok(existsSync(fp) && existsSync(fw));
+  const r = run(d, ['remove', 'google-work']);
+  assert.equal(r.ok, true);
+  assert.match(r.notice, /Google Workspace \(work\) is disconnected/);
+  assert.ok(!existsSync(fw), 'the work key is gone');
+  assert.ok(existsSync(fp), 'the primary key is not');
+  assert.ok(!svc(r, 'google-work'), 'the row is gone from the report');
+  assert.equal(svc(r, 'google').state, 'on');
+  // and the other way round: removing the primary leaves the work row standing as the offer + the survivor
+  run(d, 'add-google', b64({ email: 'jane@acme.example', key: 'google-work' }));
+  gseedAs(d, 'google-work', 'jane@acme.example');
+  const r2 = run(d, ['remove', 'google']);
+  assert.equal(svc(r2, 'google').state, 'off', 'the primary offer row is always present');
+  assert.equal(svc(r2, 'google-work').state, 'on');
+});
+
+test('google-<slug> names are fenced like google: no plain add, no custom shadow', () => {
+  const d = box();
+  assert.equal(run(d, ['add', 'google-work']).ok, false);
+  assert.equal(run(d, 'add-custom', b64({ name: 'google-work', url: 'https://x.example/mcp' })).ok, false);
+});

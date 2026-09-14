@@ -14,10 +14,13 @@ import { dirname, join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
 
-// Public releases host (crads-ai-app) so the in-app updater works for EVERYONE, not just the
-// owner logged into the private ai-os repo. CI still builds in ai-os; a mirror publishes each
-// build to this public repo, which is where the app checks for + downloads updates.
-const RELEASE_BASE = 'https://github.com/cradsdavis-cell/crads-ai-app/releases/download/wizard-app';
+// The release the app updates from is the PUBLIC source repo's own (crads-ai, since
+// 2026-09-14). Until then the app polled a mirror repo (crads-ai-app) fed by the private
+// build; SignPath Foundation signs only artifacts built by the public repository's CI, so
+// the public build IS the release now and the mirror is no longer in the path. Every
+// installed copy sees a new sha the first time it checks after this lands and moves over
+// once; from then on a push to the public main is what ships.
+const RELEASE_BASE = 'https://github.com/cradsdavis-cell/crads-ai/releases/download/wizard-app';
 export const VERSION_URL = `${RELEASE_BASE}/version.json`;
 export const CHANGELOG_URL = `${RELEASE_BASE}/changelog.json`;
 

@@ -137,3 +137,40 @@ test('a re-key retires the marker and the ledger slot', async () => {
     assert.ok(!existsSync(path.join(d, '.kernel', 'google-key-dead.json')));
   } finally { s.close(); }
 });
+
+// ---- several accounts (2026-09-14): each on its own clock, marker and line --
+
+test('two accounts: the dead work key is marked and named; the alive primary is untouched', async () => {
+  const { s, state, url } = await endpoint();
+  try {
+    const d = box({ tokenUri: url });
+    // the second account points its credential file at a SECOND stub that answers dead
+    const dead = await endpoint();
+    dead.state.mode = 'dead';
+    const cw = path.join(d, '.kernel', 'google-creds', 'jane@acme.example.json');
+    writeFileSync(cw, JSON.stringify({ token: 'at', refresh_token: 'rt', token_uri: dead.url, client_id: 'w.apps.googleusercontent.com', client_secret: 's', scopes: [], expiry: '1970-01-01T00:00:00' }));
+    const store = JSON.parse(readFileSync(path.join(d, '.kernel', 'mcp-oauth.json'), 'utf8'));
+    store['google-work'] = { provider: 'google-byo', email: 'jane@acme.example', keyed_at: Date.now() - 3600e3, creds_file: cw };
+    writeFileSync(path.join(d, '.kernel', 'mcp-oauth.json'), JSON.stringify(store));
+    try {
+      const r = await run(d);
+      assert.equal(r.sent, 'dead');
+      assert.deepEqual(r.accounts.map((a) => [a.key, a.why || a.sent]), [['google', 'key alive'], ['google-work', 'dead']]);
+      assert.equal(deadMark(d), null, 'the primary marker never lands for another account\'s death');
+      const wm = JSON.parse(readFileSync(path.join(d, '.kernel', 'google-key-dead.work.json'), 'utf8'));
+      assert.equal(wm.keyed_at, store['google-work'].keyed_at);
+      assert.ok(existsSync(path.join(d, '.kernel', 'google-rekey-ping.work.json')), 'its own ledger');
+      const files = outbox(d);
+      assert.equal(files.length, 1);
+      const rec = JSON.parse(readFileSync(path.join(d, '.kernel', 'outbox', files[0]), 'utf8'));
+      assert.match(rec.text, /jane@acme\.example/, 'the message names the account');
+      assert.match(rec.text, /Connections, then Google Workspace \(work\), then Sign in/, 'and the exact row to press');
+      assert.equal(state.hits, 1); assert.equal(dead.state.hits, 1);
+      // next tick: both throttled, nothing repeats
+      const r2 = await run(d);
+      assert.equal(r2.sent, null);
+      assert.match(r2.why, /google: not due; google-work: not due/);
+      assert.equal(outbox(d).length, 1);
+    } finally { dead.s.close(); }
+  } finally { s.close(); }
+});

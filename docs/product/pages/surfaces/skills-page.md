@@ -144,10 +144,12 @@ your Overview, and they are listed in
 
 ## Getting more out of it
 
-The recipes in the pebble library each set up a skill and its schedule together,
-with the reasoning for the timing rather than just the timing: inbox triage
-before you get up, a brief before the day starts, a chase for the people who
-owe you a reply, and the plan-the-week and close-the-week pair. Each has its
-own guide in the library on your mineral, beside the recipe it installs.
-
+Five of the built-in skills arrive with a schedule already attached and switched
+off: inbox triage before you get up, a brief before the day starts, a chase for
+the people who owe you a reply, and the plan-the-week and close-the-week pair.
 Start with the triage and the weekly review. Add the rest when you miss them.
+
+When the list stops covering what you actually do, the next step is
+[write your own skill](/docs/write-your-own-skill): a saved recipe of your own
+that appears here marked yours and takes a schedule like the rest. The
+[starter recipes](/docs/starter-recipes) are twelve worth having first.

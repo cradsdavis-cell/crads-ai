@@ -1,12 +1,13 @@
 ---
 title: Your first week
 summary: Seven days from a finished setup to an assistant you would miss: what to switch on, what to correct, and what to ask.
+outcome: switch on your first schedules, correct the brief, connect your tools, and ask it something real.
 audience: public
 access: public
 mode: tutorial
 order: 30
 pins: engine/cron/cadence-lib.mjs, wizard/panel/member.html
-reviewed: 2026-09-01
+reviewed: 2026-09-10
 ---
 
 [Your first hour](/docs/first-hour) ends with an assistant that is awake and a
@@ -61,19 +62,11 @@ something is sick; a healthy card stays folded.
 ## Day two. Read the first brief, then correct it
 
 Tomorrow's brief will be wrong in places. That is expected, and what you do
-about it is the single most important habit in this whole page.
-
-Open the **Terminal** and say so, in plain words:
-
-```
-The brief keeps leading with routine invoices. What matters most
-to me this quarter is the retreat bookings. Remember that.
-```
-
-Your assistant writes that into your brain, and the next brief reads it. An
-assistant you correct gets sharper every week; one you only consume from
-plateaus. Nothing about correcting it requires care or phrasing: talk to it
-the way you would brief a person.
+about it is the single most important habit in this whole page: open the
+**Terminal** and say so, in plain words, the way you would brief a person. Your
+assistant writes the correction into your brain and the next brief reads it.
+[Grow the brain](/docs/grow-the-brain) is the whole habit, with the example
+correction and the three other moves that fill a brain out.
 
 The brief itself is also written to a page in your brain, for the record, so
 if you miss a morning nothing is gone: the latest one is sitting there when
@@ -108,8 +101,9 @@ What did I say I would do this week that I have not started?
 ```
 
 This is the day the interview pays for itself. If an answer is thin, that is
-information too: it usually means a corner of your brain is thin, and saying
-so ("you are missing most of my supplier contacts") is how it fills.
+information too: it usually means a corner of your brain is thin, and the
+deliberate version of noticing that is
+[find what you do not know](/docs/find-what-you-do-not-know).
 
 That first question has a name, by the way: it is the **Follow-ups** skill,
 and it sweeps in both directions, what you owe and what is owed to you.
@@ -167,9 +161,11 @@ conversation, type it and the assistant proposes what that conversation should
 have written but did not: brain pages, decisions, tasks, calendar changes. It
 shows the diff for each surface and writes only what you confirm; it never
 silent-writes. Ten seconds of typing turns an hour of talking into things that
-persist.
+persist, which is the point of [growing the brain](/docs/grow-the-brain).
 
 ## Where you are after a week
+
+![The week on a schedule: plan it Monday, triage and brief every morning, capture every evening, review on Sunday.](diagram:week-rhythm)
 
 A sorted inbox before you wake. A brief that knows what matters. Your phone as
 the front door. A brain you have read and corrected twice. That is the whole

@@ -27,6 +27,9 @@ import { deviceRoutes } from './device-routes.mjs';
 import { createOwnBrainRoutes } from './own-brain-routes.mjs';
 import { setupStepsRoutes } from './setup-steps.mjs';
 import { crossOriginBlocked, refuseCrossOrigin } from './same-origin.mjs';
+import { localRoutes, ownBrainDispatch, precheckDispatch } from './local-routes.mjs';
+import { unregisterLocalBrain, slugFromLocalAlias } from './local-targets.mjs';
+import { existsSync } from 'node:fs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -64,8 +67,17 @@ function notRunningPage(name = '') {
 
 export function createDoorServer(opts = {}) {
   const bridge = opts.bridge || systemBridge();
-  const probe = opts.probe || ((host) => runSsh(host, 'echo login=$AIOS_LOGIN user=$(whoami)'));
-  const forget = opts.forget || ((host) => removeIdentityAccess(host));
+  // A LOCAL target (a brain folder on this computer, 2026-09-11) is never
+  // dialled: it answers if its folder exists, and forgetting it drops the
+  // registry row only (the folder and everything in it stay where they are).
+  const localOf = (host) => { try { return (bridge.targets() || []).find((t) => t && t.host === host && t.kind === 'local') || null; } catch { return null; } };
+  const probe = opts.probe || ((host) => {
+    const t = localOf(host);
+    if (t) return Promise.resolve({ code: existsSync(t.path) ? 0 : 1, stdout: 'login=local user=local', stderr: '' });
+    return runSsh(host, 'echo login=$AIOS_LOGIN user=$(whoami)');
+  });
+  const unregister = (opts.local && opts.local.unregister) || unregisterLocalBrain;
+  const forget = opts.forget || ((host) => (localOf(host) ? unregister(slugFromLocalAlias(host)) : removeIdentityAccess(host)));
   // AUTO-OPEN THE PAYMENT PAGE (Sam, 2026-08-25: "it would be nice for the
   // billing link to open automatically"). The page cannot do this itself: a
   // window.open() fired from a 3s poll has no user gesture behind it and every
@@ -98,11 +110,17 @@ export function createDoorServer(opts = {}) {
   // the OWNER'S account, token stored on THEIR box only — never on this
   // machine, never in a response. No default host on the door: the checklist
   // always names the box it is looking at.
+  const localTargets = () => { try { return (bridge.targets() || []).filter((t) => t && t.kind === 'local'); } catch { return []; } };
   const ownBrain = createOwnBrainRoutes({
-    opts: opts.ownBrain || {},
+    opts: { ...(opts.ownBrain || {}),
+      ownBrain: ownBrainDispatch({ targets: localTargets, box: (opts.ownBrain || {}).ownBrain }),
+      precheckBridge: precheckDispatch({ targets: localTargets, ssh: (opts.ownBrain || {}).precheckBridge }) },
     defaultHost: () => null,
     resolveHost: managedHost,
   });
+  // The "On this computer" flow (the no-server face): create + status + the
+  // folder twin of /setup-steps. Everything injectable rides opts.local.
+  const local = localRoutes(opts.local || {});
   const setupSteps = setupStepsRoutes({
     resolveHost: managedHost,
     probe: (opts.setupSteps || {}).probe,
@@ -259,6 +277,7 @@ export function createDoorServer(opts = {}) {
     // (see the mounts above).
     if (setupSteps(req, res, path)) return;
     if (ownBrain(req, res, path)) return;
+    if (local(req, res, path)) return;
 
     if (req.method === 'GET' && path.startsWith('/go/')) {
       const name = path.slice(4);

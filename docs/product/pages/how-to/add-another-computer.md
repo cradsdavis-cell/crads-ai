@@ -1,6 +1,7 @@
 ---
 title: Add another computer
 summary: A machine you already trust lets the new one in, over SSH, with no account and no service in the middle.
+outcome: let a second machine open your mineral, admitted by one that already can.
 audience: public
 access: public
 mode: how-to

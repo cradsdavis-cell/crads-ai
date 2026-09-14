@@ -13,6 +13,8 @@ Every part of your mineral belongs to exactly one of three layers, and each laye
 has one editor. Knowing which is which answers most "can I change this" questions
 before you have to ask.
 
+![The three layers as bands: your pages on top, your infrastructure, the machinery underneath, each with its one editor.](diagram:three-layers)
+
 ## Layer 1: the machinery. The project maintains it.
 
 The container image, the engine, the desktop app, the skill runner, the scheduler

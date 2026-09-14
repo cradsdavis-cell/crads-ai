@@ -1,6 +1,7 @@
 ---
 title: Get a Hetzner API token
 summary: The five-minute walk from no account to the token the setup wizard asks for, and what that token actually is.
+outcome: make a Hetzner account and hand the wizard the read-and-write token it asks for.
 audience: public
 access: public
 mode: how-to

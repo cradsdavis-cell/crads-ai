@@ -15,10 +15,13 @@
 //                              refresh token is the long-lived credential.
 //
 //   node mcp-token.mjs <state-dir> set        (stdin: base64 JSON)
-//   node mcp-token.mjs <state-dir> set-google (stdin: base64 JSON — BYO client)
+//   node mcp-token.mjs <state-dir> set-google (stdin: base64 JSON — BYO client;
+//                                              `key` picks the account row, default
+//                                              google; google-<slug> for a further one)
 //   node mcp-token.mjs <state-dir> forget <name>
 import { readFileSync, writeFileSync, mkdirSync, chmodSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
+import { GOOGLE_KEY_RE, PRIMARY_GOOGLE_KEY, GOOGLE_CREDS_DIR, googleCredsFileName, googleEntries } from '../lib/google-byo.mjs';
 
 const stateDir = path.resolve(process.argv[2] || '/state');
 const cmd = process.argv[3] || 'show';
@@ -26,7 +29,7 @@ const arg = String(process.argv[4] || '');
 
 const MCP_F = path.join(stateDir, '.mcp.json');
 const OAUTH_F = path.join(stateDir, '.kernel', 'mcp-oauth.json');
-const GCREDS_DIR = path.join(stateDir, '.kernel', 'google-creds');
+const GCREDS_DIR = GOOGLE_CREDS_DIR(stateDir);
 const NAME_RE = /^[a-z0-9][a-z0-9_-]{1,31}$/;
 // keyed_at (when set-google ran ≈ when Google minted the token) identifies
 // THIS key to every consumer — the status row, the live probe's ledger and
@@ -87,12 +90,20 @@ if (cmd === 'set-google') {
   // workspace-mcp, which reads a credential file of its own documented shape:
   // filename = URL-quoted email, and the four refresh fields MUST be embedded
   // (google-auth refreshes off the file, never off env).
+  //
+  // Since 2026-09-14 a box may hold several Google accounts, one server row
+  // each (engine/lib/google-byo.mjs): `key` names the row this credential
+  // belongs to. The credential files share one directory (workspace-mcp
+  // names them by email, and one email lives in exactly one row), so the
+  // store entry is what ties a file to its row.
   let req = {};
   try { req = JSON.parse(Buffer.from(readFileSync(0, 'utf8').trim(), 'base64').toString('utf8')); }
   catch { out({ ok: false, error: 'expected base64 JSON on stdin' }); }
 
   const email = String(req.email || '').trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) out({ ok: false, error: 'that does not look like an email address' });
+  const key = String(req.key || PRIMARY_GOOGLE_KEY).trim().toLowerCase();
+  if (!GOOGLE_KEY_RE.test(key)) out({ ok: false, error: 'that account name does not look right (google, or google- plus up to 20 letters, digits or hyphens)' });
   const cid = String(req.client_id || '');
   if (!/\.apps\.googleusercontent\.com$/.test(cid)) out({ ok: false, error: 'that client ID is not a Google OAuth client (expected ...apps.googleusercontent.com). Re-download the JSON from your Google console' });
   const secret = String(req.client_secret || '');
@@ -103,11 +114,13 @@ if (cmd === 'set-google') {
     out({ ok: false, error: 'the granted scopes are missing or malformed' });
   }
 
-  // workspace-mcp's filename rule: URL-quoted email with @ . _ - kept bare
-  // (python urllib quote(safe="@._-")); encodeURIComponent additionally leaves
-  // ! * ' ( ) bare, so re-escape those to match byte-for-byte.
-  const fname = encodeURIComponent(email).replace(/%40/g, '@')
-    .replace(/[!*'()]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase()) + '.json';
+  // one email, one row: the same account keyed under two names would give
+  // two servers one credential file and make "disconnect" a lie for one of them
+  const store0 = rd(OAUTH_F, {});
+  const twin = googleEntries(store0).find(([k, v]) => k !== key && v.email === email);
+  if (twin) out({ ok: false, error: `${email} is already connected as "${twin[0]}"; disconnect that row first` });
+
+  const fname = googleCredsFileName(email);
   mkdirSync(GCREDS_DIR, { recursive: true, mode: 0o700 });
   const credsFile = path.join(GCREDS_DIR, fname);
   writeFileSync(credsFile, JSON.stringify({
@@ -128,11 +141,15 @@ if (cmd === 'set-google') {
   // the key's IDENTITY, no secrets: keyed_at is what the status row and the
   // live probe's ledger key off (a re-key moves it, retiring both for free)
   const store = rd(OAUTH_F, {});
-  store.google = { provider: 'google-byo', email, keyed_at: Date.now(), creds_file: credsFile, updated_at: Date.now() };
+  // a re-key of the SAME row under a new email (the member signed a different
+  // account into an existing row) leaves the old file orphaned: take it with us
+  const prevFile = store[key]?.provider === 'google-byo' ? store[key].creds_file : null;
+  if (prevFile && prevFile !== credsFile) { try { unlinkSync(prevFile); } catch { /* already gone */ } }
+  store[key] = { provider: 'google-byo', email, keyed_at: Date.now(), creds_file: credsFile, updated_at: Date.now() };
   mkdirSync(path.dirname(OAUTH_F), { recursive: true });
   writeFileSync(OAUTH_F, JSON.stringify(store, null, 2) + '\n', { mode: 0o600 });
   chmodSync(OAUTH_F, 0o600);
-  out({ ok: true, name: 'google', email, keyed_at: store.google.keyed_at });
+  out({ ok: true, name: key, email, keyed_at: store[key].keyed_at });
 }
 
 if (cmd === 'forget') {

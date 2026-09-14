@@ -172,6 +172,14 @@ $35/mo pass-through, seat fees, and tier pricing are gone with the billing code.
 - the-oracle stays on the old machinery until the wizard can re-home it (Sam said
   leave it alone; nothing forces a move).
 - 40 GitHub test-repo deletions + laptop ssh cleanup (carried from the blank slate).
+- **The local face (Sam's ruling 2026-09-11):** Crads-AI gains a no-server mode. The
+  app opens against a brain folder on the user's own computer, runs the panel verbs
+  locally, Claude Code runs on the folder. Everything that needs a box is hidden with
+  one honest line ("Scheduled jobs, Telegram and connections need a server."). Ships
+  inside the same Guided setup offer; the docs describe it as "on your own computer:
+  free, no schedules, only awake when you are". Built on branch `local-face`;
+  design + v1 gap list in `docs/local-face-design.md`. Owed: a run on a real Windows
+  machine, the docs page, and the one-click Claude Code open (v1 is a path to copy).
 
 ## 8. Addendum — what the 1 Sep strip run established
 

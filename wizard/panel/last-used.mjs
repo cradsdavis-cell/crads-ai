@@ -25,7 +25,8 @@ import { join } from 'node:path';
 // The wizard-installed alias shapes, and nothing else. This value is read back
 // and used to pick a surface, so it is validated on the way IN as well as out:
 // a hand-edited file must not be able to steer the launcher at anything.
-const ALIAS_RE = /^[a-z0-9][a-z0-9-]*-(rock|box)$/;
+// -local joined 2026-09-11: a brain folder on this computer (local-targets.mjs).
+const ALIAS_RE = /^[a-z0-9][a-z0-9-]*-(rock|box|local)$/;
 
 export function lastUsedPath(dir = join(homedir(), '.crads-ai')) {
   return join(dir, 'last-used.json');
@@ -82,7 +83,7 @@ export function writeLastUsed(alias, path) {
  * renamed since must not strand the app pointing at nothing. The door is also
  * the only screen that can CREATE, so a fallback is never a dead end.
  *
- * @returns {{open:'panel'|'member'|'door', host?:string, slug?:string, why:string}}
+ * @returns {{open:'panel'|'member'|'local'|'door', host?:string, slug?:string, why:string}}
  */
 export function launchTarget(targets = [], last = '') {
   const rows = (targets || []).filter((t) => t && t.host);
@@ -95,7 +96,10 @@ export function launchTarget(targets = [], last = '') {
   // overlay). It is one mineral and its rock face is the fuller one, so prefer
   // it -- the same call the inventory's collapse makes.
   const rock = match.find((t) => t.kind === 'rock');
-  return rock
-    ? { open: 'panel', host: rock.host, why: 'last used' }
-    : { open: 'member', host: match[0].host, slug: match[0].org, why: 'last used' };
+  if (rock) return { open: 'panel', host: rock.host, why: 'last used' };
+  // a brain folder opens on its alias (#host=), like a rock: its slug is not
+  // a -box alias, so the #box= convention would miss it
+  const local = match.find((t) => t.kind === 'local');
+  if (local) return { open: 'local', host: local.host, slug: local.org, why: 'last used' };
+  return { open: 'member', host: match[0].host, slug: match[0].org, why: 'last used' };
 }

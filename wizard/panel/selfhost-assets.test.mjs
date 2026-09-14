@@ -27,6 +27,21 @@ test('the three cloud-init sources are SEA assets on both platforms', () => {
   }
 });
 
+// The LOCAL face's engine files (2026-09-11): same class, same two halves.
+// The list is the module's own (LOCAL_ASSET_FILES), never a copy, and
+// local-scaffold.test.mjs pins that list against the engine/skills directory.
+test('every local-face engine asset is a SEA asset on both platforms, and app.mjs loads the bag through asset()', async () => {
+  const { LOCAL_ASSET_FILES } = await import('./local-scaffold.mjs');
+  assert.ok(LOCAL_ASSET_FILES.length >= 15, 'the list is not empty');
+  for (const key of LOCAL_ASSET_FILES) {
+    const hits = wf.split(`"${key}": "${key}"`).length - 1;
+    assert.equal(hits, 2, `${key} must appear in BOTH sea-config blocks (windows + mac); found ${hits}`);
+  }
+  assert.match(app, /loadEngineAssets\(\{ read: \(name, fsPath\) => asset\(name, fsPath\) \}\)/, 'the bag reads through the SEA-first helper');
+  assert.match(app, /local: \{ assets: localAssets \}/, 'the door mount carries the bag');
+  assert.match(app, /localBridge\(\{ targets: listLocalTargets, assets: localAssets \}\)/, 'and so does the local transport');
+});
+
 test('app.mjs hands the sources to the provision routes', () => {
   assert.match(app, /provision: \{ files: selfHostFiles \}/, 'the door mount carries the files');
   for (const name of ['cloud-init.template.yaml', 'aios-host-update', 'enter-aios']) {

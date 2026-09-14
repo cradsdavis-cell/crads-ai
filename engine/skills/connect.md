@@ -73,6 +73,19 @@ anything they left unticked stays off until they sign in again and grant it.
 If a tool fails saying a Google scope is missing, that is a service they
 chose not to share, offer the re-sign-in, never work around it.
 
+**Several Google accounts** (2026-09-14): a member may connect more than one
+(personal + work, two Gmails, a client's account). Each is its own row and its
+own server: the first is `google` (tools `mcp__google__*`), every further one
+is `google-<name>` (row "Google Workspace (work)", tools `mcp__google-work__*`).
+When they ask about "my work calendar" or "the acme inbox", use THAT account's
+tools; when it is ambiguous which account they mean and more than one is
+connected, ask. To add one, send them to Connections and the **Add another
+Google account** button beneath their connections; each account needs its own
+key (the same ten-minute walk, once per account), by design: a key made in a
+personal account can be blocked by a Workspace administrator, and a key should
+live and die with the account it belongs to. An account can be connected once;
+the page says which row already has it.
+
 ## Honesty rules
 
 1. **Google runs on the member's own key, signed in once.** If its row says

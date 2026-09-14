@@ -1,12 +1,13 @@
 ---
 title: The interview
 summary: The hour that turns a blank machine into an assistant that knows your world, and what it asks about.
+outcome: give your assistant a brain of its own by answering its questions, and pick up where you stopped.
 audience: public
 access: public
 mode: tutorial
 order: 20
 pins: engine/skills/onboard.md, engine/onboarding/interview-spec.yaml
-reviewed: 2026-09-01
+reviewed: 2026-09-10
 ---
 
 This is the part that makes the difference between an assistant and a chatbot
@@ -76,12 +77,14 @@ relationships first. All of it is visible on the [Brain](/docs/brain-page)
 page afterwards.
 
 Layer 8 also captures real samples of your writing, which is what lets your
-assistant draft as you rather than as a language model.
+assistant draft as you rather than as a language model. How that voice keeps improving after the interview is [teach it your voice](/docs/teach-it-your-voice).
 
 ## How it actually feels
 
 **One question per turn.** Not a form, not a wall of questions. It asks, you
 answer, it follows the thread you opened rather than reading down a checklist.
+This is the interview step of [the CRIT method](/docs/the-crit-method), run at
+the scale of a whole brain; you can ask for the same thing on any task.
 
 **It probes the thin bits.** If an answer skims a layer, the next question goes at
 the thinnest point rather than moving on politely.
@@ -140,3 +143,6 @@ sprinkled into a morning brief.
 
 **It will not finish without you.** The review pass needs your corrections. A
 brain nobody checked is a brain nobody should trust.
+
+The wider list, for the assistant as a whole rather than the interview, is
+[what it will not do](/docs/what-it-will-not-do).

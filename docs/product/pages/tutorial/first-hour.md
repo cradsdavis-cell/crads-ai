@@ -1,6 +1,7 @@
 ---
 title: Your first hour
 summary: From opening the app to an assistant that is awake, one small step at a time, with what you should see at each one.
+outcome: open the app, build a server in your own hosting account, and wake an assistant that answers you.
 audience: public
 access: public
 mode: tutorial
@@ -22,8 +23,9 @@ step and come back; nothing here is lost by walking away.
 to a paid Claude account (Pro is the minimum; the free tier will not run an
 assistant), a free GitHub account for your brain's private backup, and an
 account at one of the two hosting companies the wizard supports, with an API
-token for it. Hetzner is the cheaper; DigitalOcean has a Sydney location. The
-wizard explains the token as you go, and
+token for it (skip this one if you choose **On this computer**, below).
+Hetzner is the cheaper; DigitalOcean has a Sydney location. The wizard
+explains the token as you go, and
 [get a Hetzner API token](/docs/get-a-hetzner-api-token) or
 [get a DigitalOcean API token](/docs/get-a-digitalocean-api-token) is the
 same walkthrough as its own page if you would rather do it first.
@@ -34,6 +36,8 @@ by that company, and the only key on it from its first boot is this computer's.
 Nothing about it is stored with Crads-AI, because there is nothing central to
 store it in.
 
+![The whole path: your token, a server built in your account, the app opens it, Claude signs in, the interview.](diagram:self-host-path)
+
 ## Step 1. Open the app
 
 The first screen is called **the door**. It asks what we are making.
@@ -42,6 +46,13 @@ The first screen is called **the door**. It asks what we are making.
 and it is the one you want. **I already have one** is for a second computer
 joining a mineral that already exists; that path is
 [its own page](/docs/add-another-computer).
+
+**On this computer** is the third choice on current builds. It skips the
+server entirely and opens the assistant against a folder on your own machine:
+free, but no scheduled jobs, no Telegram and no connections, because it is
+only awake when you are. This page is the server route; if you pick On this
+computer, the steps below about a host, a token and a build do not apply, and
+you go straight to [the interview](/docs/the-interview).
 
 **If instead you see a list of names**, someone has used Crads AI on this
 computer before. The same **Set up my own** choice is below the list.

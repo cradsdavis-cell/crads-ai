@@ -164,3 +164,21 @@ test('a nested item under a wrapped item still nests', () => {
   assert.equal((html.match(/<ul>/g) || []).length, 2, 'outer and inner lists');
   assert.match(html, /<li>Outer item that wraps across a line\.<\/li>\s*<ul>\s*<li>Inner item\.<\/li>/);
 });
+
+test('a quote is a Note, Tip: and Careful: pick a flavour, any other label is refused', () => {
+  assert.match(renderMarkdown('> Plain quote.'), /^<blockquote><p>Plain quote\.<\/p><\/blockquote>$/);
+  assert.match(renderMarkdown('> Tip: do the real task first.'), /^<blockquote class="tip"><p>do the real task first\.<\/p>/);
+  assert.match(renderMarkdown('> Careful: it will be confidently wrong sometimes.'), /^<blockquote class="careful"><p>it will be/);
+  assert.throws(() => renderMarkdown('> Warning: something.'), /unknown callout "Warning:"/);
+  // a colon later in the sentence is prose, not a label
+  assert.match(renderMarkdown('> The rule: write it down.'), /^<blockquote><p>The rule: write it down\./);
+});
+
+test('a page fragment carries its summary as a lede, and its outcome when it has one', () => {
+  const base = { slug: 'x', mode: 'how-to', audience: 'public', title: 'Do a thing', summary: 'What this page is.', body: 'Body.', installs: null, outcome: null };
+  const plain = renderPage(base);
+  assert.match(plain, /<h1>Do a thing<\/h1>\n<p class="docs-lede">What this page is\.<\/p>/);
+  assert.ok(!plain.includes('docs-outcome'));
+  const withOutcome = renderPage({ ...base, outcome: 'do the thing without help.' });
+  assert.match(withOutcome, /<p class="docs-outcome"><span>You will be able to<\/span> do the thing without help\.<\/p>/);
+});

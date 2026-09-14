@@ -1,6 +1,7 @@
 ---
 title: Connect Telegram
 summary: Your assistant in your pocket, step by step: your own private bot, made in about two minutes, that drafts and never sends.
+outcome: have briefs and questions reach your phone through a bot that is yours alone.
 audience: public
 access: public
 mode: how-to
