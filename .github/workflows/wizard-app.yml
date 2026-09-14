@@ -388,8 +388,9 @@ jobs:
           # for the entry instead, up to 90 s, then stop the app.
           $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Crads-AI'
           $waited = 0
-          while (-not (Test-Path $key) -and $waited -lt 90) { Start-Sleep -Seconds 2; $waited += 2 }
-          Write-Host "self-install settled after ${waited}s (Add/Remove entry present: $(Test-Path $key))"
+          $entryDone = { [bool](Get-ItemProperty $key -ErrorAction SilentlyContinue).UninstallString }
+          while (-not (& $entryDone) -and $waited -lt 90) { Start-Sleep -Seconds 2; $waited += 2 }
+          Write-Host "self-install settled after ${waited}s (Add/Remove entry complete: $(& $entryDone))"
           Start-Sleep -Seconds 2
           Stop-Process -Id $p.Id -Force
           $startupLog = Join-Path $env:LOCALAPPDATA 'Crads-AI\startup.log'

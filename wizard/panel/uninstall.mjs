@@ -24,12 +24,20 @@ export function wantsUninstall(argv) {
   return (argv || []).some((a) => String(a || '').toLowerCase() === '--uninstall');
 }
 
-// The `reg add` calls, as data, so the test pins every value and the runner stays dumb.
-export function uninstallEntryCommands({ target, dir, ico = '', version = '', sizeBytes = 0, installDate = '' } = {}) {
-  const key = UNINSTALL_KEY;
-  const str = (name, value) => ['reg', ['add', key, '/v', name, '/t', 'REG_SZ', '/d', value, '/f']];
-  const dword = (name, value) => ['reg', ['add', key, '/v', name, '/t', 'REG_DWORD', '/d', String(value), '/f']];
-  const cmds = [
+// The Add/Remove entry as ONE .reg file, imported in a single `reg import` call. Twelve
+// separate `reg add` calls looked simpler, but the entry then exists half-written for a
+// second or two after first launch (the 2026-09-14 CI smoke caught it with DisplayName
+// present and UninstallString still empty); an import lands the whole key at once.
+// Written as UTF-16LE with a BOM, the encoding reg.exe reads unambiguously, so a
+// non-ASCII user name in the paths survives.
+export function uninstallEntryRegText({ target, dir, ico = '', version = '', sizeBytes = 0, installDate = '' } = {}) {
+  const esc = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const str = (name, value) => `"${name}"="${esc(value)}"`;
+  const dword = (name, value) => `"${name}"=dword:${Number(value).toString(16).padStart(8, '0')}`;
+  const lines = [
+    'Windows Registry Editor Version 5.00',
+    '',
+    `[HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\${APP_NAME}]`,
     str('DisplayName', APP_NAME),
     str('DisplayIcon', ico ? `${ico},0` : target),
     str('Publisher', 'crads-ai.com'),
@@ -40,18 +48,28 @@ export function uninstallEntryCommands({ target, dir, ico = '', version = '', si
     dword('NoModify', 1),
     dword('NoRepair', 1),
   ];
-  if (version) cmds.push(str('DisplayVersion', version));
-  if (installDate) cmds.push(str('InstallDate', installDate));
-  if (sizeBytes > 0) cmds.push(dword('EstimatedSize', Math.max(1, Math.round(sizeBytes / 1024))));
-  return cmds;
+  if (version) lines.push(str('DisplayVersion', version));
+  if (installDate) lines.push(str('InstallDate', installDate));
+  if (sizeBytes > 0) lines.push(dword('EstimatedSize', Math.max(1, Math.round(sizeBytes / 1024))));
+  lines.push('', '');
+  return lines.join('\r\n');
 }
 
-export async function registerUninstall({ platform = process.platform, runner = run, ...facts } = {}) {
+const defaultWriteReg = (text) => {
+  const p = join(tmpdir(), `crads-ai-uninstall-entry-${process.pid}.reg`);
+  writeFileSync(p, Buffer.from('\ufeff' + text, 'utf16le'));
+  return p;
+};
+
+export async function registerUninstall({ platform = process.platform, runner = run, writeReg = defaultWriteReg, rm = unlinkSync, ...facts } = {}) {
   if (platform !== 'win32') return { done: false, reason: `no Add/Remove entry on ${platform}` };
+  let file = '';
   try {
-    for (const [cmd, args] of uninstallEntryCommands(facts)) await runner(cmd, args);
+    file = writeReg(uninstallEntryRegText(facts));
+    await runner('reg', ['import', file]);
     return { done: true };
   } catch (e) { return { done: false, reason: String(e.message || e) }; }
+  finally { if (file) { try { rm(file); } catch { /* temp file; harmless */ } } }
 }
 
 // The batch file that removes the program folder once this exe has exited. A file,
