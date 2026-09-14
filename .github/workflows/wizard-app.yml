@@ -382,8 +382,21 @@ jobs:
           $env:AIOS_NO_INSTALL = $null
           $p = Start-Process -FilePath .\dist\crads-ai.exe -PassThru -NoNewWindow `
             -RedirectStandardOutput dist\smoke-install-out.log -RedirectStandardError dist\smoke-install-err.log
-          Start-Sleep -Seconds 8
+          # Self-install ends with the Add/Remove Programs entry (reg adds queued behind
+          # the shortcut PowerShell call, which alone can take several seconds on a
+          # runner). A fixed 8 s sleep killed the app mid-install on 2026-09-14; wait
+          # for the entry instead, up to 90 s, then stop the app.
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Crads-AI'
+          $waited = 0
+          while (-not (Test-Path $key) -and $waited -lt 90) { Start-Sleep -Seconds 2; $waited += 2 }
+          Write-Host "self-install settled after ${waited}s (Add/Remove entry present: $(Test-Path $key))"
+          Start-Sleep -Seconds 2
           Stop-Process -Id $p.Id -Force
+          $startupLog = Join-Path $env:LOCALAPPDATA 'Crads-AI\startup.log'
+          if (-not (Test-Path $key)) {
+            if (Test-Path $startupLog) { Get-Content $startupLog -Raw | Write-Host }
+            Get-Content dist\smoke-install-err.log -Raw | Write-Host
+          }
           $exe = Join-Path $env:LOCALAPPDATA 'Programs\Crads-AI\Crads-AI.exe'
           $ico = Join-Path $env:LOCALAPPDATA 'Programs\Crads-AI\crads-ai.ico'
           $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Crads-AI.lnk'
@@ -431,14 +444,21 @@ jobs:
           $exe = Join-Path $env:LOCALAPPDATA 'Programs\Crads-AI\Crads-AI.exe'
           $dir = Join-Path $env:LOCALAPPDATA 'Programs\Crads-AI'
           $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Crads-AI.lnk'
-          if (-not (Test-Path $key)) { throw 'self-install did not write the Add/Remove Programs entry' }
+          $startupLog = Join-Path $env:LOCALAPPDATA 'Crads-AI\startup.log'
+          if (-not (Test-Path $key)) {
+            if (Test-Path $startupLog) { Get-Content $startupLog -Raw | Write-Host }
+            throw 'self-install did not write the Add/Remove Programs entry'
+          }
           $entry = Get-ItemProperty $key
           if ($entry.DisplayName -ne 'Crads-AI') { throw "Add/Remove DisplayName is '$($entry.DisplayName)'" }
           if ($entry.UninstallString -ne ('"' + $exe + '" --uninstall')) { throw "UninstallString is '$($entry.UninstallString)'" }
           $env:AIOS_NO_LAUNCH = '1'
           $out = & $exe --uninstall 2>&1 | Out-String
           Write-Host $out
-          if ($out -notmatch 'uninstalled') { throw 'the --uninstall run did not report success' }
+          if ($out -notmatch 'uninstalled') {
+            if (Test-Path $startupLog) { Get-Content $startupLog -Raw | Write-Host }
+            throw 'the --uninstall run did not report success'
+          }
           if (Test-Path $key) { throw 'the Add/Remove Programs entry survived --uninstall' }
           if (Test-Path $lnk) { throw 'the Start-menu shortcut survived --uninstall' }
           Start-Sleep -Seconds 8

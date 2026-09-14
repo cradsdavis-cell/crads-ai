@@ -167,7 +167,7 @@ function selfInstall(sea) {
         if (stale.length) refresh(stale);
         nudgeIconCache();
       } else if (state === 'updated') nudgeIconCache();        // same path, new pixels: cache is the only stale layer
-      registerEntry();
+      registerEntry();                                         // migration: installs that predate the Add/Remove entry
       return;
     }
     mkdirSync(dir, { recursive: true });
@@ -176,8 +176,8 @@ function selfInstall(sea) {
     writeIco();
     writeHost();
     sweepHosts();
+    registerEntry();                                           // fast reg adds first; the shortcut PowerShell below can take seconds
     refresh([startMenu, desktop]);
-    registerEntry();
     console.log(`installed: ${target} (Start menu + desktop shortcuts created; uninstall from Windows Settings > Apps, or run "${target}" --uninstall)`);
   } catch { /* best-effort by design */ }
 }
