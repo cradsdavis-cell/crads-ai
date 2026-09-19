@@ -59,6 +59,23 @@ const SHOTS = [
   { name: 'member-local-skills', path: '/member?face=local', waitMs: 2500, after: nav('skills', 2500) },
   { name: 'member-local-seat', path: '/member?face=local', waitMs: 2500, after: nav('seat', 2500) },
   { name: 'member-local-help', path: '/member?face=local', waitMs: 2500, after: async (page) => { await page.click('#helpLink'); await page.waitForTimeout(1500); } },
+  // 2026-09-18: a fresh folder's Overview (step 1 shows its way in, 0 of 8)
+  { name: 'member-local-overview-fresh', path: '/member?face=local&state=empty', waitMs: 4000 },
+  // Connections on a folder: Claude's own connectors + this folder's .mcp.json
+  { name: 'member-local-connections', path: '/member?face=local', waitMs: 2500, after: nav('connections', 2500) },
+  { name: 'member-local-connections-added', path: '/member?face=local', waitMs: 2500, after: async (page) => {
+    await nav('connections', 2500)(page);
+    await page.fill('#lcFilter', 'linear');
+    await page.click('[data-lc-add="linear"]');
+    await page.waitForTimeout(1500);
+  } },
+  // Terminal on a folder: open Claude Code in a real terminal window
+  { name: 'member-local-terminal', path: '/member?face=local', waitMs: 2500, after: async (page) => {
+    await nav('terminal', 1500)(page);
+    await page.click('#ltClaude');
+    await page.waitForTimeout(1200);
+  } },
+  { name: 'member-local-terminal-nocli', path: '/member?face=local&nocli=1', waitMs: 3000, after: nav('terminal', 1500) },
 ];
 
 const report = {};
@@ -90,6 +107,16 @@ for (const shot of SHOTS) {
         localCards: document.querySelectorAll('[data-make]').length,
         connStat: (document.getElementById('connStat') || {}).textContent || null,
         ohPath: (document.getElementById('ohPath') || {}).textContent || null,
+        orgline: (document.getElementById('orgline') || {}).textContent || null,
+        connSub: (document.getElementById('connSub') || {}).textContent || null,
+        stillReading: document.body.innerText.includes('Still reading'),
+        lcList: [...document.querySelectorAll('#lcList .nm')].map((n) => n.textContent),
+        lcCatRows: document.querySelectorAll('#lcCat li').length,
+        lcNotice: (document.getElementById('lcNotice') || {}).textContent || null,
+        ltNotice: (document.getElementById('ltNotice') || {}).textContent || null,
+        ltNoCli: vis('#ltNoCli'),
+        termBoxVisible: vis('#termBtn'), mcpBoxVisible: vis('#mcpCustAdd'),
+        onboardingBig: ((document.querySelector('[data-card="onboarding"] .big') || {}).textContent || null),
       };
     });
     const file = join(OUT, `${shot.name}.png`);

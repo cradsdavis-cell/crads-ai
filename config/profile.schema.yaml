@@ -74,14 +74,22 @@ comms:
                                        # Changing to "auto" requires a written allowlist.
   ai_disclosure: true    # disclose AI authorship where a human would assume human (D4)
 
-# --- Model routing ----------------------------------------------------------
-# Tiering is mandatory for margin (D5).
-models:
-  watcher:  "claude-haiku-4-5"     # high-frequency inbox/calendar sweep
-  brief:    "claude-sonnet-4-6"    # morning/evening briefs
-  chat:     "claude-sonnet-4-6"    # conversational turns
-  strategy: "claude-opus-4-8"      # weekly review / planning ONLY
-  prompt_caching: true             # MANDATORY — caches the stable per-client prefix
+# --- What the assistant thinks with ------------------------------------------
+# harness = the agent program that runs a turn. model = where the thinking happens.
+# Absent block (every mineral born before 2026-09-17) means claude-code + your Claude
+# sign-in, exactly as before. Read by engine/kernel/lib/harness/index.mjs, which REFUSES
+# an unknown harness or a pairing the harness does not declare; it never falls back
+# silently. Spec: docs/superpowers/specs/2026-09-17-second-harness-design.md.
+# (Replaces the old `models:` tiering block, which nothing ever read.)
+assistant:
+  harness: claude-code           # any id in engine/kernel/lib/harness/registry.json
+  model:
+    source: signin               # signin | endpoint
+    provider: anthropic          # claude-code: anthropic. opencode: openai | github-copilot | ollama | openai-compatible
+    id: ""                       # empty = the harness default; REQUIRED for an endpoint
+    base_url: ""                 # endpoint only, e.g. http://127.0.0.1:11434/v1
+    key_ref: ""                  # endpoint only: SECRET REF (a file name in /state/secrets), never the key
+    timeout_s: 240               # per turn; raise it for slow hardware
 
 # --- Cadence (all times in identity.timezone) -------------------------------
 cadence:

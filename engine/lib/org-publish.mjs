@@ -4,7 +4,7 @@
 // pages; (2) the generated .claude/settings.json wires enclave-guard.mjs as a PreToolUse deny;
 // (3) every publish is a reviewable org-repo commit (the audit trail).
 import { cp, mkdir, readFile, writeFile, rm, readdir, stat } from 'node:fs/promises';
-import { execFile as execFileCb, spawn } from 'node:child_process';
+import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -122,20 +122,6 @@ export async function writeDryExtracts(workDir, orgDir, slug, date) {
   return { files };
 }
 
-// Same headless contract as runner.mjs runClaude: stdin closed, hard timeout. Duplicated
-// (not imported) because runner's helper is module-private; keep both tiny and in sync.
-function defaultRunClaude(args, { cwd, env, timeoutMs = 240000 }) {
-  return new Promise((resolve, reject) => {
-    const pebble = spawn('claude', args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
-    let out = '', err = '';
-    const t = setTimeout(() => { pebble.kill('SIGKILL'); reject(new Error(`claude timed out after ${timeoutMs}ms`)); }, timeoutMs);
-    pebble.stdout.on('data', (d) => { out += d; });
-    pebble.stderr.on('data', (d) => { err += d; });
-    pebble.on('error', (e) => { clearTimeout(t); reject(e); });
-    pebble.on('close', (code) => { clearTimeout(t); code === 0 ? resolve(out) : reject(new Error((err || `claude exited ${code}`).slice(0, 300))); });
-  });
-}
-
 function livePrompt(slug, orgDir, date) {
   return (
     `You are the org-publish job for member box "${slug}". Today is ${date}.\n` +
@@ -150,7 +136,9 @@ function livePrompt(slug, orgDir, date) {
   );
 }
 
-export async function publish(stateDir, { dryRun = false, runClaude = defaultRunClaude } = {}) {
+// `runClaude(args, opts)` is the process-level test seam; it is handed to the harness
+// as its spawn implementation, so a fake sees exactly the argv a real run would.
+export async function publish(stateDir, { dryRun = false, runClaude } = {}) {
   let cfg;
   try { cfg = JSON.parse(await readFile(path.join(stateDir, 'org', 'config.json'), 'utf8')); }
   catch { return { ok: true, output: 'org brain not configured — no-op' }; }
@@ -166,11 +154,10 @@ export async function publish(stateDir, { dryRun = false, runClaude = defaultRun
   if (dryRun) {
     await writeDryExtracts(workDir, orgDir, slug, date);
   } else {
-    await runClaude(
-      ['-p', livePrompt(slug, orgDir, date), '--permission-mode', 'acceptEdits',
-       '--allowedTools', 'Read,Edit,Write,Glob,Grep', '--add-dir', orgDir],
-      { cwd: workDir, env: { ...process.env, CLAUDE_CONFIG_DIR: path.join(stateDir, '.claude-auth') } }
-    );
+    const { runTurn } = await import('../kernel/lib/harness/index.mjs');
+    const { grantsForOrgPublish } = await import('../kernel/lib/harness/grants.mjs');
+    await runTurn({ stateDir, cwd: workDir, prompt: livePrompt(slug, orgDir, date),
+      grants: grantsForOrgPublish(orgDir), spawnImpl: runClaude });
   }
   const memberDir = path.join(orgDir, 'members', slug);
   const check = await validateExtracts(memberDir);

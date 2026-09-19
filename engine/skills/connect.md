@@ -12,7 +12,15 @@ Purpose: when the person asks you to connect a service, do it through the minera
 own connection machinery, so the result shows up on their Connections page and
 works in their scheduled jobs, not only in this chat.
 
-## The one rule that matters
+## First: a server, or this computer?
+
+If `/app/engine/comms/mcp-connect.mjs` does not exist, this brain is a folder
+on the person's own computer (the Crads-AI app's "On this computer" mode).
+There is no mineral machinery and no scheduled job to serve, so skip straight
+to **On this computer** at the end of this file. Everything before it is for a
+server.
+
+## The one rule that matters (on a server)
 
 **Never use `claude mcp add`.** Its default scope is chats-only: the connection
 would work while they talk to you, be invisible on their Connections page, and
@@ -104,3 +112,32 @@ the page says which row already has it.
    "in your chats only", offer the fix:
    `node /app/engine/comms/mcp-connect.mjs /state adopt <name>`, it keeps
    their sign-in and makes the connection available to their jobs.
+
+## On this computer
+
+Here connections belong to Claude Code on this computer, and that is the whole
+job: nothing runs while the folder is closed, so nothing headless needs them.
+The rule above is reversed: `claude mcp add` in **project scope** is the right
+tool, because it writes `./.mcp.json` in this folder, which is exactly what the
+app's Connections page reads and edits.
+
+- **Gmail, Google Calendar, Google Drive** (and the other Claude connectors):
+  these come from the person's own Claude account, not from this folder. Send
+  them to claude.ai/customize/connectors to turn the service on and sign in
+  there. Claude Code picks it up by itself; in `/mcp` it is marked as coming
+  from claude.ai. Do not add a Google server to `.mcp.json`.
+- **Anything with a remote MCP server** (Notion, Linear, Canva, ...): the
+  easiest path is the Connections page in the Crads-AI app, one click per
+  service. Or run it yourself, with the name in lower case:
+  `claude mcp add --transport http --scope project <name> <url>`
+  (use `--transport sse` when the address ends in `/sse`).
+- **Signing in** happens in their browser, not in this chat: tell them to type
+  `/mcp`, pick the service and follow the sign-in. If it is not in the list
+  yet, quit and reopen Claude Code in this folder so it reads `.mcp.json`
+  again. Claude Code keeps that sign-in; neither you nor the app ever sees it.
+- `.mcp.json` and `.claude/` are in `.gitignore`: connections never ride a
+  GitHub backup.
+
+Only claim "connected" once the service shows as connected in `/mcp`. If they
+want a service to work while they sleep (a morning email digest, say), that
+needs a server: say so plainly rather than promising it.

@@ -45,3 +45,52 @@ test('Connect Claude deep-links the Terminal tab with the whitelisted sign-in op
   // no other run= value is ever placed in a URL from this page
   assert.equal([...html.matchAll(/&run=([a-z]+)/g)].every((m) => m[1] === 'signin'), true);
 });
+
+// ---- a mineral that thinks with something other than Claude (spec 2026-09-17) ----------
+// shStepsSync is extracted and RUN against a fake document, because reaching the finish
+// screen in a browser means walking the whole provisioning flow.
+import { readFileSync as _rf } from 'node:fs';
+import { fileURLToPath as _fu } from 'node:url';
+import { dirname as _dn, join as _jn } from 'node:path';
+
+async function syncWith(steps) {
+  const door = _rf(_jn(_dn(_fu(import.meta.url)), 'door.html'), 'utf8');
+  const fn = door.match(/function shStepsSync\(\)\{[\s\S]*?\n {2}\}\n/);
+  assert.ok(fn, 'shStepsSync moved or changed shape');
+  const els = {};
+  const el = (id) => (els[id] ||= { id, textContent: id === 'shGhChip' || id === 'shClaudeChip' ? 'Checking…' : '', innerHTML: '', style: {}, classList: { toggle() {} } });
+  const document = { getElementById: el };
+  const shChip = (id, text, done) => { el(id).textContent = text; el(id).done = !!done; };
+  const fetch = async () => ({ json: async () => steps });
+  new Function('document', 'fetch', 'shBox', 'shChip', 'stepsUrl', 'shGhPoll', 'esc', `${fn[0]}; shStepsSync();`)(
+    document, fetch, { alias: 'mel-box' }, shChip, (a) => '/setup-steps?box=' + a, null, (s) => String(s));
+  await new Promise((r) => setTimeout(r, 10));
+  return els;
+}
+
+test('finish row: a Claude mineral reads exactly as before, with or without the new field', async () => {
+  for (const steps of [
+    { reachable: true, github: { connected: false }, claude: { signedIn: false } },
+    { reachable: true, github: { connected: false }, claude: { signedIn: false }, assistant: { harness: 'claude-code', source: 'signin', label: 'Claude', ready: false, signin: 'claude' } }]) {
+    const e = await syncWith(steps);
+    assert.equal(e.shClaudeChip.textContent, 'Not yet');
+    assert.equal(e.shClaudeTitle, undefined, 'the title is left as the page wrote it');
+    assert.equal(e.shClaudeBtn.style.display, '');
+  }
+});
+
+test('finish row: a ChatGPT mineral is asked to sign in to ChatGPT, on the terminal', async () => {
+  const e = await syncWith({ reachable: true, github: { connected: true, repo: 'r' }, claude: { signedIn: false },
+    assistant: { harness: 'opencode', source: 'signin', label: 'ChatGPT', ready: false, signin: 'opencode auth login' } });
+  assert.equal(e.shClaudeTitle.textContent, 'Connect ChatGPT');
+  assert.match(e.shClaudeHint.textContent, /signed in to ChatGPT, on your own subscription/);
+  assert.deepEqual([e.shClaudeChip.textContent, e.shClaudeBtn.style.display], ['Not yet', '']);
+});
+
+test('finish row: an endpoint has no terminal step; never-checked says so and is not "done"', async () => {
+  const e = await syncWith({ reachable: true, github: { connected: true, repo: 'r' }, claude: { signedIn: false },
+    assistant: { harness: 'opencode', source: 'endpoint', label: 'a model endpoint', ready: null, host: '192.168.1.20:11434', signin: null } });
+  assert.equal(e.shClaudeTitle.textContent, 'Your model endpoint');
+  assert.match(e.shClaudeHint.textContent, /thinks at 192\.168\.1\.20:11434/);
+  assert.deepEqual([e.shClaudeChip.textContent, e.shClaudeChip.done, e.shClaudeBtn.style.display], ['Not checked', false, 'none']);
+});

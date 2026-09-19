@@ -75,8 +75,50 @@ RUN set -eux; \
     cp -a /state/.claude-auth /opt/claude-plugins-template; \
     rm -rf /state
 
+# --- OpenCode: the second harness (spec docs/superpowers/specs/2026-09-17-second-harness-design.md) ---
+# PINNED for the same reason the Claude CLI is: the conformance suite and the compatibility
+# matrix are statements about ONE version. A bump re-runs both. Build with
+# --build-arg OPENCODE_VERSION= (empty) to leave the harness and its ~270 MB out entirely.
+ARG OPENCODE_VERSION=1.18.31
+ARG GSD_CORE_VERSION=1.14.0
+ARG SUPERPOWERS_TAG=v6.3.0
+ARG CLAUDE_PLUGINS_OFFICIAL_SHA=ea0a38e1d671aa18a30431c9160e31193dc9860b
+RUN set -eux; \
+    [ -n "${OPENCODE_VERSION}" ] || { echo "OpenCode bake skipped"; exit 0; }; \
+    npm install -g "opencode-ai@${OPENCODE_VERSION}"; \
+    opencode --version; \
+    R=/state/.opencode-auth; C="$R/config/opencode"; mkdir -p "$C"; \
+    export XDG_CONFIG_HOME="$R/config" XDG_DATA_HOME=/tmp/oc-bake/data XDG_STATE_HOME=/tmp/oc-bake/state XDG_CACHE_HOME="$R/cache" \
+           OPENCODE_DISABLE_AUTOUPDATE=1 OPENCODE_DISABLE_SHARE=1; \
+    HOME=/tmp/oc-bake/home npx -y "@opengsd/gsd-core@${GSD_CORE_VERSION}" --opencode --global --config-dir "$C" --no-legacy-cleanup; \
+    git clone --quiet https://github.com/anthropics/claude-plugins-official /tmp/oc-bake/cpo; \
+    git -C /tmp/oc-bake/cpo checkout --quiet "${CLAUDE_PLUGINS_OFFICIAL_SHA}"; \
+    mkdir -p "$C/skills"; cp -a /tmp/oc-bake/cpo/plugins/skill-creator/skills/skill-creator "$C/skills/skill-creator"; \
+    cp /tmp/oc-bake/cpo/plugins/skill-creator/LICENSE "$C/skills/skill-creator/LICENSE"; \
+    node -e 'const fs=require("fs"),p=process.argv[1]+"/opencode.json";const j=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,"utf8")):{};j.plugin=[...(j.plugin||[]),"superpowers@git+https://github.com/obra/superpowers.git#"+process.argv[2]];if(j.mcp&&j.mcp.gsd)j.mcp.gsd.command=["npx","-y","-p","@opengsd/gsd-core@"+process.argv[3],"gsd-mcp-server"];j.autoupdate=false;j.share="disabled";fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")' "$C" "${SUPERPOWERS_TAG}" "${GSD_CORE_VERSION}"; \
+    mkdir -p /tmp/oc-bake/ws; cd /tmp/oc-bake/ws; git init -q; \
+    opencode debug skill > /tmp/oc-bake/skills.json; \
+    node -e 'const n=JSON.parse(require("fs").readFileSync("/tmp/oc-bake/skills.json","utf8")).map(s=>s.name);for(const w of ["brainstorming","skill-creator","gsd-new-project"])if(!n.includes(w)){console.error("bake: skill missing: "+w);process.exit(1)}console.log("opencode bake: "+n.length+" skills")'; \
+    cd /; mkdir -p /opt/opencode-template; cp -a "$R/config" "$R/cache" /opt/opencode-template/; \
+    chmod -R a+rX /opt/opencode-template; npm cache clean --force >/dev/null 2>&1 || true; rm -rf /state /tmp/oc-bake /root/.npm /root/.cache
+# Notes on the bake above, kept out of the RUN so a comment cannot break its continuation:
+#  - Baked AT the path a mineral uses, then moved aside, exactly like the Claude bake: GSD
+#    writes its absolute install path into a few hundred files. engine/box/opencode-seed.sh
+#    rewrites it for a mineral mounted anywhere else.
+#  - GSD's installer also writes ~/.gsd/defaults.json (runtime: opencode). HOME is a throwaway
+#    so that never lands in a home the Claude-side GSD plugin shares.
+#  - skill-creator is Apache-2.0: copied with its licence, never vendored into this AGPL repo.
+#  - GSD ships its MCP server as `npx -y -p @opengsd/gsd-core`, which fetches whatever is
+#    NEWEST each time a member opens a terminal. Pinned to GSD_CORE_VERSION instead. Still an
+#    npx fetch on first use: a global install of the package cost ~100 MB of layer and ran
+#    the CI runner out of disk (2026-09-17), and the terminal is online by definition.
+#  - The npm cache is cleared in the SAME layer: left behind it is dead weight in every image.
+#  - The last node step PROVES one skill from each of the three plugins is discoverable, so a
+#    silently failed install fails the build instead of shipping an empty template.
+
 ENV STATE_DIR=/state \
     CLAUDE_CONFIG_DIR=/state/.claude-auth \
-    CLAUDE_PLUGIN_TEMPLATE=/opt/claude-plugins-template
+    CLAUDE_PLUGIN_TEMPLATE=/opt/claude-plugins-template \
+    OPENCODE_PLUGIN_TEMPLATE=/opt/opencode-template
 VOLUME ["/state"]
 # Variants add WORKDIR /app, COPYs, and the entrypoint. Deliberately no jq (rock-only).

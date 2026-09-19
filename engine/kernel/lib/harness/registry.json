@@ -1,0 +1,5 @@
+{
+  "_doc": "Harness ids a mineral may name in profile.yaml assistant.harness. Each id is a module in this directory exporting manifest + run + isolationEnv. To add one: write the module, add the id here, and make tests/harness-conformance.test.mjs pass for it. A harness that cannot express deny-by-default for unattended turns is not registrable. Spec: docs/superpowers/specs/2026-09-17-second-harness-design.md §3.3.",
+  "default": "claude-code",
+  "harnesses": ["claude-code", "opencode"]
+}

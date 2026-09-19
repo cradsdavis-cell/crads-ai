@@ -47,3 +47,38 @@ made). After that, pushing is one command in this folder:
 The app also pushes when it opens, best-effort. Credentials never go in: the
 `.gitignore` keeps `secrets/`, `.claude-auth/`, `.kernel/` and every `.env`
 out of the repository, and the push refuses if that list is missing.
+
+<!-- crads-ai:engine-notes start (the Crads-AI app keeps this block current; write your own notes above it) -->
+## Paths on this computer
+
+The skills in `.claude/skills/` are shared with the server edition of Crads-AI,
+so they name server paths. On this computer:
+
+- `/state/` means **this folder**. `/state/profile.yaml` is `./profile.yaml`,
+  `/state/box-name` is `./box-name`, `/state/dashboard/` is `./dashboard/`,
+  and so on. Never create a `/state` directory at the root of the disk.
+- `/app/` does not exist here. When a skill says to run `node /app/engine/...`,
+  follow its "On this computer" section if it has one. If it has none, say
+  plainly that that part needs a server and carry on with the rest.
+- `STATE.md` and `org-inbox/` are server files. Their absence is normal.
+
+## Connections on this computer
+
+Connections live with Claude Code on this computer, not in the Crads-AI app:
+
+- **Gmail, Google Calendar, Google Drive** and the other Claude connectors
+  come from the person's own Claude account. They turn them on at
+  claude.ai/customize/connectors and sign in there; Claude Code picks them up
+  automatically (they show in `/mcp`, marked as from claude.ai).
+- **Other services** (Notion, Linear, and anything else with a remote MCP
+  server) go in `./.mcp.json` in this folder, added from the app's
+  Connections page or with
+  `claude mcp add --transport http --scope project <name> <url>`.
+  The person then types `/mcp`, picks the service and signs in in their
+  browser. Claude Code keeps that sign-in; the app never sees it.
+- `.mcp.json` and `.claude/` are in `.gitignore`, so connections are never
+  part of a GitHub backup.
+
+Scheduled jobs and Telegram still need a server: nothing here runs while the
+folder is closed.
+<!-- crads-ai:engine-notes end -->

@@ -20,14 +20,18 @@
 // does: a bad arg is a 400 before anything touches the folder, and the
 // handlers below trust nothing they did not validate themselves.
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { hostname } from 'node:os';
+import { spawn } from 'node:child_process';
+import { homedir, hostname } from 'node:os';
 import path from 'node:path';
 import { listSkills } from '../../engine/appshell/skills-list.mjs';
 import { deletePage } from '../../engine/appshell/page-delete.mjs';
 import { readClaudeCredential } from '../../engine/lib/claude-credential.mjs';
-import { seedPages, setBrainName } from './local-scaffold.mjs';
+import { refreshLocalBrain, seedPages, setBrainName } from './local-scaffold.mjs';
 
 export const LOCAL_MARK = '__local__ ';
+
+// folders refreshed this run (refreshLocalBrain); exported for tests
+export const REFRESHED = new Set();
 
 // ---------------------------------------------------------------- validation
 // The same shapes panel-server enforces for the member table. Copied rather
@@ -70,6 +74,18 @@ const nameArg = (v) => {
   return name;
 };
 
+// A connection's name is its key in .mcp.json and what /mcp lists: kebab-case.
+const mcpNameArg = (v) => { const n = String(v ?? ''); if (!/^[a-z0-9][a-z0-9-]{0,40}$/.test(n)) bad('a connection name is lower-case letters, digits and dashes'); return n; };
+// Remote servers only, over https: a local stdio server is a command line,
+// and a command line from a web page is not something this app will write.
+const mcpUrlArg = (v) => {
+  const u = String(v ?? '').trim();
+  let ok = false;
+  try { const x = new URL(u); ok = x.protocol === 'https:' && !!x.hostname && !x.username && !x.password; } catch { ok = false; }
+  if (!ok || u.length > 300) bad('the address must be a full https:// address for a remote MCP server');
+  return u;
+};
+
 const mark = (verb, args = {}) => ({ command: LOCAL_MARK + JSON.stringify({ verb, args }) });
 
 // ---------------------------------------------------------------- the table
@@ -95,7 +111,20 @@ export const LOCAL_VERBS = {
   'open-folder': { build: () => mark('open-folder') },
   'box-version': { build: () => mark('box-version') },
   'box-rename': { mutating: true, build: (a = {}) => mark('box-rename', { name: nameArg(a.name) }) },
+
+  // ---- LOCAL-ONLY (2026-09-18): things a folder can do that a box does
+  // differently. Connections on this computer are Claude Code's own: the app
+  // writes the folder's .mcp.json and Claude Code does the sign-in in the
+  // person's browser, so no token ever passes through the app. The terminal
+  // is the person's own, opened in the folder. None of these exist on the
+  // member table; LOCAL_ONLY_VERBS names them so the subset test stays exact.
+  'local-mcp-list': { build: () => mark('local-mcp-list') },
+  'local-mcp-add': { mutating: true, build: (a = {}) => mark('local-mcp-add', { name: mcpNameArg(a.name), url: mcpUrlArg(a.url) }) },
+  'local-mcp-remove': { mutating: true, build: (a = {}) => mark('local-mcp-remove', { name: mcpNameArg(a.name) }) },
+  'local-terminal': { build: (a = {}) => mark('local-terminal', { claude: a.claude ? 1 : 0 }) },
 };
+
+export const LOCAL_ONLY_VERBS = ['local-mcp-list', 'local-mcp-add', 'local-mcp-remove', 'local-terminal'];
 
 // ---------------------------------------------------------------- handlers
 const rd = (p) => { try { return readFileSync(p, 'utf8'); } catch { return null; } };
@@ -131,13 +160,36 @@ function walkAssets(root) {
   return out.sort();
 }
 
+// Claude Code keeps each project's sessions under ~/.claude/projects/<dir>,
+// where <dir> is the project path with every non-alphanumeric character
+// turned into '-' (/home/you/x -> -home-you-x, C:\\Users\\you\\x ->
+// C--Users-you-x). Its presence is the one fact on disk that says "this folder
+// has been opened in Claude Code". Matched case-insensitively: Windows paths are.
+export function claudeProjectDirName(p) { return String(p).replace(/[^a-zA-Z0-9]/g, '-'); }
+export function claudeHasOpened(box, home = homedir()) {
+  const want = claudeProjectDirName(path.resolve(box)).toLowerCase();
+  try { return readdirSync(path.join(home, '.claude', 'projects')).some((n) => n.toLowerCase() === want); } catch { return false; }
+}
+
+// What the Health card can honestly check on a folder: that the pieces the
+// assistant needs are there. Box health is the kernel's own verdict; a folder
+// has no kernel, so "All good" here means exactly "the folder is intact".
+export function localHealthIssues(box, { skillsInstalled = 0, onb = null } = {}) {
+  const issues = [];
+  if (!existsSync(path.join(box, 'CLAUDE.md'))) issues.push('CLAUDE.md is missing');
+  if (!existsSync(path.join(box, 'wiki'))) issues.push('the wiki folder is missing');
+  if (!skillsInstalled) issues.push('no skills are installed');
+  if (!onb) issues.push('onboarding-state.json is missing or unreadable');
+  return issues;
+}
+
 // A trimmed, in-process port of engine/cockpit/box-cockpit.mjs for a folder:
 // onboarding progress, the brain graph, skills installed, the assistant's
 // name. No Telegram, cadence or MCP rows (they need a server, and the page
 // hides those surfaces on this face); no Claude sign-in row either, because
 // the folder has no sign-in of its own: Claude Code on the member's computer
 // is the sign-in, and a row saying "not signed in" would be false.
-export function localDashboardData(t) {
+export function localDashboardData(t, { home = homedir() } = {}) {
   const box = t.path;
   const profile = rd(path.join(box, 'profile.yaml')) || '';
   const onb = rdJSON(path.join(box, 'onboarding-state.json'));
@@ -205,17 +257,32 @@ export function localDashboardData(t) {
   } catch { skillsInstalled = 0; }
   const phase = (onb && onb.phase) || 'interview';
   const name = (rd(path.join(box, 'box-name')) || '').trim().slice(0, 60) || yget(profile, 'assistant_name') || t.name || 'your assistant';
+  // "Has this folder been opened in Claude Code?" The Overview's first rung
+  // used to answer null (unknown) until onboarding FINISHED, which the page
+  // renders as "Still reading your mineral..." forever. Any of these is proof:
+  // Claude Code's own project record, an answer the interview recorded, or a
+  // page the assistant wrote.
+  const answered = phase !== 'interview' || steps.some((m) => m.raw > 0 || m.status === 'covered' || m.status === 'done');
+  const claudeOpened = claudeHasOpened(box, home) || answered || realPages > 0;
+  const issues = localHealthIssues(box, { skillsInstalled, onb });
   return {
-    pebble: yget(profile, 'user_short') || yget(profile, 'user_name') || path.basename(box),
+    // the person's own name once the interview has it; never the folder's
+    // name, which read as a second, lower-case name for the assistant
+    pebble: yget(profile, 'user_short') || yget(profile, 'user_name') || '',
     assistant: name,
     business: (profile.match(/business:[\s\S]*?customers:\s*"([^"]+)"/) || [])[1] || null,
     tier: 'pebble', hosting: 'local', local: true, path: box,
     provider: null, generated_at: new Date().toISOString(),
-    stage: phase === 'done' ? 'live' : `onboarding · ${current || 'getting started'}`, phase,
+    // "3-self" is a file name; the card reads "onboarding · self"
+    stage: phase === 'done' ? 'live' : `onboarding · ${String(current || 'getting started').replace(/^\d+-/, '').replace(/-/g, ' ')}`, phase,
     onboarding: { phase, covered, total: steps.length || 8, current, modules: steps },
     brain: { pages: realPages, skeleton: pages.length - realPages, people: pages.filter((p) => p.folder === 'people').length, root: wiki, root_missing: !existsSync(wiki) },
     skills: { installed: skillsInstalled },
-    health: phase === 'done' ? 'active' : 'onboarding',
+    health: issues.length ? `degraded: ${issues.join('; ')}` : (phase === 'done' ? 'active' : 'onboarding'),
+    claude_opened: claudeOpened,
+    // is the claude command line installed? Decides whether "Open it in
+    // Claude Code" can open it in one click or has to point at Help
+    claude_cli: !!findClaude({ home }),
     connections: [],
     claude_signin_present: readClaudeCredential(box).present,
     graph: { nodes, links },
@@ -259,11 +326,19 @@ function consoleState(t) {
  * takes ONE line at a time (the SSE channel is line-based); `emitErr` lands
  * on the same stream the way ssh stderr does.
  */
-export async function runLocalVerb(t, verb, args = {}, { emit, emitErr = emit, assets = null } = {}) {
+export async function runLocalVerb(t, verb, args = {}, { emit, emitErr = emit, assets = null, launcher = null } = {}) {
   const root = path.resolve(t.path);
   if (!existsSync(root)) { emitErr(`ERROR: the brain folder is missing: ${root}`); return 1; }
   switch (verb) {
     case 'dashboard-data': {
+      // Once per app run per folder: bring an existing brain up to this
+      // build's skills, CLAUDE.md notes and onboarding seed (a box gets the
+      // same from box-up.sh on every boot). Best-effort: a refresh that fails
+      // must never cost the Overview its answer.
+      if (assets && !REFRESHED.has(root)) {
+        REFRESHED.add(root);
+        try { await refreshLocalBrain(root, assets); } catch { /* the page still gets its data */ }
+      }
       const data = localDashboardData(t);
       try { mkdirSync(path.join(root, 'cockpit'), { recursive: true }); writeFileSync(path.join(root, 'cockpit', 'data.json'), JSON.stringify(data, null, 2) + '\n'); } catch { /* the page got its answer either way */ }
       emit('__BUILD__'); emit('__DATA__'); emit(JSON.stringify(data)); emit('__LAYOUT__'); emit('{}');
@@ -360,8 +435,151 @@ export async function runLocalVerb(t, verb, args = {}, { emit, emitErr = emit, a
       emit(`OK: renamed to ${name}`);
       return 0;
     }
+    case 'local-mcp-list': {
+      emit('LOCAL_MCP ' + JSON.stringify(localMcpState(root)));
+      return 0;
+    }
+    case 'local-mcp-add': {
+      const r = localMcpAdd(root, mcpNameArg(args.name), mcpUrlArg(args.url));
+      emit(r.ok ? `OK: ${r.msg}` : `ERROR: ${r.msg}`);
+      return r.ok ? 0 : 1;
+    }
+    case 'local-mcp-remove': {
+      const r = localMcpRemove(root, mcpNameArg(args.name));
+      emit(r.ok ? `OK: ${r.msg}` : `ERROR: ${r.msg}`);
+      return r.ok ? 0 : 1;
+    }
+    case 'local-terminal': {
+      const claudePath = findClaude();
+      const plan = terminalLaunch({ dir: root, claudePath, runClaude: !!args.claude });
+      if (!plan) { emit('ERROR: no terminal program was found on this computer'); return 1; }
+      try {
+        const child = (launcher || spawn)(plan.exe, plan.args, { cwd: root, detached: true, stdio: 'ignore', windowsHide: true });
+        if (child && child.on) child.on('error', () => { /* reported below only when spawn throws synchronously */ });
+        if (child && child.unref) child.unref();
+      } catch (e) { emit(`ERROR: could not open a terminal: ${String(e && e.message || e).slice(0, 160)}`); return 1; }
+      emit('LOCAL_TERMINAL ' + JSON.stringify({ opened: true, claude: !!claudePath, program: plan.label }));
+      return 0;
+    }
     default:
       emitErr(`ERROR: ${String(verb).slice(0, 60)} is not a local verb`);
       return 1;
   }
+}
+
+// ---------------------------------------------------------------- connections
+// The folder's own .mcp.json (Claude Code's project scope) plus the approval
+// Claude Code would otherwise ask for on first open. The approval goes in
+// .claude/settings.local.json, the settings file that is never committed:
+// Claude Code honours it once the person trusts the folder, and a committed
+// copy would be ignored (docs: a repo cannot approve its own servers). Both
+// files are in the brain's .gitignore (.mcp.json, .claude/), so connections
+// never ride a GitHub backup. A file we cannot parse is left alone: this
+// code refuses rather than clobber something the person wrote by hand.
+const mcpFile = (root) => path.join(root, '.mcp.json');
+const settingsFile = (root) => path.join(root, '.claude', 'settings.local.json');
+function readJsonOr(p, empty) {
+  if (!existsSync(p)) return { ok: true, value: empty };
+  try { const v = JSON.parse(readFileSync(p, 'utf8')); return v && typeof v === 'object' && !Array.isArray(v) ? { ok: true, value: v } : { ok: false }; } catch { return { ok: false }; }
+}
+export function localMcpState(root) {
+  const m = readJsonOr(mcpFile(root), {});
+  const st = readJsonOr(settingsFile(root), {});
+  const servers = m.ok ? Object.entries(m.value.mcpServers || {}).map(([name, d]) => ({
+    name, type: (d && d.type) || (d && d.command ? 'stdio' : 'http'), url: (d && d.url) || '', command: !!(d && d.command),
+  })) : [];
+  const approved = st.ok && Array.isArray(st.value.enabledMcpjsonServers) ? st.value.enabledMcpjsonServers.map(String) : [];
+  return { ok: m.ok, unreadable: m.ok ? '' : '.mcp.json', servers, approved, all_approved: !!(st.ok && st.value.enableAllProjectMcpServers) };
+}
+export function localMcpAdd(root, name, url) {
+  const m = readJsonOr(mcpFile(root), {});
+  if (!m.ok) return { ok: false, msg: '.mcp.json in this folder is not valid JSON, so nothing was changed. Fix or remove it, then try again.' };
+  const cfg = m.value;
+  cfg.mcpServers = cfg.mcpServers && typeof cfg.mcpServers === 'object' ? cfg.mcpServers : {};
+  const cur = cfg.mcpServers[name];
+  if (cur && (cur.url !== url)) return { ok: false, msg: `a connection called ${name} is already set up with a different address. Remove it first.` };
+  cfg.mcpServers[name] = { type: /\/sse\/?$/i.test(new URL(url).pathname) ? 'sse' : 'http', url };
+  writeFileSync(mcpFile(root), JSON.stringify(cfg, null, 2) + '\n');
+  const st = readJsonOr(settingsFile(root), {});
+  let approved = false;
+  if (st.ok) {
+    const list = Array.isArray(st.value.enabledMcpjsonServers) ? st.value.enabledMcpjsonServers.map(String) : [];
+    if (!list.includes(name)) list.push(name);
+    st.value.enabledMcpjsonServers = list;
+    mkdirSync(path.dirname(settingsFile(root)), { recursive: true });
+    writeFileSync(settingsFile(root), JSON.stringify(st.value, null, 2) + '\n');
+    approved = true;
+  }
+  return { ok: true, approved, msg: `${name} added${approved ? '' : ' (Claude Code will ask you to approve it)'}` };
+}
+export function localMcpRemove(root, name) {
+  const m = readJsonOr(mcpFile(root), {});
+  if (!m.ok) return { ok: false, msg: '.mcp.json in this folder is not valid JSON, so nothing was changed.' };
+  const had = !!(m.value.mcpServers && m.value.mcpServers[name]);
+  if (had) { delete m.value.mcpServers[name]; writeFileSync(mcpFile(root), JSON.stringify(m.value, null, 2) + '\n'); }
+  const st = readJsonOr(settingsFile(root), {});
+  if (st.ok && Array.isArray(st.value.enabledMcpjsonServers) && st.value.enabledMcpjsonServers.includes(name)) {
+    st.value.enabledMcpjsonServers = st.value.enabledMcpjsonServers.filter((x) => x !== name);
+    writeFileSync(settingsFile(root), JSON.stringify(st.value, null, 2) + '\n');
+  }
+  return { ok: true, msg: had ? `${name} removed` : `${name} was not set up here` };
+}
+
+// ---------------------------------------------------------------- terminal
+// Where the claude command line lives, if it is installed. A GUI app often
+// runs with a thinner PATH than a login shell (macOS especially), so the
+// native installer's and npm's usual homes are checked by name too. Absent,
+// the terminal still opens in the folder and says how to install it.
+export function findClaude({ platform = process.platform, env = process.env, home = homedir(), exists = existsSync } = {}) {
+  const win = platform === 'win32';
+  const sep = win ? ';' : ':';
+  const names = win ? ['claude.exe', 'claude.cmd'] : ['claude'];
+  const join = win ? path.win32.join : path.posix.join;
+  const dirs = String(env.PATH || env.Path || '').split(sep).filter(Boolean);
+  const extra = win
+    ? [join(home, '.local', 'bin'), env.APPDATA ? join(env.APPDATA, 'npm') : '']
+    : [join(home, '.local', 'bin'), join(home, '.claude', 'local'), '/opt/homebrew/bin', '/usr/local/bin'];
+  for (const d of [...dirs, ...extra].filter(Boolean)) for (const n of names) { const p = join(d, n); if (exists(p)) return p; }
+  return null;
+}
+
+const INSTALL_HINT = 'Claude Code is not installed on this computer yet. Install it from https://code.claude.com/docs/en/setup (or use the Claude desktop app: see Help in Crads-AI).';
+const shq = (s) => "'" + String(s).replace(/'/g, "'\\''") + "'";
+const psq = (s) => "'" + String(s).replace(/'/g, "''") + "'";
+const osaq = (s) => '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+
+/**
+ * How to open a terminal window in `dir` on this platform, optionally with
+ * Claude Code running in it. Pure: returns { exe, args, label } or null, and
+ * the caller spawns it detached. Windows goes through PowerShell's
+ * -EncodedCommand so no path (spaces, quotes, &) ever meets cmd.exe's quoting
+ * rules on the way in; the window itself is cmd.exe, which stays open (/K).
+ */
+export function terminalLaunch({ dir, claudePath = null, runClaude = true, platform = process.platform, has = (exe) => !!findOnPath(exe) } = {}) {
+  if (platform === 'win32') {
+    // cmd groups `a && b & c || d` as (a && b) & (c || d): the hint prints only
+  // when claude is missing, never because a session ended with an error.
+  const inner = runClaude
+      ? (claudePath ? `, '/K', ${psq('"' + claudePath + '"')}` : `, '/K', ${psq('where claude >nul 2>nul && claude & where claude >nul 2>nul || echo ' + INSTALL_HINT)}`)
+      : '';
+    const ps = `Start-Process -FilePath 'cmd.exe' -WorkingDirectory ${psq(dir)}` + (inner ? ` -ArgumentList ${inner.slice(2)}` : '');
+    return { exe: 'powershell.exe', args: ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], label: 'Command Prompt', script: ps };
+  }
+  // A login shell may find claude where this app could not (macOS GUI apps
+  // get a thin PATH), so an undetected claude is still tried by name.
+  const sh = !runClaude ? `cd ${shq(dir)}`
+    : claudePath ? `cd ${shq(dir)} && ${shq(claudePath)}`
+    : `cd ${shq(dir)} && if command -v claude >/dev/null 2>&1; then claude; else echo ${shq(INSTALL_HINT)}; fi`;
+  if (platform === 'darwin') {
+    return { exe: 'osascript', args: ['-e', 'tell application "Terminal"', '-e', 'activate', '-e', `do script ${osaq(sh)}`, '-e', 'end tell'], label: 'Terminal', script: sh };
+  }
+  const keep = `${sh}; exec bash -l`;
+  for (const [exe, pre] of [['x-terminal-emulator', ['-e']], ['gnome-terminal', ['--']], ['konsole', ['-e']], ['xfce4-terminal', ['-x']], ['xterm', ['-e']]]) {
+    if (has(exe)) return { exe, args: [...pre, 'bash', '-lc', keep], label: exe, script: keep };
+  }
+  return null;
+}
+function findOnPath(exe) {
+  for (const d of String(process.env.PATH || '').split(':').filter(Boolean)) { const p = path.join(d, exe); if (existsSync(p)) return p; }
+  return null;
 }

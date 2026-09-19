@@ -683,6 +683,36 @@ export const MEMBER_VERBS = {
     },
   },
 
+  // What the mineral thinks with (second-harness spec 2026-09-17). The app does shape
+  // checks only; the box's own writer (engine/ops/assistant-set.mjs) validates against the
+  // harness registry and refuses in words. The payload rides STDIN, never the command line:
+  // it can carry an endpoint key, and argv is world-readable on the box while it runs.
+  'assistant-set': {
+    mutating: true,
+    build: (a = {}) => {
+      const pick = {};
+      for (const k of ['harness', 'source', 'provider', 'id', 'base_url', 'key', 'timeout_s']) {
+        if (a[k] == null || a[k] === '') continue;
+        const v = String(a[k]);
+        if (v.length > 400 || /[\r\n\0]/.test(v)) bad(`${k} is not a single short line`);
+        pick[k] = v;
+      }
+      if (!pick.harness || !pick.source || !pick.provider) bad('harness, source and provider are required');
+      return {
+        command: '[ -f /app/engine/ops/assistant-set.mjs ] || { echo "ASSISTANT_REFUSED this mineral\'s software is older than this setting: update and restart it first"; exit 2; }; '
+          + 'node /app/engine/ops/assistant-set.mjs /state -',
+        stdin: Buffer.from(JSON.stringify(pick), 'utf8').toString('base64') + '\n',
+      };
+    },
+  },
+  // Probed FROM the mineral: that is where the requests will come from.
+  'assistant-probe': {
+    build: () => ({
+      command: '[ -f /app/engine/ops/assistant-probe.mjs ] && node /app/engine/ops/assistant-probe.mjs /state '
+        + '|| echo \'ASSISTANT_PROBE {"ok":false,"detail":"this mineral\\u0027s software is older than this check: update and restart it first","steps":[]}\'',
+    }),
+  },
+
   // Skills system page (spec 2026-08-04): one JSON snapshot of every skill on
   // the box — engine, seed, org-pushed and member-authored — with category,
   // provenance, cadence + last-run joined in. The enumeration lives in the

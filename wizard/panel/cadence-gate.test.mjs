@@ -81,7 +81,9 @@ test('the save verb refuses on its own, not only via a disabled button', () => {
 test('every gated refusal lands on a terminal with the command already typed', () => {
   const fn = html.slice(html.indexOf('function sendToSignIn()'), html.indexOf('function sendToSignIn()') + 220);
   assert.match(fn, /activateSec\('terminal'\)/);
-  assert.match(fn, /openTerm\(\{ autorun: SIGNIN_OPENER \}\)/);
+  // the opener is chosen by signinOpener() from the page's own fixed list (pinned in
+  // terminal-deeplink.test.mjs); it is never a string the mineral supplied
+  assert.match(fn, /openTerm\(\{ autorun: signinOpener\(\) \}\)/);
   assert.match(html, /\$\('cadGateBtn'\)\.onclick = sendToSignIn;/, 'the banner button shares the one way in');
 });
 

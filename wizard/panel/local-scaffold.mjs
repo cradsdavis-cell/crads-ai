@@ -17,6 +17,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { syncSkills } from '../../engine/kernel/lib/skills.mjs';
+import { initialLayersState, isUntouchedLegacySeed } from '../../engine/onboarding/layers.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(HERE, '..', '..');
@@ -70,16 +71,14 @@ export function loadEngineAssets({ read, root = REPO_ROOT } = {}) {
 const rd = (p) => { try { return readFileSync(p, 'utf8'); } catch { return null; } };
 const writeIfMissing = (p, text) => { if (existsSync(p)) return false; mkdirSync(path.dirname(p), { recursive: true }); writeFileSync(p, text); return true; };
 
-/** engine/onboarding/init-state.mjs, as a function over the spec text. */
-export function initialOnboardingState(specText) {
-  const ids = [...String(specText || '').matchAll(/^\s*-\s+id:\s*(\S+)\s*$/gm)].map((m) => m[1]);
-  if (!ids.length) return null;
-  const state = {
-    phase: 'interview', current_module: ids[0],
-    modules: Object.fromEntries(ids.map((id) => [id, { status: 'not-started', raw: [], synthesized: false, reviewed: false }])),
-  };
-  state.modules[ids[0]].status = 'in-progress';
-  return state;
+/**
+ * engine/onboarding/init-state.mjs, as a function: the 8 layers /onboard
+ * reads and writes (layers.mjs). The argument is ignored and kept only so an
+ * older caller passing the spec text still works; the 11-module spec stopped
+ * deciding the seed on 2026-09-18.
+ */
+export function initialOnboardingState() {
+  return initialLayersState({ scope: 'person' });
 }
 
 /** engine/box/name-set.mjs, as a function: box-name + profile.yaml, both. */
@@ -200,13 +199,11 @@ export async function scaffoldLocalBrain(box, { name = '', assets, git: wantGit 
     || ((rd(path.join(box, 'profile.yaml')) || '').match(/assistant_name:\s*"([^"\n]+)"/) || [])[1] || '';
   if (name && !hadName) { setBrainName(box, name); created.push('box-name'); }
   const effectiveName = (hadName || name || '').trim().slice(0, 60);
-  // Skills: the real syncSkills when a directory exists (dev checkout), else
-  // the same mapping from the bag (packaged). Both write <name>/SKILL.md.
-  if (assets.skillsDir) await syncSkills(box, assets.skillsDir);
-  else for (const [id, text] of Object.entries(assets.skills || {})) { const d = path.join(box, '.claude', 'skills', id); mkdirSync(d, { recursive: true }); writeFileSync(path.join(d, 'SKILL.md'), text); }
+  await installEngineSkills(box, assets);
   if (Object.keys(assets.skills || {}).length || assets.skillsDir) created.push('.claude/skills/');
   if (seedGitignore(box, assets.brainIgnore)) created.push('.gitignore');
   if (assets.claudeMd && writeIfMissing(path.join(box, 'CLAUDE.md'), assets.claudeMd)) created.push('CLAUDE.md');
+  else if (assets.claudeMd && ensureEngineNotes(box, assets.claudeMd)) created.push('CLAUDE.md (notes)');
   let gitState = 'skipped';
   if (wantGit) {
     const top = git(box, ['rev-parse', '--show-toplevel']);
@@ -223,4 +220,61 @@ export async function scaffoldLocalBrain(box, { name = '', assets, git: wantGit 
     }
   }
   return { created, git: gitState, name: effectiveName };
+}
+
+// Skills: the real syncSkills when a directory exists (dev checkout), else the
+// same mapping from the bag (packaged). Both write <name>/SKILL.md, and both
+// overwrite an engine skill, exactly as box-up.sh's syncSkills does on every
+// boot: an engine skill is the app's, a member's own skill is never touched.
+export async function installEngineSkills(box, assets) {
+  if (assets && assets.skillsDir) return syncSkills(box, assets.skillsDir);
+  let n = 0;
+  for (const [id, text] of Object.entries((assets && assets.skills) || {})) {
+    const d = path.join(box, '.claude', 'skills', id);
+    mkdirSync(d, { recursive: true });
+    writeFileSync(path.join(d, 'SKILL.md'), text);
+    n++;
+  }
+  return n;
+}
+
+// The one block of CLAUDE.md the app owns (engine/lib/local-claude-md.md, between
+// the engine-notes markers): the paths and connections notes the shared skills
+// need on a folder. CLAUDE.md is otherwise the member's, so this never rewrites
+// it wholesale. Block present: replaced with the current one. Block absent (a
+// folder made before 2026-09-18): appended. Returns true when it wrote.
+const NOTES_RE = /<!-- crads-ai:engine-notes start[\s\S]*?<!-- crads-ai:engine-notes end -->/;
+export function ensureEngineNotes(box, claudeMdTemplate) {
+  const block = (String(claudeMdTemplate || '').match(NOTES_RE) || [])[0];
+  if (!block) return false;
+  const p = path.join(box, 'CLAUDE.md');
+  const cur = rd(p);
+  if (cur === null) { writeFileSync(p, claudeMdTemplate); return true; }
+  const next = NOTES_RE.test(cur) ? cur.replace(NOTES_RE, () => block) : cur + (cur.endsWith('\n') ? '\n' : '\n\n') + block + '\n';
+  if (next === cur) return false;
+  writeFileSync(p, next);
+  return true;
+}
+
+/**
+ * Bring an EXISTING local brain up to what this build of the app ships, once
+ * per app run (the caller memoises): engine skills re-synced, the CLAUDE.md
+ * notes block current, and an untouched legacy 11-module onboarding seed
+ * replaced with the 8 layers. A box gets the same from box-up.sh on every
+ * boot; a folder had no equivalent, so a brain kept the skills and notes it
+ * was born with forever. Never touches the member's wiki, profile or pages.
+ */
+export async function refreshLocalBrain(box, assets) {
+  const done = [];
+  if (!assets || !existsSync(box)) return done;
+  if (await installEngineSkills(box, assets)) done.push('skills');
+  if (assets.claudeMd && ensureEngineNotes(box, assets.claudeMd)) done.push('CLAUDE.md');
+  const sp = path.join(box, 'onboarding-state.json');
+  let st = null;
+  try { st = JSON.parse(readFileSync(sp, 'utf8')); } catch { st = null; }
+  if (isUntouchedLegacySeed(st)) {
+    writeFileSync(sp, JSON.stringify(initialLayersState({ scope: 'person' }), null, 2) + '\n');
+    done.push('onboarding-state.json');
+  }
+  return done;
 }

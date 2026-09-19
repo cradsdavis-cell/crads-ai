@@ -11,6 +11,7 @@ import path from 'node:path';
 import { normalizeCadence } from './cron/cadence-lib.mjs';
 import { readRuns, tailForHeartbeat, lastOkRunBySkill } from './lib/run-ledger.mjs';
 import { readClaudeCredential } from './lib/claude-credential.mjs';
+import { readAssistantState } from './lib/assistant-state.mjs';
 import { resolveBrainRoot } from './lib/brain-root.mjs';
 import { readSkillOrigins, writeStateMd } from './box/state-md.mjs';
 
@@ -59,7 +60,13 @@ const brainDir = IS_ORG ? brainRoot : stateDir;
 // perform. See the module header for why the credential's own stated expiry is
 // NOT used: it is routinely days in the past on a perfectly healthy box.
 const credential = readClaudeCredential(stateDir);
-const credentialPresent = credential.present;
+// On a mineral that thinks with something other than Claude (spec 2026-09-17) a Claude
+// credential is rightly absent, and reporting that as "auth not ok" would paint every such
+// mineral red. The boolean keeps its old NAMES for readers that predate this, and takes its
+// VALUE from the one reader of what this mineral thinks with. ready:null (an endpoint nobody
+// has probed) counts as not-ok here: a heartbeat must not vouch for what nobody checked.
+const thinks = readAssistantState(stateDir);
+const credentialPresent = thinks.harness === 'claude-code' ? credential.present : thinks.ready === true;
 
 // Disk % used on /state.
 let diskPct = null;
@@ -176,6 +183,7 @@ const catalogRequests = (() => {
 const skillsFromRocks = readSkillOrigins(stateDir);
 const full = {
   generated_at: now, claude_credential_present: credentialPresent, auth_ok: credentialPresent,
+  assistant_harness: thinks.harness,
   app_commit: appCommit, image_tag: imageTag, built_at: builtAt,
   onboarded: !!(onb && onb.phase === 'done'), disk_pct: diskPct, last_activity: lastActivity,
   skills_installed: skillsInstalled, skills_enabled: skillsEnabled, skill_runs: skillRuns,

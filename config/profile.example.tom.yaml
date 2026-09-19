@@ -55,12 +55,11 @@ comms:
   outbound_policy: "propose-confirm"
   ai_disclosure: true
 
-models:
-  watcher:  "claude-haiku-4-5"
-  brief:    "claude-sonnet-4-6"
-  chat:     "claude-sonnet-4-6"
-  strategy: "claude-opus-4-8"
-  prompt_caching: true
+assistant:
+  harness: claude-code
+  model:
+    source: signin
+    provider: anthropic
 
 cadence:
   morning_brief: "06:30"              # tradies start early

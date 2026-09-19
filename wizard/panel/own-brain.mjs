@@ -32,10 +32,10 @@ const sq = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 // Superset of engine/kernel/kernel.mjs IGNORE + box-up.sh's boot set + our own additions.
 // Self-sufficient by design: own-brain must protect the brain root even on a box where
 // the kernel's best-effort ignore pass never ran.
-const IGNORES = ['.env', '.env.*', 'secrets/', '*.key', '*.pem', '.ssh/', 'ssh/', '.claude-auth/', '.claude-auth*', 'node_modules/', '.kernel/', '.mcp.json', '.claude/', 'cockpit/'];
+const IGNORES = ['.env', '.env.*', 'secrets/', '*.key', '*.pem', '.ssh/', 'ssh/', '.claude-auth/', '.claude-auth*', '.opencode-auth/', 'node_modules/', '.kernel/', '.mcp.json', '.claude/', 'cockpit/'];
 // Paths force-removed from the index before every commit: gitignore cannot untrack, so a
 // repo that ever tracked one of these must shed it before the next push.
-const UNTRACK = ['.env', '.mcp.json', '.claude', '.claude-auth', '.kernel', 'cockpit', 'secrets', 'ssh', '.ssh'];
+const UNTRACK = ['.env', '.mcp.json', '.claude', '.claude-auth', '.opencode-auth', '.kernel', 'cockpit', 'secrets', 'ssh', '.ssh'];
 
 const TOKEN_PATH = '/state/.kernel/brain-github-token';
 

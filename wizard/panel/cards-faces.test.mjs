@@ -44,7 +44,15 @@ test('exactly one face axis, named: body[data-face] from the target kind, read b
   for (const sec of ['connections', 'secrets', 'terminal']) {
     assert.match(html, new RegExp(`body\\[data-face="local"\\] section\\[data-sec="${sec}"\\]`), `${sec} is gated by selector, its tag untouched`);
   }
-  assert.ok(html.includes('data-needs-box-note>Scheduled jobs, Telegram and connections need a server.'), 'the honest one-liner beside each hidden group');
+  // 2026-09-18: connections work on a folder (Claude Code's own), so the
+  // one-liner stopped claiming they need a server, and the Connections and
+  // Terminal pages stay, hiding only their box half.
+  assert.ok(html.includes('data-needs-box-note>Scheduled jobs and Telegram need a server.'), 'the honest one-liner beside each hidden group');
+  assert.ok(!/Telegram and connections need a server/i.test(html), 'no surface still says connections need a server');
+  for (const sec of ['connections', 'terminal']) {
+    assert.match(html, new RegExp(`body\\[data-face="local"\\] section\\[data-sec="${sec}"\\] > :not\\(\\.pagehead\\):not\\(\\[data-local-only\\]\\)`), `${sec}: only the box half hides on a folder`);
+    assert.ok(!new RegExp(`body\\[data-face="local"\\] #nav button\\[data-sec="${sec}"\\]`).test(html), `${sec} keeps its nav entry on a folder`);
+  }
   assert.ok(!lib.includes('faces:') && !lib.includes('face:'), 'no card declares a face: the axis is CSS, the pipeline stays one');
   assert.ok(!html.includes('IS_LOCAL'), 'no second face flag: state.kind is read where it is needed, never a global');
 });

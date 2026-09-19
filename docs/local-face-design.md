@@ -8,7 +8,8 @@ against the `local-face` branch; the ruling it records is Sam's, the same day.
 Crads-AI gains a no-server mode. The app opens against a brain folder on the
 user's own computer, runs the panel verbs on that folder, and Claude Code runs
 on the folder directly. Everything that needs a box is hidden, with one honest
-line in its place: "Scheduled jobs, Telegram and connections need a server."
+line in its place: "Scheduled jobs and Telegram need a server." (Until
+2026-09-18 that line also said connections; see § v2 below.)
 
 It ships inside the same Guided setup offer. The docs describe it as: on your
 own computer, free, no schedules, only awake when you are.
@@ -48,9 +49,9 @@ from the markup because the exe smoke greps every section):
 
 | Surface | Why it needs a server |
 |---|---|
-| Connections page + nav entry | MCP tokens live on the box and serve its scheduled jobs; there is no headless runner here |
 | Secrets page + the Privacy group | the vault and the hot tier are box stores; the cold tier seals to device keys a folder does not have |
-| Terminal page + nav entry | `ssh -tt` into a box; on your own computer your terminal is right there, and Claude Code opens the folder |
+| Terminal page's box half (the xterm) | `ssh -tt` into a box; the page keeps its nav entry and shows the local terminal buttons instead (§ v2) |
+| Connections page's box half | the box's connection machinery; the page keeps its nav entry and edits the folder's `.mcp.json` instead (§ v2) |
 | Every computer that can open this (seat) | the device roster is sshd's authorized keys |
 | Waiting on you (seat) | rock-era asks; nothing can stage one on a folder |
 | the cadence gate, Save schedules, every row's switch, cadence chip and schedule editor, Run now | the scheduler is the box's kernel; nothing fires while the folder is closed |
@@ -150,3 +151,57 @@ admits `local`, `lineWire` exported), `panel-server.mjs` (the table follows
 the target's kind), `door-server.mjs` (probe, forget, `/local/*`, the
 own-brain dispatch), `last-used.mjs`, `inventory.mjs`, `app.mjs` (one
 composed bridge), `member.html`, `door.html`, `wizard-app.yml`.
+
+## v2 (2026-09-18): connections, a terminal, and the rough edges
+
+Sam's review of the first live Windows run found the v1 reasoning for hiding
+Connections backwards: a box needs its own connection machinery because a
+scheduled job runs with nobody there and cannot use the person's Claude
+account. A folder has no scheduled jobs. Claude Code runs on the person's own
+machine and does every sign-in itself, so the app needs to hold nothing.
+
+- **Connections** (`local-mcp-list|add|remove`): the folder's `.mcp.json`
+  (Claude Code's project scope) plus `enabledMcpjsonServers` in
+  `.claude/settings.local.json`, the uncommitted settings file Claude Code
+  honours once the folder is trusted (a committed copy is ignored). The page
+  lists the curated catalogue's one-click (OAuth) entries and takes any https
+  address; the sign-in is `/mcp` in Claude Code. Gmail, Calendar and Drive are
+  the person's claude.ai connectors (claude.ai/customize/connectors), which
+  Claude Code picks up for any claude.ai-subscription login. Both files are in
+  `brain-ignore.txt`, so connections never ride a backup. An unparseable
+  hand-written `.mcp.json` is refused, never clobbered. `/connect` gained an
+  "On this computer" branch that uses `claude mcp add --scope project`.
+- **Terminal** (`local-terminal`): opens a real terminal window in the folder,
+  with Claude Code running or as a plain prompt. Windows: PowerShell
+  `-EncodedCommand` → `Start-Process cmd.exe /K` (no path ever meets cmd
+  quoting); macOS: Terminal via osascript; Linux: the first terminal program
+  found. `findClaude` checks PATH plus the native installer's and npm's usual
+  homes; the Overview's "Open it in Claude Code" opens it in one click when
+  the CLI is there, and the Terminal page says how to install it when not.
+- **Step 1 "Open your brain in Claude Code"** is read from Claude Code's own
+  project record (`~/.claude/projects/<path with non-alphanumerics as ->`), or
+  an interview answer, or a page the assistant wrote. v1 answered null until
+  onboarding FINISHED, which the page rendered as "Still reading your
+  mineral..." forever.
+- **Health** checks the folder for real (CLAUDE.md, wiki/, skills, a readable
+  onboarding state) instead of reporting "All good" from the phase alone.
+- **Refresh on open** (`refreshLocalBrain`, once per app run per folder):
+  engine skills re-synced, the CLAUDE.md `crads-ai:engine-notes` block kept
+  current (appended to a v1 folder's CLAUDE.md, the person's own text above it
+  untouched), and an untouched 11-module onboarding seed replaced with the 8
+  layers. v1 folders kept the skills and notes they were born with forever.
+- **The notes block** tells Claude that `/state/` means this folder and
+  `/app/` does not exist here: ten shared skills name box paths, and
+  `/onboard` wrote the chosen name to `/state/box-name` (outside the folder),
+  so the app never showed it.
+- **Onboarding seed**: box and folder both seed the 8 layers
+  (`engine/onboarding/layers.mjs`) instead of the pre-rewrite 11 modules.
+- **Labels**: the `<slug>-local` alias no longer shows in the sidebar, header
+  or picker (the folder path and "this computer" do); the Assistant card no
+  longer shows the folder name as a second name.
+- **Trap 64**: the nav groups never closed, which is why hiding Privacy on
+  this face also hid Terminal.
+
+Still open: the first live run of the terminal buttons on Windows and macOS
+(the plans are unit-tested, not yet clicked on a real machine), and a Claude
+desktop app deep link, which does not exist for a local folder.

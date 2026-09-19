@@ -60,7 +60,7 @@ test('the member items were absorbed, none dropped; the rock set died with the o
 test('the ways in survived: acts carry delegated routes into living surfaces', () => {
   for (const route of ["to: 'skills'", "to: 'connections'",
     "focus: 'seatBackupCard'",
-    "to: 'terminal', run: SIGNIN_OPENER"]) {
+    "to: 'terminal', run: signinOpener()"]) {
     assert.ok(model.includes(route), `route ${route} preserved`);
   }
   // Dead landings must not come back: the Rocks page and the org custody card

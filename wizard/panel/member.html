@@ -622,14 +622,15 @@
   body[data-face="local"] [data-needs-box]{display:none !important}
   /* the pinned surfaces (the exe smoke and a dozen file tests grep their exact
      opening tags) are gated by selector rather than by an attribute on the tag */
-  body[data-face="local"] section[data-sec="connections"],
   body[data-face="local"] section[data-sec="secrets"],
-  body[data-face="local"] section[data-sec="terminal"],
-  body[data-face="local"] #nav button[data-sec="connections"],
-  body[data-face="local"] #nav button[data-sec="terminal"],
   body[data-face="local"] #nav .navgroup[data-group="privacy"],
   body[data-face="local"] #cadGate,
   body[data-face="local"] #cadenceSave{display:none !important}
+  /* Connections and Terminal STAY on the local face (2026-09-18) with their
+     own content: the box half of each page is hidden by selector (the tags the
+     smokes grep are untouched) and the data-local-only block shows instead. */
+  body[data-face="local"] section[data-sec="connections"] > :not(.pagehead):not([data-local-only]),
+  body[data-face="local"] section[data-sec="terminal"] > :not(.pagehead):not([data-local-only]){display:none !important}
   body[data-face="local"] [data-needs-box-note]{display:block}
   body[data-face="local"] [data-local-only]{display:block}
   body[data-face="local"] span[data-local-only]{display:inline !important}
@@ -1519,11 +1520,13 @@
           <button data-sec="skills"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 1.9l1.7 3.5 3.8.5-2.8 2.7.7 3.8L8 10.6l-3.4 1.8.7-3.8-2.8-2.7 3.8-.5L8 1.9z"/></svg>Skills</button>
           <button data-sec="connections"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6.4 9.6 9.6 6.4"/><path d="M8.4 4.4 10 2.8a2.6 2.6 0 0 1 3.7 3.7l-1.6 1.6"/><path d="M7.6 11.6 6 13.2a2.6 2.6 0 0 1-3.7-3.7l1.6-1.6"/></svg>Connections</button>
         </div>
+      </div>
       <div class="navgroup" data-group="privacy">
         <button class="ghead" data-group-toggle="privacy" aria-expanded="false" aria-controls="grp-privacy"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="5" cy="11" r="2.6"/><path d="m6.9 9.1 6.6-6.6M10.9 5.1l1.6 1.6"/></svg>Privacy &amp; access<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></button>
         <div class="gitems" id="grp-privacy" hidden>
           <button data-sec="secrets"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.5" y="7" width="11" height="7" rx="1.6"/><path d="M5.2 7V4.9a2.8 2.8 0 0 1 5.6 0V7"/></svg>Secrets</button>
         </div>
+      </div>
 
       <button data-sec="terminal"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><path d="m4.5 6 2.2 2-2.2 2M8.5 10.2h3"/></svg>Terminal</button>
     </nav>
@@ -1537,7 +1540,7 @@
       <a class="navlink" id="homeLink" href="/door" style="display:none"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6.5 2.5h-3v11h3"/><path d="M10 5.5 12.5 8 10 10.5"/><path d="M12.5 8H6"/></svg>Start screen</a>
     </div>
     <div id="ownLine" style="display:none"></div>
-    <div class="foot"><b>Your mineral, your data.</b> This window only reads what your own assistant already knows. Nothing here is visible to anyone else. <span data-needs-box>To talk to your assistant, use the <b>Terminal</b> tab above; the <b>Claude Code</b> app is the fuller desktop experience (see <b>Help</b>).</span><span data-local-only style="display:none">To talk to your assistant, open your brain folder in <b>Claude Code</b> (see <b>Help</b> for the path).</span></div>
+    <div class="foot"><b>Your mineral, your data.</b> This window only reads what your own assistant already knows. Nothing here is visible to anyone else. <span data-needs-box>To talk to your assistant, use the <b>Terminal</b> tab above; the <b>Claude Code</b> app is the fuller desktop experience (see <b>Help</b>).</span><span data-local-only style="display:none">To talk to your assistant, open your brain folder in <b>Claude Code</b>: the <b>Terminal</b> tab does it in one click.</span></div>
   </aside>
 
   <main>
@@ -1604,6 +1607,23 @@
       <div class="pagehead">
         <h2>Meet your assistant<button class="info" type="button" aria-label="What is this?" data-tip="Your assistant lives in this mineral and talks to you right here. The first time, you will be asked to sign in to Claude (the AI it runs on); after that it remembers. Prefer to type the command yourself? Open a terminal and run: claude">?</button></h2>
       </div>
+      <!-- LOCAL face (2026-09-18): the terminal is the person's own. These
+           open a real terminal window in the brain folder (local-terminal verb),
+           with Claude Code running in it or as a plain prompt. -->
+      <div data-local-only id="ltWrap">
+        <p class="hint" style="color:var(--ink)">Your assistant runs in Claude Code, in this folder. Open it in a terminal window on this computer, or use the Claude desktop app (see <a href="#help">Help</a>).</p>
+        <div class="guidecard">
+          <p class="gtitle">Your brain folder</p>
+          <div class="hostbox"><code id="ltPath">&hellip;</code></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+            <button class="act primary" id="ltClaude">Open Claude Code here</button>
+            <button class="act" id="ltShell">Open a plain terminal here</button>
+          </div>
+          <p class="hint" id="ltNoCli" style="margin:12px 0 0;display:none">The <b style="font-family:var(--mono)">claude</b> command is not installed on this computer yet, so the window will say how to install it. <a href="https://code.claude.com/docs/en/setup" target="_blank" rel="noopener">Install Claude Code</a>, or use the desktop app instead.</p>
+        </div>
+        <div class="notice" id="ltNotice" style="display:none"></div>
+        <div class="pageend">The window is your own terminal. Close it whenever you like; your brain stays in the folder.</div>
+      </div>
       <p class="hint">Your assistant lives in this mineral and talks to you right here; the first time, sign in to Claude when asked.</p>
       <div class="termframe">
         <div class="termhead"><span class="td"></span><span class="td"></span><span class="td"></span><span class="tt">Your mineral</span></div>
@@ -1639,10 +1659,11 @@
       <div class="guidecard" data-local-only id="ohLocalCard">
         <p class="gtitle">Your brain folder</p>
         <div class="hostbox"><code id="ohPath">&hellip;</code><button class="act" id="ohPathCopy" style="margin-top:0">Copy</button></div>
+        <button class="act primary" id="ohOpenLocal" style="margin-top:10px">Open Claude Code in a terminal window</button>
         <p class="hint" style="margin:12px 0 0"><b>Open this folder in Claude Code:</b> open Claude Code, choose <b>Open folder</b> (or drop the folder onto the window), pick the folder above, and say <b>&ldquo;introduce yourself&rdquo;</b>. Your assistant already knows who you are and takes it from there.</p>
         <p class="hint" style="margin:10px 0 0">No account yet? Create one at claude.ai first; the software needs the plan Claude Code itself needs: Claude Pro or above. <a class="openlink" href="https://claude.ai/download" target="_blank" rel="noopener">Get the Claude Code app</a></p>
       </div>
-      <p class="hint" data-needs-box-note>Scheduled jobs, Telegram and connections need a server. This folder is only awake while you have it open.</p>
+      <p class="hint" data-needs-box-note>Scheduled jobs and Telegram need a server. This folder is only awake while you have it open.</p>
       <p class="hint" data-needs-box style="color:var(--ink)"><b>This is an extra, not a step.</b> Connecting the app signs in <b>your laptop</b> and reaches into your mineral over SSH. It does not sign the <b>mineral</b> in, so it does not switch on scheduled jobs, and nothing it does makes the Overview checklist tick. That one is the Terminal tab: open it and run <b style="font-family:var(--mono)">claude</b> once.</p>
       <div class="guidecard" data-needs-box>
         <p class="gtitle">Your connection name</p>
@@ -1707,6 +1728,38 @@
       <div class="pagehead">
         <h2>Connections<button class="info" type="button" aria-label="What is this?" data-tip="Anything switched on here is connected to your mineral, so it also works while you are asleep, in your scheduled jobs. Disconnecting destroys the credential on your mineral; the permission you granted at the service is yours to revoke there. Things connected to your Claude account (chats only) fold away below the list.">?</button></h2>
         <p>What your assistant can reach.</p>
+      </div>
+      <!-- LOCAL face (2026-09-18): on this computer, connections are Claude
+           Code's own. Gmail/Calendar/Drive come from the person's Claude account;
+           everything else is a line in this folder's .mcp.json, which the app
+           writes and Claude Code signs in to in the browser. No token passes
+           through the app. The box content below is hidden on this face. -->
+      <div data-local-only id="lcWrap">
+        <div class="guidecard">
+          <p class="gtitle">Gmail, Google Calendar and Drive</p>
+          <p class="hint" style="margin:6px 0 0">These come with your Claude account, not with this folder. Turn them on at <a href="https://claude.ai/customize/connectors" target="_blank" rel="noopener">claude.ai/customize/connectors</a> and sign in there. Claude Code on this computer picks them up by itself.</p>
+        </div>
+        <div class="guidecard" style="margin-top:14px">
+          <p class="gtitle">Connected in this folder</p>
+          <ul class="connlist" id="lcList"><li><span class="nm">Checking…</span></li></ul>
+          <p class="hint" style="margin:10px 0 0">To sign in to one, open this folder in Claude Code, type <b style="font-family:var(--mono)">/mcp</b>, pick the service and follow the sign-in in your browser. If Claude Code was already open, quit and reopen it first so it sees the new connection.</p>
+        </div>
+        <div class="guidecard" style="margin-top:14px">
+          <p class="gtitle">Add a service</p>
+          <div class="hostbox"><input id="lcFilter" type="search" autocomplete="off" spellcheck="false" placeholder="Filter, e.g. notion" style="flex:1;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit"></div>
+          <ul class="connlist" id="lcCat"></ul>
+          <details class="guide-steps"><summary>Add one by its address</summary>
+            <p class="hint" style="margin:8px 0 8px">Any service with a remote MCP server. Give it a short name and its https address.</p>
+            <div class="hostbox" style="flex-wrap:wrap;gap:8px">
+              <input id="lcCustName" autocomplete="off" spellcheck="false" placeholder="name, e.g. todoist" style="width:130px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <input id="lcCustUrl" autocomplete="off" spellcheck="false" placeholder="https://mcp.example.com/mcp" style="flex:1;min-width:200px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <button class="act" id="lcCustAdd">Add</button>
+            </div>
+          </details>
+        </div>
+        <div class="notice" id="lcNotice" style="display:none"></div>
+        <p class="hint" data-needs-box-note style="margin-top:14px">Connections work whenever this folder is open in Claude Code. Scheduled jobs and Telegram need a server.</p>
+        <div class="pageend">Sign-ins are kept by Claude Code on this computer. Crads-AI never sees them.</div>
       </div>
       <!-- R11 (2026-08-09 grilling): Telegram LEADS this page until it is
            linked. Design pass 2026-08-23: one compact card (mark, name, one
@@ -2018,7 +2071,36 @@
              by clicking the button, not by a test of the file. -->
         <div id="seatObLive" style="margin-top:10px"></div>
       </div>
-      <p class="hint" data-needs-box-note>Scheduled jobs, Telegram and connections need a server.</p>
+      <!-- What this mineral thinks with (second-harness spec, 2026-09-17). Hidden unless the
+           mineral reports thinks_with.experimental: a non-Claude harness is not offered to
+           members until its column of the compatibility matrix exists. A tester opts a mineral
+           in with `touch /state/.kernel/experimental-harness`. -->
+      <div class="guidecard" id="thinksCard" style="display:none" data-needs-box>
+        <div class="gtitle">What your mineral thinks with <span class="chip" style="margin-left:6px">Experimental</span></div>
+        <div id="thinksNow" class="hint" style="margin:0 0 4px;color:var(--ink)"></div>
+        <div id="thinksWords" class="hint" style="margin:0 0 12px"></div>
+        <div id="thinksForm">
+          <label class="hint" style="display:block;margin:0 0 4px" for="thinksChoice">Change it</label>
+          <select id="thinksChoice" style="max-width:100%">
+            <option value="claude">Claude subscription (recommended, fully supported)</option>
+            <option value="openai">ChatGPT subscription, through OpenCode</option>
+            <option value="copilot">GitHub Copilot, through OpenCode</option>
+            <option value="endpoint">A model endpoint you run or rent</option>
+          </select>
+          <div id="thinksEndpoint" style="display:none;margin-top:10px">
+            <p class="hint" style="margin:0 0 8px">Any server that speaks the OpenAI chat format: Ollama, llama.cpp, LM Studio, vLLM, or a flat-fee plan. It can be on this mineral, at home, or rented, as long as the mineral can reach it. Running an assistant needs roughly a 27B model: that is 32 GB of Apple Silicon memory or a 24 GB graphics card. A small cloud server cannot do it. If the address belongs to a pay-per-use service, the bill is yours.</p>
+            <input id="thinksUrl" type="text" placeholder="http://192.168.1.20:11434/v1" style="width:100%;margin-bottom:6px" autocomplete="off" spellcheck="false">
+            <input id="thinksModel" type="text" placeholder="Model name, for example qwen3.6:27b" style="width:100%;margin-bottom:6px" autocomplete="off" spellcheck="false">
+            <input id="thinksKey" type="password" placeholder="Key (only if the server needs one)" style="width:100%" autocomplete="off">
+          </div>
+          <div style="margin-top:10px">
+            <button class="act primary" id="thinksSave">Save</button>
+            <button class="act" id="thinksProbe" style="display:none">Check it now</button>
+          </div>
+        </div>
+        <div class="notice" id="thinksNotice" style="display:none"></div>
+      </div>
+      <p class="hint" data-needs-box-note>Scheduled jobs and Telegram need a server.</p>
       <div class="guidecard" id="seatDevicesCard" data-needs-box>
         <div class="gtitle">Every computer that can open this mineral</div>
         <div class="hint" style="margin:0 0 10px">Revoking one takes effect the next time it tries to connect. If a laptop is lost or stolen, revoke it here.</div>
@@ -2065,7 +2147,7 @@
            Claude sign-in: the kernel shells headless `claude -p` against
            /state/.claude-auth. Shown only on a KNOWN-pending mineral; while the
            answer is unknown nothing is locked. -->
-      <p class="hint" data-needs-box-note>Scheduled jobs, Telegram and connections need a server. Skills still run in Claude Code on this folder whenever you ask.</p>
+      <p class="hint" data-needs-box-note>Scheduled jobs and Telegram need a server. Skills still run in Claude Code on this folder whenever you ask.</p>
       <div class="ccbanner" id="cadGate" style="display:none">
         <div class="txt"><b>Your mineral is not signed in to Claude yet.</b>
           <div class="sub">Scheduled jobs run with nobody at the keyboard, so they need the mineral&rsquo;s <b>own</b> sign-in. Connecting the Claude Code desktop app does not give it one: that signs in your laptop and reaches in over SSH. Open a terminal here and run <b style="font-family:var(--mono)">claude</b> once. Running and scheduling stay locked until it lands.</div>
@@ -2389,6 +2471,76 @@
       .then(function(v){ endActivity(); return v; }, function(e){ endActivity(); throw e; });
   }
   function notice(id, msg){ var el = $(id); el.style.display = msg ? 'block' : 'none'; el.textContent = msg || ''; }
+
+  // ---- What your mineral thinks with (second-harness spec, 2026-09-17) ----------------
+  // Every string from the mineral is set as TEXT. The choice list is fixed here; the
+  // mineral's own writer validates again against its harness registry and refuses in words.
+  var THINKS = {
+    claude:   { harness: 'claude-code', source: 'signin', provider: 'anthropic' },
+    openai:   { harness: 'opencode', source: 'signin', provider: 'openai' },
+    copilot:  { harness: 'opencode', source: 'signin', provider: 'github-copilot' },
+    endpoint: { harness: 'opencode', source: 'endpoint', provider: 'openai-compatible' }
+  };
+  function thinksChoiceOf(t){
+    if (!t || t.harness === 'claude-code') return 'claude';
+    if (t.source === 'endpoint') return 'endpoint';
+    return t.provider === 'github-copilot' ? 'copilot' : 'openai';
+  }
+  function renderThinks(){
+    var card = $('thinksCard'), t = thinksWith();
+    if (!card) return;
+    // Tester switch: &thinks=1 in the app URL (the wizard's experimental link adds it), kept
+    // for the session. It only REVEALS the card. The mineral's own writer still decides what
+    // may be saved, and an image without it refuses in words.
+    var asked = false;
+    try { if (/[#&?]thinks=1(?:&|$)/.test(location.hash + location.search)) sessionStorage.setItem('crads.thinks', '1'); asked = sessionStorage.getItem('crads.thinks') === '1'; } catch(e){}
+    // three answers, never two: a mineral not read yet is null, and null is not "signed out"
+    if (!t && asked) t = { harness: 'claude-code', source: 'signin', label: 'Claude', words_go: '', experimental: true,
+      ready: (state.data && state.data.connections) ? connLive(state.data, CLAUDE_SIGNIN_RE, true) : null };
+    if (!t || !(t.experimental || asked)) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    $('thinksNow').textContent = t.source === 'endpoint'
+      ? 'A model endpoint at ' + (t.host || 'an address not set yet') + (t.ready === true ? ' \u00b7 answering' : t.ready === null ? ' \u00b7 not checked yet' : ' \u00b7 not answering')
+      : (t.label || 'Your assistant') + (t.ready === true ? ' \u00b7 signed in' : t.ready === false ? ' \u00b7 not signed in yet' : '');
+    $('thinksWords').textContent = t.words_go || '';
+    if (document.activeElement && card.contains(document.activeElement)) return;   // never yank a form someone is typing in
+    $('thinksChoice').value = thinksChoiceOf(t);
+    $('thinksEndpoint').style.display = $('thinksChoice').value === 'endpoint' ? '' : 'none';
+    $('thinksProbe').style.display = t.source === 'endpoint' ? '' : 'none';
+  }
+  function thinksLine(lines, marker){
+    for (var i = lines.length - 1; i >= 0; i--) { var at = lines[i].indexOf(marker + ' '); if (at >= 0) return lines[i].slice(at + marker.length + 1); }
+    return '';
+  }
+  function thinksProbe(){
+    notice('thinksNotice', 'Checking from your mineral. A slow model can take a minute or two\u2026');
+    return run('assistant-probe', {}).then(function(v){
+      var j = null; try { j = JSON.parse(thinksLine(v.lines, 'ASSISTANT_PROBE')); } catch(e){}
+      notice('thinksNotice', !j ? 'Could not run the check.'
+        : j.ok === true ? 'It answered, and it can call tools. Your mineral can think with it.'
+        : j.ok === null ? (j.detail || 'Nothing to check.') : 'Not ready: ' + (j.detail || 'it did not answer') + '.');
+      loadDashboard();
+    });
+  }
+  (function(){
+    if (!$('thinksChoice')) return;
+    $('thinksChoice').addEventListener('change', function(){ $('thinksEndpoint').style.display = this.value === 'endpoint' ? '' : 'none'; });
+    $('thinksProbe').addEventListener('click', function(){ thinksProbe(); });
+    $('thinksSave').addEventListener('click', function(){
+      var c = $('thinksChoice').value, a = {}, k;
+      for (k in THINKS[c]) a[k] = THINKS[c][k];
+      if (c === 'endpoint') { a.base_url = $('thinksUrl').value.trim(); a.id = $('thinksModel').value.trim(); a.key = $('thinksKey').value; }
+      notice('thinksNotice', 'Saving\u2026');
+      run('assistant-set', a).then(function(v){
+        $('thinksKey').value = '';
+        var refused = thinksLine(v.lines, 'ASSISTANT_REFUSED');
+        if (!v.ok) { notice('thinksNotice', refused ? 'Not saved: ' + refused + '.' : 'Not saved. ' + (v.lines[v.lines.length - 1] || '')); return; }
+        if (c === 'endpoint') return thinksProbe();
+        notice('thinksNotice', c === 'claude' ? 'Saved. Your mineral thinks with Claude.' : 'Saved. Now sign in on the mineral: the Overview has the step.');
+        loadDashboard();
+      });
+    });
+  })();
   // a notice whose tail is a real link: the text is set as TEXT (never innerHTML
   // from a server string), the anchor is built by hand
   function noticeLink(id, msg, url){
@@ -2651,10 +2803,12 @@
     // is watching.
     // Warm re-entry still re-fires tgStatus when the link poll is dark: leaving
     // mid-setup stops the 3s poll, and only tgStatus/tgRender can re-arm it.
-    if (name === 'connections') {
+    if (name === 'connections' && state.kind === 'local') { loadLocalMcp(); tgStop(); }
+    else if (name === 'connections') {
       if (Date.now() - connWarmAt > 60000) { connWarmAt = Date.now(); loadMcp(); tgStatus(); }
       else if (!tgTimer && tgLastS && tgLastS.token && !tgLastS.chat) tgStatus();
     } else tgStop();
+    if (name === 'terminal' && state.kind === 'local') renderLocalTerminal();
     if (name.indexOf('page:') === 0) openMemberPage(name.slice(5));
   }
   $('nav').addEventListener('click', function(e){
@@ -2821,7 +2975,7 @@
     state.targets.forEach(function(x){
       // the picker leads with the box's one name when this browser has met it
       // (24h hint), falling back to the ssh alias slug for a box never opened
-      var o = document.createElement('option'); o.value = x.host; o.textContent = (nameHint(x.host) || x.org) + ' (' + x.host + ')'; sel.appendChild(o);
+      var o = document.createElement('option'); o.value = x.host; o.textContent = (nameHint(x.host) || x.org) + ' (' + (x.kind === 'local' ? 'this computer' : x.host) + ')'; sel.appendChild(o);
     });
     if (!state.targets.length) {
       $('orgline').textContent = 'Not connected yet';
@@ -2902,7 +3056,7 @@
     // terminal on the mineral.
     if (!wanted && /[#&]sec=terminal(?:&|$)/.test(location.hash)) {
       activateSec('terminal');
-      if (/[#&]run=signin(?:&|$)/.test(location.hash)) openTerm({ autorun: SIGNIN_OPENER });
+      if (/[#&]run=signin(?:&|$)/.test(location.hash)) openTerm({ autorun: signinOpener() });
     }
     connect();
     // self-completing, same promise as the door: a box that isn't up yet gets
@@ -2945,9 +3099,36 @@
     $('ccBannerBtn').textContent = local ? 'Open it in Claude Code \u2192' : 'Meet your assistant \u2192';
     var sub = document.querySelector('#ccBanner .sub');
     if (sub) sub.textContent = local
-      ? 'Open this folder in Claude Code and say hello. Help has the path and a copy button.'
+      ? 'Open this folder in Claude Code and say hello. One click opens it in a terminal window here.'
       : 'Right here, nothing to install. One sign-in to Claude and you\u2019re talking.';
+    if ($('ltPath')) $('ltPath').textContent = state.localPath || '\u2026';
+    // Face-aware page heads (2026-09-18): the box copy is read once from the
+    // markup, so switching back to a box from the picker restores it exactly.
+    (FACE_HEADS || []).forEach(function(h){
+      var head = document.querySelector('section[data-sec="' + h.sec + '"] .pagehead');
+      if (!head) return;
+      var p = head.querySelector('p'), b = head.querySelector('button.info'), end = document.querySelector('section[data-sec="' + h.sec + '"] > .pageend');
+      if (h.box === undefined) h.box = { line: p ? p.textContent : null, tip: b ? b.getAttribute('data-tip') : null, end: end ? end.textContent : null };
+      var v = local ? h.local : h.box;
+      if (p && v.line != null) p.textContent = v.line;
+      if (b && v.tip != null) b.setAttribute('data-tip', v.tip);
+      if (end && v.end != null) end.textContent = v.end;
+    });
   }
+  var FACE_HEADS = [
+    { sec: 'help', local: {
+        line: 'Open your brain in Claude Code, and where your brain folder lives.',
+        tip: 'Your brain is a folder on this computer. Claude Code opens the folder and every skill is there; this app reads the same folder. Nothing runs while the folder is closed.',
+        end: 'Everything here reads live from your brain folder.' } },
+    { sec: 'connections', local: {
+        line: 'What your assistant can reach while this folder is open in Claude Code.',
+        tip: 'On this computer, connections belong to Claude Code. Gmail, Calendar and Drive come from your Claude account; anything added here is written to this folder\u2019s .mcp.json, and you sign in to it inside Claude Code. The sign-in never passes through this app.',
+        end: null } },
+    { sec: 'terminal', local: {
+        line: null,
+        tip: 'Your assistant is Claude Code, running in this folder. The buttons below open a terminal window on this computer, already in the folder.',
+        end: null } },
+  ];
   // ---- Claude Code connect guide: the connection name IS the SSH host alias
   $('ccBannerBtn').onclick = function(){ activateSec('terminal'); openTerm({ autorun: MEET_OPENER }); };
   $('heroTalk').onclick = function(){ activateSec('terminal'); };
@@ -2955,9 +3136,114 @@
   // is no terminal to ramp into, and Claude Code on the folder is the meeting.
   (function(){
     var meet = $('ccBannerBtn').onclick, talk = $('heroTalk').onclick;
-    $('ccBannerBtn').onclick = function(){ if (state.kind === 'local') return activateSec('help'); return meet.apply(this, arguments); };
-    $('heroTalk').onclick = function(){ if (state.kind === 'local') return activateSec('help'); return talk.apply(this, arguments); };
+    // 2026-09-18: with the claude command installed, "Open it in Claude Code"
+    // really opens it (a terminal window in the folder); without it, the
+    // Terminal page says how to get it and offers the desktop-app route.
+    var localMeet = function(){
+      activateSec('terminal');
+      if (state.data && state.data.claude_cli) openLocalTerminal(true);
+    };
+    $('ccBannerBtn').onclick = function(){ if (state.kind === 'local') return localMeet(); return meet.apply(this, arguments); };
+    $('heroTalk').onclick = function(){ if (state.kind === 'local') return localMeet(); return talk.apply(this, arguments); };
   })();
+
+  // ---- LOCAL terminal (2026-09-18): a real terminal window on this computer,
+  // opened in the brain folder by the local-terminal verb, with Claude Code
+  // running in it (claude:true) or a plain prompt.
+  function openLocalTerminal(withClaude){
+    notice('ltNotice', 'Opening a terminal window\u2026');
+    run('local-terminal', { claude: withClaude ? 1 : 0 }).then(function(r){
+      var line = (r.lines || []).filter(function(l){ return l.indexOf('LOCAL_TERMINAL ') === 0; })[0];
+      if (!r.ok || !line) { notice('ltNotice', 'Could not open a terminal: ' + outText(r).replace(/^ERROR:\s*/, '')); return; }
+      var info = {}; try { info = JSON.parse(line.slice(15)); } catch (e) { info = {}; }
+      var win = 'a new ' + (info.program || 'terminal') + ' window';
+      notice('ltNotice', withClaude
+        ? (info.claude ? 'Opened Claude Code in ' + win + '. Say \u201cintroduce yourself\u201d to start.'
+                       : 'Opened ' + win + ' in your folder. Claude Code is not installed yet, so it says how to install it.')
+        : 'Opened ' + win + ' in your brain folder.');
+    }).catch(function(){ notice('ltNotice', 'Could not open a terminal.'); });
+  }
+  $('ltClaude').onclick = function(){ openLocalTerminal(true); };
+  $('ohOpenLocal').onclick = function(){ activateSec('terminal'); openLocalTerminal(true); };
+  $('ltShell').onclick = function(){ openLocalTerminal(false); };
+  function renderLocalTerminal(){
+    if ($('ltPath')) $('ltPath').textContent = state.localPath || '\u2026';
+    var cli = state.data ? state.data.claude_cli : null;
+    $('ltNoCli').style.display = cli === false ? 'block' : 'none';
+  }
+
+  // ---- LOCAL connections (2026-09-18): this folder's .mcp.json, edited by
+  // the local-mcp-* verbs. The catalogue is the same curated list the box
+  // page shows (GET /mcp-dir/catalogue), limited to one-click sign-ins; the
+  // sign-in itself is Claude Code's /mcp, never this page.
+  var lc = { servers: [], catalogue: null };
+  function lcRender(){
+    var have = {};
+    lc.servers.forEach(function(x){ have[x.name] = x; });
+    var labelOf = function(n){ var e = (lc.catalogue || []).filter(function(x){ return x.key === n; })[0]; return e ? e.label : n; };
+    $('lcList').innerHTML = lc.servers.length ? lc.servers.map(function(x){
+      return '<li class="marked"><span class="mark" data-mark="' + esc(x.name) + '" data-mark-label="' + esc(labelOf(x.name)) + '" aria-hidden="true"></span>'
+        + '<span class="nm">' + esc(labelOf(x.name)) + '</span>'
+        + '<span class="why">' + esc(x.command ? 'a local command (added by hand)' : x.url) + '</span>'
+        + (x.command ? '' : '<button class="connfix" type="button" data-lc-remove="' + esc(x.name) + '">Remove</button>')
+        + '<span class="chip">in this folder</span></li>';
+    }).join('') : '<li><span class="nm">Nothing yet</span><span class="why">Add a service below, or ask your assistant to connect one.</span></li>';
+    var q = String(($('lcFilter') || {}).value || '').trim().toLowerCase();
+    var rows = (lc.catalogue || []).filter(function(e){
+      return e.auth === 'oauth' && !have[e.key] && (!q || (e.label + ' ' + e.key + ' ' + (e.blurb || '') + ' ' + (e.category || '')).toLowerCase().indexOf(q) >= 0);
+    });
+    // ten rows until the person searches: the whole curated list is ~50
+    // services, a 4,000px page nobody scrolls
+    var total = rows.length, SHOW = 10;
+    if (!q) rows = rows.slice(0, SHOW);
+    $('lcCat').innerHTML = lc.catalogue === null ? '<li><span class="nm">Loading the list\u2026</span></li>'
+      : rows.length ? rows.map(function(e){
+        return '<li class="marked"><span class="mark" data-mark="' + esc(e.key) + '" data-mark-label="' + esc(e.label) + '" aria-hidden="true"></span>'
+          + '<span class="nm">' + esc(e.label) + '</span><span class="why">' + esc(e.blurb || '') + '</span>'
+          + '<button class="connfix" type="button" data-lc-add="' + esc(e.key) + '">Add</button><span class="chip">' + esc(e.category || '') + '</span></li>';
+      }).join('') + (!q && total > SHOW ? '<li><span class="why">Showing ' + SHOW + ' of ' + total + '. Type above to find the rest.</span></li>' : '')
+      : '<li><span class="nm">No match</span><span class="why">Try another word, or add it by its address below.</span></li>';
+    if (typeof hydrateMarks === 'function') { hydrateMarks($('lcList')); hydrateMarks($('lcCat')); }
+  }
+  function loadLocalMcp(){
+    run('local-mcp-list', {}).then(function(r){
+      var line = (r.lines || []).filter(function(l){ return l.indexOf('LOCAL_MCP ') === 0; })[0];
+      var st = {}; try { st = JSON.parse(line.slice(10)); } catch (e) { st = {}; }
+      lc.servers = st.servers || [];
+      // only ever SETS the warning: clearing here would wipe the "now sign in
+      // with /mcp" line lcDo has just shown
+      if (st.ok === false) notice('lcNotice', 'This folder\u2019s .mcp.json is not valid JSON, so the app will not change it. Fix or remove it, then come back.');
+      lcRender();
+    });
+    if (lc.catalogue === null) fetch('/mcp-dir/catalogue').then(function(r){ return r.json(); }).then(function(d){
+      lc.catalogue = (d && d.ok && d.entries) || []; lcRender();
+    }).catch(function(){ lc.catalogue = []; lcRender(); });
+    lcRender();
+  }
+  function lcDo(verb, args, done){
+    notice('lcNotice', verb === 'local-mcp-add' ? 'Adding\u2026' : 'Removing\u2026');
+    run(verb, args).then(function(r){
+      var msg = outText(r).replace(/^(OK|ERROR):\s*/, '');
+      notice('lcNotice', r.ok ? (verb === 'local-mcp-add' ? cap(msg) + '. Now open Claude Code in this folder, type /mcp and sign in to it.' : cap(msg) + '.') : 'Nothing changed: ' + msg);
+      if (r.ok && done) done();
+      loadLocalMcp();
+    });
+  }
+  $('lcFilter').addEventListener('input', lcRender);
+  $('lcWrap').addEventListener('click', function(e){
+    var a = e.target.closest('[data-lc-add]'), rm = e.target.closest('[data-lc-remove]');
+    if (a) {
+      var ent = (lc.catalogue || []).filter(function(x){ return x.key === a.getAttribute('data-lc-add'); })[0];
+      if (ent) lcDo('local-mcp-add', { name: ent.key, url: ent.url }, function(){ $('lcFilter').value = ''; });
+    }
+    if (rm) lcDo('local-mcp-remove', { name: rm.getAttribute('data-lc-remove') });
+  });
+  $('lcCustAdd').onclick = function(){
+    var name = String($('lcCustName').value || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+    var url = String($('lcCustUrl').value || '').trim();
+    if (!name || !/^https:\/\//i.test(url)) { notice('lcNotice', 'Give it a short name and its full https:// address.'); return; }
+    lcDo('local-mcp-add', { name: name, url: url }, function(){ $('lcCustName').value = ''; $('lcCustUrl').value = ''; });
+  };
 
   // ---- connection state: presence dot + friendly error with folded detail ----
   function renderSkeletons(){
@@ -3023,9 +3309,11 @@
 
   function connect(quiet){
     setBrainName();   // cached name (or skeleton) per target; never a generic label
-    $('orgline').textContent = state.host;
+    // A folder's alias (<slug>-local) is plumbing: show where it lives instead.
+    var localHere = (state.targets.filter(function(x){ return x.host === state.host; })[0] || {}).kind === 'local';
+    $('orgline').textContent = localHere ? 'on this computer' : state.host;
     if ($('ohHost')) $('ohHost').textContent = state.host;
-    $('connSub').textContent = state.host;
+    $('connSub').textContent = localHere ? String((state.targets.filter(function(x){ return x.host === state.host; })[0] || {}).path || '') : state.host;
     var wasOk = $('connDot').className.indexOf('ok') >= 0;
     if (!quiet) {
       $('connDot').className = 'dot';
@@ -3089,6 +3377,7 @@
           + '. Your assistant can look into it:\n' + buildErr
         : '');
       if (state.data.assistant) setBrainName(state.data.assistant);
+      renderThinks();
       renderCards();   // renderHero rides inside: hero + banner track the data
       brainGraphSync();   // keep the Brain graph in step with each data refresh
       strengthSync();     // backup + rock-tie truths for the strength card (R5)
@@ -3217,12 +3506,25 @@
   // The regex matches the row BOTH ways: the panel updates independently of box
   // images, so a mineral still on an older image emits "Claude account on the box"
   // and must not read as un-gated just because it is behind.
-  var CLAUDE_SIGNIN_RE = /claude (account|sign)/i;
+  // Also matches the rows a non-Claude mineral emits ("Assistant sign-in on this mineral",
+  // "Assistant model endpoint"; second-harness spec 2026-09-17): same gate, different door.
+  var CLAUDE_SIGNIN_RE = /(claude (account|sign)|assistant (sign-in|model endpoint))/i;
   // Bare `claude` is the sign-in: first run in the mineral's shell prints the
   // OAuth prompt, and CLAUDE_CONFIG_DIR is already /state/.claude-auth in there,
   // so completing it writes the exact credential the kernel reads. Declared here
   // rather than beside MEET_OPENER because the gate is what needs it.
   var SIGNIN_OPENER = 'claude';
+  // What the app will type into a member's terminal is chosen from THIS list, keyed by the
+  // harness the mineral reports. The mineral never names the command (it could be hostile,
+  // and this string is autorun). An unknown harness gets no autorun at all.
+  var SIGNIN_OPENERS = { 'claude-code': 'claude', 'opencode': 'opencode auth login' };
+  function thinksWith(){ return (state.data && state.data.thinks_with) || null; }
+  function signinOpener(){
+    var t = thinksWith();
+    if (!t || !t.harness) return SIGNIN_OPENER;          // older image: a Claude Code mineral
+    if (t.source === 'endpoint') return '';
+    return Object.prototype.hasOwnProperty.call(SIGNIN_OPENERS, t.harness) ? SIGNIN_OPENERS[t.harness] : '';
+  }
   // null = we have not read the mineral yet. Never gate on ignorance: an unknown
   // is left open, only a known-pending closes anything.
   function mineralSignedIn(){
@@ -3269,6 +3571,19 @@
     var tg = (d && d.connections) ? connLive(d, /telegram/i, true) : null;
     var onboarded = (d && d.onboarding) ? ((d.onboarding || {}).phase === 'done') : null;
     var claudeWhy = 'Open the Terminal tab and run claude once. The desktop app signs in your laptop, not this mineral';
+    var tw = thinksWith(), claudeName = 'Sign in to Claude on your mineral';
+    var claudeAct = { label: 'Open Terminal', to: 'terminal', run: signinOpener() };
+    if (tw && tw.harness && tw.harness !== 'claude-code') {
+      if (tw.source === 'endpoint') {
+        claudeName = 'Point your mineral at a model';
+        claudeWhy = tw.ready === null ? 'The endpoint has not been checked yet. Check it on the Your mineral page'
+                                      : 'The model endpoint is not answering. Check it on the Your mineral page';
+        claudeAct = { label: 'Check it', to: 'seat', focus: 'thinksCard' };
+      } else {
+        claudeName = 'Sign in to ' + tw.label + ' on your mineral';
+        claudeWhy = 'Open the Terminal tab and the sign-in starts by itself. It has to happen on the mineral, not on this computer';
+      }
+    }
     var sched = cadenceTaskSet();
     var local = state.kind === 'local';
     var NEEDS_SERVER = 'Needs a server. This brain lives on this computer.';
@@ -3288,9 +3603,16 @@
       // opens a hidden page.
       return {
         rungs: [
-          { done: onboarded === true ? true : null, name: 'Open your brain in Claude Code',
-            why: 'Open the folder ' + (state.localPath || '') + ' in Claude Code; Help has the path and a copy button',
-            act: { label: 'Open Help', to: 'help' } },
+          // Read from Claude Code's own project record for this folder (or an
+          // interview answer, or a page the assistant wrote): known true or
+          // known false, so the step shows its way in instead of "still
+          // reading" until the whole interview was done (2026-09-18).
+          { done: (d && typeof d.claude_opened === 'boolean') ? d.claude_opened : null,
+            name: 'Open your brain in Claude Code',
+            why: d && d.claude_cli
+              ? 'One click opens Claude Code in a terminal window, already in this folder'
+              : 'Open this folder in the Claude desktop app, or install Claude Code; the Terminal page shows how',
+            act: { label: d && d.claude_cli ? 'Open it' : 'Show me', to: 'terminal' } },
           { done: onboarded, name: 'Onboard your brain',
             why: 'The 8 layers \u00b7 run /onboard in Claude Code',
             act: { label: 'Open Help', to: 'help' } },
@@ -3302,15 +3624,17 @@
         caps: [
           schedRow,
           row(false, 'Add another device', '', '', NEEDS_SERVER),
-          row(false, 'Connect email + calendar', '', '', NEEDS_SERVER),
+          // Gmail and Calendar are the person's Claude connectors: they work in
+          // Claude Code on this folder with no server at all (2026-09-18).
+          row(true, 'Connect email + calendar', 'Ready', 'Comes with your Claude account; the Connections page shows how', '',
+            { label: 'Connect', to: 'connections' }),
           row(false, 'Message it on Telegram', '', '', NEEDS_SERVER),
         ],
       };
     }
     return {
       rungs: [
-        { done: claude, name: 'Sign in to Claude on your mineral', why: claudeWhy,
-          act: { label: 'Open Terminal', to: 'terminal', run: SIGNIN_OPENER } },
+        { done: claude, name: claudeName, why: claudeWhy, act: claudeAct },
         { done: onboarded, name: 'Onboard your brain',
           why: 'The 8 layers \u00b7 run /onboard in Claude Code',
           act: { label: 'Open Help', to: 'help' } },
@@ -3338,7 +3662,7 @@
   var CARDS = [
     { id: 'assistant', title: 'Assistant', render: function(d){
         return '<div class="big">' + esc(d.assistant || 'your assistant') + '</div>'
-          + '<div class="sub">' + esc(d.pebble || '') + (d.business ? ' · ' + esc(d.business) : '') + '</div>'
+          + ((d.pebble || d.business) ? '<div class="sub">' + esc(d.pebble || '') + (d.pebble && d.business ? ' · ' : '') + esc(d.business || '') + '</div>' : '')
           + '<div class="sub">' + esc(d.stage || '') + '</div>'; } },
     // Onboarding is about the 8 context layers and nothing else (Sam,
     // 2026-08-17): the pebble-building gate story moved to the ladder, which
@@ -6397,7 +6721,7 @@
   // `claude` already typed. Nothing to read, nothing to work out.
   function sendToSignIn(){
     activateSec('terminal');
-    openTerm({ autorun: SIGNIN_OPENER });
+    openTerm({ autorun: signinOpener() });
   }
 
   // ---- "Read the skill" (R11, panel iteration 2) -----------------------------
@@ -6623,7 +6947,7 @@
   // a job is not ok, so a healthy card is three lines and a sick one shows the
   // row that needs the look without a click. The per-job rows are unchanged.
   function machineryHtml(rows, sick){
-    if (state.kind === 'local') return '<div class="sub" data-needs-box-note>Scheduled jobs, Telegram and connections need a server.</div>';
+    if (state.kind === 'local') return '<div class="sub" data-needs-box-note>Scheduled jobs and Telegram need a server.</div>';
     rows = rows || machineryRows();
     if (!rows.length) return '';
     if (sick == null) sick = rows.filter(function(m){ return !m.ok; }).length;

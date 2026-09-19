@@ -22,6 +22,14 @@ test('the skill routes through the box machinery, never claude mcp add', () => {
   assert.match(md, /Connections page in\ntheir Crads-AI app/i, 'sign-ins route to the app');
 });
 
+test('a brain folder on the person\'s own computer has its own branch: project-scope .mcp.json and Claude\'s connectors', () => {
+  assert.match(md, /If `\/app\/engine\/comms\/mcp-connect\.mjs` does not exist/, 'the skill detects the no-server case first');
+  assert.match(md, /## On this computer/);
+  assert.match(md, /claude mcp add --transport http --scope project <name> <url>/, 'project scope, which is what the Connections page edits');
+  assert.match(md, /claude\.ai\/customize\/connectors/, 'Gmail and Calendar come from the Claude account');
+  assert.match(md, /type\s+`\/mcp`/, 'the sign-in is Claude Code\'s own');
+});
+
 test('secrets stay off command lines and out of replies', () => {
   assert.match(md, /never put a URL or token in\na command line/i);
   assert.match(md, /Never print a token/i);

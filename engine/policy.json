@@ -10,7 +10,7 @@
   },
   "backup": {
     "_doc": "Nightly encrypted state snapshot (engine/backup.mjs). Targets are stateDir-relative paths; missing ones are skipped. sentinel_files must exist non-empty inside the archive for the verify step to pass.",
-    "targets": ["secrets", ".claude-auth", ".claude", ".mcp.json", ".kernel/gh", ".kernel/crontab", ".kernel/telegram-offset", "profile.yaml"],
+    "targets": ["secrets", ".claude-auth", ".opencode-auth", ".claude", ".mcp.json", ".kernel/gh", ".kernel/crontab", ".kernel/telegram-offset", "profile.yaml"],
     "sentinel_files": ["profile.yaml", "secrets/telegram_bot_token"]
   }
 }

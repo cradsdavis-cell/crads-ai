@@ -25,6 +25,8 @@ export const MEMBER_HOST = 'mel-box';
 // Reached with ?face=local on a surface URL; the harness passes `face` down.
 export const LOCAL_HOST = 'sam-local';
 export const LOCAL_PATH = '/home/mel/Crads-AI/mel';
+// the local face's .mcp.json, in memory for the harness run
+const LOCAL_MCP = ['notion'];
 
 const FAKE_KEY = (label) => `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF4k3m0eXAMPLEexampleEXAMPLEexampleEXAMPLEexample ${label}`;
 
@@ -489,7 +491,22 @@ const MEMBER_GRAPH = () => {
 // which no live box has ever emitted, and the panel read `client` too — so the
 // hero subtitle was blank on every real mineral and correct in every screenshot
 // for months. A fixture emits what the box emits (docs/naming.md, 2026-08-14).
-function dashboardDataLines(state, signedOut, surface) {
+// What the fixture mineral thinks with. '' = a Claude Code mineral on an image that
+// predates thinks_with entirely, which is what every real mineral is today.
+function thinksFixture(thinks) {
+  if (thinks === 'openai') return { row: { name: 'Assistant sign-in on this mineral', status: 'not signed in to ChatGPT yet · sign in from the Terminal tab', state: 'pending' },
+    tw: { harness: 'opencode', source: 'signin', provider: 'openai', label: 'ChatGPT', ready: false, host: null, local: null, experimental: true,
+      words_go: "Thinking happens at ChatGPT's servers, on your own subscription." } };
+  if (thinks === 'endpoint' || thinks === 'endpoint-ok') {
+    const okk = thinks === 'endpoint-ok';
+    return { row: { name: 'Assistant model endpoint', status: '192.168.1.20:11434 · ' + (okk ? 'answering (qwen3.6:27b)' : 'not checked yet'), state: okk ? 'ok' : 'configured' },
+      tw: { harness: 'opencode', source: 'endpoint', provider: 'ollama', label: 'a model endpoint', ready: okk ? true : null, host: '192.168.1.20:11434', local: true, experimental: true,
+        words_go: 'Thinking happens at 192.168.1.20:11434 (a private address). Connected services such as Google and your GitHub backup still see what you send them.' } };
+  }
+  return null;
+}
+function dashboardDataLines(state, signedOut, surface, thinks) {
+  const tf = thinksFixture(thinks);
   if (state === 'empty') {
     const data = {
       ...(surface === 'member'
@@ -517,13 +534,14 @@ function dashboardDataLines(state, signedOut, surface) {
     brain: { pages: Object.keys(MEMBER_PAGES).filter((p) => p.endsWith('.md')).length, people: 2, skeleton: 3 },
     skills: { installed: 6 },
     health: 'OK', generated_at: iso(25 * MIN),
+    ...(tf ? { thinks_with: tf.tw } : {}),
     connections: [
       // The mineral's OWN Claude sign-in, first because it gates everything
       // unattended. The healthy fixture is a month-4 box with cadence running,
       // so it MUST be signed in: omitting it modelled a box that could not have
       // done any of the other things this fixture claims it has done. The gate's
       // own QA rewrites this row to pending in-flight (qa-cadence-gate).
-      signedOut
+      tf ? tf.row : signedOut
         ? { name: 'Claude sign-in on this mineral', status: 'not signed in yet · sign in from the Terminal tab', state: 'pending' }
         : { name: 'Claude sign-in on this mineral', status: 'signed in as mel@driftwoodsurf.school', state: 'ok' },
       { name: 'Email (Gmail)', status: 'connected', state: 'ok' },
@@ -1113,6 +1131,11 @@ const SSH_FAIL = [
 export function runVerb(surface, verb, args, state, opts) {
   const signedOut = !!(opts && opts.signedOut);
   const face = opts && opts.face;
+  if (verb === 'assistant-probe') return ok(['ASSISTANT_PROBE ' + JSON.stringify({ ok: false, detail: 'the model answered in words instead of calling a tool; skills need tool calls, so this model or server cannot run them', steps: ['reachable', 'model listed'] })]);
+  if (verb === 'assistant-set') {
+    if (args && args.source === 'endpoint' && !/^https?:/.test(String(args.base_url || ''))) return { code: 2, lines: ['ASSISTANT_REFUSED that endpoint address is not a web address (it should look like http://192.168.1.20:11434/v1)'] };
+    return ok(['ASSISTANT_SET {}']);
+  }
   // the local face: the folder's own console state, and the honest refusal
   // for anything that needs a server (the real server answers 400 unknown
   // verb; the page never asks, because those surfaces are hidden)
@@ -1127,6 +1150,28 @@ export function runVerb(surface, verb, args, state, opts) {
     }
     if (verb === 'open-folder') return ok(['sam']);
     if (verb === 'whoami') return ok(['sam']);
+    // 2026-09-18: the folder's own Overview data (the shape local-verbs.mjs
+    // localDashboardData returns: 8 layers, claude_opened/claude_cli, no
+    // server rows), and the local-only verbs. ?nocli=1 on the page URL
+    // photographs the "claude is not installed" branch.
+    if (verb === 'dashboard-data') {
+      const fresh = state === 'empty';
+      const layers = ['1-north-star', '2-philosophy', '3-self', '4-network', '5-past', '6-goals', '7-tasks', '8-workflow'];
+      const modules = layers.map((name, i) => ({ name, status: fresh ? (i === 0 ? 'in-progress' : 'not-started') : (i < 3 ? 'covered' : i === 3 ? 'in-progress' : 'not-started'), raw: fresh ? 0 : (i < 4 ? 3 : 0), synthesized: false }));
+      const data = {
+        pebble: fresh ? '' : 'Sam', assistant: 'Sam', business: null, tier: 'pebble', hosting: 'local', local: true, path: LOCAL_PATH,
+        provider: null, generated_at: iso(0), stage: fresh ? 'onboarding · north star' : 'onboarding · network', phase: 'interview',
+        onboarding: { phase: 'interview', covered: fresh ? 0 : 3, total: 8, current: fresh ? '1-north-star' : '4-network', modules },
+        brain: { pages: fresh ? 0 : 6, skeleton: 1, people: fresh ? 0 : 2, root: LOCAL_PATH + '/wiki', root_missing: false },
+        skills: { installed: 11 }, health: 'onboarding', connections: [], claude_signin_present: false,
+        claude_opened: !fresh, claude_cli: !(opts && opts.nocli), graph: { nodes: [], links: [] },
+      };
+      return ok(['__BUILD__', '__DATA__', JSON.stringify(data), '__LAYOUT__', '{}']);
+    }
+    if (verb === 'local-mcp-list') return ok(['LOCAL_MCP ' + JSON.stringify({ ok: true, unreadable: '', servers: LOCAL_MCP.map((name) => ({ name, type: 'http', url: 'https://mcp.' + name + '.com/mcp', command: false })), approved: LOCAL_MCP.slice(), all_approved: false })]);
+    if (verb === 'local-mcp-add') { if (!LOCAL_MCP.includes(args.name)) LOCAL_MCP.push(args.name); return ok([`OK: ${args.name} added`]); }
+    if (verb === 'local-mcp-remove') { const i = LOCAL_MCP.indexOf(args.name); if (i >= 0) LOCAL_MCP.splice(i, 1); return ok([`OK: ${args.name} removed`]); }
+    if (verb === 'local-terminal') return ok(['LOCAL_TERMINAL ' + JSON.stringify({ opened: true, claude: !(opts && opts.nocli), program: 'Terminal' })]);
     if (/^(cadence-write|skill-run|skill-remove|telegram-|mcp-|secrets-|devices-|support-|layout-write|box-refresh)/.test(verb)) {
       return { code: 1, lines: ['harness: ' + verb + ' is not a local verb (the real server answers 400 unknown verb)'] };
     }
@@ -1343,7 +1388,7 @@ export function runVerb(surface, verb, args, state, opts) {
 
     // ---- member -----------------------------------------------------------
     case 'dashboard-data':
-      return ok(dashboardDataLines(state, signedOut, surface));
+      return ok(dashboardDataLines(state, signedOut, surface, opts && opts.thinks));
     case 'pages-list':
       return ok(pagesListLines(state));
     case 'page-read':

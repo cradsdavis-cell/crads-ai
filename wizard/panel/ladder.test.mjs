@@ -23,11 +23,14 @@ function modelWith(env) {
   const lm = html.match(/function ladderModel\(d\)\{[\s\S]*?\n {2}\}/);
   assert.ok(lm, 'ladderModel moved or changed shape');
   const f = new Function(
-    'state', 'connLive', 'CLAUDE_SIGNIN_RE', 'SIGNIN_OPENER', 'cadenceTaskSet',
+    'state', 'connLive', 'CLAUDE_SIGNIN_RE', 'SIGNIN_OPENER', 'cadenceTaskSet', 'thinksWith', 'signinOpener',
     `${lm[0]}; return ladderModel;`);
+  const re = new RegExp(html.match(/var CLAUDE_SIGNIN_RE = \/(.+)\/i;/)[1], 'i');   // the page's own gate regex
+  const tw = env.thinksWith || null;
   return f(
-    env.state || { strength: {} }, connLive, /claude (account|sign)/i, 'claude',
-    env.cadenceTaskSet || (() => false));
+    env.state || { strength: {} }, connLive, re, 'claude',
+    env.cadenceTaskSet || (() => false), () => tw,
+    () => (!tw ? 'claude' : tw.source === 'endpoint' ? '' : tw.harness === 'opencode' ? 'opencode auth login' : 'claude'));
 }
 
 const signedIn = { connections: [{ name: 'Claude account on the box', state: 'ok' }], onboarding: { phase: 'done' } };
@@ -141,4 +144,24 @@ test('cadenceTaskSet is tri-state: no jobs key = unread, never false', () => {
   assert.equal(f({ version: 2, jobs: {} }), false, 'read and empty is a real no');
   assert.equal(f({ version: 2, jobs: { inbox: { enabled: true } } }), true);
   assert.equal(f({ version: 2, jobs: { inbox: { enabled: false } } }), false, 'a disabled entry does not count');
+});
+
+// ---- a mineral that thinks with something other than Claude (spec 2026-09-17) ----------
+test('opencode sign-in: the rung names the provider, stays on the Terminal, and the gate reads the new row', () => {
+  const tw = { harness: 'opencode', source: 'signin', provider: 'openai', label: 'ChatGPT', ready: false };
+  let m = modelWith({ thinksWith: tw })({ connections: [{ name: 'Assistant sign-in on this mineral', state: 'pending' }], onboarding: { phase: 'discovery' } });
+  assert.equal(m.rungs[0].name, 'Sign in to ChatGPT on your mineral');
+  assert.equal(m.rungs[0].done, false);
+  assert.deepEqual([m.rungs[0].act.to, m.rungs[0].act.run], ['terminal', 'opencode auth login']);
+  m = modelWith({ thinksWith: tw })({ connections: [{ name: 'Assistant sign-in on this mineral', state: 'ok' }], onboarding: { phase: 'done' } });
+  assert.equal(m.rungs[0].done, true, 'the gate opens on the non-Claude row too');
+});
+
+test('endpoint: no terminal, no command; never-checked does not read as signed in', () => {
+  const tw = { harness: 'opencode', source: 'endpoint', label: 'a model endpoint', ready: null, host: '10.0.0.2:11434' };
+  const m = modelWith({ thinksWith: tw })({ connections: [{ name: 'Assistant model endpoint', state: 'configured' }], onboarding: { phase: 'discovery' } });
+  assert.equal(m.rungs[0].name, 'Point your mineral at a model');
+  assert.equal(m.rungs[0].done, false, 'configured is not ok: strict');
+  assert.deepEqual([m.rungs[0].act.to, m.rungs[0].act.focus, m.rungs[0].act.run], ['seat', 'thinksCard', undefined]);
+  assert.match(m.rungs[0].why, /has not been checked yet/);
 });

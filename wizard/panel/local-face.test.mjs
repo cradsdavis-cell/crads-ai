@@ -11,7 +11,7 @@ import { tmpDir } from '../../tests/tmp-dir.mjs';
 import { createPanelServer, MEMBER_VERBS } from './panel-server.mjs';
 import { createDoorServer } from './door-server.mjs';
 import { localBridge, composeBridge } from './local-bridge.mjs';
-import { LOCAL_VERBS } from './local-verbs.mjs';
+import { LOCAL_VERBS, LOCAL_ONLY_VERBS, REFRESHED, runLocalVerb, terminalLaunch, findClaude, claudeProjectDirName } from './local-verbs.mjs';
 import { loadEngineAssets, scaffoldLocalBrain } from './local-scaffold.mjs';
 import { listLocalTargets, registerLocalBrain, unregisterLocalBrain } from './local-targets.mjs';
 
@@ -43,8 +43,15 @@ async function brainAndServer(t) {
   return { server, box, reg, sshCalls, bridge };
 }
 
-test('LOCAL_VERBS is a strict subset of the member table, and the server-only verbs are absent by name', () => {
-  for (const v of Object.keys(LOCAL_VERBS)) assert.ok(MEMBER_VERBS[v], `${v} exists on the member table too (same page, same contract)`);
+test('LOCAL_VERBS is the member table\'s subset plus the named local-only verbs, and the server-only verbs are absent by name', () => {
+  // 2026-09-18: a folder gained things a box does differently (connections in
+  // its own .mcp.json, a terminal of its own). They are named, not smuggled:
+  // every other local verb still exists on the member table.
+  for (const v of Object.keys(LOCAL_VERBS)) {
+    if (LOCAL_ONLY_VERBS.includes(v)) { assert.ok(!MEMBER_VERBS[v], `${v} is local-only and must not collide with a box verb`); continue; }
+    assert.ok(MEMBER_VERBS[v], `${v} exists on the member table too (same page, same contract)`);
+  }
+  for (const v of LOCAL_ONLY_VERBS) assert.ok(LOCAL_VERBS[v], `${v} is served`);
   for (const gone of ['cadence-write', 'skill-run', 'skill-remove', 'telegram-link', 'telegram-status', 'mcp-add', 'mcp-status', 'secrets-put', 'secrets-discover',
     'devices-list', 'devices-add', 'support-grant', 'layout-write', 'box-refresh', 'mineral-claim', 'leave-org']) {
     assert.ok(!LOCAL_VERBS[gone], `${gone} needs a server and must not be served to a folder`);
@@ -187,4 +194,127 @@ test('door: an existing brain folder can be adopted by path (existed:true), and 
   assert.equal(j.name, 'Kept', 'the registry records the name the folder already had');
   assert.equal(readFileSync(join(box, 'wiki', 'me.md'), 'utf8'), '# me\n');
   assert.ok(existsSync(join(box, '.claude', 'skills', 'onboard', 'SKILL.md')), 'skills were added');
+});
+
+// ---------------------------------------------------------------- 2026-09-18
+test('connections: add writes .mcp.json + the uncommitted approval, list reads it, remove undoes both; bad args are 400s', async (t) => {
+  const { server, box } = await brainAndServer(t);
+  const add = await post(server, '/run', { verb: 'local-mcp-add', host: 'idris-local', args: { name: 'notion', url: 'https://mcp.notion.com/mcp' } });
+  assert.equal(add.status, 200, add.text);
+  assert.ok(sseLines(add.text).includes('OK: notion added'), add.text);
+  await post(server, '/run', { verb: 'local-mcp-add', host: 'idris-local', args: { name: 'linear', url: 'https://mcp.linear.app/sse' } });
+  const cfg = JSON.parse(readFileSync(join(box, '.mcp.json'), 'utf8'));
+  assert.deepEqual(cfg.mcpServers.notion, { type: 'http', url: 'https://mcp.notion.com/mcp' });
+  assert.equal(cfg.mcpServers.linear.type, 'sse', 'an /sse endpoint is written as sse');
+  const st = JSON.parse(readFileSync(join(box, '.claude', 'settings.local.json'), 'utf8'));
+  assert.deepEqual(st.enabledMcpjsonServers, ['notion', 'linear'], 'approved in the never-committed settings file');
+  const ls = await post(server, '/run', { verb: 'local-mcp-list', host: 'idris-local', args: {} });
+  const state = JSON.parse(sseLines(ls.text).find((l) => l.startsWith('LOCAL_MCP ')).slice(10));
+  assert.deepEqual(state.servers.map((x) => x.name), ['notion', 'linear']);
+  const rm = await post(server, '/run', { verb: 'local-mcp-remove', host: 'idris-local', args: { name: 'notion' } });
+  assert.ok(sseLines(rm.text).includes('OK: notion removed'));
+  assert.deepEqual(Object.keys(JSON.parse(readFileSync(join(box, '.mcp.json'), 'utf8')).mcpServers), ['linear']);
+  assert.deepEqual(JSON.parse(readFileSync(join(box, '.claude', 'settings.local.json'), 'utf8')).enabledMcpjsonServers, ['linear']);
+  for (const args of [{ name: 'x', url: 'http://plain.example/mcp' }, { name: 'x', url: 'file:///etc/passwd' }, { name: 'Bad Name', url: 'https://ok.example/mcp' }, { name: 'x', url: 'https://u:p@ok.example/mcp' }]) {
+    const r = await post(server, '/run', { verb: 'local-mcp-add', host: 'idris-local', args });
+    assert.equal(r.status, 400, `${JSON.stringify(args)} refused before the folder is touched`);
+  }
+  assert.ok(readFileSync(join(box, '.gitignore'), 'utf8').split('\n').includes('.mcp.json'), 'connections never ride a backup');
+  const onBox = await post(server, '/run', { verb: 'local-mcp-add', host: 'acme-box', args: { name: 'n', url: 'https://a.example/mcp' } });
+  assert.equal(onBox.status, 400, 'a box does not serve the folder verbs');
+});
+
+test('connections: a hand-written .mcp.json that does not parse is refused, never clobbered', async (t) => {
+  const { server, box } = await brainAndServer(t);
+  writeFileSync(join(box, '.mcp.json'), '{ not json');
+  const r = await post(server, '/run', { verb: 'local-mcp-add', host: 'idris-local', args: { name: 'notion', url: 'https://mcp.notion.com/mcp' } });
+  assert.ok(sseLines(r.text).some((l) => /not valid JSON/.test(l)), r.text);
+  assert.equal(readFileSync(join(box, '.mcp.json'), 'utf8'), '{ not json');
+});
+
+test('terminal: the verb spawns the platform plan detached in the folder; the plans quote any path safely', async () => {
+  const box = join(tmpDir('lf-term-'), 'idris');
+  await scaffoldLocalBrain(box, { name: 'Idris', assets, git: false });
+  const calls = [];
+  const launcher = (exe, args, o) => { calls.push({ exe, args, o }); return { on() {}, unref() {} }; };
+  const out = [];
+  const code = await runLocalVerb({ path: box, host: 'idris-local' }, 'local-terminal', { claude: 1 }, { emit: (l) => out.push(l), launcher });
+  if (terminalLaunch({ dir: box })) {
+    assert.equal(code, 0, out.join('\n'));
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].o.detached, true); assert.equal(calls[0].o.cwd, box);
+    assert.ok(out.some((l) => l.startsWith('LOCAL_TERMINAL ')));
+  }
+  // Windows: the whole script rides -EncodedCommand, so a space or an
+  // apostrophe in the path never meets cmd.exe's quoting.
+  const w = terminalLaunch({ dir: "C:\\Users\\Sam O'Neil\\Crads-AI\\t", claudePath: 'C:\\Users\\Sam O\'Neil\\.local\\bin\\claude.exe', platform: 'win32' });
+  assert.equal(w.exe, 'powershell.exe');
+  assert.equal(Buffer.from(w.args[w.args.indexOf('-EncodedCommand') + 1], 'base64').toString('utf16le'), w.script);
+  assert.match(w.script, /-WorkingDirectory 'C:\\Users\\Sam O''Neil\\Crads-AI\\t'/);
+  assert.match(w.script, /'\/K', '"C:\\Users\\Sam O''Neil\\.local\\bin\\claude\.exe"'/);
+  const wNo = terminalLaunch({ dir: 'C:\\x', platform: 'win32' });
+  assert.match(wNo.script, /where claude >nul 2>nul && claude & where claude >nul 2>nul \|\| echo /, 'the hint prints only when claude is missing');
+  const m = terminalLaunch({ dir: "/Users/sam/it's here", platform: 'darwin' });
+  assert.equal(m.exe, 'osascript');
+  assert.match(m.script, /^cd '\/Users\/sam\/it'\\''s here' && if command -v claude/);
+  const shell = terminalLaunch({ dir: '/x', runClaude: false, platform: 'linux', has: (e) => e === 'xterm' });
+  assert.deepEqual(shell.args.slice(0, 3), ['-e', 'bash', '-lc']);
+  assert.equal(terminalLaunch({ dir: '/x', platform: 'linux', has: () => false }), null, 'no terminal program: a null plan, and the verb says so');
+});
+
+test('findClaude checks PATH and the installers\' usual homes, per platform', () => {
+  const seen = new Set(['/home/u/.local/bin/claude']);
+  assert.equal(findClaude({ platform: 'linux', env: { PATH: '/usr/bin' }, home: '/home/u', exists: (p) => seen.has(p) }), '/home/u/.local/bin/claude');
+  const win = new Set(['C:\\Users\\u\\AppData\\Roaming\\npm\\claude.cmd']);
+  assert.equal(findClaude({ platform: 'win32', env: { Path: 'C:\\Windows', APPDATA: 'C:\\Users\\u\\AppData\\Roaming' }, home: 'C:\\Users\\u', exists: (p) => win.has(p) }), 'C:\\Users\\u\\AppData\\Roaming\\npm\\claude.cmd');
+  assert.equal(findClaude({ platform: 'linux', env: {}, home: '/h', exists: () => false }), null);
+});
+
+test('Overview data: "opened in Claude Code" is read from Claude Code\'s own project record or an answer, never left unknown', async () => {
+  const { localDashboardData } = await import('./local-verbs.mjs');
+  const box = join(tmpDir('lf-opened-'), 'idris');
+  await scaffoldLocalBrain(box, { name: 'Idris', assets, git: false });
+  const home = tmpDir('lf-opened-home-');
+  let d = localDashboardData({ path: box, name: 'Idris' }, { home });
+  assert.equal(d.claude_opened, false, 'a fresh folder: known false, so the page shows the step, not "still reading"');
+  assert.equal(d.onboarding.total, 8, 'the 8 layers, not the legacy 11');
+  assert.equal(d.pebble, '', 'never the folder name as a second name');
+  assert.equal(d.health, 'onboarding', 'an intact folder is healthy');
+  assert.equal(claudeProjectDirName('C:\\Users\\you\\x'), 'C--Users-you-x');
+  mkdirSync(join(home, '.claude', 'projects', claudeProjectDirName(box)), { recursive: true });
+  d = localDashboardData({ path: box, name: 'Idris' }, { home });
+  assert.equal(d.claude_opened, true, 'Claude Code has a project record for this folder');
+  const { rmSync } = await import('node:fs');
+  rmSync(join(box, 'CLAUDE.md'));
+  assert.match(localDashboardData({ path: box, name: 'Idris' }, { home }).health, /^degraded: CLAUDE\.md is missing/, 'the Health card checks the folder for real');
+});
+
+test('refresh on open: an existing brain gets this build\'s skills, the CLAUDE.md notes block and the 8-layer seed, once, keeping the member\'s own text', async (t) => {
+  const { server, box } = await brainAndServer(t);
+  // make it look like a folder born before 2026-09-18
+  writeFileSync(join(box, 'CLAUDE.md'), '# my own notes\nkeep me\n');
+  writeFileSync(join(box, 'onboarding-state.json'), JSON.stringify({ phase: 'interview', current_module: 'self', modules: { self: { status: 'in-progress', raw: [] }, voice: { status: 'not-started', raw: [] } } }));
+  writeFileSync(join(box, '.claude', 'skills', 'onboard', 'SKILL.md'), 'stale');
+  REFRESHED.delete(box);
+  await post(server, '/run', { verb: 'dashboard-data', host: 'idris-local', args: { fresh: 1 } });
+  const md = readFileSync(join(box, 'CLAUDE.md'), 'utf8');
+  assert.match(md, /^# my own notes\nkeep me\n/, 'the member\'s CLAUDE.md is kept');
+  assert.match(md, /crads-ai:engine-notes start[\s\S]*`\/state\/` means \*\*this folder\*\*[\s\S]*crads-ai:engine-notes end/, 'the paths note was appended');
+  assert.equal(readFileSync(join(box, '.claude', 'skills', 'onboard', 'SKILL.md'), 'utf8'), assets.skills.onboard, 'engine skills re-synced');
+  assert.ok(JSON.parse(readFileSync(join(box, 'onboarding-state.json'), 'utf8')).layers, 'the untouched legacy seed became the 8 layers');
+  // once per run: a second read does not rewrite
+  writeFileSync(join(box, '.claude', 'skills', 'onboard', 'SKILL.md'), 'edited after');
+  await post(server, '/run', { verb: 'dashboard-data', host: 'idris-local', args: { fresh: 1 } });
+  assert.equal(readFileSync(join(box, '.claude', 'skills', 'onboard', 'SKILL.md'), 'utf8'), 'edited after');
+  // and a legacy file WITH answers is never replaced
+  const box2 = join(tmpDir('lf-refresh2-'), 'k');
+  await scaffoldLocalBrain(box2, { name: 'K', assets, git: false });
+  const answered = { phase: 'interview', modules: { self: { status: 'in-progress', raw: ['I run a bakery'] } } };
+  writeFileSync(join(box2, 'onboarding-state.json'), JSON.stringify(answered));
+  const { refreshLocalBrain } = await import('./local-scaffold.mjs');
+  await refreshLocalBrain(box2, assets);
+  assert.deepEqual(JSON.parse(readFileSync(join(box2, 'onboarding-state.json'), 'utf8')), answered);
+  // the notes block is replaced in place, not appended twice
+  await refreshLocalBrain(box2, assets);
+  assert.equal((readFileSync(join(box2, 'CLAUDE.md'), 'utf8').match(/engine-notes start/g) || []).length, 1);
 });

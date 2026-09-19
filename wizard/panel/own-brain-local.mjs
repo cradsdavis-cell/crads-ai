@@ -14,8 +14,8 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 const API = 'https://api.github.com';
-const IGNORES = ['.env', '.env.*', 'secrets/', '*.key', '*.pem', '.ssh/', 'ssh/', '.claude-auth/', '.claude-auth*', 'node_modules/', '.kernel/', '.mcp.json', '.claude/', 'cockpit/'];
-const UNTRACK = ['.env', '.mcp.json', '.claude', '.claude-auth', '.kernel', 'cockpit', 'secrets', 'ssh', '.ssh'];
+const IGNORES = ['.env', '.env.*', 'secrets/', '*.key', '*.pem', '.ssh/', 'ssh/', '.claude-auth/', '.claude-auth*', '.opencode-auth/', 'node_modules/', '.kernel/', '.mcp.json', '.claude/', 'cockpit/'];
+const UNTRACK = ['.env', '.mcp.json', '.claude', '.claude-auth', '.opencode-auth', '.kernel', 'cockpit', 'secrets', 'ssh', '.ssh'];
 export const TOKEN_FILE = path.join('.kernel', 'brain-github-token');
 
 const runGit = (cwd, args, opts = {}) => spawnSync('git', args, { cwd, encoding: 'utf8', timeout: opts.timeout || 60000, stdio: ['ignore', 'pipe', 'pipe'] });

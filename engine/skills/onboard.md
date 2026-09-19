@@ -40,6 +40,8 @@ If absent (a solo/direct member or the org channel not yet synced), run the full
 
 On first run, if absent, create it: `phase: "interview"`, `scope: "person|org"`, every layer `not-started`, layer 1 `in-progress`.
 
+**Legacy seed.** Brains made before 2026-09-18 were seeded with the old 11-module shape (`modules` + `current_module`, ids like `self`, `voice`, `constraints`). If the file has `modules` and no `layers`, and not one module has anything in its `raw` list, it is an untouched seed: replace the whole file with the 8-layer shape below before the first question. If any module holds answers, keep them: carry each answer into the `raw` list of the layer it belongs to (business → 3-self, voice and constraints → 8-workflow, the rest by name), then write the 8-layer shape.
+
 ```json
 { "phase": "interview|synthesis|review|done",
   "scope": "person",
@@ -53,7 +55,8 @@ Read it at the start of every turn; write it at the end of every turn (the load-
 
 **Before layer 1, ask what they want to call you, and persist it immediately.**
 
-Write it to `profile.yaml` under `identity.assistant_name` AND to `/state/box-name` (one line,
+Write it to `profile.yaml` under `identity.assistant_name` AND to `box-name` at the brain root
+(`/state/box-name` on a server; `./box-name` in a folder on the member's own computer; one line,
 the bare name) as the FIRST side effect of the interview, before any layer question. Both writes
 must land on disk in that same turn, not be held in the conversation and written at synthesis: a
 member who walks away mid-interview should still come back to something with a name.

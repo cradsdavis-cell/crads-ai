@@ -310,7 +310,7 @@
              this computer. Same offer, no metal. Honest about what it is not:
              nothing runs while the folder is closed. -->
         <button class="bigcard" data-make="local"><b>On this computer</b>
-          <span>Free, no server, no schedules: a brain folder on this computer, only awake when you are. Claude Code opens the folder; the app reads it. Scheduled jobs, Telegram and connections need a server.</span></button>
+          <span>Free, no server, no schedules: a brain folder on this computer, only awake when you are. Claude Code opens the folder; the app reads it. Scheduled jobs and Telegram need a server.</span></button>
         <!-- Hosted-era cards ("I have an invitation", "Join a community")
              stripped 2026-09-01 on Sam's call: nobody can be invited TO a box
              any more, and the community board was a central directory read.
@@ -441,9 +441,13 @@
 
         <div class="steprow" id="shRowClaude">
           <span class="stepchip" id="shClaudeChip">Checking&hellip;</span>
-          <b>Connect Claude</b>
-          <p class="hint">Your mineral is inert until it is signed in to Claude, on your own Claude subscription. Open the terminal and run <span class="mono">claude</span> once: it prints a sign-in link and a code, you approve it in your browser, and your assistant wakes up. Scheduled jobs run on this sign-in, so nothing works overnight without it. This screen notices by itself once it is done.</p>
+          <b id="shClaudeTitle">Connect Claude</b>
+          <p class="hint" id="shClaudeHint">Your mineral is inert until it is signed in to Claude, on your own Claude subscription. Open the terminal and run <span class="mono">claude</span> once: it prints a sign-in link and a code, you approve it in your browser, and your assistant wakes up. Scheduled jobs run on this sign-in, so nothing works overnight without it. This screen notices by itself once it is done.</p>
           <button class="act" id="shClaudeBtn">Open the terminal</button>
+          <!-- Tester-only (second-harness spec 2026-09-17): revealed by
+               localStorage['crads.experimental-harness']='1' in THIS window. Not offered to
+               members until a non-Claude harness has its column of the compatibility matrix. -->
+          <p class="hint" id="shThinksRow" style="display:none;margin-top:10px"><a href="#" id="shThinksLink">Think with something other than Claude</a> <span class="stepchip">Experimental</span></p>
         </div>
       </div>
 
@@ -466,7 +470,7 @@
       <a href="#" class="back" id="loBack">&#8249; back</a>
       <h2>On this computer</h2>
       <div id="loForm">
-        <p class="hint">Your brain becomes a folder on this computer. Claude Code opens the folder and every skill is there; this app reads the same folder. It is free and needs no server. It is also only awake when you are: <b>scheduled jobs, Telegram and connections need a server</b>, and can be added later by moving the folder to one.</p>
+        <p class="hint">Your brain becomes a folder on this computer. Claude Code opens the folder and every skill is there; this app reads the same folder. It is free and needs no server. It is also only awake when you are: <b>scheduled jobs and Telegram need a server</b>, and can be added later by moving the folder to one. Connections (Gmail, Notion and the rest) work here, through Claude Code.</p>
         <label for="loName">Name your assistant</label>
         <input id="loName" placeholder="e.g. Idris" autocomplete="off" spellcheck="false" maxlength="60">
         <label for="loPath">Where the folder goes</label>
@@ -1222,6 +1226,20 @@
           if (ghConnected) dl.innerHTML = 'Connected: <span class="mono">' + esc(st.github.repo || '') + '</span>. From here it keeps itself current, every night.';
         }
         var signedIn = !!(st.claude && st.claude.signedIn);
+        // A mineral that thinks with something other than Claude (second-harness spec,
+        // 2026-09-17). st.assistant is already pinned to a shape by setup-steps.mjs and
+        // carries no command: the Terminal tab picks the sign-in from its own fixed list.
+        var as = st.assistant;
+        if (as && as.harness !== 'claude-code') {
+          var ep = as.source === 'endpoint';
+          document.getElementById('shClaudeTitle').textContent = ep ? 'Your model endpoint' : ('Connect ' + as.label);
+          document.getElementById('shClaudeHint').textContent = ep
+            ? 'This mineral thinks at ' + (as.host || 'the address you gave it') + '. It is checked from the mineral itself, because that is where the requests come from. Open the app to check it again or change it.'
+            : 'Your mineral is inert until it is signed in to ' + as.label + ', on your own subscription. Open the terminal and the sign-in starts by itself: it prints a link and a code, and you approve it in your browser. Scheduled jobs run on this sign-in, so nothing works overnight without it. This screen notices by itself once it is done.';
+          shChip('shClaudeChip', as.ready === true ? (ep ? 'Answering' : 'Done') : as.ready === null ? 'Not checked' : (ep ? 'Not answering' : 'Not yet'), as.ready === true);
+          document.getElementById('shClaudeBtn').style.display = (as.ready === true || ep) ? 'none' : '';
+          return;
+        }
         shChip('shClaudeChip', signedIn ? 'Done' : 'Not yet', signedIn);
         document.getElementById('shClaudeBtn').style.display = signedIn ? 'none' : '';
       })
@@ -1288,6 +1306,15 @@
     // no URL can ever type an arbitrary command into a terminal.
     location.href = '/go/member?host=' + encodeURIComponent(shBox.alias) + '&box=' + encodeURIComponent(shBox.slug)
       + '#box=' + encodeURIComponent(shBox.slug) + '&sec=terminal&run=signin';
+  });
+  // Tester-only way to the "What your mineral thinks with" card. sec=seat is a fixed section
+  // name and thinks=1 only reveals a card; nothing here can type into a terminal.
+  try { if (localStorage.getItem('crads.experimental-harness') === '1') document.getElementById('shThinksRow').style.display = ''; } catch(e){}
+  document.getElementById('shThinksLink').addEventListener('click', function(ev){
+    ev.preventDefault();
+    if (!shBox.alias) return;
+    location.href = '/go/member?host=' + encodeURIComponent(shBox.alias) + '&box=' + encodeURIComponent(shBox.slug)
+      + '#box=' + encodeURIComponent(shBox.slug) + '&sec=seat&thinks=1';
   });
   function shAttach(){
     if (shPoll) clearInterval(shPoll);

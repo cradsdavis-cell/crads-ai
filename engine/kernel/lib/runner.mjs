@@ -1,29 +1,16 @@
 // runner.mjs — executes one job (a skill run).
 //
-// LIVE mode shells out to Claude Code headless (`claude -p`) inside the client's
-// state dir, authed via that instance's own Claude subscription (decisions D2)
-// using an isolated CLAUDE_CONFIG_DIR. DRY_RUN mode produces deterministic output
+// LIVE mode hands the turn to the mineral's HARNESS (lib/harness/): Claude Code
+// headless (`claude -p`) by default, authed via that instance's own Claude
+// subscription (decisions D2) in an isolated config dir; or another registered
+// harness when profile.yaml names one (spec 2026-09-17). DRY_RUN mode produces deterministic output
 // so the kernel / concurrency / persistence spine is testable with no auth and
 // no usage — flip DRY_RUN off to go live.
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { derivePatterns } from './mcp-allow.mjs';
+import { grantsForJob } from './harness/grants.mjs';
+import { runTurn } from './harness/index.mjs';
 import { localDate } from '../../lib/clock.mjs';   // injectable clock (spec §0.5) — brief stamps client-LOCAL virtual date
-
-// Run Claude Code headless with stdin CLOSED (headless must not wait on stdin) and a
-// hard timeout (a hung turn must not block the kernel forever).
-function runClaude(args, { cwd, env, timeoutMs = 240000 }) {
-  return new Promise((resolve, reject) => {
-    const pebble = spawn('claude', args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
-    let out = '', err = '';
-    const t = setTimeout(() => { pebble.kill('SIGKILL'); reject(new Error(`claude timed out after ${timeoutMs}ms`)); }, timeoutMs);
-    pebble.stdout.on('data', (d) => { out += d; });
-    pebble.stderr.on('data', (d) => { err += d; });
-    pebble.on('error', (e) => { clearTimeout(t); reject(e); });
-    pebble.on('close', (code) => { clearTimeout(t); code === 0 ? resolve(out) : reject(new Error((err || `claude exited ${code}`).slice(0, 300))); });
-  });
-}
 
 export async function runSkill(stateDir, job, { dryRun = false } = {}) {
   // onboard-ingest is DETERMINISTIC engine code (the seeded path) — run it in both dry and
@@ -65,13 +52,12 @@ export async function runSkill(stateDir, job, { dryRun = false } = {}) {
   // first live smoke test); otherwise it asks Claude Code to run the named skill.
   // Build the prompt + tool allowlist per job type.
   let prompt;
-  let allowed = 'Skill,Bash,Read,Edit,Write,Glob,Grep';
   if (job.skill === 'message') {
     // Conversational turn from the client (Telegram, D11 secondary channel).
     // DEFAULT-DENY outbound (D4): restricted tools — read/update the brain + run
     // skills, but NO send tools. Anything to send is DRAFTED + flagged
     // PROPOSE-SEND so the adapter surfaces Approve/Deny buttons.
-    allowed = 'Skill,Read,Edit,Write,Glob,Grep';
+    // The restriction itself lives in harness/grants.mjs (grantsForJob).
     prompt =
       `You are the client's AI assistant. They sent you this message — respond helpfully and conversationally. ` +
       `You may read and update their brain (the wiki) and use their skills. ` +
@@ -85,8 +71,10 @@ export async function runSkill(stateDir, job, { dryRun = false } = {}) {
   } else if (job.skill === 'prompt') {
     prompt = String(job.args?.text || 'Reply with exactly: AI OS live.');
   } else {
+    // Names the skill and the tool, not a slash command: "/name" resolution is one
+    // harness's convention, a skill tool is something every registered harness has.
     prompt =
-      `Run the /${job.skill} skill for this AI OS instance. ` +
+      `Run the "${job.skill}" skill (load it with your skill tool; in Claude Code it is /${job.skill}) for this AI OS instance. ` +
       `Args: ${JSON.stringify(job.args || {})}. ` +
       `Read profile.yaml + the wiki; perform exactly the file changes the skill defines. ` +
       `Do not run git — the kernel commits.`;
@@ -94,28 +82,19 @@ export async function runSkill(stateDir, job, { dryRun = false } = {}) {
   // Give SKILL jobs the registered MCP tools (live data, written by connect.mjs to
   // .kernel/mcp-allow). 'message' jobs stay restricted — default-deny outbound (D4)
   // means the conversational channel never gets send-capable MCP tools.
-  if (job.skill !== 'message') {
-    // Derived from the box's OWN .mcp.json, plus the explicit file. See
-    // lib/mcp-allow.mjs for why this is derived rather than hand-written: a
-    // member who connects a service in the Claude Code app does everything right
-    // and their jobs still could not call it. D4 is untouched — 'message' jobs
-    // are excluded here exactly as before, so the conversational channel still
-    // gets no MCP tools.
-    const read = async (p) => { try { return await readFile(path.join(stateDir, ...p), 'utf8'); } catch { return ''; } };
-    const patterns = derivePatterns({
-      mcpJson: await read(['.mcp.json']),
-      allowFile: await read(['.kernel', 'mcp-allow']),
-    });
-    if (patterns.length) allowed += ',' + patterns.join(',');
-  }
-  // acceptEdits auto-approves file edits (headless can't answer prompts); allowedTools
-  // pre-approves the tool set so non-approved tools abort instead of prompting.
-  // Auth (D11 corrected): the autonomous/cron path MUST pin CLAUDE_CONFIG_DIR to the box's own
-  // .claude-auth, exactly like the interactive launchers — otherwise headless claude defaults to
-  // $HOME/.claude, which on a shared-VPS operator host IS the operator's account (the cross-client
-  // identity leak). Pinning it here means no caller (cron, kernel, telegram) can forget it.
-  const cliArgs = ['-p', prompt, '--permission-mode', 'acceptEdits', '--allowedTools', allowed];
-  const stdout = await runClaude(cliArgs, { cwd: stateDir, env: { ...process.env, CLAUDE_CONFIG_DIR: path.join(stateDir, '.claude-auth') }, timeoutMs: 240000 });
+  // What this job may do, as data. Derived from the box's OWN .mcp.json plus the
+  // explicit file; see lib/mcp-allow.mjs for why it is derived rather than hand-written
+  // (a member who connects a service in the Claude Code app does everything right and
+  // their jobs still could not call it). D4 is untouched: grantsForJob gives 'message'
+  // jobs no shell and no MCP, so the conversational channel still has no send tools.
+  const read = async (p) => { try { return await readFile(path.join(stateDir, ...p), 'utf8'); } catch { return ''; } };
+  const grants = grantsForJob(job, {
+    mcpJson: await read(['.mcp.json']),
+    allowFile: await read(['.kernel', 'mcp-allow']),
+  });
+  // The harness compiles the grants into its own permission format and pins its own
+  // isolated config dir (the cross-client identity-leak rule), so no caller can forget.
+  const { text: stdout } = await runTurn({ stateDir, prompt, grants });
   return { ok: true, output: stdout.slice(0, 4000) };
 }
 

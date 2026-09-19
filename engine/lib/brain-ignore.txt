@@ -38,6 +38,9 @@ ssh/
 
 # --- repaired everywhere, never a refusal reason ---
 .claude-auth*
+# a second harness's sign-in (spec 2026-09-17). Repaired, not required: adding it to the
+# refusal floor would switch off nightly push on every box born before it existed.
+.opencode-auth/
 .claude/
 cockpit/
 org/

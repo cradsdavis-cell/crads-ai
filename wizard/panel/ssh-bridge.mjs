@@ -499,6 +499,11 @@ export function openSshTty(host, opts = {}) {
   // Rides the same first-line-of-input channel as the sizing, because this path
   // deliberately sends no remote command. Defaulted, not forced.
   try { pebble.stdin.write('export CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-/state/.claude-auth}"\n'); } catch { /* dying spawn */ }
+  // Same rule for a mineral on the OpenCode harness (spec 2026-09-17): `opencode auth login`
+  // typed here must write the credential the kernel's headless turns read, which lives under
+  // /state/.opencode-auth (engine/kernel/lib/harness/opencode.mjs isolationEnv). A FUNCTION,
+  // not four exports: XDG_* set shell-wide would move every other tool's config too.
+  try { pebble.stdin.write('opencode() { XDG_DATA_HOME=/state/.opencode-auth/data XDG_CONFIG_HOME=/state/.opencode-auth/config XDG_STATE_HOME=/state/.opencode-auth/state XDG_CACHE_HOME=/state/.opencode-auth/cache OPENCODE_DISABLE_CLAUDE_CODE_PROMPT=1 command opencode "$@"; }\n'); } catch { /* dying spawn */ }
   try { pebble.stdin.write(`stty cols ${cols} rows ${rows} 2>/dev/null; clear\n`); } catch { /* dying spawn */ }
   return pebble;
 }

@@ -518,6 +518,11 @@ if [ -d "$TEMPLATE/plugins" ] && [ ! -d "$CLAUDE_CONFIG_DIR/plugins" ]; then
     cp "$TEMPLATE/settings.json" "$CLAUDE_CONFIG_DIR/settings.json" 2>/dev/null || true
   fi
 fi
+# Same, for the OpenCode harness (second-harness spec 2026-09-17): the shared seed script,
+# rooted beside this box's Claude auth dir.
+for _seed in /app/engine/box/opencode-seed.sh "$(dirname "$0")/../../engine/box/opencode-seed.sh"; do
+  [ -f "$_seed" ] && { bash "$_seed" "$(dirname "$CLAUDE_CONFIG_DIR")/.opencode-auth" || true; break; }
+done
 
 # ============================================================================
 # 7. Optional org cron. The rock has no member-style profile.cadence, so it

@@ -175,7 +175,7 @@ $35/mo pass-through, seat fees, and tier pricing are gone with the billing code.
 - **The local face (Sam's ruling 2026-09-11):** Crads-AI gains a no-server mode. The
   app opens against a brain folder on the user's own computer, runs the panel verbs
   locally, Claude Code runs on the folder. Everything that needs a box is hidden with
-  one honest line ("Scheduled jobs, Telegram and connections need a server."). Ships
+  one honest line ("Scheduled jobs and Telegram need a server." (connections moved to Claude Code on the folder, 2026-09-18)). Ships
   inside the same Guided setup offer; the docs describe it as "on your own computer:
   free, no schedules, only awake when you are". Built on branch `local-face`;
   design + v1 gap list in `docs/local-face-design.md`. Owed: a run on a real Windows

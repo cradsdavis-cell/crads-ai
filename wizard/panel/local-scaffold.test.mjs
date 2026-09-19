@@ -7,6 +7,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
+import { LAYERS } from '../../engine/onboarding/layers.mjs';
 import { loadEngineAssets, scaffoldLocalBrain, initialOnboardingState, dirState, setBrainName, seedPages, LOCAL_ASSET_FILES, LOCAL_SKILL_IDS, REPO_ROOT } from './local-scaffold.mjs';
 
 const assets = loadEngineAssets();
@@ -31,7 +32,10 @@ test('the scaffold makes box-up.sh\'s first-run shape, with git initialised and 
   assert.match(readFileSync(join(box, 'profile.yaml'), 'utf8'), /assistant_name: "Idris"/, 'one name, both files');
   const st = JSON.parse(readFileSync(join(box, 'onboarding-state.json'), 'utf8'));
   assert.equal(st.phase, 'interview');
-  assert.equal(st.modules.self.status, 'in-progress', 'the first module is in progress, as init-state.mjs writes it');
+  assert.deepEqual(Object.keys(st.layers), LAYERS, 'seeded with the 8 layers /onboard writes, not the legacy 11 modules');
+  assert.equal(st.layers['1-north-star'].status, 'in-progress', 'layer 1 is in progress, as init-state.mjs writes it');
+  assert.equal(st.current_layer, '1-north-star');
+  assert.ok(!st.modules, 'no legacy modules map alongside the layers');
   const own = JSON.parse(readFileSync(join(box, 'ownership.json'), 'utf8'));
   assert.equal(own.owner, 'member'); assert.equal(own.hosting, 'local');
   const ig = readFileSync(join(box, '.gitignore'), 'utf8');
@@ -75,10 +79,12 @@ test('dirState names the four cases the create route switches on', () => {
 });
 
 test('initialOnboardingState and setBrainName are faithful ports', () => {
-  assert.equal(initialOnboardingState('nothing here'), null);
-  const st = initialOnboardingState('modules:\n  - id: a\n  - id: b\n');
-  assert.deepEqual(Object.keys(st.modules), ['a', 'b']);
-  assert.equal(st.current_module, 'a');
+  // the spec text no longer decides the seed: the 8 layers do, whatever is passed
+  for (const arg of [undefined, 'nothing here', 'modules:\n  - id: a\n  - id: b\n']) {
+    const st = initialOnboardingState(arg);
+    assert.deepEqual(Object.keys(st.layers), LAYERS);
+    assert.equal(st.phase, 'interview'); assert.equal(st.scope, 'person');
+  }
   const box = tmpDir('name-');
   writeFileSync(join(box, 'profile.yaml'), 'identity:\n  user_name: ""\n');
   setBrainName(box, 'Nia "quoted"');

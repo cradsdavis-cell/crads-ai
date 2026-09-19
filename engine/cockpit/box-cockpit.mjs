@@ -10,6 +10,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, statSy
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { readClaudeCredential } from '../lib/claude-credential.mjs';
+import { readAssistantState } from '../lib/assistant-state.mjs';
 import { lastOkRunBySkill } from '../lib/run-ledger.mjs';
 import { connectionLabel } from '../lib/connection-labels.mjs';
 import { resolveBrainRoot, isOrgBox, readOwnership } from '../lib/brain-root.mjs';
@@ -223,6 +224,11 @@ const realPages = pages.filter((p) => !SKELETON.has(p.slug)).length;
 // where this file gets honest about what presence is worth.
 const claude = readClaudeCredential(box);
 const claudeAuthed = claude.present;
+// What this mineral thinks with (spec 2026-09-17). On the default harness this IS the
+// Claude sign-in above, same name, same words; on another harness it is that harness's
+// sign-in, or a model endpoint whose "ready" is its last probe. One reader, so this row,
+// the setup checklist and the heartbeat cannot disagree.
+const assistant = readAssistantState(box);
 // WHICH account, not just whether. Two different things are called "signed in" and
 // conflating them cost a real debugging session: connecting the Claude Code desktop
 // app is your laptop reaching the mineral over SSH, on the LAPTOP's account, and it
@@ -354,9 +360,14 @@ const mailish = inApp.filter((n) => /gmail|mail|calendar|outlook/i.test(n));
 const connections = [
   // The row says WHERE the fix is, because the wrong answer is the intuitive one:
   // a member reads "not signed in" and connects the desktop app, which cannot fix it.
-  { name: 'Claude sign-in on this mineral', state: claudeAuthed ? 'ok' : 'pending',
-    status: claudeAuthed ? ('signed in' + (claudeEmail ? ' as ' + claudeEmail : '') + sinceOk)
-                         : 'not signed in yet · sign in from the Terminal tab' },
+  assistant.harness === 'claude-code'
+    ? { name: 'Claude sign-in on this mineral', state: claudeAuthed ? 'ok' : 'pending',
+        status: claudeAuthed ? ('signed in' + (claudeEmail ? ' as ' + claudeEmail : '') + sinceOk)
+                             : 'not signed in yet · sign in from the Terminal tab' }
+    // ready:null (an endpoint nobody has probed) is 'configured', never 'pending': the app
+    // only closes a gate on a KNOWN-pending, and "not checked" is not "down".
+    : { name: assistant.rowName, state: assistant.ready === true ? 'ok' : assistant.ready === null ? 'configured' : 'pending',
+        status: assistant.status + (assistant.ready === true ? sinceOk : '') },
   ...(servers.length ? servers.map(serverConn) : [
     mailish.length
       ? { name: 'Email + Calendar', status: 'in your chats only, not in scheduled jobs', state: 'pending' }
@@ -418,6 +429,12 @@ const data = {
   // which `phase` already is. Both panel tokens are in the healthy set.
   health: phase === 'done' ? 'active' : 'onboarding',
   connections,
+  // The app reads this to word the sign-in rung and the "where your words go" line. It
+  // carries no command: the app keeps its own list of what it will type into a terminal.
+  // (`assistant` is already this file's key for the assistant's NAME, so this is thinks_with.)
+  thinks_with: { harness: assistant.harness, source: assistant.source, provider: assistant.provider, label: assistant.label,
+    ready: assistant.ready, host: assistant.host, local: assistant.local, words_go: assistant.wordsGo,
+    experimental: assistant.harness !== 'claude-code' || existsSync(path.join(box, '.kernel', 'experimental-harness')) },
   graph: { nodes, links },
 };
 mkdirSync(path.join(box, 'cockpit'), { recursive: true });

@@ -4,7 +4,8 @@
 //
 // One GET, mounted by door-server the same way inventory-routes is:
 //
-//   GET /setup-steps?box=<alias>  ->  { reachable, github: {connected, repo}, claude: {signedIn} }
+//   GET /setup-steps?box=<alias>  ->  { reachable, github: {connected, repo}, claude: {signedIn},
+//                                       assistant: {harness, source, label, ready, host, signin} }
 //
 // The door's finish checklist ("Your mineral is alive") polls this to render
 // honest done/not-yet chips, and the same read serves a box created weeks ago.
@@ -34,7 +35,29 @@ export const SETUP_PROBE_CMD = [
   'u=$(grep -A3 \'^\\[remote "origin"\\]\' "$BR/.git/config" 2>/dev/null | sed -n \'s/^[[:space:]]*url[[:space:]]*=[[:space:]]*//p\' | head -1)',
   'if [ -n "$u" ]; then echo "SETUP_GITHUB $u"; else echo SETUP_GITHUB_NONE; fi',
   'if [ -s /state/.claude-auth/.credentials.json ]; then echo SETUP_CLAUDE_OK; else echo SETUP_CLAUDE_NONE; fi',
+  // What the mineral thinks with (spec 2026-09-17), from the box's own single reader. An
+  // image born before that reader exists prints nothing, and the answer is then the Claude
+  // facts above: that image can only be a Claude Code mineral.
+  '[ -f /app/engine/lib/assistant-state.mjs ] && node /app/engine/lib/assistant-state.mjs /state 2>/dev/null || true',
 ].join('; ');
+
+// What the box SAYS is data, not instructions. Everything is pinned to a shape before it
+// reaches a page, and the sign-in command is chosen HERE from a fixed list: a mineral never
+// gets to name a command that this app will type into a terminal.
+const SIGNIN = { 'claude-code': 'claude', opencode: 'opencode auth login' };
+export function parseAssistant(out, claudeSignedIn) {
+  const fallback = { harness: 'claude-code', source: 'signin', label: 'Claude', ready: claudeSignedIn, host: null, signin: SIGNIN['claude-code'] };
+  const m = String(out || '').match(/^SETUP_ASSISTANT (\{.*\})$/m);
+  if (!m) return fallback;
+  let j; try { j = JSON.parse(m[1]); } catch { return fallback; }
+  const harness = /^[a-z0-9-]{1,32}$/.test(String(j.harness)) ? j.harness : null;
+  const source = ['signin', 'endpoint'].includes(j.source) ? j.source : null;
+  if (!harness || !source) return fallback;
+  const clean = (v, n) => (typeof v === 'string' ? v.replace(/[^ -~]/g, '').slice(0, n) : null);
+  return { harness, source, label: clean(j.label, 40) || 'your assistant', host: clean(j.host, 80),
+    ready: j.ready === true ? true : j.ready === false ? false : null,
+    signin: source === 'signin' ? (SIGNIN[harness] || null) : null };
+}
 
 // user:token@ (or token@) in an https remote is a credential; the display
 // string must shed it, same discipline as member-console-state's read.
@@ -70,7 +93,10 @@ export function setupStepsRoutes({ resolveHost = () => null, probe } = {}) {
       json(200, {
         reachable: true,
         github: { connected: !!url, repo: url ? stripRepoUrl(url.trim()) : '' },
+        // kept for one release: the app exe and the images ship independently, and an
+        // older door reads only this
         claude: { signedIn: /SETUP_CLAUDE_OK/.test(out) },
+        assistant: parseAssistant(out, /SETUP_CLAUDE_OK/.test(out)),
       });
     })();
     return true;

@@ -124,6 +124,10 @@ if [ -d "$TEMPLATE/plugins" ] && [ ! -d "$BOX/.claude-auth/plugins" ]; then
   fi
 fi
 
+# ---- same, for a mineral on the OpenCode harness (second-harness spec 2026-09-17). One
+#      shared script: see its header for why it is not inlined here like the block above.
+bash "$ENGINE/box/opencode-seed.sh" "$BOX/.opencode-auth" || true
+
 # ---- make the mineral a versioned git repo (the pebble's "brain") with credentials git-ignored ----
 # The brain repo can be pushed to the pebble's OWN remote (model b), so .claude-auth (OAuth token),
 # secrets/ (passwords) and .kernel/ (machine state) must NEVER be committed. Write the ignore

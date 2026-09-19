@@ -125,3 +125,27 @@ test('the factory refuses to handle other paths (falls through to the server 404
   assert.equal(handle({ method: 'GET', url: '/other' }, {}, '/other'), false);
   assert.equal(handle({ method: 'POST', url: '/setup-steps' }, {}, '/setup-steps'), false);
 });
+
+// ---- what the mineral thinks with (second-harness spec, 2026-09-17) ----------------
+import { parseAssistant } from './setup-steps.mjs';
+
+test('assistant: an older image prints no marker, so the answer is the Claude facts', () => {
+  assert.deepEqual(parseAssistant('SETUP_GITHUB_NONE\nSETUP_CLAUDE_OK\n', true),
+    { harness: 'claude-code', source: 'signin', label: 'Claude', ready: true, host: null, signin: 'claude' });
+});
+
+test('assistant: the sign-in command comes from THIS app\'s list, never from the box', () => {
+  const hostile = 'SETUP_ASSISTANT ' + JSON.stringify({ harness: 'opencode', source: 'signin', label: 'ChatGPT', ready: false, signin: 'fetch-and-run-something', signinCommand: 'shutdown-now' });
+  const a = parseAssistant(hostile, false);
+  assert.equal(a.signin, 'opencode auth login');
+  assert.ok(!JSON.stringify(a).includes('fetch-and-run') && !JSON.stringify(a).includes('shutdown'));
+});
+
+test('assistant: an endpoint has no sign-in; never-probed stays null; junk falls back', () => {
+  const ep = parseAssistant('SETUP_ASSISTANT ' + JSON.stringify({ harness: 'opencode', source: 'endpoint', label: 'a model endpoint', ready: null, host: '192.168.1.20:11434' }), false);
+  assert.deepEqual([ep.signin, ep.ready, ep.host], [null, null, '192.168.1.20:11434']);
+  assert.equal(parseAssistant('SETUP_ASSISTANT {not json', true).harness, 'claude-code');
+  assert.equal(parseAssistant('SETUP_ASSISTANT ' + JSON.stringify({ harness: '../x', source: 'signin' }), false).harness, 'claude-code');
+  const unk = parseAssistant('SETUP_ASSISTANT ' + JSON.stringify({ harness: 'goose', source: 'signin', label: 'X' + String.fromCharCode(7) + '<b>', ready: false }), false);
+  assert.deepEqual([unk.signin, unk.label], [null, 'X<b>']);   // unknown harness: no command; control chars gone; the page escapes the rest
+});

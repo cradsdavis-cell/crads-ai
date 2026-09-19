@@ -328,7 +328,12 @@ const server = createServer(async (req, res) => {
     const form = await readBody(req);
     // ?signedout=1 on the PAGE url (read via referer, same idiom as ?world=org)
     const signedOut = /[?&]signedout=1/.test(String(req.headers.referer || ''));
-    const result = FX.runVerb(surface, String(form.verb || ''), form.args, state, { signedOut, face });
+    // ?thinks=endpoint|endpoint-ok|openai on the PAGE url: a mineral on the OpenCode harness
+    // (second-harness spec 2026-09-17), same referer idiom
+    const thinks = (String(req.headers.referer || '').match(/[?&]thinks=([a-z-]+)/) || [])[1] || '';
+    // ?nocli=1 on the PAGE url: a local folder on a computer without the claude command
+    const nocli = /[?&]nocli=1/.test(String(req.headers.referer || ''));
+    const result = FX.runVerb(surface, String(form.verb || ''), form.args, state, { signedOut, face, thinks, nocli });
     streamRun(res, result);
     return;
   }
