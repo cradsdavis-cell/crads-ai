@@ -1,5 +1,6 @@
 ---
 title: What an AI EA actually is
+search-title: What an AI executive assistant actually is
 summary: The category, explained without the hype: what changes about your week, who it is for, and what it is not.
 audience: public
 access: public

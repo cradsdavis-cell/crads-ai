@@ -173,3 +173,16 @@ test('the shell nav matches the live site, when the site is on disk', (t) => {
   assert.deepEqual(missing, [],
     'shell.mjs nav has links the live site does not: the copy has drifted');
 });
+
+test('search-title reaches the tab and the search result, never the share cards', () => {
+  const pages = visibleTo(loadTree(PAGES), 'public').filter((p) => p.searchTitle);
+  assert.ok(pages.length, 'no page carries a search-title to check');
+  const files = new Map(build().files.map((f) => [f.rel, f.content]));
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  for (const p of pages) {
+    const h = files.get(path.join('docs', p.slug, 'index.html'));
+    assert.ok(h.includes(`<title>${esc(p.searchTitle)} · `), `${p.slug}: <title> ignores search-title`);
+    assert.ok(h.includes(`<meta property="og:title" content="${esc(p.title)}">`), `${p.slug}: og:title is not the page title`);
+    assert.ok(h.includes(`<meta name="twitter:title" content="${esc(p.title)}">`), `${p.slug}: twitter:title is not the page title`);
+  }
+});

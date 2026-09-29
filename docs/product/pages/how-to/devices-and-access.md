@@ -1,5 +1,6 @@
 ---
 title: Machines that can open your mineral
+search-title: SSH key access: which computers can open your assistant
 summary: The roster, what a key is, removing a machine, and why the door has no back door.
 outcome: see every machine that can open your mineral and remove one in a minute.
 audience: public

@@ -2,9 +2,9 @@
 //   node --test wizard/panel/updater.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync, mkdirSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
-import { checkForUpdate, applyUpdate, getBuildInfo } from './updater.mjs';
+import { checkForUpdate, applyUpdate, getBuildInfo, macInstalledTarget } from './updater.mjs';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
 
 const okJson = (obj) => Promise.resolve({ ok: true, json: () => Promise.resolve(obj) });
@@ -81,4 +81,46 @@ test('applyUpdate: relaunch deletes the run file BEFORE spawning (2026-07-23 rac
   assert.equal(events[0].runFileGone, true, 'run file must be gone before the replacement boots, or it probes the dying instance and exits');
   await new Promise((r) => setTimeout(r, 500));
   assert.deepEqual(events[1], { what: 'exit' });
+});
+
+test('macInstalledTarget: updates the running copy in either Applications folder, else ~/Applications', () => {
+  const home = '/Users/pat';
+  const exe = (bundle) => `${bundle}/Contents/MacOS/crads-ai`;
+  // Dragged into /Applications: the copy that runs is the copy to update (the 2026-09-29 bug).
+  assert.equal(macInstalledTarget({ execPath: exe('/Applications/Crads-AI.app'), home }), '/Applications/Crads-AI.app');
+  assert.equal(macInstalledTarget({ execPath: exe('/Users/pat/Applications/Crads-AI.app'), home }), '/Users/pat/Applications/Crads-AI.app');
+  // A renamed bundle still updates in place.
+  assert.equal(macInstalledTarget({ execPath: exe('/Applications/Crads-AI 2.app'), home }), '/Applications/Crads-AI 2.app');
+  // Downloads / translocated quarantine path / dev binary: selfInstall's ~/Applications copy.
+  assert.equal(macInstalledTarget({ execPath: exe('/Users/pat/Downloads/Crads-AI.app'), home }), '/Users/pat/Applications/Crads-AI.app');
+  assert.equal(macInstalledTarget({ execPath: exe('/private/var/folders/xy/T/AppTranslocation/ABC/d/Crads-AI.app'), home }), '/Users/pat/Applications/Crads-AI.app');
+  assert.equal(macInstalledTarget({ execPath: '/usr/local/bin/node', home }), '/Users/pat/Applications/Crads-AI.app');
+  // A lookalike folder name is not /Applications.
+  assert.equal(macInstalledTarget({ execPath: exe('/ApplicationsX/Crads-AI.app'), home }), '/Users/pat/Applications/Crads-AI.app');
+});
+
+test('applyUpdate (mac): a read-only Applications folder refuses in plain words, before any download', async (t) => {
+  if (process.getuid && process.getuid() === 0) return t.skip('root ignores folder permissions');
+  const dir = tmpDir('upd-mac-ro-');
+  const target = join(dir, 'Crads-AI.app');
+  mkdirSync(join(target, 'Contents', 'MacOS'), { recursive: true });
+  chmodSync(dir, 0o555);
+  let fetched = false;
+  const states = [];
+  try {
+    await assert.rejects(
+      () => applyUpdate({ platform: 'darwin', target, relaunch: false, onState: (s) => states.push(s),
+        fetch: () => { fetched = true; return Promise.resolve({ ok: false, status: 500 }); } }),
+      /can't change .*Applications folder in your home folder/);
+  } finally { chmodSync(dir, 0o755); }
+  assert.equal(fetched, false);
+  assert.equal(states.at(-1).phase, 'failed');
+  assert.ok(existsSync(join(target, 'Contents', 'MacOS')), 'running copy untouched');
+});
+
+test('applyUpdate (mac): no bundle at the target still names itself', async () => {
+  const dir = tmpDir('upd-mac-none-');
+  await assert.rejects(
+    () => applyUpdate({ platform: 'darwin', target: join(dir, 'Crads-AI.app'), relaunch: false, fetch: () => { throw new Error('should not fetch'); } }),
+    /no installed copy to update/);
 });

@@ -7,12 +7,14 @@ access: public
 mode: tutorial
 order: 10
 pins: wizard/panel/door.html, wizard/panel/provision-routes.mjs, wizard/panel/setup-steps.mjs, wizard/panel/member.html
-reviewed: 2026-09-09
+reviewed: 2026-09-21
 ---
 
 This walks the whole way in, from nothing at all to an assistant that answers
 you. Nothing here assumes you are technical. Every step says what to do, what
 you should see afterwards, and what to do if you see something else.
+
+![Set it up, in eighty seconds: the door, on this computer or a server, the token, the build, then the GitHub backup.](film:docs-1-set-it-up)
 
 The setup itself takes about fifteen minutes, most of it watching a progress
 bar while your server builds. The interview at the end is the better part of
@@ -204,8 +206,9 @@ while you sleep runs on this sign-in.
 
 **One honest note:** signing in here signs in *your mineral*. If you also use
 the Claude or Claude Code apps on your laptop, those are separate sign-ins on
-a separate machine, and there is a
-[fuller way in for the technically curious](/docs/claude-code-on-your-mineral).
+a separate machine. Step 8 uses the
+[Claude Code app](/docs/claude-code-on-your-mineral); that sign-in is yours, on
+your laptop, and this one is your mineral's own.
 Until this sign-in lands, the switches on the Skills page refuse to flip and
 **Run now** stays disabled. That is deliberate, not a fault: a switch that
 turns green on a signed-out mineral is a lie, promising a schedule the mineral
@@ -217,13 +220,22 @@ The last and longest step. Your assistant interviews you, and out of that
 interview it builds your brain: who you are, what you are trying to do, who is
 in your world, how you work, what to never touch.
 
-In the terminal window, type:
+Open Claude Code on your laptop and connect it to your mineral: the app's
+**Help** page shows the connection name and the three clicks (the
+**Environment** dropdown, **Add SSH connection**, paste the name; then pick the
+folder called **state**). For a folder on this computer, it is **Open folder**.
+Say "introduce yourself", and you should see your assistant greeting you, in
+Claude Code. Then type:
 
 ```
 /onboard
 ```
 
 and press Enter.
+
+This is where you will talk to it from now on. The app is for looking at what
+it knows, switching schedules on, and connecting services; Claude Code is
+where the work happens.
 
 It runs as a conversation, one question at a time, and its first question is
 what you want to call your assistant. It is resumable: leave whenever you like

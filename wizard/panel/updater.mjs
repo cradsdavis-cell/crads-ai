@@ -9,7 +9,7 @@
 //     one into place, relaunch. The .old file is cleaned on the next start.
 // When the repo re-privatises (D37) this check starts failing silently; wiring
 // the per-org access token through here folds into the licensing build.
-import { existsSync, readFileSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { accessSync, constants as fsConstants, existsSync, readFileSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
@@ -165,8 +165,24 @@ export function getBuildInfo(sea) {
   try { return JSON.parse(Buffer.from(sea.getAsset('build-info.json')).toString('utf8')); } catch { return null; }
 }
 
+// macOS: the copy to update is the one that is RUNNING, when it runs from either
+// Applications folder. Until 2026-09-29 this was hard-wired to ~/Applications, but
+// selfInstall deliberately skips the copy when the bundle already runs from
+// /Applications, which is exactly where a Mac user drags a new app. Those installs
+// could never update ("no installed copy to update"), and a Mac holding copies in
+// both folders updated the one nobody opened. Found on a client's Mac.
+// Running from anywhere else (Downloads, a translocated quarantine path): selfInstall
+// has copied the bundle to ~/Applications, so that copy is the one to update.
+export function macInstalledTarget({ execPath = process.execPath, home = homedir() } = {}) {
+  const m = String(execPath).match(/^(.*?\/[^/]+\.app)\/Contents\/MacOS\//);
+  const bundle = m ? m[1] : '';
+  const userApps = join(home, 'Applications');
+  if (bundle && (bundle.startsWith('/Applications/') || bundle.startsWith(userApps + '/'))) return bundle;
+  return join(userApps, 'Crads-AI.app');
+}
+
 export function installedTarget() {
-  if (process.platform === 'darwin') return join(homedir(), 'Applications', 'Crads-AI.app');
+  if (process.platform === 'darwin') return macInstalledTarget();
   return join(process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local'),
     'Programs', 'Crads-AI', 'Crads-AI.exe');
 }
@@ -220,7 +236,7 @@ export async function applyUpdate(opts = {}) {
 }
 
 async function applyUpdateImpl(opts, state) {
-  if (process.platform === 'darwin' && !opts.force) return applyUpdateDarwin(opts, state);
+  if ((opts.platform || process.platform) === 'darwin' && !opts.force) return applyUpdateDarwin(opts, state);
   const target = opts.target || installedTarget();
   if (process.platform !== 'win32' && !opts.force) throw new Error('self-update applies to the installed app only');
   if (!existsSync(dirname(target))) throw new Error('no installed copy to update (run the downloaded exe once to install)');
@@ -349,6 +365,11 @@ async function waitForHandoff(opts = {}) {
 async function applyUpdateDarwin(opts = {}, state = () => {}) {
   const target = opts.target || installedTarget();
   if (!existsSync(join(target, 'Contents', 'MacOS'))) throw new Error('no installed copy to update (open the downloaded app once to install it)');
+  // The swap renames the bundle inside its folder, so that folder must be writable.
+  // /Applications is for an admin account on most Macs; a standard account cannot
+  // write there. Say so before downloading, in words the person can act on.
+  try { accessSync(dirname(target), fsConstants.W_OK); }
+  catch { throw new Error(`this Mac account can't change ${dirname(target)}. Move Crads-AI into the Applications folder in your home folder (or sign in as an admin) and try again`); }
   const fetchFn = opts.fetch || fetch;
   state({ phase: 'downloading' });
   const r = await fetchFn(opts.exeUrl || EXE_URL, { redirect: 'follow' });

@@ -37,6 +37,7 @@ const NAV = `
     <a href="/how-it-works" class="nav-simple">How it works</a>
     <a href="/offer" class="nav-simple">Setup and support</a>
     <a href="/about" class="nav-simple">About</a>
+    <a href="/writing" class="nav-simple">Writing</a>
     <a href="/book" class="nav-simple nav-book">Book a call</a>
     <a href="/download" class="nav-simple nav-cta">Download</a>
   </div>
@@ -227,6 +228,9 @@ const STYLE = `
     border: 1px solid var(--rule); border-radius: 10px; overflow: hidden;
     box-shadow: 0 1px 3px rgba(0,0,0,.05); }
   .docs-article figure.shot img { width: 100%; height: auto; display: block; }
+  .docs-article figure.film { margin: var(--space-3) 0; }
+  .docs-article figure.film video { width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid var(--rule); background: #000; }
+  .docs-article figure.film figcaption,
   .docs-article figure.shot figcaption { font-family: var(--sans); font-size: 12.5px;
     color: var(--ink-faint); margin-top: 8px; }
   .docs-article .shot-mark { position: absolute; box-sizing: border-box;
@@ -486,12 +490,16 @@ const STYLE = `
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
   .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-export function shell({ title, description, path, body, extraClass = '', side = '', toc = '', nextprev = '', search = '' }) {
+export function shell({ title, searchTitle = '', description, path, body, extraClass = '', side = '', toc = '', nextprev = '', search = '' }) {
   // Middle dot, not an em dash. The zero-em-dash rule applies to everything we
   // write, and this template was written in violation of it: publish.test.mjs
   // caught the title of every single page. The site's own older titles use an em
   // dash; new output does not.
-  const full = `${title} · Crads-AI, a free self-hosted AI assistant`;
+  // `searchTitle` (a page's search-title) is for the tab and the search result
+  // only. The og and twitter cards keep the page's own title, as the live site
+  // did when samdavis-site #46 hand-applied the search titles (2026-09-26); the
+  // 2026-09-28 republish would otherwise have rewritten 12 share cards.
+  const full = `${searchTitle || title} · Crads-AI, a free self-hosted Claude assistant`;
   const url = `${SITE}${path}`;
   return `<!DOCTYPE html>
 <html lang="en">

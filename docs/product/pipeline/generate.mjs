@@ -284,6 +284,7 @@ function machineryPage() {
     file: 'machinery-jobs.md',
     content: [fm({
       title: 'The jobs your mineral runs by itself',
+      'search-title': 'The scheduled jobs your assistant runs by itself',
       summary: `The ${rows.length} machinery jobs Crads AI maintains on every mineral, and what each one is for.`,
       audience: 'public', access: 'public', mode: 'reference', generated: 'true', order: '30',
     }), '', body.join('\n').trimEnd(), ''].join('\n'),

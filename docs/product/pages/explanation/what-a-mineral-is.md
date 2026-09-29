@@ -1,5 +1,6 @@
 ---
 title: What a mineral is
+search-title: What a mineral is: your own private AI assistant server
 summary: The two words these docs use for the thing you get, and why it is a private box of your own rather than a seat in someone's software.
 audience: public
 access: public

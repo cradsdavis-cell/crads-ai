@@ -4,8 +4,8 @@ summary: What is stored, where it runs, what leaves your mineral, and why almost
 audience: public
 access: public
 mode: legal
-version: 0.12
-effective: 2026-09-09
+version: 0.13
+effective: 2026-09-28
 order: 10
 ---
 
@@ -14,7 +14,7 @@ order: 10
 Crads AI is operated by Samuel Davis, trading as Crads AI, **ABN 26 929 349
 775**, in Coogee, New South Wales, Australia. Contact: cradsdavis@gmail.com.
 
-This is version 0.10, effective 1 September 2026. The version and date at the
+This is version 0.13, effective 28 September 2026. The version and date at the
 top of this page change whenever the text does, and prior versions stay on
 the record.
 
@@ -30,7 +30,9 @@ gone because the machinery they disclosed is gone. What survives is the
 support-access disclosure and everything about the machine itself, which was
 always yours. Changed in 0.11: the community model (a shared repository your
 mineral pulled read-only) was removed from the software on 2026-09-09, so the
-one sentence about it is gone; nothing else changed.*
+one sentence about it is gone; nothing else changed. Changed in 0.13: roadmap
+calls, recorded only with your OK, added under "What we hold about you", and
+the version line above corrected.*
 
 ## The short version
 
@@ -53,8 +55,18 @@ analytics in the app or on the docs site. The few things the app remembers
 your own computer's storage and are never sent anywhere.
 
 If you correspond with us (email, a support engagement, a paid service), we
-hold that correspondence and the ordinary business records of it: that is
-the whole list, and it exists because you wrote to us.
+hold that correspondence and the ordinary business records of it, together
+with any roadmap call recordings you agreed to: that is the whole list, and
+it exists because you wrote to us.
+
+**Roadmap calls.** If you book an AI problem-solving roadmap, we ask at the
+start of the call whether we can record it with an AI note-taker. If you say
+yes, the call is recorded and transcribed by the note-taking service
+(Otter.ai, acting for us), and we use the transcript to write your report.
+If you say no, nothing is recorded and we take our own notes. Setup sessions
+(the walkthrough and guided setup) are not recorded. You can ask for a
+recording or transcript of your call to be deleted: email
+cradsdavis@gmail.com.
 
 ## Where your mineral runs
 

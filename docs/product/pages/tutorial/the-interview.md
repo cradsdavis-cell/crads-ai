@@ -1,5 +1,6 @@
 ---
 title: The interview
+search-title: The onboarding interview: how your assistant learns your world
 summary: The hour that turns a blank machine into an assistant that knows your world, and what it asks about.
 outcome: give your assistant a brain of its own by answering its questions, and pick up where you stopped.
 audience: public
@@ -7,7 +8,7 @@ access: public
 mode: tutorial
 order: 20
 pins: engine/skills/onboard.md, engine/onboarding/interview-spec.yaml
-reviewed: 2026-09-10
+reviewed: 2026-09-21
 ---
 
 This is the part that makes the difference between an assistant and a chatbot
@@ -18,10 +19,13 @@ what you are trying to do, who is in it, how you work, what to never touch. It
 takes about an hour, it does not have to happen in one sitting, and every other
 page in these docs assumes it has happened.
 
+![The interview, in eighty seconds: a blank mineral, /onboard in Claude Code, one question at a time, eight layers at the end, and the first week.](film:docs-3-the-interview)
+
 ## Starting it
 
-Open the **Terminal** on your mineral (the bottom entry in the sidebar; the
-page is titled **Meet your assistant**), type this, and press Enter:
+Open your mineral in Claude Code (the app's **Help** page shows the
+connection; for a folder on this computer, **Open folder** and pick it), type
+this, and press Enter:
 
 ```
 /onboard
@@ -30,6 +34,11 @@ page is titled **Meet your assistant**), type this, and press Enter:
 That is the whole ceremony. If you are partway through from an earlier
 sitting, the same command resumes it; you never have to remember where you
 were.
+
+The Terminal tab in the app also accepts it, and it is fine for a quick
+answer, but the interview is an hour of conversation and Claude Code is the
+better room for it: a bigger window, your whole brain in context, and it is
+where you will work day to day.
 
 ## The first question is what to call it
 

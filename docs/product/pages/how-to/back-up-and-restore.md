@@ -1,5 +1,6 @@
 ---
 title: Back up your mineral, and get it back
+search-title: Back up and restore your AI assistant
 summary: What is already backed up, the one thing you have to do yourself, and why the passphrase matters more than the backup.
 outcome: know what is already backed up, do the one step only you can, and get everything back.
 audience: public

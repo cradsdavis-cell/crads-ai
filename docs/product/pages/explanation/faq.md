@@ -1,5 +1,6 @@
 ---
 title: Questions, answered straight
+search-title: Crads-AI FAQ: questions answered straight
 summary: The questions people actually ask before and after getting a mineral, each answered in a few sentences with the deep page beside it.
 audience: public
 access: public

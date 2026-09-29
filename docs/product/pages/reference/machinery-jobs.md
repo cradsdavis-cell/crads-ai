@@ -1,5 +1,6 @@
 ---
 title: The jobs your mineral runs by itself
+search-title: The scheduled jobs your assistant runs by itself
 summary: The 15 machinery jobs Crads AI maintains on every mineral, and what each one is for.
 audience: public
 access: public

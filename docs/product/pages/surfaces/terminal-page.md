@@ -7,7 +7,7 @@ mode: reference
 surface: terminal
 order: 104
 pins: wizard/panel/member.html
-reviewed: 2026-09-10
+reviewed: 2026-09-21
 ---
 
 *Meet your assistant.*
@@ -21,12 +21,16 @@ here.
 
 ## What it is for
 
-Three things, and the third is the underrated one. **Asking**: anything your
-assistant could reasonably know from your brain, your mail or your calendar.
-**Running a skill by name**: `/onboard` starts the interview, `/daily` produces
-the brief now rather than waiting for its schedule. **Telling it things**: when
-the brief keeps choosing the wrong priorities, the fix is almost never the
-schedule, it is what your brain does not yet say, and this is where you say it.
+Two things, and one job it does once. The job: the first sign-in to Claude,
+which is the mineral's own credential and the step everything else waits on.
+After that: **asking** it something quick that it could reasonably know from
+your brain, your mail or your calendar, and **running a skill by name**
+(`/daily` produces the brief now rather than waiting for its schedule). The
+interview, and the everyday conversation, happen in Claude Code on your
+mineral; this tab is the short way in when you are already in the app. It is
+still a place to **tell it things**: when the brief keeps choosing the wrong
+priorities, the fix is almost never the schedule, it is what your brain does
+not yet say.
 
 How to shape an ask that matters is [the CRIT method](/docs/the-crit-method);
 why telling it things matters more than any schedule is
@@ -50,7 +54,8 @@ full before you type anything. The everyday ones:
 - `/followup`: open loops. Overdue tasks, unanswered messages, what is
   slipping before it becomes a problem.
 - `/inbox`: triage of unread mail into reply, read, and archive buckets.
-- `/onboard`: the interview that builds your brain on the eight layers.
+- `/onboard`: resumes the interview if you are mid-way and happen to be here;
+  start it in Claude Code.
 - `/plan-week`: sets this week's three to five outcomes, the surface the daily
   brief reads all week.
 - `/weekly`: the week reviewed. The log, project health, next week's focus.
@@ -115,9 +120,9 @@ before they can help.
 
 ## When to use something else
 
-**For a long build session, use Claude Code.** A chat window is the wrong shape
-for editing several files, and the fuller way in is
-[Claude Code on your mineral](/docs/claude-code-on-your-mineral).
+**For the interview and for real work, use Claude Code.** A chat window in a
+sidebar is the wrong shape for an hour of conversation or for editing several
+files: [Claude Code on your mineral](/docs/claude-code-on-your-mineral).
 
 **For anything on a schedule, use Skills.** A thing you ask for every morning is a
 thing that should arrive every morning.

@@ -1,5 +1,6 @@
 ---
 title: Six prompting habits
+search-title: Six prompting habits that get better answers from Claude
 summary: The small changes in how you ask that make the biggest difference to what comes back, with an instead-of table you can keep open.
 outcome: ask in a way that gets a usable first answer, and put the habits into the brain so you stop having to repeat them.
 audience: public

@@ -1,5 +1,6 @@
 ---
 title: The CRIT method
+search-title: The CRIT method: turn a vague ask into a brief for Claude
 summary: Four steps that turn a vague ask into a brief your assistant can act on, and why the third step is the one people skip.
 outcome: brief your assistant in four steps so the first draft lands close, and know when a one-line ask is enough.
 audience: public
@@ -7,7 +8,7 @@ access: public
 mode: how-to
 order: 220
 pins: engine/skills/onboard.md
-reviewed: 2026-09-10
+reviewed: 2026-09-21
 ---
 
 Most disappointing answers come from a one-line ask that a person would also
@@ -21,6 +22,8 @@ The four letters are context, role, interview, task. The order matters less
 than the habit of covering all four.
 
 ![Context, role, interview, task, in a loop back to context](diagram:crit-four-steps)
+
+![How you ask: CRIT in four boxes, then one working day with it, from the morning brief to the end-of-day capture.](film:docs-4-how-you-ask)
 
 ## Context: what it needs
 

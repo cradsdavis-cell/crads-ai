@@ -1,5 +1,6 @@
 ---
 title: Teach it your voice
+search-title: Teach your AI assistant to write in your voice
 summary: The three-step loop that makes drafts sound like you, the self-check you can ask for, and the one page in the brain where your voice lives.
 outcome: get drafts that read as yours within a few weeks, by editing to taste, telling it what changed, and asking it to check its own tells.
 audience: public

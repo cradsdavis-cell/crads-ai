@@ -4,14 +4,25 @@ summary: What you get, what it costs, what we each promise, and how either of us
 audience: public
 access: public
 mode: legal
-version: 0.7
-effective: 2026-09-09
+version: 0.10
+effective: 2026-09-28
 order: 20
 ---
 
 Plain terms. Between you and **Samuel Davis, trading as Crads AI, ABN 26 929
 349 775**, Coogee NSW, Australia ("we", "us"). By running a mineral you agree
-to these.
+to these. By booking a paid session you agree to them too, including
+section 10 on cancellations and refunds.
+
+*(Changed in 0.10: the roadmap now includes a second 30-minute call to go
+through the report, and costs A$250; its refund line in section 10 follows.)*
+
+*(Changed in 0.9: the AI problem-solving roadmap added to the paid services
+in sections 2 and 10, with its own refund line; the retired working sessions
+removed from section 2.)*
+
+*(Changed in 0.8: section 10, cancellations and refunds for paid sessions,
+agreed with a tick box at booking.)*
 
 Version 0.5, effective 1 September 2026. *(Changed in 0.5: the self-host
 redesign. Crads AI no longer provisions, hosts, bills for, or holds any
@@ -46,8 +57,8 @@ for the server (Hetzner or DigitalOcean, whichever you picked, billed by them
 to you), and Anthropic for your Claude
 subscription. The setup wizard states both before anything is created.
 
-Paid **services** exist separately: guided setup, working sessions and
-hourly support. Each is agreed with you at a stated price before any work
+Paid **services** exist separately: the AI problem-solving roadmap, the
+walkthrough, guided setup and hourly support. Each is agreed with you at a stated price before any work
 happens. Buying none of them takes nothing away from the software.
 
 We are not registered for GST, so no GST is charged.
@@ -154,13 +165,43 @@ Nothing here excludes rights you have under the Australian Consumer Law that
 cannot be excluded. If a term of these terms is unenforceable, the rest still
 stands.
 
-## 10. Changes
+## 10. Paid sessions: cancelling and refunds
+
+This covers the paid services: the AI problem-solving roadmap, the
+walkthrough, guided setup and any extra hours. You agree to it when you tick
+the box at booking. The roadmap is a 30-minute call, a written report within
+3 business days of that call, and a second 30-minute call to go through the
+report, A$250, paid up front. The walkthrough and guided setup are two
+sessions each, paid for up front.
+
+- **Cancelling with at least 24 hours' notice.** Full refund, or a free
+  reschedule if you prefer. Email cradsdavis@gmail.com.
+- **Cancelling with less than 24 hours' notice, or not turning up.** No
+  refund. We offer one reschedule instead.
+- **The roadmap, once the first call has happened.** No refund for a change
+  of mind: the written report and the call to go through it are what you paid
+  for, and the report still comes to you within 3 business days of the first
+  call. The second call stays yours to book whenever suits you.
+- **After the first session of a walkthrough or guided setup has happened.**
+  No refund for a change of mind. The second session stays yours to book
+  whenever suits you.
+- **Slack support.** The 30 days of support come with the walkthrough and
+  guided setup and are not refunded separately if you do not use them. Extra
+  hours after that are A$233 an hour, agreed before any work starts.
+- **If we cancel.** You choose a full refund or a new time.
+- **If something goes wrong on our side.** If a session or report was not
+  delivered with due care and skill, or did not do what we said it would,
+  tell us. Your rights under the Australian Consumer Law apply, including a
+  refund where the problem is a major one, and nothing in this section
+  limits them.
+
+## 11. Changes
 
 Material changes get told to you with a date, not slipped into a page. The
 version and effective date at the top of this document change whenever the
 text does, and the previous versions stay on the record.
 
-## 11. Law, and complaints
+## 12. Law, and complaints
 
 New South Wales, Australia. Talk to us first: cradsdavis@gmail.com. Most of
 what goes wrong is fixable by telling the person who built it.

@@ -1,5 +1,6 @@
 ---
 title: The words
+search-title: Glossary of Crads-AI terms
 summary: A plain glossary of the terms these docs use, with the page where each one first matters.
 audience: public
 access: public

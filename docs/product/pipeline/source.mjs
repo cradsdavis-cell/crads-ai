@@ -95,6 +95,11 @@ export function validatePage(fm, file = '<page>') {
   // for). Required on every public tutorial and how-to by gates.test.mjs, not
   // here, so a craft-tier page can still be drafted without one.
   if (fm.outcome && fm.outcome.length > 160) errs.push(`outcome must fit on one line (${fm.outcome.length} chars)`);
+  // `search-title`: what the browser tab and the search result say, when the
+  // page's own title is house vocabulary nobody searches for ("What a mineral
+  // is", "The words"). The on-page heading keeps `title`. Optional (2026-09-26,
+  // SEO pass: Sam chose "Claude" for the search phrase).
+  if (fm['search-title'] && fm['search-title'].length > 70) errs.push(`search-title must stay under 70 chars (${fm['search-title'].length})`);
   if (errs.length) throw new Error(`${file}: ${errs.join(' · ')}`);
   return {
     title: fm.title, summary: fm.summary, audience: fm.audience,
@@ -108,6 +113,7 @@ export function validatePage(fm, file = '<page>') {
     pins: fm.pins ? fm.pins.split(',').map((x) => x.trim()).filter(Boolean) : [],
     reviewed: fm.reviewed || null,
     outcome: fm.outcome || null,
+    searchTitle: fm['search-title'] || null,
   };
 }
 

@@ -6,14 +6,14 @@
       "hash": "b391a5f3208fa368"
     },
     "privacy-policy": {
-      "version": "0.12",
-      "effective": "2026-09-09",
-      "hash": "a2e5acf598ad19e0"
+      "version": "0.13",
+      "effective": "2026-09-28",
+      "hash": "f710bd1434401d73"
     },
     "terms": {
-      "version": "0.7",
-      "effective": "2026-09-09",
-      "hash": "fe537e4e0f62db70"
+      "version": "0.10",
+      "effective": "2026-09-28",
+      "hash": "ebe9153289e80ea1"
     }
   }
 }

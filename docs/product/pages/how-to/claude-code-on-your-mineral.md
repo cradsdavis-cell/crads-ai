@@ -1,34 +1,37 @@
 ---
 title: Use Claude Code on your mineral
-summary: The fuller way in, for people who want a terminal and their whole brain in one session.
-outcome: open your whole brain in one Claude Code session and work on it directly.
+search-title: Use Claude Code on your own server
+summary: Where you talk to your assistant. The app is the window onto your mineral; Claude Code is the room you work in.
+outcome: connect Claude Code to your mineral and work there, with your whole brain in context.
 audience: public
 access: public
 mode: how-to
 order: 60
 pins: wizard/panel/member.html
-reviewed: 2026-09-10
+reviewed: 2026-09-21
 ---
 
-The app is the everyday way to talk to your assistant, and for most people it is
-enough. This page is for the other case: you want a real session, in a real
-terminal, with your whole brain in context and the ability to build things.
+Where you talk to your assistant. The app is the window onto your mineral;
+Claude Code is the room you work in. The app shows you what it knows and lets
+you switch things on. Claude Code is where you do the interview, ask it things,
+and have it draft. Same assistant, same brain, the whole of it in context.
 
 That is Claude Code, connected to your mineral over SSH. Same assistant, same
 brain, much more room. SSH is not a side door here: your keys are the only
 identity your mineral has, so this route is the product's own front door with
 the panelling off.
 
+![Sign in once in the app's Terminal, then open your mineral in Claude Code: the connection name from Help, Add SSH connection, pick the folder called state, say hello.](film:docs-2-sign-in-claude-code)
+
 ## When this is worth it
 
-Honestly, not always. Reach for it when you are:
+Every day. The one thing you do in the app's Terminal instead is the first
+sign-in to Claude, because that signs in the mineral itself and Claude Code
+cannot do that for it. Beyond the everyday, this is also the place for:
 
 - **building or editing skills** rather than running them
 - **restructuring your brain**, where you want to see and move files
 - doing something long and iterative that a chat window makes tedious
-
-For "what is on today" and "sort my inbox", the app is faster and the terminal is
-theatre.
 
 ## Getting connected
 
@@ -57,14 +60,13 @@ after that it is quick. And the first thing to say is **"introduce
 yourself"**: your assistant already knows who you are and takes it from
 there.
 
-One thing the app itself now says in bold, because the opposite reading cost
-people hours: **"This is an extra, not a step."** Connecting Claude Code
-signs in your laptop and reaches into your mineral over SSH. It does not sign
-the mineral itself in, it does not switch on scheduled jobs, and nothing it
-does makes the Overview checklist tick. That item belongs to the Terminal
-tab: open it and run `claude` once. The create wizard's finish checklist
-offers exactly that under **Connect Claude**, so a mineral set up recently
-has usually done it on day one.
+One distinction that cost people hours: connecting Claude Code signs in your
+laptop and reaches into your mineral over SSH. It does not sign the mineral
+itself in, it does not switch on scheduled jobs, and nothing it does makes the
+Overview's sign-in step go green. That step is the Terminal tab, once: open it
+and run `claude`. The create wizard's finish checklist offers exactly that
+under **Connect Claude**, so a mineral set up recently has usually done it on
+day one. Then live here.
 
 ## Connections you make in here stay chats-only
 
@@ -112,12 +114,12 @@ too, and in the app under **Help**, in the Mineral software fold.
 
 ## The terminal in the app
 
-There is also a Terminal tab in the app, which is the short version of this: good
-for asking your assistant something directly or running a skill by name, not
-intended for a long build session.
+There is also a Terminal tab in the app: the short way in when you are already
+there, for a quick question or running a skill by name, and the place the
+first Claude sign-in happens.
 
-Use it for `/onboard` and for one-off asks. Use Claude Code when you are actually
-working.
+Use it for the sign-in and for one-off asks. Use Claude Code for the interview
+and for everything after.
 
 ## Three cautions
 

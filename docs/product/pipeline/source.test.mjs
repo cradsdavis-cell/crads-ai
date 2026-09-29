@@ -70,3 +70,10 @@ test('visibility is cumulative: pebble sees public, rock sees both', () => {
   assert.ok(rock.has('public') && rock.has('pebble') && rock.has('rock'));
   assert.throws(() => visibleTo(pages, 'operator'), /unknown tier/);
 });
+
+test('search-title is optional, carried through, and length-capped', () => {
+  assert.equal(validatePage(fm()).searchTitle, null);
+  assert.equal(validatePage(fm({ 'search-title': 'Use Claude Code on your own server' })).searchTitle,
+    'Use Claude Code on your own server');
+  assert.throws(() => validatePage(fm({ 'search-title': 'x'.repeat(71) })), /search-title must stay under 70/);
+});

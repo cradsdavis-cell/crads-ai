@@ -39,6 +39,18 @@ export const SHOT_ANY = /!\[[^\]]*\]\(shot:[a-z0-9-]+\)/;
 // A diagram is inlined by id, same block-only rule as a shot.
 export const DIAGRAM_LINE = /^\s*!\[([^\]]*)\]\(diagram:([a-z0-9-]+)\)\s*$/;
 export const DIAGRAM_ANY = /!\[[^\]]*\]\(diagram:[a-z0-9-]+\)/;
+// A film is a short silent screen recording with captions (2026-09-21), served
+// by the site at /lib/video/<id>.mp4 with a poster at /lib/video/posters/<id>.jpg.
+// Block only, like a shot; the alt is the caption; the figure carries an id so
+// the docs index can link straight to it.
+export const FILM_LINE = /^\s*!\[([^\]]*)\]\(film:([a-z0-9-]+)\)\s*$/;
+export function renderFilm(alt, id) {
+  const a = esc(alt);
+  return `<figure class="film" id="film-${id}">`
+    + `<video controls playsinline preload="metadata" poster="/lib/video/posters/${id}.jpg"${a ? ` aria-label="${a}"` : ''}>`
+    + `<source src="/lib/video/${id}.mp4" type="video/mp4"></video>`
+    + (a ? `<figcaption>${a}</figcaption>` : '') + '</figure>';
+}
 
 function renderShot(alt, id, shotsDir) {
   const a = esc(alt);
@@ -139,6 +151,8 @@ export function renderMarkdown(md, opts = {}) {
       if (!svg) throw new Error(`unknown diagram: ${dgm[2]}`);
       out.push(svg); i++; continue;
     }
+    const film = FILM_LINE.exec(line);
+    if (film) { closeLists(); out.push(renderFilm(film[1], film[2])); i++; continue; }
     const h = /^(#{1,4})\s+(.*)$/.exec(line);
     if (h) {
       closeLists();
@@ -171,7 +185,7 @@ export function renderMarkdown(md, opts = {}) {
       while (i < lines.length && /^\s+\S/.test(lines[i])
         && !/^(\s*)([-*]|\d+\.)\s/.test(lines[i])
         && !/^\s*(#{1,4}\s|```|>|\|)/.test(lines[i])
-        && !SHOT_LINE.test(lines[i]) && !DIAGRAM_LINE.test(lines[i])) item.push(lines[i++].trim());
+        && !SHOT_LINE.test(lines[i]) && !DIAGRAM_LINE.test(lines[i]) && !FILM_LINE.test(lines[i])) item.push(lines[i++].trim());
       out.push(`<li>${inline(item.join(' '))}</li>`); continue;
     }
     closeLists();
@@ -204,7 +218,7 @@ export function renderMarkdown(md, opts = {}) {
     i++;
     while (i < lines.length && lines[i].trim()
       && !/^(#{1,4}\s|```|[-*]\s|\d+\.\s|>|\|)/.test(lines[i])
-      && !SHOT_LINE.test(lines[i]) && !DIAGRAM_LINE.test(lines[i])) buf.push(lines[i++]);
+      && !SHOT_LINE.test(lines[i]) && !DIAGRAM_LINE.test(lines[i]) && !FILM_LINE.test(lines[i])) buf.push(lines[i++]);
     out.push(`<p>${inline(buf.join(' '))}</p>`);
   }
   closeLists();

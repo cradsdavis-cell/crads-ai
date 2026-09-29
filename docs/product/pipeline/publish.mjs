@@ -20,11 +20,11 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, readd
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadTree, visibleTo } from './source.mjs';
-import { renderPage, renderMarkdown, outline } from './render.mjs';
+import { renderPage, renderMarkdown, renderFilm, outline } from './render.mjs';
 import { JOURNEY, DOORS, journeyGroups, journeyProblems, doorOf } from './nav.mjs';
 import { glyph } from './glyphs.mjs';
 import { shell } from './shell.mjs';
-import { extractShotRefs } from './shots.mjs';
+import { extractShotRefs, SHOTS as SHOT_PLAN } from './shots.mjs';
 import { skills, CATEGORY_LABEL } from './generate.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -183,6 +183,7 @@ export function build() {
       rel: path.join('docs', pg.slug, 'index.html'),
       content: shell({
         title: pg.title,
+        searchTitle: pg.searchTitle || '',
         description: pg.summary,
         path: `/docs/${pg.slug}`,
         side: sidebar(groups, pg.slug),
@@ -219,10 +220,17 @@ export function build() {
   }).join('\n');
 
   const intro = renderMarkdown([
-    'Everything about how Crads AI works, in the open: what a mineral is, how you',
-    'get one, how to talk to it and teach it, how to connect things to it, and',
-    'what happens if we go away. Start from what you came to do.',
+    'Crads-AI is the AI foundation for you and your business, and everything about',
+    'how it works is here, in the open: what a mineral is, how you get one, how to',
+    'talk to it and teach it, how to connect things to it, and what happens if we',
+    'go away. Start from what you came to do.',
   ].join('\n'));
+
+  // The films (2026-09-21): the main film on the docs home, the four tutorials
+  // on the pages they belong to. Silent, captions carry the narration.
+  const watch = `<h2 class="docs-h" id="watch">Watch</h2>\n`
+    + renderFilm('An assistant that knows you: why I built it, what it is, the four Cs, and how you get one. Three and a half minutes, captions, no voice.', 'an-assistant-that-knows-you')
+    + '\n' + renderMarkdown('Four short tutorials sit on their pages: [Set it up](/docs/first-hour#film-docs-1-set-it-up), [Sign in, then Claude Code](/docs/claude-code-on-your-mineral#film-docs-2-sign-in-claude-code), [The interview](/docs/the-interview#film-docs-3-the-interview), and [How you ask](/docs/the-crit-method#film-docs-4-how-you-ask).');
 
   files.push({
     rel: path.join('docs', 'index.html'),
@@ -233,7 +241,7 @@ export function build() {
       extraClass: 'docs-index',
       side: sidebar(groups, ''),
       search,
-      body: `<h1>Docs</h1>\n${intro}\n${searchField('hero')}\n<h2 class="docs-h">By goal</h2>\n${doorsHtml}\n${canDoStrip()}\n<h2 class="docs-h">Everything, in reading order</h2>\n<div class="docs-index-groups">\n${indexGroups}\n  </div>`,
+      body: `<h1>Docs</h1>\n${intro}\n${searchField('hero')}\n${watch}\n<h2 class="docs-h">By goal</h2>\n${doorsHtml}\n${canDoStrip()}\n<h2 class="docs-h">Everything, in reading order</h2>\n<div class="docs-index-groups">\n${indexGroups}\n  </div>`,
     }),
   });
 
@@ -251,6 +259,24 @@ if (process.argv[1] && process.argv[1].endsWith('publish.mjs')) {
     for (const f of files) console.log(`  would write ${f.rel}`);
     for (const s of shots) console.log(`  would copy  docs/shots/${s}.png`);
     process.exit(0);
+  }
+
+  // Check the rig output BEFORE touching the site. A shot with no PNG, or one
+  // that declares marks but has no marks sidecar, would still render: as a
+  // plain figure with its numbered callouts gone. On 2026-09-28 a publish from
+  // a checkout without docs/product/shots/ (gitignored, per release) rewrote
+  // the pages, stripped the first-hour callouts, and only then exited 1. So the
+  // refusal comes first now, and nothing is written.
+  const declared = new Map(SHOT_PLAN.map((s) => [s.id, s]));
+  const missing = [];
+  for (const s of shots) {
+    if (!existsSync(path.join(SHOTS, `${s}.png`))) { missing.push(`${s}.png`); continue; }
+    if (declared.get(s)?.marks.length && !existsSync(path.join(SHOTS, `${s}.marks.json`))) missing.push(`${s}.marks.json`);
+  }
+  if (missing.length) {
+    console.error(`\nnothing written: ${missing.length} rig output file(s) missing from ${SHOTS}: ${missing.join(', ')}`);
+    console.error('Run: node docs/product/pipeline/shoot.mjs (or copy in the shots the live site was built from)');
+    process.exit(1);
   }
 
   // Clear only our own output, never the site's engineering docs.
@@ -272,17 +298,7 @@ if (process.argv[1] && process.argv[1].endsWith('publish.mjs')) {
 
   const shotOut = path.join(SITE, 'docs', 'shots');
   mkdirSync(shotOut, { recursive: true });
-  const missing = [];
-  for (const s of shots) {
-    const src = path.join(SHOTS, `${s}.png`);
-    if (!existsSync(src)) { missing.push(s); continue; }
-    copyFileSync(src, path.join(shotOut, `${s}.png`));
-  }
+  for (const s of shots) copyFileSync(path.join(SHOTS, `${s}.png`), path.join(shotOut, `${s}.png`));
 
   console.log(`wrote ${wrote} file(s) to ${SITE}/docs`);
-  if (missing.length) {
-    console.error(`\n${missing.length} shot(s) not captured: ${missing.join(', ')}`);
-    console.error('Run: node docs/product/pipeline/shoot.mjs');
-    process.exit(1);
-  }
 }
