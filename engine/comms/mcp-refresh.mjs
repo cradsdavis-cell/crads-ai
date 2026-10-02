@@ -26,10 +26,18 @@ const TOKEN_TOOL = path.join(import.meta.dirname, 'mcp-token.mjs');
 const rd = (p, d) => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return d; } };
 
 const store = rd(OAUTH_F, {});
+const live = rd(path.join(stateDir, '.mcp.json'), {}).mcpServers || {};
 const now = Date.now();
 const done = [], failed = [], skipped = [];
+const sameUrl = (a, b) => { try { return new URL(a).href === new URL(b).href; } catch { return false; } };
 
 for (const [name, v] of Object.entries(store)) {
+  // Google's BYO rows renew inside workspace-mcp, never here
+  if (v.provider === 'google-byo') { skipped.push(`${name}: google renews itself`); continue; }
+  // A record the live connection has moved away from is STALE (2 Oct 2026):
+  // renewing it would write its old address back over whatever replaced it.
+  // Leave it for the next disconnect or re-add to clear; never resurrect it.
+  if (!live[name] || !sameUrl(live[name].url, v.url)) { skipped.push(`${name}: stale record, the connection has changed`); continue; }
   // No refresh token means nothing to do: the member re-signs in when it lapses,
   // and the row already warns them it will. Not an error.
   if (!v.refresh_token) { skipped.push(`${name}: no refresh token`); continue; }

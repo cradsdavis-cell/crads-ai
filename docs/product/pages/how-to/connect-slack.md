@@ -60,7 +60,7 @@ clipboard, and here it is in full:
     "description": "My assistant, acting as me in this workspace."
   },
   "features": {
-    "bot_user": { "display_name": "Crads assistant", "always_online": false }
+    "bot_user": { "display_name": "crads-assistant", "always_online": false }
   },
   "oauth_config": {
     "scopes": {
@@ -94,8 +94,14 @@ Three things in it matter:
   twelve hours later. Slack does not let you turn rotation off again once it
   is on, so if you made an app with it on, make a fresh one from the template.
 
-The app also has a bot user. It never posts; it is there because Slack's
-sign-in has been known to refuse an app without one.
+The app also has a bot user, named `crads-assistant` because Slack only allows
+lowercase letters, numbers, dashes, dots and underscores in a bot's name. It
+never posts; it is there because Slack's sign-in has been known to refuse an
+app without one.
+
+If Slack says **"We can't translate a manifest with errors"**, you have an
+older copy of the template: change the bot's `display_name` to
+`crads-assistant` and press Next.
 
 ## Step 2. Install it and copy the token
 

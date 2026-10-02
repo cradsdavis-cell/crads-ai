@@ -22,7 +22,7 @@ function fakeProvider(state) {
     state.hits = (state.hits || 0) + 1;
     res.setHeader('content-type', 'application/json');
     if (state.fail) { res.statusCode = 401; return res.end('{}'); }
-    res.end(JSON.stringify({ access_token: 'AT-' + state.hits, expires_in: 3600 }));
+    res.end(JSON.stringify({ access_token: 'AT-' + state.hits, expires_in: 3600, ...(state.tokenType ? { token_type: state.tokenType } : {}) }));
   });
   return new Promise((r) => srv.listen(0, '127.0.0.1', () => r({
     srv, url: `http://127.0.0.1:${srv.address().port}/token`,
@@ -106,5 +106,37 @@ test('one bad service does not stop the others', async () => {
     const r = await run(d);
     assert.deepEqual(r.refreshed, ['canva']);
     assert.equal(r.failed.length, 1);
+  } finally { p.stop(); }
+});
+
+// Found 2 Oct 2026 by a pebble's own assistant: Zoom, Asana, Klaviyo and Square
+// answer token_type "bearer", the renewal wrote it verbatim, and Zoom, Asana
+// and Klaviyo then refused "bearer <token>", so every such connection broke at
+// its first renewal while the page still said "working".
+test('a renewal whose provider says "bearer" still writes the canonical Bearer', async () => {
+  const st = { tokenType: 'bearer' }; const p = await fakeProvider(st);
+  try {
+    const d = box({ zoom: due(p.url) });
+    const r = await run(d);
+    assert.deepEqual(r.refreshed, ['zoom']);
+    assert.equal(hdr(d, 'zoom'), 'Bearer AT-1');
+  } finally { p.stop(); }
+});
+
+// Same day, same pebble: Zapier was added by OAuth at one address, then
+// re-added with a token at another. The old record stayed in the store, this
+// job renewed it, and the old address was written back over the working one.
+test('a record whose connection has moved to another address is stale: never renewed, never rewritten', async () => {
+  const st = {}; const p = await fakeProvider(st);
+  try {
+    const d = box({ zapier: { ...due(p.url), url: 'https://mcp.zapier.com/api/mcp/mcp' } });
+    writeFileSync(path.join(d, '.mcp.json'), JSON.stringify({ mcpServers: { zapier: { type: 'http', url: 'https://mcp.zapier.com/api/v1/connect', headers: { Authorization: 'Bearer PASTED' } } } }));
+    const r = await run(d);
+    assert.deepEqual(r.refreshed, []);
+    assert.ok(r.skipped.some((x) => /^zapier: stale record/.test(x)), JSON.stringify(r.skipped));
+    assert.equal(st.hits ?? 0, 0, 'the provider is not even asked');
+    const live = JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers.zapier;
+    assert.equal(live.url, 'https://mcp.zapier.com/api/v1/connect', 'the working address survives');
+    assert.equal(live.headers.Authorization, 'Bearer PASTED', 'and so does its token');
   } finally { p.stop(); }
 });

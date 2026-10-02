@@ -40,6 +40,7 @@ export const CONNECTION_LABELS = {
   // guided connections (2026-10-02): the fallback would say "Wordpress"
   slack: 'Slack',
   wordpress: 'WordPress',
+  mailchimp: 'Mailchimp',
   // box-native channels
   telegram: 'Telegram',
 };

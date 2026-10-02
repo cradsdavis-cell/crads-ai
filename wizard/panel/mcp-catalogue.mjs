@@ -32,6 +32,11 @@
 // tokens, XeroAPI/xero-mcp-server#212). Those cards open a guide to the
 // member's Claude account settings and say plainly that scheduled jobs cannot
 // see them. Nothing is written to the box for an 'account' entry.
+// 'mailchimp' (contract 5) is a wizard too, but its server runs ON the box
+// (engine/comms/mailchimp-mcp.mjs, the member's own API key): Mailchimp has no
+// official Marketing server, and the hosted ones relay a member's audience
+// through someone else. Its url is a placeholder, never connected to: the
+// real address comes from the key's data-center suffix.
 
 export const CATEGORIES = ['Design', 'Dev', 'Docs', 'Comms', 'Data', 'Meetings', 'Payments', 'Web', 'AI'];
 
@@ -108,6 +113,7 @@ export const CATALOGUE = [
   { key: 'mongodb',    label: 'MongoDB',    category: 'Data',  url: 'https://mcp.mongodb.com/mcp',       blurb: 'collections and queries', auth: 'token' },
   // guided connections (2026-10-02): a wizard on the page, not a probe
   { key: 'slack',     label: 'Slack',     category: 'Comms', url: 'https://mcp.slack.com/mcp', blurb: 'search, read and post in your workspace', auth: 'token', guided: 'slack' },
+  { key: 'mailchimp', label: 'Mailchimp', category: 'Comms', url: 'https://us1.api.mailchimp.com/3.0/', blurb: 'audiences, contacts, draft campaigns and reports', auth: 'token', guided: 'mailchimp' },
   { key: 'wordpress', label: 'WordPress', category: 'Web',   url: 'https://your-site/wp-json/mcp/mcp-adapter-default-server', blurb: 'your site, and WooCommerce orders and products', auth: 'token', guided: 'wordpress' },
   // connected through the member's Claude account only (see 'account' above)
   { key: 'shopify',   label: 'Shopify',   category: 'Payments', url: 'https://setup.shopify.com/mcp', blurb: 'your store, in your chats with Claude', auth: 'account', guided: 'account' },

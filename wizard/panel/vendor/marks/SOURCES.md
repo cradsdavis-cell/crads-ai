@@ -1,6 +1,6 @@
 # Sources for the hand-sourced marks
 
-simple-icons 16.28.0 (CC0-1.0, see LICENSE) covers 46 of the 71 marks. The 25
+simple-icons 16.28.0 (CC0-1.0, see LICENSE) covers 47 of the 72 marks. The 25
 below were not in that package and were fetched by hand (17 on 2026-08-23, the
 six note-takers on 2026-08-24, Pipedrive and Slack on 2026-10-02), in this order of preference: the vendor's own
 brand kit, the vendor's own favicon, the vendor's GitHub organisation avatar. Every file was reduced to a 24x24 viewBox
@@ -48,3 +48,11 @@ the vendor. `fireflies-ai`, `avoma` and `fyxer` carry no name and no blog, and
 `fireflies-ai`'s avatar (a teal robot) does not resemble the magenta mark
 fireflies.ai actually serves, so it is somebody else's account. Every mark above
 was therefore taken from the vendor's own domain, which is self-authenticating.
+
+## Tint overrides
+
+One simple-icons mark wears a colour other than its package hex, because the
+package colour is near-invisible as a tint on the light theme:
+
+- mailchimp: package hex #FFE01B (Mailchimp yellow); tinted #241C15, Mailchimp's
+  dark brand ink, which reads in both themes. Added 2026-10-02.

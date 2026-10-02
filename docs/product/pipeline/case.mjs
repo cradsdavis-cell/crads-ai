@@ -26,7 +26,7 @@ Billing Cron Update Refresh Monday Tuesday Wednesday Thursday Friday Saturday Su
 September August AEST Diataxis Linux JSON SSH MCP API APIs Nuremberg Falkenstein Helsinki Germany
 Finland Wales South New Sydney Briefings Capture Everything I A The
 Woods Geoff Herk Nate Isenberg Greg Karpathy Andrej CRIT Leader Driven Exa
-Slack Shopify Xero WordPress WooCommerce Wordfence Pipedrive`.split(/\s+/).filter(Boolean));
+Slack Shopify Xero WordPress WooCommerce Wordfence Pipedrive Mailchimp Monday`.split(/\s+/).filter(Boolean));
 
 const midSentenceWords = (text) => String(text)
   .replace(/^\s*\d+[.)]\s*/, '')                      // drop a leading enumerator

@@ -72,7 +72,7 @@ test('every box FEATURED entry appears in the catalogue', () => {
 // guided token entry must be a token connection, since the wizard saves it
 // through add-custom with a credential.
 test('guided entries name a wizard the page has, and their kinds agree', () => {
-  const WIZARDS = ['slack', 'wordpress', 'account'];
+  const WIZARDS = ['slack', 'wordpress', 'mailchimp', 'account'];
   const guided = CATALOGUE.filter((e) => e.guided);
   assert.ok(guided.length >= 4, 'slack, wordpress, shopify and xero at least');
   for (const e of guided) {

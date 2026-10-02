@@ -133,7 +133,9 @@ export function tokenRecord(json, now = Date.now()) {
   return {
     access_token: json.access_token,
     refresh_token: json.refresh_token || null,
-    token_type: json.token_type || 'Bearer',
+    // canonical scheme: some providers say "bearer" (or Slack's "user") and
+    // some servers then refuse a lowercase header (see mcp-token.mjs authScheme)
+    token_type: /^dpop$/i.test(String(json.token_type || '').trim()) ? 'DPoP' : 'Bearer',
     expires_at: Number.isFinite(json.expires_in) ? now + Number(json.expires_in) * 1000 : null,
     scope: json.scope || null,
   };

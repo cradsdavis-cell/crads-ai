@@ -29,7 +29,7 @@ export const JOURNEY = [
     id: 'setup', title: 'Getting set up',
     blurb: 'From nothing to an assistant that is awake, knows you, and reaches your phone.',
     slugs: ['get-a-hetzner-api-token', 'get-a-digitalocean-api-token', 'first-hour', 'the-interview', 'your-first-week', 'connect-google', 'connect-telegram',
-      'connect-slack', 'connect-wordpress', 'connect-shopify-and-xero'],
+      'connect-slack', 'connect-wordpress', 'connect-mailchimp', 'connect-shopify-and-xero'],
   },
   {
     id: 'ea', title: 'Working with your EA',
@@ -92,7 +92,7 @@ export const DOORS = [
   {
     id: 'reach', title: 'I want it in my inbox and my pocket', glyph: 'envelope',
     lead: 'Mail and calendar with your own key, a private Telegram bot, and every other plug.',
-    slugs: ['connect-google', 'connect-telegram', 'connect-slack', 'connect-wordpress', 'connect-shopify-and-xero', 'connections-page'],
+    slugs: ['connect-google', 'connect-telegram', 'connect-slack', 'connect-wordpress', 'connect-mailchimp', 'connect-shopify-and-xero', 'connections-page'],
   },
   {
     id: 'safe', title: 'I want it safe and mine', glyph: 'shield',

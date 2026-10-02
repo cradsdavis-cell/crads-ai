@@ -29,9 +29,9 @@ test('guided entries open their card before any probe or box write', () => {
 
 test('the wizards save, then check from the box, and take a failed save back off', () => {
   const connect = guided.split('function guidedConnect(')[1].split('\n  }\n')[0];
-  assert.ok(connect.indexOf("run('mcp-add-custom'") > -1 && connect.indexOf("run('mcp-check'") > connect.indexOf("run('mcp-add-custom'"), 'save first, check second');
+  assert.ok(connect.indexOf("run(verb || 'mcp-add-custom'") > -1 && connect.indexOf("run('mcp-check'") > connect.indexOf("run(verb || 'mcp-add-custom'"), 'save first (add-custom, or the wizard\'s own verb), check second');
   assert.match(connect, /run\('mcp-remove', \{ key: def\.name \}\)/, 'a failed check removes the entry it just wrote');
-  assert.match(connect, /if \(mcpContract < 4\) \{ notice\(nid, MCP_TOO_OLD\); return; \}/, 'a box without scheme basic + check is told to update, before anything is written');
+  assert.match(connect, /if \(mcpContract < GUIDED_CONTRACT\[kind\]\) \{ notice\(nid, MCP_TOO_OLD\); return; \}/, 'a box behind the wizard\'s contract is told to update, before anything is written');
   assert.match(guided, /scheme: 'basic'/, 'WordPress saves as HTTP Basic');
   assert.match(guided, /\/wp-json\/mcp\/mcp-adapter-default-server/, 'at the MCP adapter default server, the endpoint WooCommerce documents');
 });
@@ -107,6 +107,25 @@ test('driven: all four guided cards, a wrong credential refused and nothing kept
     assert.match(await page.textContent('#wpWizard [data-done]'), /Connected\. Your site answered with 7 things your assistant can do there/);
     assert.ok((await yours()).includes('WordPress'));
 
+    // Mailchimp (contract 5): a malformed key is refused on the page, a dead
+    // one by the box check (and not kept), a good one names the account and
+    // the row carries the expiry hint
+    await open('Mailchimp');
+    assert.ok(await page.isVisible('#mcWizard'));
+    assert.match(await page.innerText('#mcWizard'), /cannot send or schedule a campaign/);
+    await page.check('#mcWizard [data-tick="1"]');
+    await page.fill('#mcKey', 'not-a-key'); await page.click('#mcSave');
+    assert.match(await page.textContent('#mcNotice'), /does not look like a Mailchimp API key/);
+    // fake keys built at runtime: a literal in Mailchimp's shape trips push protection
+    const fakeKey = (dc) => '0123456789abcdef'.repeat(2) + '-' + dc;
+    await page.fill('#mcKey', fakeKey('us0')); await page.click('#mcSave'); await page.waitForTimeout(2000);
+    assert.match(await page.textContent('#mcNotice'), /Mailchimp turned that key down[\s\S]*Nothing was kept/);
+    assert.ok(!(await yours()).includes('Mailchimp'), 'a dead key leaves no row');
+    await page.fill('#mcKey', fakeKey('us21')); await page.click('#mcSave'); await page.waitForTimeout(2000);
+    assert.match(await page.textContent('#mcWizard [data-done]'), /Connected to Mel's Shop\./);
+    assert.ok((await yours()).includes('Mailchimp'));
+    assert.match(await page.innerText('#mcpRows'), /expect to paste a new one around/, 'the row says when the key should run out');
+
     // Shopify and Xero: a guide, no box write, and the limit said plainly
     for (const n of ['Shopify', 'Xero']) {
       assert.equal(await card(n).locator('.mcp-dir-connect').innerText(), 'How to');
@@ -122,4 +141,26 @@ test('driven: all four guided cards, a wrong credential refused and nothing kept
     await browser.close();
     harness.kill();
   }
+});
+
+test('Mailchimp saves through its own verb and waits for a contract-5 box', () => {
+  assert.match(guided, /guidedConnect\('mailchimp', \{ name: 'mailchimp', key_b64: b64utf8\(k\) \}, \$\('mcSave'\), 'mcp-add-mailchimp'\)/);
+  assert.match(guided, /var GUIDED_CONTRACT = \{ slack: 4, wordpress: 4, mailchimp: 5 \};/);
+  assert.match(html, /id="mcWizard"[\s\S]*?<b>cannot send or schedule a campaign<\/b>/, 'the card says what it will not do, before the member pastes anything');
+});
+
+// Slack refuses a whole manifest over one bad field ("We can't translate a
+// manifest with errors"), and the first template shipped one: a bot
+// display_name with a capital and a space. Pin the manifest to the rules in
+// Slack's own manifest reference (docs.slack.dev/reference/app-manifest).
+test('the Slack template obeys Slack\'s manifest field rules', () => {
+  const src = guided.match(/var SLACK_MANIFEST = (\{[\s\S]*?\n  \});/)[1];
+  const m = Function('return (' + src.replace(/\/\/[^\n]*/g, '') + ')')();
+  assert.match(m.features.bot_user.display_name, /^[a-z0-9._-]{1,80}$/, 'bot display_name: a-z, 0-9, - _ . only, max 80');
+  assert.ok(m.display_information.name.length <= 35, 'app name max 35');
+  assert.ok(m.display_information.description.length <= 140, 'description max 140');
+  assert.equal(typeof m.settings.is_mcp_enabled, 'boolean');
+  const doc = readFileSync(join(HERE, '..', '..', 'docs', 'product', 'pages', 'how-to', 'connect-slack.md'), 'utf8');
+  const shown = JSON.parse(doc.match(/```json\n([\s\S]*?)\n```/)[1]);
+  assert.deepEqual(shown, JSON.parse(JSON.stringify(m)), 'the docs show exactly the template the app uses');
 });

@@ -221,3 +221,12 @@ test('forget google-work deletes that key file and leaves the primary alone', ()
   assert.ok(existsSync(path.join(d, '.kernel', 'google-creds', 'jane.doe@gmail.com.json')));
   assert.ok(oauth(d).google);
 });
+
+// 2 Oct 2026: the header scheme is canonical whatever the provider spelled
+test('set writes Bearer for "bearer" and Slack\'s "user"; DPoP stays DPoP', () => {
+  for (const [tt, want] of [['bearer', 'Bearer'], ['BEARER', 'Bearer'], ['user', 'Bearer'], [undefined, 'Bearer'], ['DPoP', 'DPoP']]) {
+    const d = box();
+    run(d, ['set'], b64({ ...SET, token_type: tt }));
+    assert.equal(mcp(d).mcpServers.canva.headers.Authorization, `${want} AT`, String(tt));
+  }
+});

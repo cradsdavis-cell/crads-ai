@@ -32,6 +32,7 @@ export const SUBJECTS = [
   { slug: 'connect-google', re: /\bconnect(?:ing)? Google\b/i },
   { slug: 'connect-slack', re: /\bconnect(?:ing)? Slack\b/i },
   { slug: 'connect-wordpress', re: /\bconnect(?:ing)? WordPress\b/i },
+  { slug: 'connect-mailchimp', re: /\bconnect(?:ing)? Mailchimp\b/i },
   { slug: 'back-up-and-restore', re: /\bback ?up (?:your mineral|and restore)\b/i },
   { slug: 'machinery-jobs', re: /\bjobs your mineral runs by itself\b/i },
   { slug: 'skills', re: /\bevery skill your mineral ships with\b/i },

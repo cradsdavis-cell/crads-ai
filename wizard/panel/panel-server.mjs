@@ -1301,6 +1301,21 @@ export const MEMBER_VERBS = {
       };
     },
   },
+  // Contract 5 (2026-10-02): Mailchimp on the box. The member's own API key
+  // rides stdin as base64(JSON), never argv; the script decodes it itself.
+  'mcp-add-mailchimp': {
+    mutating: true,
+    build: (a = {}) => {
+      const b64 = String(a.def_b64 ?? '');
+      if (!b64 || b64.length > 800 || !B64_RE.test(b64)) bad('def_b64 must be base64 (a small JSON with the key)');
+      return {
+        command: `[ -f /app/engine/comms/mailchimp-mcp.mjs ] `
+          + `&& node /app/engine/comms/mcp-connect.mjs /state add-mailchimp `
+          + `|| echo '{"ok":false,"error":"box-too-old"}'`,
+        stdin: b64 + '\n',
+      };
+    },
+  },
   // Contract 4 (2026-10-02): ask a SAVED connection for its tool list, from the
   // box, with the definition jobs will load. Read-only: the guided wizards run
   // it straight after saving so a bad credential is caught on the page. A box

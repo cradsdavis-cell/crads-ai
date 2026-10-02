@@ -228,7 +228,7 @@ test('driven: a mark per row, account rows inside the fold, the disconnect notic
     // account-only entries carry their own), and the guided four are present
     const kinds = await page.$$eval('#mcpDirRows .mcp-dir-card .kind', (els) => els.map((e) => e.textContent));
     assert.ok(kinds.length && kinds.every((k) => ['API token', 'Guided', 'Chats only'].includes(k)), 'chips: ' + JSON.stringify(kinds));
-    assert.equal(kinds.filter((k) => k === 'Guided').length, 2, 'Slack and WordPress are guided');
+    assert.equal(kinds.filter((k) => k === 'Guided').length, 3, 'Slack, WordPress and Mailchimp are guided');
     assert.equal(kinds.filter((k) => k === 'Chats only').length, 2, 'Shopify and Xero are chats only');
     // Connect is hidden at rest and revealed by keyboard focus
     const first = page.locator('#mcpDirRows .mcp-dir-card .mcp-dir-connect').first();

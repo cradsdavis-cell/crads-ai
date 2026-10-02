@@ -728,3 +728,108 @@ test('check: the WordPress adapter reports its abilities, and a JSON error reads
     assert.equal(bad.detail, 'The provided password is an invalid application password.', 'the site\'s sentence, not its JSON envelope');
   } finally { f.close(); }
 });
+
+// ---- contract 5: Mailchimp on the box (2026-10-02) -------------------------
+// A FAKE key, built at runtime: a literal in Mailchimp's real shape trips
+// GitHub push protection on the public repo (it cannot tell a fixture from a key).
+const MC_KEY = '0123456789abcdef'.repeat(2) + '-us21';
+const runAsyncEnv = (d, args, env) => new Promise((resolve, reject) => {
+  execFile('node', [SCRIPT, d, ...args], { encoding: 'utf8', env: { ...process.env, ...env } }, (e, so) => (e ? reject(e) : resolve(JSON.parse(so))));
+});
+
+test('add-mailchimp: a stdio server carrying the key in env, a token row with an expiry hint, key never echoed', () => {
+  const d = box();
+  const raw = execFileSync('node', [SCRIPT, d, 'add-mailchimp'], { encoding: 'utf8', input: b64({ key_b64: Buffer.from(` ${MC_KEY}\n`).toString('base64') }) });
+  const r = JSON.parse(raw);
+  assert.equal(r.ok, true);
+  assert.ok(r.contract >= 5);
+  assert.ok(!raw.includes(MC_KEY), 'the key must not come back out through the verb');
+  const row = svc(r, 'mailchimp');
+  assert.equal(row.auth, 'token'); assert.equal(row.state, 'on'); assert.equal(row.label, 'Mailchimp');
+  assert.match(row.key_expires_by, /^\d{4}-\d{2}-\d{2}$/, 'a by-about date a year out');
+  const def = JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers.mailchimp;
+  assert.equal(def.type, 'stdio'); assert.equal(def.command, 'node');
+  assert.match(def.args[0], /engine\/comms\/mailchimp-mcp\.mjs$/, 'our own server, shipped beside this file');
+  assert.equal(def.env.MAILCHIMP_API_KEY, MC_KEY, 'trimmed on the way in');
+  assert.ok(readFileSync(path.join(d, '.kernel', 'mcp-allow'), 'utf8').includes('mcp__mailchimp__*'));
+  // and Disconnect removes it, key and all
+  const gone = run(d, ['remove', 'mailchimp']);
+  assert.equal(gone.ok, true);
+  assert.equal(JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers.mailchimp, undefined);
+});
+
+test('add-mailchimp refuses anything that is not a Mailchimp key', () => {
+  const d = box();
+  for (const k of ['', 'nodash', '0123456789abcdef0123456789abcdef', 'xoxp-123-abc', MC_KEY + ' extra']) {
+    assert.equal(run(d, 'add-mailchimp', b64({ key_b64: Buffer.from(k).toString('base64') })).ok, false, JSON.stringify(k));
+  }
+});
+
+test('check speaks stdio: a good key reports the account; a dead key is an auth problem', async () => {
+  let reply = [200, { account_name: 'Driftwood Surf School' }];
+  const api = createServer((req, res) => { res.writeHead(reply[0], { 'content-type': 'application/json' }); res.end(json(reply[1])); });
+  await new Promise((r) => api.listen(0, '127.0.0.1', r));
+  const env = { MAILCHIMP_API_BASE: `http://127.0.0.1:${api.address().port}/3.0` };
+  try {
+    const d = box();
+    run(d, 'add-mailchimp', b64({ key_b64: Buffer.from(MC_KEY).toString('base64') }));
+    const ok = await runAsyncEnv(d, ['check', 'mailchimp'], env);
+    assert.equal(ok.working, true);
+    assert.equal(ok.server, 'crads-mailchimp');
+    assert.equal(ok.account, 'Driftwood Surf School', 'one real read proves the key, not just the server');
+    assert.ok(ok.tools >= 10);
+    reply = [401, { title: 'API Key Invalid' }];
+    const bad = await runAsyncEnv(d, ['check', 'mailchimp'], env);
+    assert.equal(bad.working, false); assert.equal(bad.problem, 'auth');
+    assert.match(bad.detail, /expired or been revoked/);
+    assert.ok(!JSON.stringify(bad).includes(MC_KEY));
+  } finally { api.close(); }
+});
+
+// ---- 2 Oct 2026: two renewal bugs a pebble's own assistant found -----------
+
+test('status heals a lowercase "bearer" on servers this tool added, and leaves hand-added ones alone', () => {
+  const d = box();
+  writeFileSync(path.join(d, '.mcp.json'), json({ mcpServers: {
+    zoom: { type: 'http', url: 'https://mcp.zoom.us/', headers: { Authorization: 'bearer ZT' } },
+    theirs: { type: 'http', url: 'https://their.example/mcp', headers: { Authorization: 'bearer HT' } },
+  } }));
+  mkdirSync(path.join(d, '.kernel'), { recursive: true });
+  writeFileSync(path.join(d, '.kernel', 'mcp-added.json'), json(['zoom']));
+  const r = run(d, 'status');
+  assert.ok(!JSON.stringify(r).includes('ZT'), 'the token never comes out');
+  const live = JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers;
+  assert.equal(live.zoom.headers.Authorization, 'Bearer ZT');
+  assert.equal(live.theirs.headers.Authorization, 'bearer HT', 'a server the member added by hand is theirs');
+});
+
+test('add-custom replaces a leftover sign-in under the same name (the Zapier case)', () => {
+  const d = box();
+  mkdirSync(path.join(d, '.kernel'), { recursive: true });
+  writeFileSync(path.join(d, '.mcp.json'), json({ mcpServers: { zapier: { type: 'http', url: 'https://mcp.zapier.com/api/mcp/mcp', headers: { Authorization: 'Bearer OLD-OAUTH' } } } }));
+  writeFileSync(path.join(d, '.kernel', 'mcp-added.json'), json(['zapier']));
+  writeFileSync(path.join(d, '.kernel', 'mcp-oauth.json'), json({ zapier: { url: 'https://mcp.zapier.com/api/mcp/mcp', refresh_token: 'RT', token_endpoint: 'https://mcp.zapier.com/token', expires_at: Date.now() + 60e3 } }));
+  const r = run(d, 'add-custom', b64({ name: 'zapier', url: 'https://mcp.zapier.com/api/v1/connect', token_b64: Buffer.from('PASTED').toString('base64') }));
+  assert.equal(r.ok, true);
+  const store = JSON.parse(readFileSync(path.join(d, '.kernel', 'mcp-oauth.json'), 'utf8'));
+  assert.equal(store.zapier, undefined, 'the old refresh material is gone, so nothing can renew it back');
+  const live = JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers.zapier;
+  assert.equal(live.url, 'https://mcp.zapier.com/api/v1/connect');
+  assert.equal(live.headers.Authorization, 'Bearer PASTED');
+});
+
+test('a REFUSED add-custom costs no existing connection its sign-in', () => {
+  const d = box();
+  mkdirSync(path.join(d, '.kernel'), { recursive: true });
+  writeFileSync(path.join(d, '.mcp.json'), json({ mcpServers: {
+    zapier: { type: 'http', url: 'https://mcp.zapier.com/api/mcp/mcp', headers: { Authorization: 'Bearer OAUTH' } },
+    other: { type: 'http', url: 'https://mcp.zapier.com/api/v1/connect' },
+  } }));
+  writeFileSync(path.join(d, '.kernel', 'mcp-added.json'), json(['zapier', 'other']));
+  writeFileSync(path.join(d, '.kernel', 'mcp-oauth.json'), json({ zapier: { url: 'https://mcp.zapier.com/api/mcp/mcp', refresh_token: 'RT' } }));
+  // the new address is already connected as "other": refused as a duplicate
+  const r = run(d, 'add-custom', b64({ name: 'zapier', url: 'https://mcp.zapier.com/api/v1/connect', token_b64: Buffer.from('X').toString('base64') }));
+  assert.equal(r.ok, false);
+  assert.equal(JSON.parse(readFileSync(path.join(d, '.kernel', 'mcp-oauth.json'), 'utf8')).zapier.refresh_token, 'RT', 'untouched');
+  assert.equal(JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers.zapier.headers.Authorization, 'Bearer OAUTH');
+});

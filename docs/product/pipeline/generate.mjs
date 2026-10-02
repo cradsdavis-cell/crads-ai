@@ -225,7 +225,7 @@ function connectionsPage() {
   const mineral = rows.filter((c) => c.auth !== 'account');
   const account = rows.filter((c) => c.auth === 'account');
   // guided wizards and the account guide each have their own how-to page
-  const GUIDE = { slack: '/docs/connect-slack', wordpress: '/docs/connect-wordpress', account: '/docs/connect-shopify-and-xero' };
+  const GUIDE = { slack: '/docs/connect-slack', wordpress: '/docs/connect-wordpress', mailchimp: '/docs/connect-mailchimp', account: '/docs/connect-shopify-and-xero' };
   const signIn = (c) => (c.guided ? `[${c.auth === 'account' ? 'Claude account' : 'Guided'}](${GUIDE[c.guided]})`
     : c.auth === 'oauth' ? 'One click' : 'Token');
   const where = (c) => (c.boxKey ? 'Featured' : c.auth === 'account' ? 'Chats only' : 'By URL');

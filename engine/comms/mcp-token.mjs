@@ -38,6 +38,14 @@ const NAME_RE = /^[a-z0-9][a-z0-9_-]{1,31}$/;
 // scheduled death and nothing derives an expiry from this value.
 
 const out = (o) => { process.stdout.write(JSON.stringify(o) + '\n'); process.exit(0); };
+// The header scheme, whatever the provider spelled. Found 2 Oct 2026 by a
+// pebble's own assistant: Zoom, Asana, Klaviyo and Square return token_type
+// "bearer", the header was written verbatim, and Zoom, Asana and Klaviyo then
+// answer 401 to "bearer <token>". RFC 6750 makes the scheme case-insensitive,
+// but servers are not obliged to be, so we always send the canonical form.
+// Slack's user sign-in even returns token_type "user". An MCP access token is
+// a bearer token, so anything else becomes Bearer too; DPoP is kept as itself.
+export const authScheme = (t) => (/^dpop$/i.test(String(t || '').trim()) ? 'DPoP' : 'Bearer');
 const rd = (p, d) => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return d; } };
 
 if (cmd === 'set') {
@@ -60,7 +68,7 @@ if (cmd === 'set') {
     ...prev,
     type: prev.type || (/\/sse$/.test(url.pathname) ? 'sse' : 'http'),
     url: url.href,
-    headers: { ...(prev.headers || {}), Authorization: `${req.token_type || 'Bearer'} ${req.access_token}` },
+    headers: { ...(prev.headers || {}), Authorization: `${authScheme(req.token_type)} ${req.access_token}` },
   };
   writeFileSync(MCP_F, JSON.stringify(doc, null, 2) + '\n');
 

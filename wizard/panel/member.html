@@ -2047,6 +2047,46 @@
         <div class="notice" id="wpNotice" style="display:none"></div>
       </div>
 
+      <!-- Mailchimp (contract 5): its server runs ON the mineral
+           (engine/comms/mailchimp-mcp.mjs) with the member's own API key, since
+           Mailchimp publishes no official server for audiences and campaigns.
+           Saved by mcp-add-mailchimp, then checked with one real read. -->
+      <div class="guidecard" id="mcWizard" style="margin-top:14px;display:none" data-guided="mailchimp">
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <p class="gtitle" style="margin:0">Mailchimp, with your own API key</p>
+          <button class="connfix" type="button" data-guided-close style="margin-left:auto">Close</button>
+        </div>
+        <p class="hint" style="margin:6px 0 10px">Your assistant reaches Mailchimp with an API key you make in your own account. The key lives on your mineral only, and the part that uses it runs there too: your audience never passes through anyone else. About three minutes.</p>
+        <p class="hint" style="margin:0 0 12px">It can read your audiences, contacts and campaign reports, add contacts, tag them, draft campaigns and send you a test. A new contact is added as <b>pending</b>, so Mailchimp emails them to confirm, unless you tell your assistant you have their consent. It <b>cannot send or schedule a campaign</b>, or delete anything: you press Send in Mailchimp.</p>
+        <div class="fsteps" data-ladder style="margin:0 0 12px">
+          <span class="fstep" data-step="1">Make a key</span>
+          <span class="fstep" data-step="2">Paste it</span>
+          <span class="fstep" data-step="3">Working</span>
+        </div>
+        <details class="secfold" data-fold="1">
+          <summary>Step 1: Make an API key<span class="sum2">In your Mailchimp profile</span></summary>
+          <div class="fbody">
+            <p class="hint" style="margin:6px 0 10px">The button opens Mailchimp's API keys page (sign in if it asks). Click <b>Create A Key</b>, name it <b>Crads</b>, click <b>Generate Key</b>, then <b>Copy Key to Clipboard</b>. Mailchimp shows the whole key only this once. To find the page yourself: your profile icon, <b>Profile</b>, then <b>Extras</b> and <b>API keys</b>.</p>
+            <p class="hint" style="margin:0 0 10px">A key can do whatever the Mailchimp user who made it can. If that matters, have someone with a smaller role in your account make it instead.</p>
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <a class="openlink" href="https://admin.mailchimp.com/account/api/" target="_blank" rel="noopener">Open Mailchimp API keys</a>
+              <label class="check" style="margin:0"><input type="checkbox" data-tick="1"><span>Done, I have the key</span></label>
+            </div>
+          </div>
+        </details>
+        <details class="secfold" data-fold="2" style="margin-top:10px">
+          <summary>Step 2: Paste the key<span class="sum2">Saved on your mineral, then tested from it</span></summary>
+          <div class="fbody">
+            <div class="hostbox">
+              <input id="mcKey" type="password" autocomplete="off" spellcheck="false" placeholder="0123…cdef-us21" style="flex:1;min-width:0;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <button class="act" type="button" id="mcSave">Connect Mailchimp</button>
+            </div>
+          </div>
+        </details>
+        <div data-done style="display:none;margin-top:12px"></div>
+        <div class="notice" id="mcNotice" style="display:none"></div>
+      </div>
+
       <!-- Services whose official server only lets CLAUDE'S OWN connector sign
            in (catalogue auth 'account': Shopify, Xero). The mineral can hold
            nothing for these, so this card is a guide, not a wizard: where to
@@ -4297,6 +4337,13 @@
     var kind = s.auth === 'token' ? ' · API token' : '';
     var warn = (s.state === 'on' && s.auth === 'oauth' && s.renews === false)
       ? '<div class="sub" style="margin:2px 0 0">Signs you out periodically; you will need to authorise it again when it does.</div>' : '';
+    // contract 5: a Mailchimp key made since 22 June 2026 dies a year after it
+    // was made; the box counts from the day it was pasted, so "by about"
+    if (s.state === 'on' && s.key_expires_by) {
+      // a year out, so the year matters ("Saturday 2 October" reads as this one)
+      var by = ''; try { by = new Date(Date.parse(s.key_expires_by)).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { by = s.key_expires_by; }
+      warn += '<div class="sub" style="margin:2px 0 0">Mailchimp keys made since June 2026 last a year: expect to paste a new one around ' + esc(by) + '.</div>';
+    }
     return '<li class="marked">' + markSpan(markKey(s), s.label) + '<span class="nm">' + esc(s.label) + '</span>'
       + '<span class="why">' + esc(s.blurb) + esc(kind) + '</span><span style="display:flex;gap:4px">' + btns + '</span>'
       + '<span class="chip ' + (MCP_CHIP[s.state] || '') + '">' + esc(s.status) + '</span>' + warn + '</li>';
@@ -4471,7 +4518,10 @@
   // wizards save through mcp-add-custom and then ask the box to call the
   // server (mcp-check, contract 4); a failed check removes the saved entry, so
   // a wrong paste leaves nothing behind and the member simply tries again.
-  var GUIDED_CARDS = { slack: 'skWizard', wordpress: 'wpWizard', account: 'acWizard' };
+  var GUIDED_CARDS = { slack: 'skWizard', wordpress: 'wpWizard', mailchimp: 'mcWizard', account: 'acWizard' };
+  var GUIDED_NOTICE = { slack: 'skNotice', wordpress: 'wpNotice', mailchimp: 'mcNotice' };
+  // the box contract each wizard stands on: 4 = scheme basic + check, 5 = Mailchimp on the box
+  var GUIDED_CONTRACT = { slack: 4, wordpress: 4, mailchimp: 5 };
   // What the account guide says per service. Facts, verified 2026-10-02:
   // Shopify's sign-in accepts only claude.ai / chatgpt.com redirects; Xero's
   // hosted server refuses third-party tokens and its Claude connector is
@@ -4493,8 +4543,11 @@
   var SLACK_MANIFEST = {
     display_information: { name: 'Crads assistant', description: 'My assistant, acting as me in this workspace.' },
     // Slack's user sign-in fails for an app with no bot user, even one that
-    // only ever uses its user token; the bot never posts
-    features: { bot_user: { display_name: 'Crads assistant', always_online: false } },
+    // only ever uses its user token; the bot never posts. Its display_name
+    // allows only a-z, 0-9, - _ and . (Slack's manifest reference): the first
+    // template said "Crads assistant" and Slack refused the whole manifest
+    // ("We can't translate a manifest with errors"), found by a pebble 2 Oct.
+    features: { bot_user: { display_name: 'crads-assistant', always_online: false } },
     oauth_config: { scopes: { user: [
       'search:read.public', 'search:read.private', 'search:read.mpim', 'search:read.im',
       'search:read.files', 'search:read.users', 'files:read',
@@ -4530,12 +4583,11 @@
       $('acStep2').innerHTML = g.step2 || '';
       $('acLimit').textContent = g.limit || '';
     } else {
-      notice(kind === 'slack' ? 'skNotice' : 'wpNotice', '');
+      notice(GUIDED_NOTICE[kind], '');
       card.querySelector('[data-done]').style.display = 'none';
       Array.prototype.forEach.call(card.querySelectorAll('[data-tick]'), function(b){ b.checked = false; });
-      // contract 4 (scheme basic + check) is what these wizards stand on; a
-      // behind box hears the same one-click fix every other mcp verb gives
-      if (mcpContract < 4) { notice(kind === 'slack' ? 'skNotice' : 'wpNotice', MCP_TOO_OLD); }
+      // a behind box hears the same one-click fix every other mcp verb gives
+      if (mcpContract < GUIDED_CONTRACT[kind]) { notice(GUIDED_NOTICE[kind], MCP_TOO_OLD); }
       guidedSetStep(card, 1);
     }
     card.style.display = 'block';
@@ -4545,7 +4597,7 @@
     b.onclick = function(){ b.closest('[data-guided]').style.display = 'none'; };
   });
   // ticking a step's Done moves the ladder on to the next one
-  ['skWizard', 'wpWizard'].forEach(function(id){
+  ['skWizard', 'wpWizard', 'mcWizard'].forEach(function(id){
     var card = $(id);
     card.addEventListener('change', function(e){
       var t = e.target && e.target.getAttribute && e.target.getAttribute('data-tick');
@@ -4587,6 +4639,9 @@
   function guidedWhy(kind, c){
     var said = c && c.detail ? ' It said: "' + c.detail + '"' : '';
     if (!c) return 'Your mineral did not answer the check.';
+    if (kind === 'mailchimp') return c.problem === 'auth'
+      ? 'Mailchimp turned that key down. Check you copied the whole key, including the ending like -us21, and that it has not been revoked. If it was made a year or more ago it may have expired: make a new one.'
+      : (c.detail ? 'Mailchimp said: ' + c.detail : 'Your mineral could not reach Mailchimp just now. Try again in a minute.');
     if (kind === 'slack' && /not enabled for slack mcp/i.test(c.detail || '')) return 'Slack says your app is not switched on for assistants. Open the app on api.slack.com, go to Agents & AI Apps, and turn on Model Context Protocol, then press Connect again. (The template does this for you; an app made by hand needs it.)';
     if (c.problem === 'auth') return kind === 'slack'
       ? 'Slack turned that token down.' + said + ' Check you copied the User OAuth Token (it starts xoxp-), not the app ID or a signing secret, and that the app is installed to your workspace.'
@@ -4599,14 +4654,17 @@
       : 'Your mineral could not reach ' + wpOrigin() + '. Check the address, and that the site is public on https.';
     return 'That did not work (' + (c.status || 'no answer') + ').' + said;
   }
-  function guidedConnect(kind, def, btn){
-    var nid = kind === 'slack' ? 'skNotice' : 'wpNotice', card = guidedCard(kind);
-    var label = kind === 'slack' ? 'Slack' : 'your site';
+  // verb: mcp-add-custom (Slack, WordPress) or mcp-add-mailchimp; def.name is
+  // the key the box saves it under, which the check and the undo both need
+  function guidedConnect(kind, def, btn, verb){
+    var nid = GUIDED_NOTICE[kind], card = guidedCard(kind);
+    var label = { slack: 'Slack', wordpress: 'your site', mailchimp: 'Mailchimp' }[kind];
     if (!mcpBoxOk) { notice(nid, 'Your mineral did not answer, so nothing can be connected right now.'); return; }
-    if (mcpContract < 4) { notice(nid, MCP_TOO_OLD); return; }
+    if (mcpContract < GUIDED_CONTRACT[kind]) { notice(nid, MCP_TOO_OLD); return; }
     btn.disabled = true;
     notice(nid, 'Saving it on your mineral…');
-    run('mcp-add-custom', { def_b64: b64utf8(JSON.stringify(def)) }).then(function(r){
+    var payload = Object.assign({}, def); delete payload.name;
+    run(verb || 'mcp-add-custom', { def_b64: b64utf8(JSON.stringify(verb === 'mcp-add-mailchimp' ? payload : def)) }).then(function(r){
       var d = jsonOut(r);
       if (!d || d.ok === false) { btn.disabled = false; notice(nid, mcpErr(d, r)); return; }
       notice(nid, 'Saved. Now asking ' + label + ' to answer from your mineral…');
@@ -4618,6 +4676,12 @@
           guidedSetStep(card, 5);
           Array.prototype.forEach.call(card.querySelectorAll('[data-fold]'), function(f){ f.open = false; });
           var done = card.querySelector('[data-done]');
+          if (kind === 'mailchimp') {
+            done.innerHTML = '<p class="hint" style="margin:0"><b>Connected' + (c.account ? ' to ' + esc(c.account) : '') + '.</b> Your assistant can use Mailchimp in chats and in scheduled jobs. Mailchimp keys made since 22 June 2026 stop working a year after they are made; the Mailchimp row in Your connections shows the date to expect. Disconnect there removes the key from your mineral.</p>';
+            done.style.display = 'block'; $('mcKey').value = '';
+            loadMcp(); loadDashboard(true);
+            return;
+          }
           // WordPress reports abilities (what WooCommerce and plugins offer);
           // a site that offers none is connected but has nothing to give yet
           var n = typeof c.abilities === 'number' ? c.abilities : c.tools;
@@ -4628,7 +4692,7 @@
           done.innerHTML = '<p class="hint" style="margin:0"><b>Connected.</b> ' + esc(kind === 'slack' ? 'Slack' : 'Your site') + ' answered with '
             + esc(String(n)) + esc(what) + ', in chats and in scheduled jobs.' + esc(none) + ' It is in Your connections above; Disconnect there removes the credential from your mineral.</p>';
           done.style.display = 'block';
-          $('skToken').value = ''; $('wpPass').value = '';
+          $('skToken').value = ''; $('wpPass').value = ''; $('mcKey').value = '';
           loadMcp(); loadDashboard(true);
           return;
         }
@@ -4648,6 +4712,11 @@
     if (/^xoxb-/.test(t)) { notice('skNotice', 'That is the Bot token (xoxb-). Your assistant needs the User OAuth Token just above it, which starts xoxp-.'); return; }
     var e = mcpDir.entries.filter(function(x){ return x.key === 'slack'; })[0];
     guidedConnect('slack', { name: 'slack', url: (e && e.url) || 'https://mcp.slack.com/mcp', token_b64: b64utf8(t) }, $('skSave'));
+  };
+  $('mcSave').onclick = function(){
+    var k = ($('mcKey').value || '').trim();
+    if (!/^[0-9a-f]{32}-[a-z]{2}\d{1,3}$/.test(k)) { notice('mcNotice', 'That does not look like a Mailchimp API key. It is 32 letters and numbers, then a dash and a short code like us21. Copy it again from Mailchimp; it is shown in full only when it is made.'); return; }
+    guidedConnect('mailchimp', { name: 'mailchimp', key_b64: b64utf8(k) }, $('mcSave'), 'mcp-add-mailchimp');
   };
   $('wpSave').onclick = function(){
     var o = wpOrigin(), u = ($('wpUser').value || '').trim(), pw = ($('wpPass').value || '').trim();

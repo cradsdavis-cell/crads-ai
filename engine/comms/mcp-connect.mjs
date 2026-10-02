@@ -26,6 +26,7 @@
 //   node mcp-connect.mjs <state-dir> status
 //   node mcp-connect.mjs <state-dir> add <key>          (featured key)
 //   node mcp-connect.mjs <state-dir> add-custom         (stdin: {name,url,token_b64?,scheme?})
+//   node mcp-connect.mjs <state-dir> add-mailchimp      (stdin: {key_b64})
 //   node mcp-connect.mjs <state-dir> check <key>        (does the saved server answer?)
 //   node mcp-connect.mjs <state-dir> remove <key>       (featured or app-added)
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -70,7 +71,12 @@ const key = String(process.argv[4] || '');
 //       `check <key>` verb asks a saved server for its tool list FROM THE BOX,
 //       which is where jobs will call it. The page gates its Slack and
 //       WordPress wizards on 4; a 3-box is told to update.
-const CONTRACT = 4;
+//   5 = Mailchimp on the box (2026-10-02): the add-mailchimp verb writes a
+//       stdio server (engine/comms/mailchimp-mcp.mjs) carrying the member's
+//       own API key; `check` speaks stdio too and, for Mailchimp, makes one
+//       real read so a bad key is caught; the row carries key_expires_by
+//       (keys made since 22 June 2026 die a year after creation).
+const CONTRACT = 5;
 
 const MCP_F = path.join(stateDir, '.mcp.json');
 const OAUTH_F = path.join(stateDir, '.kernel', 'mcp-oauth.json');   // read-only here; mcp-token.mjs is the writer
@@ -115,6 +121,11 @@ const FEATURED = {
 const GWS_BIN = '/opt/gws/bin/workspace-mcp';   // baked into the image (Dockerfile.base)
 const GOOGLE_TOOLS = ['gmail', 'calendar', 'drive', 'docs', 'sheets', 'tasks', 'contacts'];
 const TOKEN_TOOL = path.join(import.meta.dirname, 'mcp-token.mjs');
+// Mailchimp (contract 5): our own zero-dependency server, shipped in the image
+// beside this file, run by Claude Code with the member's key in its env.
+const MAILCHIMP_SERVER = path.join(import.meta.dirname, 'mailchimp-mcp.mjs');
+const MAILCHIMP_KEY_RE = /^[0-9a-f]{32}-[a-z]{2}\d{1,3}$/;
+const isMailchimp = (def) => !!(def?.command && Array.isArray(def.args) && def.args.some((a) => /mailchimp-mcp\.mjs$/.test(String(a))) && def.env?.MAILCHIMP_API_KEY);
 
 // The FIRST catalogue's dead ends: three Google endpoints whose sign-in could
 // never complete. A box that still carries one (keith does) is recognised and
@@ -190,6 +201,15 @@ function describe(k, def, { label, blurb, mine, catalogUrl }) {
   if (hasTokenHeader(def)) {
     return { key: k, label, blurb, url, auth: 'token', state: 'on', status: 'working, including in scheduled jobs',
       configured: true, authorised: true, renews: true, mine };
+  }
+  // the on-box Mailchimp server carries its key in env, not a header: it is a
+  // token connection all the same. Its expiry is a "by about": a key made
+  // before 22 June 2026 never expires, and the box cannot tell which it holds.
+  if (isMailchimp(def)) {
+    const added = Date.parse(def.env.CRADS_KEY_ADDED || '');
+    const by = Number.isFinite(added) ? new Date(added + 365 * 864e5).toISOString().slice(0, 10) : null;
+    return { key: k, label, blurb: 'audiences, contacts, draft campaigns and reports, with your own key', url: '', auth: 'token', state: 'on',
+      status: 'working, including in scheduled jobs', configured: true, authorised: true, renews: false, mine, key_expires_by: by };
   }
   const tok = tokenFor(k);
   const expired = !!(tok?.expiresAt && tok.expiresAt < now);
@@ -383,10 +403,32 @@ const syncAllow = (k, on) => {
   writeFileSync(ALLOW_F, next.join(','));
 };
 
+// Heal a lowercase scheme already on disk (2 Oct 2026): before mcp-token.mjs
+// canonicalised it, a renewal could write "bearer <token>", which Zoom, Asana
+// and Klaviyo refuse. Only OUR Authorization header on servers this tool added
+// is touched, and only its first word; the token itself is never read out.
+function healBearerCase() {
+  const doc = rdJSON(MCP_F, null);
+  if (!doc?.mcpServers) return;
+  const mine = appAdded();
+  let changed = false;
+  for (const [k, d0] of Object.entries(doc.mcpServers)) {
+    if (!(mine.has(k) || FEATURED[k]) || !d0?.headers) continue;
+    for (const h of Object.keys(d0.headers)) {
+      if (!/^authorization$/i.test(h)) continue;
+      const v = String(d0.headers[h]);
+      const m = v.match(/^(bearer|user)\s+(.+)$/i);
+      if (m && !v.startsWith('Bearer ')) { d0.headers[h] = `Bearer ${m[2]}`; changed = true; }
+    }
+  }
+  if (changed) writeMcp(doc);
+}
+
 if (cmd === 'status') {
   // Heal on every read: a box provisioned before this fix (keith) has app-added
   // servers sitting behind the approval gate with no dialog anywhere to accept.
   ensureApproved(Object.keys(servers()).filter((k) => FEATURED[k] || UNAVAILABLE[k] || appAdded().has(k)));
+  healBearerCase();
   out({ ok: true, contract: CONTRACT, services: rows() });
 }
 
@@ -447,8 +489,21 @@ if (cmd === 'add-custom') {
   const dupe = Object.entries({ ...scopeServers(), ...doc.mcpServers })
     .find(([k, d0]) => k !== name && d0?.url && sameEndpoint(d0.url));
   if (dupe) out({ ok: false, error: `already connected as "${dupe[0]}" on this box` });
-  doc.mcpServers[name] = def;
-  writeMcp(doc); syncAllow(name, true); rememberAdded(name, true); ensureApproved([name]);
+  // A leftover sign-in under the same name must go (2 Oct 2026, found on a
+  // pebble): Zapier was first added by OAuth at one address, then re-added
+  // here with a token at a new one. The old record in .kernel/mcp-oauth.json
+  // survived, mcp-refresh renewed it, and mcp-token.mjs set wrote the OLD
+  // address and an OAuth header back over the working token connection.
+  // Whatever is being saved now replaces that sign-in, so its refresh
+  // material and Claude Code's copy are destroyed first, through the one
+  // writer of the store. Every refusal above has already run, so a refused
+  // add can never cost a working connection its sign-in.
+  try { execFileSync('node', [TOKEN_TOOL, stateDir, 'forget', name], { stdio: 'ignore' }); } catch { /* nothing keyed */ }
+  forgetCliToken(name);
+  const fresh = rdJSON(MCP_F, {});   // forget may have rewritten the file
+  fresh.mcpServers = fresh.mcpServers || {};
+  fresh.mcpServers[name] = def;
+  writeMcp(fresh); syncAllow(name, true); rememberAdded(name, true); ensureApproved([name]);
   out({ ok: true, contract: CONTRACT, key: name, action: 'add', auth: def.headers ? 'token' : 'oauth', services: rows() });
 }
 
@@ -505,7 +560,68 @@ if (cmd === 'add-google') {
 // where problem is 'auth' (401/403), 'missing' (404/405 on the first call),
 // 'unreachable' (no answer in time), 'sse' (old transport, not checked here)
 // or 'other'. `detail` is at most 160 chars of the server's own words.
+if (cmd === 'add-mailchimp') {
+  // stdin, base64(JSON): { key_b64 }. The key is a secret, so never argv.
+  let req = {};
+  try { req = JSON.parse(Buffer.from(readFileSync(0, 'utf8').trim(), 'base64').toString('utf8')); }
+  catch { out({ ok: false, error: 'expected base64 JSON on stdin' }); }
+  let apiKey = '';
+  try { apiKey = Buffer.from(String(req.key_b64 || ''), 'base64').toString('utf8').trim(); } catch { /* refused below */ }
+  if (!MAILCHIMP_KEY_RE.test(apiKey)) out({ ok: false, error: 'that does not look like a Mailchimp API key: 32 letters and numbers, a dash, then a code like us21' });
+  const doc = rdJSON(MCP_F, {});
+  doc.mcpServers = doc.mcpServers || {};
+  if (doc.mcpServers.mailchimp && !appAdded().has('mailchimp')) out({ ok: false, error: 'a hand-added "mailchimp" server already exists on this box; remove it in Claude Code first' });
+  doc.mcpServers.mailchimp = { type: 'stdio', command: 'node', args: [MAILCHIMP_SERVER],
+    env: { MAILCHIMP_API_KEY: apiKey, CRADS_KEY_ADDED: new Date().toISOString().slice(0, 10) } };
+  writeMcp(doc); syncAllow('mailchimp', true); rememberAdded('mailchimp', true); ensureApproved(['mailchimp']);
+  out({ ok: true, contract: CONTRACT, key: 'mailchimp', action: 'add', auth: 'token', services: rows() });
+}
+
+// stdio servers (contract 5): spawn the saved command with its saved env and
+// speak newline-delimited JSON-RPC, the transport Claude Code uses for them.
+// For Mailchimp, initialize + tools/list prove only that the server starts;
+// one real read (account_info) proves the KEY, which is the thing a member
+// can get wrong.
+async function checkStdio(def) {
+  const { spawn } = await import('node:child_process');
+  return await new Promise((resolve) => {
+    let child;
+    try { child = spawn(def.command, def.args || [], { env: { ...process.env, ...(def.env || {}) }, stdio: ['pipe', 'pipe', 'ignore'] }); }
+    catch { resolve({ working: false, problem: 'unreachable' }); return; }
+    const done = (v) => { clearTimeout(timer); try { child.kill(); } catch { /* gone */ } resolve(v); };
+    const timer = setTimeout(() => done({ working: false, problem: 'unreachable' }), 20000);
+    child.on('error', () => done({ working: false, problem: 'unreachable' }));
+    let buf = '', server = '', tools = [];
+    const send = (m) => child.stdin.write(JSON.stringify(m) + '\n');
+    child.stdout.on('data', (d) => {
+      buf += d;
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i); buf = buf.slice(i + 1);
+        let m; try { m = JSON.parse(line); } catch { continue; }
+        if (m.id === 1) {
+          if (m.error) return done({ working: false, problem: 'other', detail: String(m.error.message || '').slice(0, 160) });
+          server = String(m.result?.serverInfo?.name || '').slice(0, 80);
+          send({ jsonrpc: '2.0', method: 'notifications/initialized' });
+          send({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
+        } else if (m.id === 2) {
+          tools = Array.isArray(m.result?.tools) ? m.result.tools : [];
+          if (!isMailchimp(def)) return done({ working: true, server, tools: tools.length });
+          send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'account_info', arguments: {} } });
+        } else if (m.id === 3) {
+          const text = String(m.result?.content?.[0]?.text || '');
+          if (m.result?.isError) return done({ working: false, problem: /expired or been revoked/.test(text) ? 'auth' : 'other', detail: text.slice(0, 200) });
+          let acct = {}; try { acct = JSON.parse(text); } catch { /* fine */ }
+          return done({ working: true, server, tools: tools.length, account: String(acct.account_name || '').slice(0, 80) || undefined });
+        }
+      }
+    });
+    send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'crads-check', version: '1' } } });
+  });
+}
+
 async function checkServer(def) {
+  if (def.command) return checkStdio(def);
   if (def.type === 'sse') return { working: false, problem: 'sse' };
   const base = { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...(def.headers || {}) };
   // a JSON error body (WordPress answers {"code":..,"message":..}) is reduced
@@ -569,7 +685,7 @@ async function checkServer(def) {
 if (cmd === 'check') {
   if (!NAME_RE.test(key)) out({ ok: false, error: 'bad service name' });
   const def = servers()[key];
-  if (!def || !def.url) out({ ok: false, error: `"${key}" is not a connection on this box` });
+  if (!def || !(def.url || def.command)) out({ ok: false, error: `"${key}" is not a connection on this box` });
   out({ ok: true, contract: CONTRACT, key, ...(await checkServer(def)) });
 }
 

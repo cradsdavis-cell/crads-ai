@@ -894,7 +894,7 @@ const MCP_ON = {
   canva: { authorised: true, auth: 'oauth', renews: true },
 };
 const MCP_CHAT = { stripe: true };   // a connection made inside Claude Code (chats-only)
-const MCP_CONTRACT = 4;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
+const MCP_CONTRACT = 5;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
                           // (2 = the byo google row, 2026-08-17; 3 = several
                           // google rows, one per account, 2026-09-14. Bumped
                           // in lockstep with the engine. rekey_due_at left the
@@ -1007,7 +1007,7 @@ function mcpRows() {
   });
   for (const [key, st] of Object.entries(MCP_ON)) {
     if (MCP_FEATURED[key]) continue;
-    rows.push({ key, label: connectionLabel(key), blurb: 'connected by you', auth: st.auth, state: st.authorised ? 'on' : 'needs-auth',
+    rows.push({ key, label: connectionLabel(key), blurb: st.blurb || 'connected by you', key_expires_by: st.key_expires_by, auth: st.auth, state: st.authorised ? 'on' : 'needs-auth',
       status: st.authorised ? 'working, including in scheduled jobs' : 'added, waiting for you to sign in once',
       configured: true, authorised: st.authorised, renews: st.renews, mine: true });
   }
@@ -1505,10 +1505,23 @@ export function runVerb(surface, verb, args, state, opts) {
       const on = MCP_ON[args.key];
       if (!on) return ok([JSON.stringify({ ok: false, error: `"${args.key}" is not a connection on this box` })]);
       if (on.wrong) return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: args.key, working: false, problem: 'auth', status: 401, detail: 'Sorry, you are not allowed to do that.' })]);
+      if (args.key === 'mailchimp') return ok([JSON.stringify(on.dead
+        ? { ok: true, contract: MCP_CONTRACT, key: 'mailchimp', working: false, problem: 'auth', detail: 'Mailchimp turned the API key down: it has expired or been revoked.' }
+        : { ok: true, contract: MCP_CONTRACT, key: 'mailchimp', working: true, server: 'crads-mailchimp', tools: 12, account: 'Mel\'s Shop' })]);
       // the shapes the real check returns: Slack counts tools; the WordPress
       // adapter has three doorway tools and reports its abilities (WooCommerce: 7)
       if (args.key === 'wordpress') return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: args.key, working: true, server: 'MCP Adapter Default Server', tools: 3, abilities: 7 })]);
       return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: args.key, working: true, server: args.key, tools: { slack: 12 }[args.key] || 5 })]);
+    }
+    // contract 5: Mailchimp on the box. A key ending -us0 stands in for one
+    // Mailchimp turns down, so the wizard's failure path can be driven here.
+    case 'mcp-add-mailchimp': {
+      const p = JSON.parse(Buffer.from(String(args.def_b64 || ''), 'base64').toString('utf8'));
+      const k = Buffer.from(String(p.key_b64 || ''), 'base64').toString('utf8').trim();
+      if (!/^[0-9a-f]{32}-[a-z]{2}\d{1,3}$/.test(k)) return ok([JSON.stringify({ ok: false, error: 'that does not look like a Mailchimp API key: 32 letters and numbers, a dash, then a code like us21' })]);
+      MCP_ON.mailchimp = { authorised: true, auth: 'token', renews: false, key_expires_by: new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10), blurb: 'audiences, contacts, draft campaigns and reports, with your own key' };
+      if (/-us0$/.test(k)) MCP_ON.mailchimp.dead = true;
+      return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: 'mailchimp', action: 'add', auth: 'token', services: mcpRows() })]);
     }
     case 'mcp-remove': {
       delete MCP_ON[args.key];
