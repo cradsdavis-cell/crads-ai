@@ -108,7 +108,7 @@ async function runVerb(verb, args = {}) {
   return JSON.parse(lines[lines.length - 1]);
 }
 
-test('mcp-status: the harness box speaks contract 3 and carries the byo google row', async () => {
+test('mcp-status: the harness box speaks contract 4 and carries the byo google row', async () => {
   await fetch(base + '/state/rich');   // fresh flows
   // the fixture contract must never outrun the real engine's CONTRACT
   const engine = readFileSync(join(HERE, '..', '..', 'engine', 'comms', 'mcp-connect.mjs'), 'utf8');
@@ -116,9 +116,9 @@ test('mcp-status: the harness box speaks contract 3 and carries the byo google r
   const fixtures = readFileSync(join(HERE, 'fixtures.mjs'), 'utf8');
   const faked = Number(fixtures.match(/const MCP_CONTRACT = (\d+);/)[1]);
   assert.ok(faked <= real, `fixture contract ${faked} claims more than the engine's ${real}`);
-  assert.equal(faked, 3, 'several google rows ride contract 3; the fixture must announce it');
+  assert.equal(faked, 4, 'the guided wizards (scheme basic + check) ride contract 4; the fixture must announce it');
   const d = await runVerb('mcp-status');
-  assert.equal(d.contract, 3);
+  assert.equal(d.contract, 4);
   const g = d.services.find((s) => s.key === 'google');
   assert.ok(g, 'the google row is in the box report');
   assert.equal(g.byo, 'google');

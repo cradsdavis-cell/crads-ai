@@ -37,6 +37,9 @@ export const CONNECTION_LABELS = {
   avoma: 'Avoma',
   krisp: 'Krisp',
   fyxer: 'Fyxer',
+  // guided connections (2026-10-02): the fallback would say "Wordpress"
+  slack: 'Slack',
+  wordpress: 'WordPress',
   // box-native channels
   telegram: 'Telegram',
 };

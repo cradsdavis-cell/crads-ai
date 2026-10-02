@@ -1932,6 +1932,138 @@
         <div class="notice" id="gwNotice" style="display:none"></div>
       </div>
 
+      <!-- Guided connections (2026-10-02, Sam's ruling after a pebble's connector
+           list). Same shape as the Google card: a ladder, folding steps, one
+           button per outside page. Slack and WordPress save a credential through
+           mcp-add-custom (WordPress as HTTP Basic, contract 4) and then run
+           mcp-check FROM THE BOX, the way Telegram verifies its token, so a wrong
+           paste is caught here rather than by a silent morning job. A failed
+           check removes what was saved: nothing half-working is left behind.
+           Opened by the directory cards' Set up buttons (catalogue `guided`). -->
+      <div class="guidecard" id="skWizard" style="margin-top:14px;display:none" data-guided="slack">
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <p class="gtitle" style="margin:0">Slack, with your own app</p>
+          <button class="connfix" type="button" data-guided-close style="margin-left:auto">Close</button>
+        </div>
+        <p class="hint" style="margin:6px 0 12px">You'll make a small private Slack app inside your own workspace, then paste its token here. The app belongs to you, it works nowhere but your workspace, and the token is stored on your mineral only. About five minutes.</p>
+        <div class="fsteps" data-ladder style="margin:0 0 12px">
+          <span class="fstep" data-step="1">Make your app</span>
+          <span class="fstep" data-step="2">Install it</span>
+          <span class="fstep" data-step="3">Paste the token</span>
+          <span class="fstep" data-step="4">Working</span>
+        </div>
+        <details class="secfold" data-fold="1">
+          <summary>Step 1: Make your app<span class="sum2">From our ready-made template</span></summary>
+          <div class="fbody">
+            <p class="hint" style="margin:6px 0 10px">The button opens Slack with the template filled in. Pick your workspace, press <b>Next</b>, check the summary, and press <b>Create</b>. If Slack opens an empty form instead, choose <b>From a manifest</b>, pick your workspace, and paste the template (the copy button below). Leave the app private: Slack refuses this connection for apps shared outside your workspace.</p>
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <a class="openlink" id="skCreate" href="https://api.slack.com/apps?new_app=1" target="_blank" rel="noopener">Create the app in Slack</a>
+              <button class="act" type="button" id="skCopy">Copy the template</button>
+              <label class="check" style="margin:0"><input type="checkbox" data-tick="1"><span>Done</span></label>
+            </div>
+            <p class="hint" id="skCopyNote" style="margin:8px 0 0"></p>
+          </div>
+        </details>
+        <details class="secfold" data-fold="2" style="margin-top:10px">
+          <summary>Step 2: Install it<span class="sum2">One button in Slack, then copy one token</span></summary>
+          <div class="fbody">
+            <p class="hint" style="margin:6px 0 10px" id="skInstallHint">In your new app's settings, open <b>OAuth &amp; Permissions</b>, press the install button for your workspace, then <b>Allow</b>. The same page then shows a <b>User OAuth Token</b> that starts <code>xoxp-</code>. Copy that one (not the Bot token, which starts <code>xoxb-</code>). If your workspace needs an admin to approve apps, Slack says so here and sends them the request; this waits until they do.</p>
+            <label class="check" style="margin:0"><input type="checkbox" data-tick="2"><span>Done, I have the token</span></label>
+          </div>
+        </details>
+        <details class="secfold" data-fold="3" style="margin-top:10px">
+          <summary>Step 3: Paste the token<span class="sum2">Saved on your mineral, then tested from it</span></summary>
+          <div class="fbody">
+            <div class="hostbox">
+              <input id="skToken" type="password" autocomplete="off" spellcheck="false" placeholder="xoxp-…" style="flex:1;min-width:0;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <button class="act" type="button" id="skSave">Connect Slack</button>
+            </div>
+            <p class="hint" style="margin:8px 0 0">Your assistant acts as you in Slack: it can search and read what you can see, and it can post as you. If you want a draft to approve before anything goes out, tell it so once and it will remember.</p>
+          </div>
+        </details>
+        <div data-done style="display:none;margin-top:12px"></div>
+        <div class="notice" id="skNotice" style="display:none"></div>
+      </div>
+
+      <div class="guidecard" id="wpWizard" style="margin-top:14px;display:none" data-guided="wordpress">
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <p class="gtitle" style="margin:0">WordPress and WooCommerce, with an app password</p>
+          <button class="connfix" type="button" data-guided-close style="margin-left:auto">Close</button>
+        </div>
+        <p class="hint" style="margin:6px 0 12px">Your assistant signs in to your site as a user you make for it, with an application password: a separate password WordPress lets you revoke at any time without touching your own. It needs a site on https, with permalinks set to anything but Plain. For the shop tools (orders and products), WooCommerce 10.9 or newer. About ten minutes.</p>
+        <div class="fsteps" data-ladder style="margin:0 0 12px">
+          <span class="fstep" data-step="1">Switch it on</span>
+          <span class="fstep" data-step="2">Make a user</span>
+          <span class="fstep" data-step="3">App password</span>
+          <span class="fstep" data-step="4">Connect</span>
+        </div>
+        <div style="margin:0 0 12px">
+          <p class="hint" style="margin:0 0 6px">Your site's address. The buttons below open the right page on it.</p>
+          <input id="wpSite" type="url" autocomplete="off" spellcheck="false" placeholder="https://yourshop.com" style="width:100%;max-width:340px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+        </div>
+        <details class="secfold" data-fold="1">
+          <summary>Step 1: Switch on MCP on your site<span class="sum2">One setting in WooCommerce, or one plugin</span></summary>
+          <div class="fbody">
+            <p class="hint" style="margin:6px 0 10px" id="wpFeatureHint"><b>With WooCommerce:</b> open its features page, tick <b>WooCommerce MCP</b> (WooCommerce lists it with its experimental features), and press <b>Save changes</b>. <b>Without WooCommerce:</b> download the <b>MCP Adapter</b> plugin from WordPress's own GitHub, then upload and activate it. On a site without a shop your assistant can only do what your plugins choose to offer it, which may be very little.</p>
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <a class="openlink" data-wp-link="/wp-admin/admin.php?page=wc-settings&amp;tab=advanced&amp;section=features" href="#" target="_blank" rel="noopener">Open WooCommerce features</a>
+              <a class="openlink" href="https://github.com/WordPress/mcp-adapter/releases/latest/download/mcp-adapter.zip" target="_blank" rel="noopener">Download MCP Adapter</a>
+              <a class="openlink" data-wp-link="/wp-admin/plugin-install.php?tab=upload" href="#" target="_blank" rel="noopener">Upload a plugin</a>
+              <label class="check" style="margin:0"><input type="checkbox" data-tick="1"><span>Done</span></label>
+            </div>
+          </div>
+        </details>
+        <details class="secfold" data-fold="2" style="margin-top:10px">
+          <summary>Step 2: Make a user for your assistant<span class="sum2">So it never signs in as you</span></summary>
+          <div class="fbody">
+            <p class="hint" style="margin:6px 0 10px">Add a new user called something like <b>assistant</b>. Give it the <b>Shop manager</b> role if you run WooCommerce: it can manage products and orders (refunds and customer details included), and not your site's settings or other users. Use <b>Editor</b> for a site without a shop. Give it an email address you own.</p>
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <a class="openlink" data-wp-link="/wp-admin/user-new.php" href="#" target="_blank" rel="noopener">Add a user</a>
+              <label class="check" style="margin:0"><input type="checkbox" data-tick="2"><span>Done</span></label>
+            </div>
+          </div>
+        </details>
+        <details class="secfold" data-fold="3" style="margin-top:10px">
+          <summary>Step 3: Make an application password<span class="sum2">For that user, not for you</span></summary>
+          <div class="fbody">
+            <p class="hint" style="margin:6px 0 10px">Open <b>Users</b>, click the user you just made, and scroll to <b>Application Passwords</b>. Type <b>Crads</b> under <b>New Application Password Name</b> and press <b>Add Application Password</b>. WordPress shows the password once, in groups of four letters: copy it all, spaces included. If the section is missing, a security plugin may have switched it off (Wordfence does by default); the WordPress walkthrough in the docs shows where to turn it back on.</p>
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <a class="openlink" data-wp-link="/wp-admin/users.php" href="#" target="_blank" rel="noopener">Open your users</a>
+              <label class="check" style="margin:0"><input type="checkbox" data-tick="3"><span>Done, I have the password</span></label>
+            </div>
+          </div>
+        </details>
+        <details class="secfold" data-fold="4" style="margin-top:10px">
+          <summary>Step 4: Connect<span class="sum2">Saved on your mineral, then tested from it</span></summary>
+          <div class="fbody">
+            <div class="hostbox" style="flex-wrap:wrap;gap:8px">
+              <input id="wpUser" autocomplete="off" spellcheck="false" placeholder="username, e.g. assistant" style="width:190px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <input id="wpPass" type="password" autocomplete="off" spellcheck="false" placeholder="abcd efgh ijkl mnop qrst uvwx" style="flex:1;min-width:200px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <button class="act" type="button" id="wpSave">Connect WordPress</button>
+            </div>
+          </div>
+        </details>
+        <div data-done style="display:none;margin-top:12px"></div>
+        <div class="notice" id="wpNotice" style="display:none"></div>
+      </div>
+
+      <!-- Services whose official server only lets CLAUDE'S OWN connector sign
+           in (catalogue auth 'account': Shopify, Xero). The mineral can hold
+           nothing for these, so this card is a guide, not a wizard: where to
+           connect it, and plainly what it cannot do from there. -->
+      <div class="guidecard" id="acWizard" style="margin-top:14px;display:none" data-guided="account">
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <p class="gtitle" style="margin:0"><span id="acName">This service</span>, through your Claude account</p>
+          <button class="connfix" type="button" data-guided-close style="margin-left:auto">Close</button>
+        </div>
+        <p class="hint" style="margin:6px 0 10px" id="acWhy"></p>
+        <p class="hint" style="margin:0 0 6px"><b>1.</b> Open your Claude connector settings.</p>
+        <a class="openlink" href="https://claude.ai/customize/connectors" target="_blank" rel="noopener">Open Claude connectors</a>
+        <p class="hint" style="margin:12px 0 6px" id="acStep2"></p>
+        <p class="hint" style="margin:12px 0 0"><b>3.</b> That's it. Ask your assistant about it in a chat and it can answer straight away.</p>
+        <p class="hint" style="margin:12px 0 0" id="acLimit"></p>
+      </div>
+
       <div id="mcpBrowse" class="guidecard" style="margin-top:14px">
         <p class="gtitle">Add a connection<span class="sum2" id="mcpDirCount"></span></p>
         <div class="mcp-filter">
@@ -4282,6 +4414,9 @@
   }
 
   function mcpDirConnect(entry, btn){
+    // guided entries open their own card (2026-10-02): a wizard for Slack and
+    // WordPress, a guide for the Claude-account-only ones. Never a probe.
+    if (entry.guided) { guidedOpen(entry); return; }
     if (btn) btn.disabled = true;
     // the box owns the write; if we cannot reach it, offering to connect is a lie
     // (spec § Failure honesty). loadMcp sets mcpBoxOk when mcp-status answers.
@@ -4329,13 +4464,207 @@
       }).catch(function(){ done(); notice('mcpNotice', entry.label + ' did not answer when we checked, so we could not tell how it signs in. You can still try it from "Connect something else" below.'); });
   }
 
+  // ---- Guided connections (2026-10-02) ------------------------------------
+  // Slack and WordPress are token connections a member has to make by hand on
+  // the other side; Shopify and Xero only connect through Claude's own
+  // connector. Each opens its own card (markup above #mcpBrowse). The two
+  // wizards save through mcp-add-custom and then ask the box to call the
+  // server (mcp-check, contract 4); a failed check removes the saved entry, so
+  // a wrong paste leaves nothing behind and the member simply tries again.
+  var GUIDED_CARDS = { slack: 'skWizard', wordpress: 'wpWizard', account: 'acWizard' };
+  // What the account guide says per service. Facts, verified 2026-10-02:
+  // Shopify's sign-in accepts only claude.ai / chatgpt.com redirects; Xero's
+  // hosted server refuses third-party tokens and its Claude connector is
+  // read-only.
+  var ACCOUNT_GUIDE = {
+    shopify: {
+      why: "Shopify only lets Claude's own connector sign in to a store, so your mineral cannot hold this connection itself. You can still use Shopify with your assistant in your chats, connected through your Claude account.",
+      step2: '<b>2.</b> Search for <b>Shopify</b>, press <b>Connect</b>, sign in to Shopify and pick your store. When Shopify asks what Claude may do, start with read-only: you can widen it later.',
+      limit: 'What it cannot do: your scheduled jobs and Telegram run on your mineral, and they cannot see a Claude account connector. Ask about your store in a chat, not in a morning job.'
+    },
+    xero: {
+      why: "Xero's own connection for assistants only accepts Claude's built-in connector at the moment, so your mineral cannot hold this connection itself. Through your Claude account it works today, read-only: your assistant can look at invoices, contacts and reports, and change nothing.",
+      step2: '<b>2.</b> Search for <b>Xero</b>, press <b>Connect</b>, sign in with your normal Xero login and choose the organisation.',
+      limit: 'What it cannot do: change anything in Xero, or run in your scheduled jobs and Telegram, which live on your mineral and cannot see a Claude account connector.'
+    }
+  };
+  // The Slack app template. user scopes only: the token is a USER token, so
+  // the assistant sees what the member sees and nothing more.
+  var SLACK_MANIFEST = {
+    display_information: { name: 'Crads assistant', description: 'My assistant, acting as me in this workspace.' },
+    // Slack's user sign-in fails for an app with no bot user, even one that
+    // only ever uses its user token; the bot never posts
+    features: { bot_user: { display_name: 'Crads assistant', always_online: false } },
+    oauth_config: { scopes: { user: [
+      'search:read.public', 'search:read.private', 'search:read.mpim', 'search:read.im',
+      'search:read.files', 'search:read.users', 'files:read',
+      'channels:history', 'groups:history', 'mpim:history', 'im:history',
+      'channels:read', 'groups:read', 'im:read', 'mpim:read',
+      'chat:write', 'canvases:read', 'canvases:write', 'users:read', 'users:read.email'
+    ] } },
+    // is_mcp_enabled is the switch Slack's MCP server checks ("App is not
+    // enabled for Slack MCP server access" without it); rotation stays OFF so
+    // the pasted token does not die in twelve hours
+    settings: { is_mcp_enabled: true, org_deploy_enabled: false, socket_mode_enabled: false, token_rotation_enabled: false }
+  };
+  function guidedCard(kind){ return $(GUIDED_CARDS[kind]); }
+  function guidedSetStep(card, n){
+    Array.prototype.forEach.call(card.querySelectorAll('[data-ladder] .fstep'), function(el){
+      // n past the last rung (the success path passes 5) marks every rung done
+      var i = parseInt(el.getAttribute('data-step'), 10);
+      el.classList.remove('done', 'now');
+      if (i < n) el.classList.add('done');
+      else if (i === n) el.classList.add('now');
+    });
+    Array.prototype.forEach.call(card.querySelectorAll('[data-fold]'), function(f){ f.open = parseInt(f.getAttribute('data-fold'), 10) === n; });
+  }
+  function guidedOpen(entry){
+    var kind = entry.guided;
+    Object.keys(GUIDED_CARDS).forEach(function(k){ var c = $(GUIDED_CARDS[k]); if (c) c.style.display = 'none'; });
+    var card = guidedCard(kind);
+    if (!card) return;
+    if (kind === 'account') {
+      var g = ACCOUNT_GUIDE[entry.key] || {};
+      $('acName').textContent = entry.label;
+      $('acWhy').textContent = g.why || '';
+      $('acStep2').innerHTML = g.step2 || '';
+      $('acLimit').textContent = g.limit || '';
+    } else {
+      notice(kind === 'slack' ? 'skNotice' : 'wpNotice', '');
+      card.querySelector('[data-done]').style.display = 'none';
+      Array.prototype.forEach.call(card.querySelectorAll('[data-tick]'), function(b){ b.checked = false; });
+      // contract 4 (scheme basic + check) is what these wizards stand on; a
+      // behind box hears the same one-click fix every other mcp verb gives
+      if (mcpContract < 4) { notice(kind === 'slack' ? 'skNotice' : 'wpNotice', MCP_TOO_OLD); }
+      guidedSetStep(card, 1);
+    }
+    card.style.display = 'block';
+    try { card.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* on screen anyway */ }
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-guided-close]'), function(b){
+    b.onclick = function(){ b.closest('[data-guided]').style.display = 'none'; };
+  });
+  // ticking a step's Done moves the ladder on to the next one
+  ['skWizard', 'wpWizard'].forEach(function(id){
+    var card = $(id);
+    card.addEventListener('change', function(e){
+      var t = e.target && e.target.getAttribute && e.target.getAttribute('data-tick');
+      if (t && e.target.checked) guidedSetStep(card, parseInt(t, 10) + 1);
+    });
+  });
+  // Slack: the template rides the create link (Slack's documented manifest
+  // prefill) and the copy button, for the day the prefill is ignored
+  (function(){
+    var json = JSON.stringify(SLACK_MANIFEST);
+    $('skCreate').href = 'https://api.slack.com/apps?new_app=1&manifest_json=' + encodeURIComponent(json);
+    $('skCopy').onclick = function(){
+      var done = function(){ $('skCopyNote').textContent = 'Copied. Paste it where Slack asks for the manifest (JSON tab).'; };
+      try { navigator.clipboard.writeText(JSON.stringify(SLACK_MANIFEST, null, 2)).then(done, function(){ $('skCopyNote').textContent = 'Your browser blocked the copy. The template is in the Slack walkthrough in the docs.'; }); }
+      catch (e) { $('skCopyNote').textContent = 'Your browser blocked the copy. The template is in the Slack walkthrough in the docs.'; }
+    };
+  })();
+  // WordPress: every outside link is built from the site address the member typed
+  function wpOrigin(){
+    var v = ($('wpSite').value || '').trim();
+    if (!v) return '';
+    if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+    try { var u = new URL(v); return u.protocol === 'https:' ? u.origin : ''; } catch (e) { return ''; }
+  }
+  function wpLinks(){
+    var o = wpOrigin();
+    Array.prototype.forEach.call(document.querySelectorAll('#wpWizard [data-wp-link]'), function(a){
+      a.href = o ? o + a.getAttribute('data-wp-link') : '#';
+      a.style.opacity = o ? '' : '.5';
+    });
+  }
+  $('wpSite').addEventListener('input', wpLinks);
+  wpLinks();
+  Array.prototype.forEach.call(document.querySelectorAll('#wpWizard [data-wp-link]'), function(a){
+    a.addEventListener('click', function(e){ if (!wpOrigin()) { e.preventDefault(); notice('wpNotice', 'Type your site address at the top first (it must start https://), so this button can open the right page.'); } });
+  });
+  // What a failed check means, in the member's words. `problem` comes from
+  // engine/comms/mcp-connect.mjs checkServer.
+  function guidedWhy(kind, c){
+    var said = c && c.detail ? ' It said: "' + c.detail + '"' : '';
+    if (!c) return 'Your mineral did not answer the check.';
+    if (kind === 'slack' && /not enabled for slack mcp/i.test(c.detail || '')) return 'Slack says your app is not switched on for assistants. Open the app on api.slack.com, go to Agents & AI Apps, and turn on Model Context Protocol, then press Connect again. (The template does this for you; an app made by hand needs it.)';
+    if (c.problem === 'auth') return kind === 'slack'
+      ? 'Slack turned that token down.' + said + ' Check you copied the User OAuth Token (it starts xoxp-), not the app ID or a signing secret, and that the app is installed to your workspace.'
+      : 'Your site turned down that username and password.' + said + ' Check the username is the new user (not your own), and that you pasted the application password, not the user\'s normal password. If both are right, your host may be stripping the sign-in header: the WordPress walkthrough in the docs has the one-line fix.';
+    if (c.problem === 'missing') return kind === 'slack'
+      ? 'Slack\'s connection for assistants did not answer at its address.'
+      : 'Your site has no MCP connection at that address yet. Check step 1: WooCommerce MCP ticked and saved, or the MCP Adapter plugin active.';
+    if (c.problem === 'unreachable') return kind === 'slack'
+      ? 'Your mineral could not reach Slack just now. Try again in a minute.'
+      : 'Your mineral could not reach ' + wpOrigin() + '. Check the address, and that the site is public on https.';
+    return 'That did not work (' + (c.status || 'no answer') + ').' + said;
+  }
+  function guidedConnect(kind, def, btn){
+    var nid = kind === 'slack' ? 'skNotice' : 'wpNotice', card = guidedCard(kind);
+    var label = kind === 'slack' ? 'Slack' : 'your site';
+    if (!mcpBoxOk) { notice(nid, 'Your mineral did not answer, so nothing can be connected right now.'); return; }
+    if (mcpContract < 4) { notice(nid, MCP_TOO_OLD); return; }
+    btn.disabled = true;
+    notice(nid, 'Saving it on your mineral…');
+    run('mcp-add-custom', { def_b64: b64utf8(JSON.stringify(def)) }).then(function(r){
+      var d = jsonOut(r);
+      if (!d || d.ok === false) { btn.disabled = false; notice(nid, mcpErr(d, r)); return; }
+      notice(nid, 'Saved. Now asking ' + label + ' to answer from your mineral…');
+      return run('mcp-check', { key: def.name }).then(function(r2){
+        var c = jsonOut(r2);
+        if (c && c.ok && c.working) {
+          btn.disabled = false;
+          notice(nid, '');
+          guidedSetStep(card, 5);
+          Array.prototype.forEach.call(card.querySelectorAll('[data-fold]'), function(f){ f.open = false; });
+          var done = card.querySelector('[data-done]');
+          // WordPress reports abilities (what WooCommerce and plugins offer);
+          // a site that offers none is connected but has nothing to give yet
+          var n = typeof c.abilities === 'number' ? c.abilities : c.tools;
+          var what = typeof c.abilities === 'number' ? ' thing' + (n === 1 ? '' : 's') + ' your assistant can do there'
+            : ' tool' + (n === 1 ? '' : 's') + ' your assistant can use';
+          var none = (typeof c.abilities === 'number' && n === 0)
+            ? ' Nothing is on offer yet: switch on WooCommerce MCP (step 1), or add a plugin that shares abilities.' : '';
+          done.innerHTML = '<p class="hint" style="margin:0"><b>Connected.</b> ' + esc(kind === 'slack' ? 'Slack' : 'Your site') + ' answered with '
+            + esc(String(n)) + esc(what) + ', in chats and in scheduled jobs.' + esc(none) + ' It is in Your connections above; Disconnect there removes the credential from your mineral.</p>';
+          done.style.display = 'block';
+          $('skToken').value = ''; $('wpPass').value = '';
+          loadMcp(); loadDashboard(true);
+          return;
+        }
+        // the check failed: take the saved entry back off, so there is never a
+        // row that looks connected and is not
+        return run('mcp-remove', { key: def.name }).then(function(){
+          btn.disabled = false;
+          notice(nid, guidedWhy(kind, c && c.ok ? c : null) + ' Nothing was kept on your mineral, so you can fix it and press Connect again.');
+          loadMcp();
+        });
+      });
+    }, function(){ btn.disabled = false; notice(nid, 'Could not reach your mineral just now.'); });
+  }
+  $('skSave').onclick = function(){
+    var t = ($('skToken').value || '').trim();
+    if (!/^xox[a-z]-/.test(t)) { notice('skNotice', 'That does not look like a Slack token. The User OAuth Token starts xoxp-.'); return; }
+    if (/^xoxb-/.test(t)) { notice('skNotice', 'That is the Bot token (xoxb-). Your assistant needs the User OAuth Token just above it, which starts xoxp-.'); return; }
+    var e = mcpDir.entries.filter(function(x){ return x.key === 'slack'; })[0];
+    guidedConnect('slack', { name: 'slack', url: (e && e.url) || 'https://mcp.slack.com/mcp', token_b64: b64utf8(t) }, $('skSave'));
+  };
+  $('wpSave').onclick = function(){
+    var o = wpOrigin(), u = ($('wpUser').value || '').trim(), pw = ($('wpPass').value || '').trim();
+    if (!o) { notice('wpNotice', 'Type your site address at the top (it must start https://).'); return; }
+    if (!u || !pw) { notice('wpNotice', 'Both the username and the application password are needed.'); return; }
+    if (u.indexOf(':') >= 0) { notice('wpNotice', 'A WordPress username cannot contain a colon. Check you typed the username, not the password.'); return; }
+    guidedConnect('wordpress', { name: 'wordpress', url: o + '/wp-json/mcp/mcp-adapter-default-server', token_b64: b64utf8(u + ':' + pw), scheme: 'basic' }, $('wpSave'));
+  };
+
   // The sign-in-kind pills: same look as the category chips (spec ruling 4),
   // but a separate group with its own toggle-off behaviour: clicking the
   // active one returns the filter to 'all', the way a checkbox would, since
   // there is no "All" pill to click back to (only two real states, plus off).
   var MCP_AUTH_PILLS = [
     { v: 'oauth', label: 'One click' },
-    { v: 'token', label: 'Needs a token' }
+    { v: 'token', label: 'Needs a token' },
+    { v: 'account', label: 'Claude account' }
   ];
 
   function renderMcpBrowse(){
@@ -4398,13 +4727,18 @@
         a += ' data-' + k + '="' + esc(attrs[k] == null ? '' : attrs[k]) + '"';
       }
       var o = opts || {};
-      var kind = o.auth === 'token' ? '<span class="kind">API token</span>' : '';
+      // guided entries say what kind of setup waits behind the button, and the
+      // button says what it does: a wizard is "Set up", an account guide "How to"
+      var kind = o.guided === 'account' ? '<span class="kind">Chats only</span>'
+        : o.guided ? '<span class="kind">Guided</span>'
+        : o.auth === 'token' ? '<span class="kind">API token</span>' : '';
+      var verb = o.guided === 'account' ? 'How to' : o.guided ? 'Set up' : 'Connect';
       return '<div class="mcp-dir-card">' + markSpan(o.markKey || mcpSlug(nm), nm)
         + '<div class="nm">' + esc(nm) + '</div><div class="hint"><span class="t">' + esc(blurb) + '</span>' + kind + '</div>'
-        + '<button class="act mcp-dir-connect"' + a + ' aria-label="Connect ' + esc(nm) + '">Connect</button></div>';
+        + '<button class="act mcp-dir-connect"' + a + ' aria-label="' + verb + ' ' + esc(nm) + '">' + verb + '</button></div>';
     }
     var cards = visible.map(function(e){
-      return mcpDirCard(e.label, e.blurb, { key: e.key }, { markKey: e.boxKey || e.key, auth: e.auth });
+      return mcpDirCard(e.label, e.blurb, { key: e.key }, { markKey: e.boxKey || e.key, auth: e.auth, guided: e.guided });
     });
     // The shortlist sits straight under the "Add a connection" subhead (the
     // count is its heading); the registry tier keeps its own named heading so

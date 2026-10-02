@@ -1301,6 +1301,19 @@ export const MEMBER_VERBS = {
       };
     },
   },
+  // Contract 4 (2026-10-02): ask a SAVED connection for its tool list, from the
+  // box, with the definition jobs will load. Read-only: the guided wizards run
+  // it straight after saving so a bad credential is caught on the page. A box
+  // without the verb answers the script's own unknown-command error, which the
+  // page reads the same as box-too-old because it gates on contract 4 first.
+  'mcp-check': {
+    mutating: false,
+    build: (a = {}) => ({
+      command: `[ -f /app/engine/comms/mcp-connect.mjs ] `
+        + `&& node /app/engine/comms/mcp-connect.mjs /state check ${mcpKeyArg(a.key)} `
+        + `|| echo '{"ok":false,"error":"box-too-old"}'`,
+    }),
+  },
   // A chats-only Claude Code connection (local/user scope, which headless runs
   // never load) moves into project scope, where jobs DO load it. One click on
   // the page; the existing sign-in survives the move.

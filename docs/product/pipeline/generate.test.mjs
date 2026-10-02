@@ -93,3 +93,20 @@ test('the connections catalogue is read whole, featured entries marked', () => {
   assert.deepEqual(missing, [], 'catalogue entries missing from the generated page');
   assert.ok(page.content.includes('Featured'), 'featured connectors are distinguished');
 });
+
+// 2026-10-02: guided wizards and Claude-account-only entries each link to their
+// own walkthrough, and the headline count is what the MINERAL can connect, so
+// an account-only entry never inflates it.
+test('guided and account entries link their walkthroughs; the headline counts the mineral only', () => {
+  const page = generate().find((p) => p.file === 'connections.md');
+  for (const c of CATALOGUE.filter((x) => x.guided)) {
+    const row = page.content.split('\n').find((l) => l.startsWith(`| **${c.label}** |`));
+    assert.ok(row, `${c.label} has a row`);
+    assert.match(row, /\]\(\/docs\/connect-[a-z-]+\)/, `${c.label}: its sign-in cell links a walkthrough`);
+  }
+  const mineral = CATALOGUE.filter((c) => c.auth !== 'account').length;
+  assert.ok(page.content.includes(`${mineral} services your mineral can connect to`), 'the headline counts the mineral only');
+  for (const c of CATALOGUE.filter((x) => x.auth === 'account')) {
+    assert.match(page.content.split('\n').find((l) => l.startsWith(`| **${c.label}** |`)), /Chats only/, `${c.label} says chats only`);
+  }
+});

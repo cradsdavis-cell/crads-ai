@@ -1,4 +1,5 @@
 import { catalogue as provisionCatalogue, BUILD_STEPS, publicProviders } from './provision-fixture.mjs';
+import { connectionLabel } from '../../engine/lib/connection-labels.mjs';
 // fixtures.mjs: realistic demo data for the UI-overhaul dev harness.
 //
 // One fictional org ("driftwood-surf") with a fleet of members, operators,
@@ -893,7 +894,7 @@ const MCP_ON = {
   canva: { authorised: true, auth: 'oauth', renews: true },
 };
 const MCP_CHAT = { stripe: true };   // a connection made inside Claude Code (chats-only)
-const MCP_CONTRACT = 3;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
+const MCP_CONTRACT = 4;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
                           // (2 = the byo google row, 2026-08-17; 3 = several
                           // google rows, one per account, 2026-09-14. Bumped
                           // in lockstep with the engine. rekey_due_at left the
@@ -1006,7 +1007,7 @@ function mcpRows() {
   });
   for (const [key, st] of Object.entries(MCP_ON)) {
     if (MCP_FEATURED[key]) continue;
-    rows.push({ key, label: key, blurb: 'connected by you', auth: st.auth, state: st.authorised ? 'on' : 'needs-auth',
+    rows.push({ key, label: connectionLabel(key), blurb: 'connected by you', auth: st.auth, state: st.authorised ? 'on' : 'needs-auth',
       status: st.authorised ? 'working, including in scheduled jobs' : 'added, waiting for you to sign in once',
       configured: true, authorised: st.authorised, renews: st.renews, mine: true });
   }
@@ -1493,7 +1494,21 @@ export function runVerb(surface, verb, args, state, opts) {
     case 'mcp-add-custom': {
       const def = JSON.parse(Buffer.from(args.def_b64, 'base64').toString('utf8'));
       MCP_ON[def.name] = def.token_b64 ? { authorised: true, auth: 'token', renews: true } : { authorised: false, auth: 'oauth', renews: null };
+      if (def.token_b64 && /:wrong$/.test(Buffer.from(def.token_b64, 'base64').toString('utf8'))) MCP_ON[def.name].wrong = true;
       return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: def.name, action: 'add', auth: def.token_b64 ? 'token' : 'oauth', services: mcpRows() })]);
+    }
+    // contract 4: the guided wizards' after-save check. The fixture answers
+    // working for any saved row, except a WordPress row whose password is the
+    // literal "wrong", which answers the 401 a real site gives, so the wizard's
+    // failure path can be driven here too.
+    case 'mcp-check': {
+      const on = MCP_ON[args.key];
+      if (!on) return ok([JSON.stringify({ ok: false, error: `"${args.key}" is not a connection on this box` })]);
+      if (on.wrong) return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: args.key, working: false, problem: 'auth', status: 401, detail: 'Sorry, you are not allowed to do that.' })]);
+      // the shapes the real check returns: Slack counts tools; the WordPress
+      // adapter has three doorway tools and reports its abilities (WooCommerce: 7)
+      if (args.key === 'wordpress') return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: args.key, working: true, server: 'MCP Adapter Default Server', tools: 3, abilities: 7 })]);
+      return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: args.key, working: true, server: args.key, tools: { slack: 12 }[args.key] || 5 })]);
     }
     case 'mcp-remove': {
       delete MCP_ON[args.key];

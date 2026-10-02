@@ -1,6 +1,6 @@
 ---
 title: What you can connect
-summary: The 63 services in the curated connections catalogue, and how each one signs in.
+summary: The 65 services your mineral can connect to, the 2 that only connect through your Claude account, and how each one signs in.
 audience: public
 access: public
 mode: reference
@@ -10,13 +10,16 @@ order: 20
 
 > Generated from the code by docs/product/pipeline/generate.mjs. Do not edit by hand: run the generator.
 
-63 services your mineral can connect to without you finding an endpoint
+65 services your mineral can connect to without you finding an endpoint
 yourself. 6 of them ship inside the box as featured connectors; the rest
-connect by URL from the same page.
+connect by URL from the same page. 2 more (Shopify and Xero) are listed so you can find them, but they only connect through your Claude account, so they work in your chats and never in scheduled jobs.
 
 The sign-in column says how you authorise it. **One click** means the service supports
 dynamic registration, so you sign in and it is done. **Token** means you paste an API
-token instead, because that endpoint advertises no one-click flow.
+token instead, because that endpoint advertises no one-click flow. **Guided** means the
+Connections page walks you through making your own key, step by step, and its link is
+the same walkthrough in writing. **Claude account** means the service only lets
+Claude's own connector sign in.
 
 **Google is not in this table, and that is not an omission of the product.** Gmail,
 Google Calendar and Google Drive connect through their own wizard on the Connections
@@ -81,6 +84,7 @@ gets probed.
 | **Pipedrive** | CRM deals, people and pipelines | One click | By URL |
 | **HubSpot** | contacts, deals and companies | Token | By URL |
 | **Zoom** | meetings and recordings | Token | By URL |
+| **Slack** | search, read and post in your workspace | [Guided](/docs/connect-slack) | By URL |
 
 ## Data
 
@@ -112,6 +116,8 @@ gets probed.
 | **Square** | payments and point of sale | One click | By URL |
 | **Plaid** | bank connections and items | One click | By URL |
 | **Polar** | products and subscriptions | One click | By URL |
+| **Shopify** | your store, in your chats with Claude | [Claude account](/docs/connect-shopify-and-xero) | Chats only |
+| **Xero** | read-only accounts, in your chats with Claude | [Claude account](/docs/connect-shopify-and-xero) | Chats only |
 
 ## Web
 
@@ -126,6 +132,7 @@ gets probed.
 | **Sanity** | content and datasets | One click | By URL |
 | **Contentful** | entries and content types | One click | By URL |
 | **Render** | services and deploys | Token | By URL |
+| **WordPress** | your site, and WooCommerce orders and products | [Guided](/docs/connect-wordpress) | By URL |
 
 ## AI
 

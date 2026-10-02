@@ -19,6 +19,19 @@
 // an API token instead (the by-URL form's token field). This field is a filter
 // hint for the page (see member.html's sign-in-kind pills); the probe at
 // connect time remains the source of truth for which control actually shows.
+//
+// guided (2026-10-02, Sam's ruling after a pebble's connector list): a service
+// whose setup is real work on the member's side gets a WIZARD on the page, the
+// way Telegram and Google do, instead of a bare probe. 'slack' and 'wordpress'
+// are token connections walked step by step (the member makes their own Slack
+// app; a WordPress application password); their url is what the wizard saves,
+// and for wordpress it is a TEMPLATE the member's site address completes.
+// auth 'account' is the third kind: a service whose official server only lets
+// Claude's own connector sign in (Shopify: its sign-in rejects every redirect
+// but claude.ai and chatgpt.com; Xero: its hosted server refuses third-party
+// tokens, XeroAPI/xero-mcp-server#212). Those cards open a guide to the
+// member's Claude account settings and say plainly that scheduled jobs cannot
+// see them. Nothing is written to the box for an 'account' entry.
 
 export const CATEGORIES = ['Design', 'Dev', 'Docs', 'Comms', 'Data', 'Meetings', 'Payments', 'Web', 'AI'];
 
@@ -93,6 +106,12 @@ export const CATALOGUE = [
   { key: 'elevenlabs', label: 'ElevenLabs', category: 'AI',    url: 'https://api.elevenlabs.io/mcp',     blurb: 'text to speech and voices', auth: 'token' },
   { key: 'box',        label: 'Box',        category: 'Docs',  url: 'https://mcp.box.com/',              blurb: 'files and folders', auth: 'token' },
   { key: 'mongodb',    label: 'MongoDB',    category: 'Data',  url: 'https://mcp.mongodb.com/mcp',       blurb: 'collections and queries', auth: 'token' },
+  // guided connections (2026-10-02): a wizard on the page, not a probe
+  { key: 'slack',     label: 'Slack',     category: 'Comms', url: 'https://mcp.slack.com/mcp', blurb: 'search, read and post in your workspace', auth: 'token', guided: 'slack' },
+  { key: 'wordpress', label: 'WordPress', category: 'Web',   url: 'https://your-site/wp-json/mcp/mcp-adapter-default-server', blurb: 'your site, and WooCommerce orders and products', auth: 'token', guided: 'wordpress' },
+  // connected through the member's Claude account only (see 'account' above)
+  { key: 'shopify',   label: 'Shopify',   category: 'Payments', url: 'https://setup.shopify.com/mcp', blurb: 'your store, in your chats with Claude', auth: 'account', guided: 'account' },
+  { key: 'xero',      label: 'Xero',      category: 'Payments', url: 'https://mcp.xero.com/mcp',      blurb: 'read-only accounts, in your chats with Claude', auth: 'account', guided: 'account' },
   // AI note-takers (2026-08-24, asked for by pebbles and rocks). Every one of
   // these was probed the way the rest of the catalogue was, and then one step
   // further: registration was actually RUN against each endpoint, not merely

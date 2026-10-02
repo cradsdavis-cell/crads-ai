@@ -599,3 +599,132 @@ test('google-<slug> names are fenced like google: no plain add, no custom shadow
   assert.equal(run(d, ['add', 'google-work']).ok, false);
   assert.equal(run(d, 'add-custom', b64({ name: 'google-work', url: 'https://x.example/mcp' })).ok, false);
 });
+
+// ---- contract 4: the guided connectors (2026-10-02) ------------------------
+
+test('add-custom scheme basic: a WordPress application password rides HTTP Basic, never echoed', () => {
+  const d = box();
+  const PASS = 'abcd EFGH ijkl MNOP qrst UVWX';
+  const raw = execFileSync('node', [SCRIPT, d, 'add-custom'], { encoding: 'utf8', input: b64({
+    name: 'wordpress', url: 'https://shop.example/wp-json/mcp/mcp-adapter-default-server',
+    token_b64: Buffer.from(`crads-assistant:${PASS}`).toString('base64'), scheme: 'basic' }) });
+  const r = JSON.parse(raw);
+  assert.equal(r.ok, true);
+  assert.ok(r.contract >= 4, 'contract 4 announces scheme:basic + check');
+  assert.equal(svc(r, 'wordpress').auth, 'token', 'Basic is a credential header too: no sign-in step');
+  assert.equal(svc(r, 'wordpress').state, 'on');
+  assert.ok(!raw.includes(PASS), 'the password must not come back out through the verb');
+  const h = JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers.wordpress.headers.Authorization;
+  assert.equal(h, 'Basic ' + Buffer.from(`crads-assistant:${PASS}`).toString('base64'));
+});
+
+test('add-custom scheme basic refuses a credential with no username, and unknown schemes', () => {
+  const d = box();
+  const tok = (s) => Buffer.from(s).toString('base64');
+  assert.equal(run(d, 'add-custom', b64({ name: 'wp', url: 'https://a.example/mcp', token_b64: tok('justapassword'), scheme: 'basic' })).ok, false);
+  assert.equal(run(d, 'add-custom', b64({ name: 'wp', url: 'https://a.example/mcp', token_b64: tok(':pw'), scheme: 'basic' })).ok, false);
+  assert.equal(run(d, 'add-custom', b64({ name: 'wp', url: 'https://a.example/mcp', token_b64: tok('t'), scheme: 'digest' })).ok, false);
+  assert.ok(!existsSync(path.join(d, '.mcp.json')) || !JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers?.wp, 'a refusal writes nothing');
+});
+
+// check talks HTTP, so the fake server must keep answering while the script
+// runs: execFile (async), never execFileSync, or the test's own event loop is
+// blocked and every check reads as unreachable.
+import { createServer } from 'node:http';
+import { execFile } from 'node:child_process';
+const runAsync = (d, args) => new Promise((resolve, reject) => {
+  execFile('node', [SCRIPT, d, ...args], { encoding: 'utf8' }, (e, so) => (e ? reject(e) : resolve(JSON.parse(so))));
+});
+async function fakeMcp(handler) {
+  const seen = [];
+  const srv = createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => { const m = body ? JSON.parse(body) : {}; seen.push({ auth: req.headers.authorization, sid: req.headers['mcp-session-id'], method: m.method }); handler(m, req, res); });
+  });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  return { url: `http://127.0.0.1:${srv.address().port}/mcp`, seen, close: () => srv.close() };
+}
+const seed = (d, name, def) => writeFileSync(path.join(d, '.mcp.json'), json({ mcpServers: { [name]: def } }));
+
+test('check: a working server reports its name and tool count, sending the saved header and session id', async () => {
+  const f = await fakeMcp((m, req, res) => {
+    if (m.method === 'initialize') { res.writeHead(200, { 'content-type': 'application/json', 'mcp-session-id': 'S1' }); res.end(json({ jsonrpc: '2.0', id: 1, result: { serverInfo: { name: 'Slack' } } })); return; }
+    if (m.method === 'tools/list') {
+      // the SSE shape of the same reply: Slack and the WordPress adapter both stream
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      res.end(`event: message\ndata: ${json({ jsonrpc: '2.0', id: 2, result: { tools: [{ name: 'a' }, { name: 'b' }, { name: 'c' }] } })}\n\n`);
+      return;
+    }
+    res.writeHead(202); res.end();
+  });
+  try {
+    const d = box();
+    seed(d, 'slack', { type: 'http', url: f.url, headers: { Authorization: 'Bearer xoxp-1' } });
+    const r = await runAsync(d, ['check', 'slack']);
+    assert.equal(r.ok, true);
+    assert.equal(r.working, true);
+    assert.equal(r.server, 'Slack');
+    assert.equal(r.tools, 3);
+    assert.ok(f.seen.every((s) => s.auth === 'Bearer xoxp-1'), 'every call carries the saved credential');
+    assert.equal(f.seen.find((s) => s.method === 'tools/list').sid, 'S1', 'the session id from initialize is sent back');
+    assert.ok(!JSON.stringify(r).includes('xoxp-1'), 'the credential never comes back out');
+  } finally { f.close(); }
+});
+
+test('check: 401 is an auth problem, 404 is a missing endpoint, a dead port is unreachable', async () => {
+  const f401 = await fakeMcp((m, req, res) => { res.writeHead(401, { 'content-type': 'application/json' }); res.end(json({ code: 'rest_not_logged_in', message: 'You are not currently logged in.' })); });
+  const f404 = await fakeMcp((m, req, res) => { res.writeHead(404, { 'content-type': 'application/json' }); res.end(json({ code: 'rest_no_route' })); });
+  try {
+    const d = box();
+    seed(d, 'wordpress', { type: 'http', url: f401.url, headers: { Authorization: 'Basic eDp5' } });
+    const a = await runAsync(d, ['check', 'wordpress']);
+    assert.equal(a.working, false); assert.equal(a.problem, 'auth'); assert.equal(a.status, 401);
+    assert.match(a.detail, /not currently logged in/, 'the server\'s own words, so the page can show them');
+    seed(d, 'wordpress', { type: 'http', url: f404.url, headers: { Authorization: 'Basic eDp5' } });
+    const b = await runAsync(d, ['check', 'wordpress']);
+    assert.equal(b.problem, 'missing');
+  } finally { f401.close(); f404.close(); }
+  const d2 = box();
+  seed(d2, 'gone', { type: 'http', url: 'http://127.0.0.1:9/mcp' });
+  const c = await runAsync(d2, ['check', 'gone']);
+  assert.equal(c.working, false); assert.equal(c.problem, 'unreachable');
+});
+
+test('check refuses a name that is not on the box, and says sse servers are not checked', async () => {
+  const d = box();
+  assert.equal((await runAsync(d, ['check', 'nothing'])).ok, false);
+  seed(d, 'old', { type: 'sse', url: 'https://x.example/sse' });
+  const r = await runAsync(d, ['check', 'old']);
+  assert.equal(r.working, false); assert.equal(r.problem, 'sse');
+});
+
+// Shapes taken from a live WordPress 7.1.2 + WooCommerce 11.1.2 site
+// (2026-10-02): three doorway tools, seven abilities behind the discover one,
+// and a JSON error body whose message is what the member should read.
+test('check: the WordPress adapter reports its abilities, and a JSON error reads as its message', async () => {
+  const f = await fakeMcp((m, req, res) => {
+    if (req.headers.authorization !== 'Basic ok') { res.writeHead(401, { 'content-type': 'application/json' }); res.end(json({ code: 'incorrect_password', message: 'The provided password is an invalid application password.', data: { status: 401 } })); return; }
+    const reply = (result) => { res.writeHead(200, { 'content-type': 'application/json; charset=UTF-8', 'mcp-session-id': 'W' }); res.end(json({ jsonrpc: '2.0', id: m.id, result })); };
+    if (m.method === 'initialize') return reply({ serverInfo: { name: 'MCP Adapter Default Server' } });
+    if (m.method === 'tools/list') return reply({ tools: [{ name: 'mcp-adapter-discover-abilities' }, { name: 'mcp-adapter-get-ability-info' }, { name: 'mcp-adapter-execute-ability' }] });
+    if (m.method === 'tools/call' && m.params.name === 'mcp-adapter-discover-abilities') {
+      const abilities = ['orders-query', 'order-add-note', 'order-update-status', 'products-query', 'product-create', 'product-delete', 'product-update'].map((n) => ({ name: 'woocommerce/' + n }));
+      return reply({ content: [{ type: 'text', text: json({ abilities }) }], structuredContent: { abilities } });
+    }
+    res.writeHead(202); res.end();
+  });
+  try {
+    const d = box();
+    seed(d, 'wordpress', { type: 'http', url: f.url, headers: { Authorization: 'Basic ok' } });
+    const r = await runAsync(d, ['check', 'wordpress']);
+    assert.equal(r.working, true);
+    assert.equal(r.tools, 3, 'the doorway count is still reported');
+    assert.equal(r.abilities, 7, 'and the abilities behind it are what the page shows');
+    assert.ok(f.seen.some((s) => s.method === 'tools/call'), 'the discover doorway was asked');
+    seed(d, 'wordpress', { type: 'http', url: f.url, headers: { Authorization: 'Basic nope' } });
+    const bad = await runAsync(d, ['check', 'wordpress']);
+    assert.equal(bad.problem, 'auth');
+    assert.equal(bad.detail, 'The provided password is an invalid application password.', 'the site\'s sentence, not its JSON envelope');
+  } finally { f.close(); }
+});

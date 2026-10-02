@@ -7,7 +7,7 @@ mode: reference
 surface: connections
 order: 108
 pins: engine/comms/mcp-connect.mjs, wizard/panel/mcp-catalogue.mjs, wizard/panel/google-connect-routes.mjs
-reviewed: 2026-08-25
+reviewed: 2026-10-02
 ---
 
 *What your assistant can reach.*
@@ -106,6 +106,29 @@ signs in", and leaves the by-URL form as the way to try anyway.
 means either a company sits in the middle of it, or you make your own key. Crads AI
 chose the second, which costs you ten minutes once and means
 [your Google key never touches our infrastructure](/docs/connect-google).
+
+**Some services are guided.** Their cards carry a **Guided** tag and the button
+says **Set up** instead of Connect. Pressing it opens a step-by-step card, the
+same shape as Google's: each step has a button that opens the exact page you
+need, and a Done box that moves you on. At the end your mineral saves what you
+pasted, then asks the service to answer, from your mineral, the way your
+scheduled jobs will. If the service answers, the card says how many tools it
+found. If it does not, the card says why in plain words and keeps nothing, so
+you can fix it and try again. Two services work this way today:
+
+- **Slack**, with a private Slack app you make from our template:
+  [connect Slack](/docs/connect-slack).
+- **WordPress**, including WooCommerce, signed in as a user you make for your
+  assistant with an application password:
+  [connect WordPress](/docs/connect-wordpress).
+
+**Two are listed but cannot live on your mineral.** Shopify and Xero only let
+Claude's own connector sign in at the moment. Their cards say **Chats only**,
+the button says **How to**, and it opens the steps for connecting them to your
+Claude account, with the limit stated plainly: they work in your chats, never
+in scheduled jobs. The **Claude account** filter shows just these.
+[Shopify and Xero, through your Claude account](/docs/connect-shopify-and-xero)
+has the detail.
 
 ## Connect something else, by URL
 

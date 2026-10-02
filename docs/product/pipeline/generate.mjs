@@ -222,13 +222,25 @@ function connectionsPage() {
     byCat.get(c.category).push(c);
   }
   const featured = rows.filter((c) => c.boxKey).length;
+  const mineral = rows.filter((c) => c.auth !== 'account');
+  const account = rows.filter((c) => c.auth === 'account');
+  // guided wizards and the account guide each have their own how-to page
+  const GUIDE = { slack: '/docs/connect-slack', wordpress: '/docs/connect-wordpress', account: '/docs/connect-shopify-and-xero' };
+  const signIn = (c) => (c.guided ? `[${c.auth === 'account' ? 'Claude account' : 'Guided'}](${GUIDE[c.guided]})`
+    : c.auth === 'oauth' ? 'One click' : 'Token');
+  const where = (c) => (c.boxKey ? 'Featured' : c.auth === 'account' ? 'Chats only' : 'By URL');
   const body = [`> ${STAMP}`, '',
-    `${rows.length} services your mineral can connect to without you finding an endpoint`,
+    `${mineral.length} services your mineral can connect to without you finding an endpoint`,
     `yourself. ${featured} of them ship inside the box as featured connectors; the rest`,
-    'connect by URL from the same page.', '',
+    'connect by URL from the same page.' + (account.length
+      ? ` ${account.length} more (${account.map((c) => c.label).join(' and ')}) are listed so you can find them, but they only`
+        + ' connect through your Claude account, so they work in your chats and never in scheduled jobs.' : ''), '',
     'The sign-in column says how you authorise it. **One click** means the service supports',
     'dynamic registration, so you sign in and it is done. **Token** means you paste an API',
-    'token instead, because that endpoint advertises no one-click flow.', '',
+    'token instead, because that endpoint advertises no one-click flow. **Guided** means the',
+    'Connections page walks you through making your own key, step by step, and its link is',
+    'the same walkthrough in writing. **Claude account** means the service only lets',
+    "Claude's own connector sign in.", '',
     '**Google is not in this table, and that is not an omission of the product.** Gmail,',
     'Google Calendar and Google Drive connect through their own wizard on the Connections',
     'page, with your own key, and [connecting Google](/docs/connect-google) walks the whole',
@@ -241,7 +253,7 @@ function connectionsPage() {
     body.push(`## ${cat}`, '');
     body.push('| Service | What you get | Sign-in | In the box |', '|---|---|---|---|');
     for (const c of byCat.get(cat)) {
-      body.push(`| **${c.label}** | ${c.blurb} | ${c.auth === 'oauth' ? 'One click' : 'Token'} | ${c.boxKey ? 'Featured' : 'By URL'} |`);
+      body.push(`| **${c.label}** | ${c.blurb} | ${signIn(c)} | ${where(c)} |`);
     }
     body.push('');
   }
@@ -249,7 +261,7 @@ function connectionsPage() {
     file: 'connections.md',
     content: [fm({
       title: 'What you can connect',
-      summary: `The ${rows.length} services in the curated connections catalogue, and how each one signs in.`,
+      summary: `The ${mineral.length} services your mineral can connect to, the ${account.length} that only connect through your Claude account, and how each one signs in.`,
       audience: 'public', access: 'public', mode: 'reference', generated: 'true', order: '20',
     }), '', body.join('\n').trimEnd(), ''].join('\n'),
   };

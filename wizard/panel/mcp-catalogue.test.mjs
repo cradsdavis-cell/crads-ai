@@ -51,7 +51,7 @@ test('every boxKey names a real box FEATURED entry, with the same url', () => {
 // page filters on an exact 'oauth' / 'token' match.
 test('every entry declares a sign-in kind, and both kinds are represented', () => {
   for (const e of CATALOGUE) {
-    assert.ok(e.auth === 'oauth' || e.auth === 'token', `${e.key}: auth must be 'oauth' or 'token', got ${JSON.stringify(e.auth)}`);
+    assert.ok(e.auth === 'oauth' || e.auth === 'token' || e.auth === 'account', `${e.key}: auth must be 'oauth', 'token' or 'account', got ${JSON.stringify(e.auth)}`);
   }
   const kinds = new Set(CATALOGUE.map((e) => e.auth));
   assert.ok(kinds.has('oauth'), 'at least one oauth entry, so the "One click" pill has something to show');
@@ -64,4 +64,21 @@ test('every box FEATURED entry appears in the catalogue', () => {
   assert.ok(featured.length >= 6, 'could not parse FEATURED from mcp-connect.mjs');
   const boxKeys = new Set(CATALOGUE.map((e) => e.boxKey).filter(Boolean));
   for (const k of featured) assert.ok(boxKeys.has(k), `box-FEATURED '${k}' missing from the catalogue`);
+});
+
+// Guided entries (2026-10-02): the page routes their Connect press to a wizard
+// by the `guided` value, so an unknown value is a dead button. 'account'
+// entries connect nothing to the box and must say so through their kind; a
+// guided token entry must be a token connection, since the wizard saves it
+// through add-custom with a credential.
+test('guided entries name a wizard the page has, and their kinds agree', () => {
+  const WIZARDS = ['slack', 'wordpress', 'account'];
+  const guided = CATALOGUE.filter((e) => e.guided);
+  assert.ok(guided.length >= 4, 'slack, wordpress, shopify and xero at least');
+  for (const e of guided) {
+    assert.ok(WIZARDS.includes(e.guided), `${e.key}: guided '${e.guided}' has no wizard on the page`);
+    if (e.guided === 'account') assert.equal(e.auth, 'account', `${e.key}: an account guide connects nothing to the box`);
+    else assert.equal(e.auth, 'token', `${e.key}: a guided wizard saves a credential, so it is a token connection`);
+  }
+  for (const e of CATALOGUE.filter((x) => x.auth === 'account')) assert.equal(e.guided, 'account', `${e.key}: an account entry needs the account guide`);
 });

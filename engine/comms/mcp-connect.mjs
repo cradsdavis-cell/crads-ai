@@ -25,7 +25,8 @@
 //
 //   node mcp-connect.mjs <state-dir> status
 //   node mcp-connect.mjs <state-dir> add <key>          (featured key)
-//   node mcp-connect.mjs <state-dir> add-custom         (stdin: {name,url,token_b64?})
+//   node mcp-connect.mjs <state-dir> add-custom         (stdin: {name,url,token_b64?,scheme?})
+//   node mcp-connect.mjs <state-dir> check <key>        (does the saved server answer?)
 //   node mcp-connect.mjs <state-dir> remove <key>       (featured or app-added)
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -64,7 +65,12 @@ const key = String(process.argv[4] || '');
 //       its own `email`, and add-google / set-google take a `key`. The page
 //       gates ONLY its "Add another Google account" button on 3; a 2-box
 //       still renders its single google row exactly as before.
-const CONTRACT = 3;
+//   4 = the guided connectors (2026-10-02): add-custom takes scheme:'basic'
+//       (a WordPress application password is HTTP Basic, not Bearer), and the
+//       `check <key>` verb asks a saved server for its tool list FROM THE BOX,
+//       which is where jobs will call it. The page gates its Slack and
+//       WordPress wizards on 4; a 3-box is told to update.
+const CONTRACT = 4;
 
 const MCP_F = path.join(stateDir, '.mcp.json');
 const OAUTH_F = path.join(stateDir, '.kernel', 'mcp-oauth.json');   // read-only here; mcp-token.mjs is the writer
@@ -415,7 +421,17 @@ if (cmd === 'add-custom') {
     let token = '';
     try { token = Buffer.from(String(req.token_b64), 'base64').toString('utf8').trim(); } catch { /* refused below */ }
     if (!token || /[\r\n]/.test(token) || token.length > 4096) out({ ok: false, error: 'that token does not look right' });
-    def.headers = { Authorization: `Bearer ${token}` };
+    // scheme 'basic' (contract 4): the token is "username:password", the shape a
+    // WordPress application password signs in with. Anything else stays Bearer,
+    // which is what every API-token server before this one wanted.
+    if (req.scheme === 'basic') {
+      if (!/^[^:]+:.+$/.test(token)) out({ ok: false, error: 'a username and a password are both needed' });
+      def.headers = { Authorization: `Basic ${Buffer.from(token, 'utf8').toString('base64')}` };
+    } else if (req.scheme && req.scheme !== 'bearer') {
+      out({ ok: false, error: `unknown sign-in scheme: ${String(req.scheme).slice(0, 20)}` });
+    } else {
+      def.headers = { Authorization: `Bearer ${token}` };
+    }
   }
   const doc = rdJSON(MCP_F, {});
   doc.mcpServers = doc.mcpServers || {};
@@ -475,6 +491,86 @@ if (cmd === 'add-google') {
   };
   writeMcp(doc); syncAllow(gkey, true); rememberAdded(gkey, true); ensureApproved([gkey]);
   out({ ok: true, contract: CONTRACT, key: gkey, action: 'add-google', services: rows() });
+}
+
+// CHECK (contract 4, 2026-10-02): ask a saved server for its tool list, from
+// the box, with the very definition jobs will load. The guided wizards (Slack,
+// WordPress) run this straight after saving, the way Telegram verifies its
+// token: a pasted credential that is wrong, or a host that strips the
+// Authorization header, should be found while the member is still on the
+// page, not by a silent morning job. The credential never leaves this file;
+// the answer says only whether it worked and, if not, which kind of no.
+//
+// Shapes: { working: true, server, tools } or { working: false, problem, status?, detail? }
+// where problem is 'auth' (401/403), 'missing' (404/405 on the first call),
+// 'unreachable' (no answer in time), 'sse' (old transport, not checked here)
+// or 'other'. `detail` is at most 160 chars of the server's own words.
+async function checkServer(def) {
+  if (def.type === 'sse') return { working: false, problem: 'sse' };
+  const base = { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...(def.headers || {}) };
+  // a JSON error body (WordPress answers {"code":..,"message":..}) is reduced
+  // to its message: the member reads the site's sentence, not its envelope
+  const said = (t) => {
+    let v = String(t || '');
+    try { const j = JSON.parse(v); if (j && typeof j.message === 'string') v = j.message; else if (j?.error?.message) v = j.error.message; } catch { /* plain text */ }
+    return v.replace(/\s+/g, ' ').trim().slice(0, 160);
+  };
+  // a Streamable-HTTP answer is JSON or an SSE stream carrying the JSON-RPC
+  // reply as a data: line; take the first message that carries our id
+  const readReply = async (r, id) => {
+    const text = await r.text();
+    if (/^\s*[{[]/.test(text)) { try { return JSON.parse(text); } catch { return null; } }
+    for (const line of text.split(/\r?\n/)) {
+      if (!line.startsWith('data:')) continue;
+      try { const m = JSON.parse(line.slice(5)); if (m && m.id === id) return m; } catch { /* next line */ }
+    }
+    return null;
+  };
+  const post = (body, sid) => fetch(def.url, {
+    method: 'POST', headers: sid ? { ...base, 'mcp-session-id': sid } : base,
+    body: JSON.stringify(body), signal: AbortSignal.timeout(12000),
+  });
+  let r;
+  try {
+    r = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'crads-check', version: '1' } } });
+  } catch { return { working: false, problem: 'unreachable' }; }
+  if (r.status === 401 || r.status === 403) return { working: false, problem: 'auth', status: r.status, detail: said(await r.text().catch(() => '')) };
+  if (r.status === 404 || r.status === 405) return { working: false, problem: 'missing', status: r.status };
+  if (!r.ok) return { working: false, problem: 'other', status: r.status, detail: said(await r.text().catch(() => '')) };
+  const init = await readReply(r, 1);
+  if (!init || init.error) return { working: false, problem: 'other', status: r.status, detail: said(init?.error?.message || 'the answer was not an MCP reply') };
+  const sid = r.headers.get('mcp-session-id') || '';
+  const server = said(init.result?.serverInfo?.name || '');
+  try {
+    await post({ jsonrpc: '2.0', method: 'notifications/initialized' }, sid);
+    const t = await post({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, sid);
+    if (t.status === 401 || t.status === 403) return { working: false, problem: 'auth', status: t.status, detail: said(await t.text().catch(() => '')) };
+    const list = t.ok ? await readReply(t, 2) : null;
+    if (!list || list.error) return { working: false, problem: 'other', status: t.status, detail: said(list?.error?.message || '') };
+    const tools = Array.isArray(list.result?.tools) ? list.result.tools : [];
+    // The WordPress MCP adapter answers with three doorway tools (discover, get
+    // info, execute) whatever the site can do, so its tool count says nothing.
+    // Ask the discover doorway instead: read-only, and the number the member
+    // cares about is how many abilities sit behind it (WooCommerce: seven).
+    const door = tools.find((x) => /discover-abilities$/.test(String(x?.name || '')));
+    if (door) {
+      try {
+        const a = await post({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: door.name, arguments: {} } }, sid);
+        const res = a.ok ? (await readReply(a, 3))?.result : null;
+        let list2 = res?.structuredContent?.abilities;
+        if (!Array.isArray(list2)) { try { list2 = JSON.parse(res?.content?.[0]?.text || '').abilities; } catch { /* not that shape */ } }
+        if (Array.isArray(list2)) return { working: true, server, tools: tools.length, abilities: list2.length };
+      } catch { /* the doorway count below is still true */ }
+    }
+    return { working: true, server, tools: tools.length };
+  } catch { return { working: false, problem: 'unreachable' }; }
+}
+
+if (cmd === 'check') {
+  if (!NAME_RE.test(key)) out({ ok: false, error: 'bad service name' });
+  const def = servers()[key];
+  if (!def || !def.url) out({ ok: false, error: `"${key}" is not a connection on this box` });
+  out({ ok: true, contract: CONTRACT, key, ...(await checkServer(def)) });
 }
 
 if (cmd === 'remove') {

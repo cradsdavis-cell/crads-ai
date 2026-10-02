@@ -114,8 +114,13 @@ test('tiles: every directory card leads with a mark, names the entry, carries th
   assert.match(card, /'<div class="mcp-dir-card">' \+ markSpan\(o\.markKey \|\| mcpSlug\(nm\), nm\)/, 'the mark is the first child, keyed on the catalogue key (registry hits fall back to the slug, so markFor gives an initial)');
   assert.match(card, /<span class="kind">API token<\/span>/, 'token-auth entries carry the API token chip');
   assert.match(card, /o\.auth === 'token'/, 'only token-auth entries');
-  assert.match(card, /class="act mcp-dir-connect"[^>]*aria-label="Connect ' \+ esc\(nm\)/, 'Connect names its service for a screen reader (it is hidden until hover / focus)');
-  assert.match(browse, /\{ markKey: e\.boxKey \|\| e\.key, auth: e\.auth \}/, 'the curated tier passes its key and auth');
+  // guided entries (2026-10-02) say what waits behind the button: a wizard is
+  // "Set up", an account guide "How to", everything else still "Connect"
+  assert.match(card, /<span class="kind">Guided<\/span>/, 'guided wizards carry their own chip');
+  assert.match(card, /<span class="kind">Chats only<\/span>/, 'account-only entries say what that costs them, on the tile');
+  assert.match(card, /var verb = o\.guided === 'account' \? 'How to' : o\.guided \? 'Set up' : 'Connect';/, 'the button word follows the entry');
+  assert.match(card, /class="act mcp-dir-connect"[^>]*aria-label="' \+ verb \+ ' ' \+ esc\(nm\)/, 'the button names its service for a screen reader (it is hidden until hover / focus)');
+  assert.match(browse, /\{ markKey: e\.boxKey \|\| e\.key, auth: e\.auth, guided: e\.guided \}/, 'the curated tier passes its key, auth and guided kind');
   assert.match(browse, /hydrateMarks\(\$\('mcpDirRows'\)\)/, 'tiles hydrate after every render');
   assert.match(browse, /'<div class="mcp-dir-grid" data-tier="shortlist">'/, 'the grid class');
 });
@@ -219,8 +224,12 @@ test('driven: a mark per row, account rows inside the fold, the disconnect notic
     assert.equal(cols, 4, 'four columns at 1280');
     assert.match(await page.locator('#mcpDirCount').innerText(), /^\d+ services$/, 'the count subhead');
     assert.ok(await page.locator('#mcpDirChips .mcp-seg .mcp-chip[data-cat="All"] .cnt').count() === 1, 'the All segment carries a count');
-    assert.equal(await page.locator('#mcpDirRows .mcp-dir-card .kind', { hasText: 'API token' }).count(),
-      await page.$$eval('#mcpDirRows .mcp-dir-card .kind', (els) => els.length), 'API token chips');
+    // every chip is one of the three kinds (2026-10-02: guided wizards and
+    // account-only entries carry their own), and the guided four are present
+    const kinds = await page.$$eval('#mcpDirRows .mcp-dir-card .kind', (els) => els.map((e) => e.textContent));
+    assert.ok(kinds.length && kinds.every((k) => ['API token', 'Guided', 'Chats only'].includes(k)), 'chips: ' + JSON.stringify(kinds));
+    assert.equal(kinds.filter((k) => k === 'Guided').length, 2, 'Slack and WordPress are guided');
+    assert.equal(kinds.filter((k) => k === 'Chats only').length, 2, 'Shopify and Xero are chats only');
     // Connect is hidden at rest and revealed by keyboard focus
     const first = page.locator('#mcpDirRows .mcp-dir-card .mcp-dir-connect').first();
     assert.equal(await first.evaluate((b) => getComputedStyle(b).opacity), '0', 'quiet at rest');
