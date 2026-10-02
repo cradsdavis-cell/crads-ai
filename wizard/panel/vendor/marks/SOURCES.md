@@ -1,8 +1,8 @@
 # Sources for the hand-sourced marks
 
-simple-icons 16.28.0 (CC0-1.0, see LICENSE) covers 43 of the 66 marks. The 23
+simple-icons 16.28.0 (CC0-1.0, see LICENSE) covers 43 of the 67 marks. The 24
 below were not in that package and were fetched by hand (17 on 2026-08-23, the
-six note-takers on 2026-08-24), in this order of preference: the vendor's own
+six note-takers on 2026-08-24, Pipedrive on 2026-10-02), in this order of preference: the vendor's own
 brand kit, the vendor's own favicon, the vendor's GitHub organisation avatar. Every file was reduced to a 24x24 viewBox
 (SVG) or 32 to 64 px (PNG, under 6 KB); gradients and clip paths were dropped
 because the panel CSP test forbids `url(`. "mask" means a single-colour SVG the
@@ -37,6 +37,7 @@ guidelines, which govern any use beyond that.
 | avoma | Avoma site apple-touch-icon, https://www.avoma.com/ -> https://cdn.prod.website-files.com/5de236b4d41434460ade73ac/5de60e45eee20578cc43a906_Avoma-Icon-Color-256.png (no public brand page) | png 64px, img | none stated | #FF5740 (the tile ground) | 2026-08-24 |
 | krisp | Krisp site favicon, https://krisp.ai/wp-content/uploads/2023/12/cropped-favicon-1-192x192.png (no public brand page) | png 64px, img | none stated | #131032 (the K) | 2026-08-24 |
 | fyxer | Fyxer site favicon, https://www.fyxer.com/favicon.ico (ICO 32px, converted with Pillow; no public brand page) | png 64px, img | none stated | #FF5B3A (the F) | 2026-08-24 |
+| pipedrive | Pipedrive site apple-touch-icon, https://cdn.syd-1.pipedriveassets.com/www-main-renderer/_next/static/media/apple-touch-icon-76x76.508317f7.png (76px, resized to 32px with Pillow; the favicon.ico is 16px only) | png 32px, img | none stated | #017737 (the disc) | 2026-10-02 |
 
 **Why these six came from vendor domains, not GitHub avatars.** The 2026-08-23
 batch used GitHub organisation avatars as a third-choice source. For the

@@ -1,6 +1,6 @@
 ---
 title: What you can connect
-summary: The 62 services in the curated connections catalogue, and how each one signs in.
+summary: The 63 services in the curated connections catalogue, and how each one signs in.
 audience: public
 access: public
 mode: reference
@@ -10,7 +10,7 @@ order: 20
 
 > Generated from the code by docs/product/pipeline/generate.mjs. Do not edit by hand: run the generator.
 
-62 services your mineral can connect to without you finding an endpoint
+63 services your mineral can connect to without you finding an endpoint
 yourself. 6 of them ship inside the box as featured connectors; the rest
 connect by URL from the same page.
 
@@ -78,6 +78,7 @@ gets probed.
 | **Attio** | CRM records and lists | One click | By URL |
 | **Resend** | send and inspect email | One click | By URL |
 | **Klaviyo** | campaigns and audiences | One click | By URL |
+| **Pipedrive** | CRM deals, people and pipelines | One click | By URL |
 | **HubSpot** | contacts, deals and companies | Token | By URL |
 | **Zoom** | meetings and recordings | Token | By URL |
 

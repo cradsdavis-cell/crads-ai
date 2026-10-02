@@ -78,6 +78,13 @@ export const CATALOGUE = [
   { key: 'sanity',                 label: 'Sanity',                   category: 'Web',      url: 'https://mcp.sanity.io/mcp',                        blurb: 'content and datasets', auth: 'oauth' },
   { key: 'contentful',             label: 'Contentful',               category: 'Web',      url: 'https://mcp.contentful.com/mcp',                   blurb: 'entries and content types', auth: 'oauth' },
   { key: 'polar',                  label: 'Polar',                    category: 'Payments', url: 'https://api.polar.sh/mcp',                         blurb: 'products and subscriptions', auth: 'oauth' },
+  // Pipedrive (2026-10-02, asked for by a pebble). Its official server
+  // launched in June 2026 and is on every Pipedrive plan. Probed the same way
+  // as the note-takers below: registration was RUN against oauth.pipedrive.com
+  // and returned a client id, so the one-click button is real. Note the host:
+  // mcp.pipedrive.ai, not .com; the .com host answers 401 but advertises no
+  // OAuth metadata, so a catalogue row on it would be a dead button.
+  { key: 'pipedrive',              label: 'Pipedrive',                category: 'Comms',    url: 'https://mcp.pipedrive.ai/mcp',                     blurb: 'CRM deals, people and pipelines', auth: 'oauth' },
   // reachable, but no DCR: connect goes through the by-URL form's token field
   { key: 'hubspot',    label: 'HubSpot',    category: 'Comms', url: 'https://mcp.hubspot.com/anthropic', blurb: 'contacts, deals and companies', auth: 'token' },
   { key: 'render',     label: 'Render',     category: 'Web',   url: 'https://mcp.render.com/mcp',        blurb: 'services and deploys', auth: 'token' },
