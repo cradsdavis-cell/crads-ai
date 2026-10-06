@@ -1946,6 +1946,12 @@
           <button class="connfix" type="button" data-guided-close style="margin-left:auto">Close</button>
         </div>
         <p class="hint" style="margin:6px 0 12px">You'll make a small private Slack app inside your own workspace, then paste its token here. The app belongs to you, it works nowhere but your workspace, and the token is stored on your mineral only. About five minutes.</p>
+        <!-- another workspace (contract 6): its short name becomes the row,
+             "Slack (reef)", and the key slack-<name> its own server -->
+        <div id="skWsWrap" style="display:none;margin:0 0 12px">
+          <input id="skWs" autocomplete="off" spellcheck="false" placeholder="workspace name, e.g. reef" style="width:280px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+          <p class="hint" style="margin:6px 0 0" id="skWsNote">Lowercase letters, numbers and dashes. It names this workspace's row, so your assistant can tell your workspaces apart.</p>
+        </div>
         <div class="fsteps" data-ladder style="margin:0 0 12px">
           <span class="fstep" data-step="1">Make your app</span>
           <span class="fstep" data-step="2">Install it</span>
@@ -1967,7 +1973,7 @@
         <details class="secfold" data-fold="2" style="margin-top:10px">
           <summary>Step 2: Install it<span class="sum2">One button in Slack, then copy one token</span></summary>
           <div class="fbody">
-            <p class="hint" style="margin:6px 0 10px" id="skInstallHint">In your new app's settings, open <b>OAuth &amp; Permissions</b>, press the install button for your workspace, then <b>Allow</b>. The same page then shows a <b>User OAuth Token</b> that starts <code>xoxp-</code>. Copy that one (not the Bot token, which starts <code>xoxb-</code>). If your workspace needs an admin to approve apps, Slack says so here and sends them the request; this waits until they do.</p>
+            <p class="hint" style="margin:6px 0 10px" id="skInstallHint">In your new app's settings, open <b>OAuth &amp; Permissions</b>, press the install button for your workspace, then <b>Allow</b>. The same page then shows a <b>User OAuth Token</b> that starts <code>xoxp-</code>. Copy that one. If your workspace needs an admin to approve apps, Slack says so here and sends them the request; this waits until they do.</p>
             <label class="check" style="margin:0"><input type="checkbox" data-tick="2"><span>Done, I have the token</span></label>
           </div>
         </details>
@@ -2141,6 +2147,16 @@
           <input id="mcpCustToken" type="password" autocomplete="off" spellcheck="false" placeholder="API token (optional)" style="width:170px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
           <button class="act" id="mcpCustAdd">Connect</button>
         </div>
+        <!-- contract 6 (2026-10-06): some services refuse a key in the usual
+             Authorization header and name their own (WooCommerce's built-in
+             MCP wants X-MCP-API-Key). Folded: most members never need it. -->
+        <details class="secfold" id="mcpCustHeaderFold" style="margin-top:8px">
+          <summary>The service says to send the token in a different header<span class="sum2">Optional</span></summary>
+          <div class="fbody">
+            <input id="mcpCustHeader" autocomplete="off" spellcheck="false" placeholder="header name, e.g. X-MCP-API-Key" style="width:260px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+            <p class="hint" style="margin:8px 0 0">Leave it empty unless the service's own instructions name a header. The token then goes in that header exactly as you pasted it, with nothing added in front. For WooCommerce's own MCP, the header is <code>X-MCP-API-Key</code> and the token is your consumer key and secret joined by a colon.</p>
+          </div>
+        </details>
         <div class="notice" id="mcpCustNotice" style="display:none"></div>
       </div>
       <div class="pageend">Your mineral holds these permissions itself. They are not shared with Crads-AI.</div>
@@ -4243,7 +4259,8 @@
     for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
     return h % 360;
   }
-  function markKey(s){ return String((s && s.key) || '').replace(/^account-/, '').toLowerCase(); }
+  // a further account (google-<slug>, slack-<slug>) wears its service's mark
+  function markKey(s){ return String((s && s.key) || '').replace(/^account-/, '').toLowerCase().replace(/^(google|slack)-[a-z0-9-]+$/, '$1'); }
   function markSpan(key, label){
     return '<span class="mark" data-mark="' + esc(key) + '" data-mark-label="' + esc(label || key) + '" aria-hidden="true"></span>';
   }
@@ -4398,7 +4415,13 @@
     var gwMore = (mcpContract >= 3 && gwRows.some(function(s){ return s.configured; }))
       ? '<div style="margin:8px 0 0"><button class="connfix" type="button" data-mcp-google-add>Add another Google account</button>'
         + '<span class="hint" style="margin-left:8px">A second Google account (work, a client, another Gmail) gets its own row and its own key.</span></div>' : '';
-    $('mcpRows').innerHTML = '<ul class="connlist">' + yours.map(mcpRowHtml).join('') + '</ul>' + gwMore;
+    // Several Slack workspaces (contract 6, 2026-10-06): same shape as Google.
+    // Every workspace is mcp.slack.com, so before 6 the box refused a second
+    // token there as a duplicate.
+    var skMore = (mcpContract >= 6 && yours.some(function(s){ return /^slack(-|$)/.test(s.key) && s.configured; }))
+      ? '<div style="margin:8px 0 0"><button class="connfix" type="button" data-mcp-slack-add>Add another Slack workspace</button>'
+        + '<span class="hint" style="margin-left:8px">Each workspace gets its own app, its own token and its own row.</span></div>' : '';
+    $('mcpRows').innerHTML = '<ul class="connlist">' + yours.map(mcpRowHtml).join('') + '</ul>' + gwMore + skMore;
     hydrateMarks($('mcpRows'));
     mcpBindRowActions();
   }
@@ -4542,12 +4565,11 @@
   // the assistant sees what the member sees and nothing more.
   var SLACK_MANIFEST = {
     display_information: { name: 'Crads assistant', description: 'My assistant, acting as me in this workspace.' },
-    // Slack's user sign-in fails for an app with no bot user, even one that
-    // only ever uses its user token; the bot never posts. Its display_name
-    // allows only a-z, 0-9, - _ and . (Slack's manifest reference): the first
-    // template said "Crads assistant" and Slack refused the whole manifest
-    // ("We can't translate a manifest with errors"), found by a pebble 2 Oct.
-    features: { bot_user: { display_name: 'crads-assistant', always_online: false } },
+    // No features.bot_user. The 2 Oct template carried one on the guess that
+    // Slack's user sign-in needs a bot; it does not, and Slack REFUSES a bot
+    // user that has no bot scopes of its own (red mark on the bot_user line,
+    // Next stays greyed out). A pebble deleted the block on 6 Oct and the
+    // user-only app installed, gave an xoxp- token and 16 tools.
     oauth_config: { scopes: { user: [
       'search:read.public', 'search:read.private', 'search:read.mpim', 'search:read.im',
       'search:read.files', 'search:read.users', 'files:read',
@@ -4573,6 +4595,7 @@
   }
   function guidedOpen(entry){
     var kind = entry.guided;
+    if (kind === 'slack') skSetAnother(!!entry.another);
     Object.keys(GUIDED_CARDS).forEach(function(k){ var c = $(GUIDED_CARDS[k]); if (c) c.style.display = 'none'; });
     var card = guidedCard(kind);
     if (!card) return;
@@ -4711,8 +4734,28 @@
     if (!/^xox[a-z]-/.test(t)) { notice('skNotice', 'That does not look like a Slack token. The User OAuth Token starts xoxp-.'); return; }
     if (/^xoxb-/.test(t)) { notice('skNotice', 'That is the Bot token (xoxb-). Your assistant needs the User OAuth Token just above it, which starts xoxp-.'); return; }
     var e = mcpDir.entries.filter(function(x){ return x.key === 'slack'; })[0];
-    guidedConnect('slack', { name: 'slack', url: (e && e.url) || 'https://mcp.slack.com/mcp', token_b64: b64utf8(t) }, $('skSave'));
+    var def = { name: 'slack', url: (e && e.url) || 'https://mcp.slack.com/mcp', token_b64: b64utf8(t) };
+    if (skAnother) {
+      var ws = ($('skWs').value || '').trim().toLowerCase();
+      if (!/^[a-z0-9][a-z0-9-]{0,19}$/.test(ws)) { notice('skNotice', 'Give this workspace a short name first: lowercase letters, numbers and dashes, up to 20.'); return; }
+      if (mcpDir.connectedKeys['slack-' + ws]) { notice('skNotice', 'You already have a row called Slack (' + ws + '). Pick another name.'); return; }
+      if (mcpContract < 6) { notice('skNotice', MCP_TOO_OLD); return; }
+      def.name = 'slack-' + ws; def.another = true;
+    }
+    guidedConnect('slack', def, $('skSave'));
   };
+  // Another Slack workspace: the same card, plus a name field. The token
+  // check, the undo on failure and the success line are all the first
+  // workspace's; only the key the box saves it under differs.
+  var skAnother = false;
+  function skSetAnother(on){
+    skAnother = on;
+    $('skWsWrap').style.display = on ? 'block' : 'none';
+    $('skWs').value = '';
+    $('skSave').textContent = on ? 'Connect this workspace' : 'Connect Slack';
+    $('skWizard').querySelector('.gtitle').textContent = on ? 'Another Slack workspace, with its own app' : 'Slack, with your own app';
+  }
+  function skOpenAnother(){ guidedOpen({ guided: 'slack', key: 'slack', another: true }); }
   $('mcSave').onclick = function(){
     var k = ($('mcKey').value || '').trim();
     if (!/^[0-9a-f]{32}-[a-z]{2}\d{1,3}$/.test(k)) { notice('mcNotice', 'That does not look like a Mailchimp API key. It is 32 letters and numbers, then a dash and a short code like us21. Copy it again from Mailchimp; it is shown in full only when it is made.'); return; }
@@ -4880,15 +4923,20 @@
     var name = ($('mcpCustName').value || '').trim().toLowerCase();
     var url = ($('mcpCustUrl').value || '').trim();
     var token = $('mcpCustToken').value || '';
+    var header = ($('mcpCustHeader').value || '').trim();
     if (!name || !url) { notice('mcpCustNotice', 'A name and an address are both needed.'); return; }
+    if (header && !token) { notice('mcpCustNotice', 'A header name needs the token that goes in it.'); return; }
+    if (header && mcpContract < 6) { notice('mcpCustNotice', MCP_TOO_OLD); return; }
     var def = { name: name, url: url };
     if (token) def.token_b64 = b64utf8(token);
+    if (header) def.header = header;
     $('mcpCustAdd').disabled = true;
     run('mcp-add-custom', { def_b64: b64utf8(JSON.stringify(def)) }).then(function(r){
       $('mcpCustAdd').disabled = false;
       var d = jsonOut(r);
       if (!d || d.ok === false) { notice('mcpCustNotice', mcpErr(d, r)); return; }
-      $('mcpCustName').value = ''; $('mcpCustUrl').value = ''; $('mcpCustToken').value = '';
+      $('mcpCustName').value = ''; $('mcpCustUrl').value = ''; $('mcpCustToken').value = ''; $('mcpCustHeader').value = '';
+      $('mcpCustHeaderFold').open = false;
       notice('mcpCustNotice', '');
       if (d.services) renderMcpYours(d.services); else loadMcp();
       if (mcpDir.loaded) renderMcpBrowse();   // now connected, so browse must stop offering it
@@ -5199,6 +5247,7 @@
     }
     // a further Google account: no key yet, the name field decides it
     if (e.target.closest('[data-mcp-google-add]')) { gwOpen(false, ''); return; }
+    if (e.target.closest('[data-mcp-slack-add]')) { skOpenAnother(); return; }
     var ad = e.target.closest('[data-mcp-adopt]');
     if (ad) {
       var ak = ad.getAttribute('data-mcp-adopt');

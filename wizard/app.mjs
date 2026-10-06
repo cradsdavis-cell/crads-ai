@@ -36,6 +36,7 @@ import { wantsUninstall, uninstall, registerUninstall } from './panel/uninstall.
 import { pushOwnedBrains } from './panel/brain-push.mjs';
 import { runSsh } from './panel/ssh-bridge.mjs';
 import { launchTarget, readLastUsed, lastUsedPath } from './panel/last-used.mjs';
+import { launchPlan } from './panel/launch-plan.mjs';
 import { listLocalTargets } from './panel/local-targets.mjs';
 import { localBridge, composeBridge } from './panel/local-bridge.mjs';
 import { loadEngineAssets } from './panel/local-scaffold.mjs';
@@ -205,36 +206,43 @@ async function main() {
   if (sea) setHostTag(sea);
   if (wantsUninstall(process.argv)) { await runUninstall(); process.exit(0); }
   dbg(`main() start: platform=${process.platform} sea=${!!sea} execPath=${process.execPath} NO_LAUNCH=${process.env.AIOS_NO_LAUNCH || ''} RELAUNCHED=${process.env.AIOS_RELAUNCHED || ''}`);
-  // No visible console (the SEA exe is a console binary, so a double-click
-  // opens a terminal): the first launch respawns itself HIDDEN and exits; a
-  // click while already running just reopens the window (single instance via
-  // the run file). CI (AIOS_NO_LAUNCH=1) skips both. macOS shares the
-  // single-instance check (a bundle launch has no console, so no hide dance).
-  if ((process.platform === 'win32' || process.platform === 'darwin') && sea && process.env.AIOS_NO_LAUNCH !== '1') {
+  // One shape on Windows and macOS (see wizard/panel/launch-plan.mjs): a click
+  // while a copy answers reopens its window and exits; otherwise the launched
+  // process respawns itself DETACHED and exits, and the pebble runs the
+  // servers. Windows needs that to hide the console (the SEA exe is a console
+  // binary); macOS needs it so LaunchServices sees the app quit, or the next
+  // click only re-activates a windowless process (the 2026-10-06 force-quit
+  // bug). CI (AIOS_NO_LAUNCH=1) and dev checkouts skip all of it.
+  // The pebble skips the probe: the launch that spawned it already found no
+  // live copy and cleared the run file.
+  if (launchPlan({ platform: process.platform, sea: !!sea, env: process.env }) === 'relaunch') {
     // Never trust a PID (Windows re-uses them, and a killed instance leaves the
     // file behind): ask the recorded URL whether it actually answers. Anything
     // short of a live 200 means stale: remove the file and start fresh.
+    let live = null;
     try {
       const prev = JSON.parse(readFileSync(RUN_FILE, 'utf8'));
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 1500);
       const r = await fetch(prev.url, { signal: ctrl.signal });
       clearTimeout(t);
-      if (r.ok) {
-        dbg(`already running at ${prev.url}; reopening window and exiting`);
-        openAppWindow(prev.url); process.exit(0);
-      }
-      throw new Error('stale');
+      if (r.ok) live = prev;
+      else throw new Error('stale');
     } catch { try { unlinkSync(RUN_FILE); } catch { /* nothing to clear */ } }
-    if (process.platform === 'win32' && !process.env.AIOS_RELAUNCHED) {
-      dbg('no live instance; relaunching self HIDDEN (console-hide) and exiting rock');
+    const plan = launchPlan({ platform: process.platform, sea: !!sea, env: process.env, live: !!live });
+    if (plan === 'reopen') {
+      dbg(`already running at ${live.url}; reopening window and exiting`);
+      openAppWindow(live.url); process.exit(0);
+    }
+    if (plan === 'relaunch') {
+      dbg('no live instance; relaunching self detached and exiting rock');
       const pebble = spawn(process.execPath, process.argv.slice(1),
         { detached: true, stdio: 'ignore', windowsHide: true, env: { ...process.env, AIOS_RELAUNCHED: '1' } });
       pebble.unref();
       process.exit(0);
     }
-    dbg('running as the relaunched hidden pebble; continuing to servers');
   }
+  if (process.env.AIOS_RELAUNCHED) dbg('running as the relaunched pebble; continuing to servers');
   selfInstall(sea);
   cleanupOld();
   // D58 P2.2: idempotent per-user registration of the crads-ai:// scheme, so invite

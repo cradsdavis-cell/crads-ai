@@ -79,7 +79,8 @@ function connections(stateDir, now) {
   const servers = (rdj(path.join(stateDir, '.mcp.json')) || {}).mcpServers || {};
   const rows = [];
   for (const [name, def] of Object.entries(servers)) {
-    const token = !!(def && def.headers && Object.keys(def.headers).some((h) => /^authorization$/i.test(h)));
+    // any header carries a credential (contract 6: some services want theirs outside Authorization)
+    const token = !!(def && def.headers && Object.keys(def.headers).length);
     rows.push({ name, state: token ? 'on' : 'configured',
       note: token ? 'works, including in scheduled jobs'
         : 'signs in with OAuth; the Connections page says whether the sign-in is live' });

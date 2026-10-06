@@ -42,7 +42,7 @@ test('the Slack template switches MCP on and keeps the token from rotating', () 
   assert.match(m[1], /is_mcp_enabled: true/, 'without it Slack answers "App is not enabled for Slack MCP server access"');
   assert.match(m[1], /token_rotation_enabled: false/, 'a rotating token would die twelve hours after it was pasted');
   assert.match(m[1], /oauth_config: \{ scopes: \{ user: \[/, 'user scopes: the assistant sees what the member sees');
-  assert.doesNotMatch(m[1], /scopes: \{ bot:/, 'no bot scopes: the bot user exists only because Slack sign-in needs one');
+  assert.doesNotMatch(m[1], /scopes: \{ bot:/, 'no bot scopes: the token is a user token');
 });
 
 test('the account guide states its limit for each service', () => {
@@ -69,6 +69,12 @@ test('driven: all four guided cards, a wrong credential refused and nothing kept
     const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
+    // what the page actually asked the box to save (def_b64 decoded)
+    const saved = [];
+    page.on('request', (rq) => {
+      const m = String(rq.postData() || '').match(/"def_b64":"([A-Za-z0-9+/=]+)"/);
+      if (m) saved.push(JSON.parse(Buffer.from(m[1], 'base64').toString('utf8')));
+    });
     await page.goto(`http://localhost:${PORT}/member`, { waitUntil: 'load' });
     await page.waitForTimeout(2000);
     await page.evaluate(() => { location.hash = '#connections'; });
@@ -91,6 +97,39 @@ test('driven: all four guided cards, a wrong credential refused and nothing kept
     assert.match(await page.textContent('#skWizard [data-done]'), /Connected\. Slack answered with 12 tools/);
     assert.equal(await page.inputValue('#skToken'), '', 'the token leaves the page once saved');
     assert.ok((await yours()).includes('Slack'), 'Slack is in Your connections');
+
+    // Another Slack workspace (contract 6): offered once one works, needs a
+    // name, saves as slack-<name> with another:true, and its own row appears
+    await page.click('[data-mcp-slack-add]'); await page.waitForTimeout(300);
+    assert.ok(await page.isVisible('#skWs'), 'the card asks which workspace this is');
+    assert.equal(await page.textContent('#skSave'), 'Connect this workspace');
+    assert.equal(await page.inputValue('#skToken'), '');
+    await page.check('#skWizard [data-tick="1"]'); await page.check('#skWizard [data-tick="2"]');
+    await page.fill('#skToken', 'xoxp-3-4'); await page.click('#skSave');
+    assert.match(await page.textContent('#skNotice'), /short name first/);
+    await page.fill('#skWs', 'reef'); await page.click('#skSave'); await page.waitForTimeout(2000);
+    assert.match(await page.textContent('#skWizard [data-done]'), /Connected\. Slack answered/);
+    assert.deepEqual(saved.at(-1), { name: 'slack-reef', url: 'https://mcp.slack.com/mcp', token_b64: Buffer.from('xoxp-3-4').toString('base64'), another: true });
+    const names = await yours();
+    assert.ok(names.includes('Slack') && names.includes('Slack (reef)'), 'both workspaces, each its own row: ' + names.join(', '));
+    await page.click('[data-mcp-slack-add]'); await page.waitForTimeout(300);
+    await page.check('#skWizard [data-tick="1"]'); await page.check('#skWizard [data-tick="2"]');
+    await page.fill('#skWs', 'reef'); await page.fill('#skToken', 'xoxp-5-6'); await page.click('#skSave');
+    assert.match(await page.textContent('#skNotice'), /already have a row called Slack \(reef\)/);
+    // the directory's own Set up opens the FIRST-workspace card, not a stale "another" one
+    await page.evaluate(() => document.querySelector('[data-guided-close]').click());
+
+    // Connect something else with its own header (contract 6, WooCommerce's built-in MCP)
+    await page.fill('#mcpCustName', 'driftwood');
+    await page.fill('#mcpCustUrl', 'https://shop.example.com/wp-json/woocommerce/mcp');
+    await page.evaluate(() => { document.getElementById('mcpCustHeaderFold').open = true; });
+    await page.fill('#mcpCustHeader', 'X-MCP-API-Key');
+    await page.click('#mcpCustAdd');
+    assert.match(await page.textContent('#mcpCustNotice'), /needs the token/);
+    await page.fill('#mcpCustToken', 'ck_1:cs_2'); await page.click('#mcpCustAdd'); await page.waitForTimeout(1500);
+    assert.deepEqual(saved.at(-1), { name: 'driftwood', url: 'https://shop.example.com/wp-json/woocommerce/mcp', token_b64: Buffer.from('ck_1:cs_2').toString('base64'), header: 'X-MCP-API-Key' });
+    assert.equal(await page.inputValue('#mcpCustHeader'), '', 'the form clears');
+    assert.ok((await yours()).includes('Driftwood'), 'the shop is on the Connections page');
 
     // WordPress: links follow the address; a wrong password is refused and NOT kept
     await open('WordPress');
@@ -150,17 +189,33 @@ test('Mailchimp saves through its own verb and waits for a contract-5 box', () =
 });
 
 // Slack refuses a whole manifest over one bad field ("We can't translate a
-// manifest with errors"), and the first template shipped one: a bot
-// display_name with a capital and a space. Pin the manifest to the rules in
+// manifest with errors"). The first template shipped a bot display_name with a
+// capital and a space; the second shipped a bot user with no bot scopes, which
+// Slack also refuses (a pebble, 6 Oct). Pin the manifest to the rules in
 // Slack's own manifest reference (docs.slack.dev/reference/app-manifest).
 test('the Slack template obeys Slack\'s manifest field rules', () => {
   const src = guided.match(/var SLACK_MANIFEST = (\{[\s\S]*?\n  \});/)[1];
   const m = Function('return (' + src.replace(/\/\/[^\n]*/g, '') + ')')();
-  assert.match(m.features.bot_user.display_name, /^[a-z0-9._-]{1,80}$/, 'bot display_name: a-z, 0-9, - _ . only, max 80');
+  assert.equal(m.features?.bot_user, undefined, 'no bot user: Slack refuses one that has no bot scopes, and a user-token app installs without it');
   assert.ok(m.display_information.name.length <= 35, 'app name max 35');
   assert.ok(m.display_information.description.length <= 140, 'description max 140');
   assert.equal(typeof m.settings.is_mcp_enabled, 'boolean');
   const doc = readFileSync(join(HERE, '..', '..', 'docs', 'product', 'pages', 'how-to', 'connect-slack.md'), 'utf8');
   const shown = JSON.parse(doc.match(/```json\n([\s\S]*?)\n```/)[1]);
   assert.deepEqual(shown, JSON.parse(JSON.stringify(m)), 'the docs show exactly the template the app uses');
+});
+
+// contract 6 (2026-10-06): a second Slack workspace and a key in its own header
+test('another Slack workspace saves as slack-<name> with another:true, gated on contract 6', () => {
+  assert.match(html, /data-mcp-slack-add>Add another Slack workspace<\/button>/);
+  assert.match(html, /mcpContract >= 6 && yours\.some\(function\(s\)\{ return \/\^slack\(-\|\$\)\/\.test\(s\.key\) && s\.configured; \}\)/, 'offered only once one workspace works, and only to a box that will not refuse it');
+  assert.match(html, /def\.name = 'slack-' \+ ws; def\.another = true;/);
+  assert.match(html, /if \(kind === 'slack'\) skSetAnother\(!!entry\.another\);/, 'the directory card opens the first-workspace card, never a stale "another" one');
+});
+
+test('connect something else carries an optional header, refused without a key or on an old box', () => {
+  assert.match(html, /id="mcpCustHeader"/);
+  assert.match(html, /if \(header && !token\)/);
+  assert.match(html, /if \(header && mcpContract < 6\) \{ notice\('mcpCustNotice', MCP_TOO_OLD\); return; \}/);
+  assert.match(html, /if \(header\) def\.header = header;/);
 });

@@ -76,7 +76,14 @@ const key = String(process.argv[4] || '');
 //       own API key; `check` speaks stdio too and, for Mailchimp, makes one
 //       real read so a bad key is caught; the row carries key_expires_by
 //       (keys made since 22 June 2026 die a year after creation).
-const CONTRACT = 5;
+//   6 = own header + another account (2026-10-06, a pebble's WooCommerce shop
+//       and second Slack workspace): add-custom takes `header` (the token is
+//       sent raw in that header, e.g. WooCommerce's X-MCP-API-Key, for
+//       servers that refuse it in Authorization) and `another: true` (a
+//       further TOKEN connection to an address already connected, under its
+//       own name, because each token is a different account). The page gates
+//       its header field and its "Add another Slack workspace" on 6.
+const CONTRACT = 6;
 
 const MCP_F = path.join(stateDir, '.mcp.json');
 const OAUTH_F = path.join(stateDir, '.kernel', 'mcp-oauth.json');   // read-only here; mcp-token.mjs is the writer
@@ -177,9 +184,18 @@ function forgetCliToken(name) {
   writeFileSync(CREDS_F, JSON.stringify(doc, null, 2) + '\n', { mode: 0o600 });
 }
 
-// A server whose definition carries its own credential (an Authorization header)
-// is TOKEN-auth: no OAuth dance, credentialed from the moment it is written.
-const hasTokenHeader = (def) => !!(def?.headers && Object.keys(def.headers).some((h) => /^authorization$/i.test(h)));
+// A server whose definition carries its own credential (a header) is
+// TOKEN-auth: no OAuth dance, credentialed from the moment it is written.
+// Any header counts since contract 6: a service may want its key somewhere
+// other than Authorization (WooCommerce's X-MCP-API-Key), and a header on a
+// remote MCP definition exists to carry a credential.
+const hasTokenHeader = (def) => !!(def?.headers && Object.keys(def.headers).length);
+// Header names add-custom may write: an HTTP token, and none the MCP
+// transport itself owns (a member key in Content-Type or Mcp-Session-Id
+// would break every call, not sign one in).
+const HEADER_RE = /^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/;
+const RESERVED_HEADERS = new Set(['accept', 'content-type', 'content-length', 'host', 'connection',
+  'transfer-encoding', 'mcp-session-id', 'mcp-protocol-version', 'cookie', 'user-agent']);
 
 function describe(k, def, { label, blurb, mine, catalogUrl }) {
   const now = Date.now();
@@ -459,10 +475,21 @@ if (cmd === 'add-custom') {
   try { url = new URL(String(req.url || '')); } catch { out({ ok: false, error: 'that does not look like a URL' }); }
   if (url.protocol !== 'https:') out({ ok: false, error: 'only https servers can be connected' });
   const def = { type: /\/sse$/.test(url.pathname) ? 'sse' : 'http', url: url.href };
+  if (req.header && !req.token_b64) out({ ok: false, error: 'a header name needs the key that goes in it' });
   if (req.token_b64) {
     let token = '';
     try { token = Buffer.from(String(req.token_b64), 'base64').toString('utf8').trim(); } catch { /* refused below */ }
     if (!token || /[\r\n]/.test(token) || token.length > 4096) out({ ok: false, error: 'that token does not look right' });
+    const header = String(req.header || '').trim();
+    // header (contract 6): the service names where its key goes. Authorization
+    // keeps its schemes below; any other name carries the token exactly as
+    // pasted, because that is what such a service checks (WooCommerce's
+    // X-MCP-API-Key wants "consumer_key:consumer_secret", no prefix).
+    if (header && !/^authorization$/i.test(header)) {
+      if (!HEADER_RE.test(header)) out({ ok: false, error: 'a header name is letters, digits and dashes only, like X-API-Key' });
+      if (RESERVED_HEADERS.has(header.toLowerCase())) out({ ok: false, error: `${header} is used by the connection itself, so a key cannot go there` });
+      def.headers = { [header]: token };
+    } else
     // scheme 'basic' (contract 4): the token is "username:password", the shape a
     // WordPress application password signs in with. Anything else stays Bearer,
     // which is what every API-token server before this one wanted.
@@ -488,7 +515,17 @@ if (cmd === 'add-custom') {
   const sameEndpoint = (u) => { try { return new URL(u).href === url.href; } catch { return false; } };
   const dupe = Object.entries({ ...scopeServers(), ...doc.mcpServers })
     .find(([k, d0]) => k !== name && d0?.url && sameEndpoint(d0.url));
-  if (dupe) out({ ok: false, error: `already connected as "${dupe[0]}" on this box` });
+  // `another` (contract 6): a further account at an address already connected,
+  // e.g. a second Slack workspace (every workspace is mcp.slack.com). Allowed
+  // only when THIS add carries its own token: a token is an account, so two
+  // token rows at one address are two accounts, not a duplicate. An OAuth add
+  // would share the one sign-in store entry per address, so it is still
+  // refused, and a plain repeat press without `another` is refused as before.
+  if (dupe && !(req.another === true && def.headers)) {
+    out({ ok: false, error: req.another === true
+      ? 'another account at the same address needs its own token'
+      : `already connected as "${dupe[0]}" on this box` });
+  }
   // A leftover sign-in under the same name must go (2 Oct 2026, found on a
   // pebble): Zapier was first added by OAuth at one address, then re-added
   // here with a token at a new one. The old record in .kernel/mcp-oauth.json

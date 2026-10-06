@@ -7,7 +7,7 @@ mode: reference
 surface: connections
 order: 108
 pins: engine/comms/mcp-connect.mjs, wizard/panel/mcp-catalogue.mjs, wizard/panel/google-connect-routes.mjs
-reviewed: 2026-10-02
+reviewed: 2026-10-06
 ---
 
 *What your assistant can reach.*
@@ -143,6 +143,16 @@ credential and is working immediately. Without one, the sign-in starts as soon
 as the connection is saved. Only https addresses are accepted, and one
 endpoint gets one entry: if the same address is already connected under
 another name, the page refuses the duplicate and names the existing one.
+
+Some services want the token in a header of their own rather than the usual
+one. Open **The service says to send the token in a different header** under
+the form and type the header name the service gives. The token then goes in
+that header exactly as you pasted it, with nothing added in front.
+WooCommerce's own MCP server is the common case: its address is
+`https://<your shop>/wp-json/woocommerce/mcp`, the header is `X-MCP-API-Key`,
+and the token is a WooCommerce REST API key's consumer key and consumer secret
+joined by a colon (`ck_...:cs_...`). A read-only key keeps the assistant to
+reading orders and products.
 
 ## What keeps sign-ins alive
 

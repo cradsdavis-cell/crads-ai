@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 72
 pins: wizard/panel/member.html, engine/comms/mcp-connect.mjs, wizard/panel/mcp-catalogue.mjs
-reviewed: 2026-10-02
+reviewed: 2026-10-06
 ---
 
 Slack connects with **your own app**: a small private app you make inside your
@@ -59,9 +59,6 @@ clipboard, and here it is in full:
     "name": "Crads assistant",
     "description": "My assistant, acting as me in this workspace."
   },
-  "features": {
-    "bot_user": { "display_name": "crads-assistant", "always_online": false }
-  },
   "oauth_config": {
     "scopes": {
       "user": [
@@ -94,14 +91,13 @@ Three things in it matter:
   twelve hours later. Slack does not let you turn rotation off again once it
   is on, so if you made an app with it on, make a fresh one from the template.
 
-The app also has a bot user, named `crads-assistant` because Slack only allows
-lowercase letters, numbers, dashes, dots and underscores in a bot's name. It
-never posts; it is there because Slack's sign-in has been known to refuse an
-app without one.
+The app has no bot user, and does not need one: everything runs on your own
+user token.
 
-If Slack says **"We can't translate a manifest with errors"**, you have an
-older copy of the template: change the bot's `display_name` to
-`crads-assistant` and press Next.
+If Slack shows a red mark beside `"bot_user"` and **Next** stays greyed out, or
+says **"We can't translate a manifest with errors"**, you have an older copy of
+the template. Delete the whole `"features"` block (from `"features": {` down to
+its closing `},`) and press Next.
 
 ## Step 2. Install it and copy the token
 
@@ -109,8 +105,9 @@ older copy of the template: change the bot's `display_name` to
 2. Press the install button for your workspace, then **Allow**.
 3. The same page now shows a **User OAuth Token**, starting `xoxp-`. Copy it.
 
-Copy the **User** token, not the Bot token underneath it (that one starts
-`xoxb-`, and the card refuses it with a note saying so).
+There is no Bot token on this page, and that is expected. If you made your app
+from an older template and do see one (it starts `xoxb-`), leave it: the card
+refuses it with a note saying so.
 
 If your workspace needs an admin to approve apps, Slack says so at the install
 step and sends them the request. Come back to this step once they have.
@@ -132,6 +129,19 @@ you can fix the problem and press Connect again.
 | Slack says your app is not switched on for assistants | The app's MCP switch is off | Turn on Model Context Protocol under **Agents & AI Apps**, or remake the app from the template |
 | That is the Bot token | You copied `xoxb-` | Copy the `xoxp-` token above it |
 | Your mineral could not reach Slack | A network hiccup | Try again in a minute |
+
+## More than one workspace
+
+Once one workspace is connected, **Your connections** offers **Add another
+Slack workspace** under the list. It opens the same card with one extra field
+at the top: a short name for the workspace (lowercase letters, numbers and
+dashes, such as `reef`). Then make an app in that workspace from the same
+template, install it, and paste its token, exactly as above.
+
+Each workspace has its own app, its own token and its own row, named after the
+short name: **Slack (reef)**. Your assistant sees them as separate
+connections, so tell it which workspace you mean. Disconnecting one row leaves
+the others alone.
 
 ## What your assistant does with it
 

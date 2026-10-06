@@ -894,7 +894,7 @@ const MCP_ON = {
   canva: { authorised: true, auth: 'oauth', renews: true },
 };
 const MCP_CHAT = { stripe: true };   // a connection made inside Claude Code (chats-only)
-const MCP_CONTRACT = 5;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
+const MCP_CONTRACT = 6;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
                           // (2 = the byo google row, 2026-08-17; 3 = several
                           // google rows, one per account, 2026-09-14. Bumped
                           // in lockstep with the engine. rekey_due_at left the

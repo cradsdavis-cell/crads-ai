@@ -87,7 +87,7 @@ test('app.mjs wires the flag before the single-instance dance and registers the 
   const app = readFileSync(new URL('../app.mjs', import.meta.url), 'utf8');
   assert.ok(app.includes("from './panel/uninstall.mjs'"), 'app.mjs imports the module');
   const flag = app.indexOf('wantsUninstall(process.argv)');
-  const dance = app.indexOf('no live instance; relaunching self HIDDEN');
-  assert.ok(flag > -1 && dance > -1 && flag < dance, '--uninstall must be handled before the app relaunches itself hidden');
+  const dance = app.indexOf('no live instance; relaunching self detached');
+  assert.ok(flag > -1 && dance > -1 && flag < dance, '--uninstall must be handled before the app relaunches itself');
   assert.ok(app.includes('registerUninstall('), 'selfInstall registers the Add/Remove entry');
 });

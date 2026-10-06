@@ -699,6 +699,44 @@ jobs:
           echo "$HTML" | grep -q 'data-make="selfhost"' || { echo 'door is missing the self-host path (data-make="selfhost")'; exit 1; }
           echo 'smoke OK: mac app boots and serves the embedded door page'
 
+      # The click path a member takes (2026-10-06). The smoke above runs the
+      # binary with AIOS_NO_LAUNCH=1, so it never touched the bug a member hit
+      # once or twice a day: the process LaunchServices started stayed up with
+      # no window, a second click only re-activated it, and nothing opened until
+      # a force quit. Here the bundle is opened the way Finder does it, twice,
+      # and the step pins three facts: the server answers, LaunchServices does
+      # NOT count the app as running (the launched process handed off and
+      # left), and the second open is a new process that took the reopen path.
+      - name: Smoke the click path (open twice; macOS must not hold the app)
+        run: |
+          set -u; set +e
+          RUN_DIR="$HOME/Library/Application Support/Crads-AI"
+          rm -rf "$RUN_DIR"; mkdir -p "$HOME/Applications"
+          rm -rf "$HOME/Applications/Crads-AI.app"
+          ditto dist/Crads-AI.app "$HOME/Applications/Crads-AI.app"
+          APP="$HOME/Applications/Crads-AI.app"
+          fail() { echo "::error::$1"; echo "--- startup.log"; cat "$RUN_DIR/startup.log" 2>/dev/null; echo "--- error.log"; cat "$RUN_DIR/error.log" 2>/dev/null; echo "--- lsappinfo"; lsappinfo find bundleid=com.crads-ai.app; exit 1; }
+          open "$APP" || fail 'open refused the bundle'
+          URL=''
+          for _ in $(seq 1 60); do
+            URL="$(sed -n 's/.*"url":"\([^"]*\)".*/\1/p' "$RUN_DIR/app.json" 2>/dev/null)"
+            [ -n "$URL" ] && curl -sf -o /dev/null "$URL" && break
+            URL=''; sleep 0.5
+          done
+          [ -n "$URL" ] || fail 'the opened app never answered on the URL in app.json'
+          sleep 3
+          [ -z "$(lsappinfo find bundleid=com.crads-ai.app)" ] || fail 'macOS still counts Crads-AI as running: the next click would only re-activate a windowless process'
+          grep -q 'relaunching self detached' "$RUN_DIR/startup.log" || fail 'the first open did not hand off to a pebble'
+          open "$APP" || fail 'second open refused'
+          for _ in $(seq 1 20); do grep -q 'already running at' "$RUN_DIR/startup.log" && break; sleep 0.5; done
+          grep -q 'already running at' "$RUN_DIR/startup.log" || fail 'the second open did not reach the reopen path'
+          curl -sf -o /dev/null "$URL" || fail 'the first server died when the second open ran'
+          echo '--- startup.log'; cat "$RUN_DIR/startup.log"
+          PID="$(sed -n 's/.*"pid":\([0-9]*\).*/\1/p' "$RUN_DIR/app.json")"
+          [ -n "$PID" ] && kill "$PID"
+          pkill -f 'app-window-profile' || true
+          echo 'smoke OK: open twice, one server, macOS holds no windowless app, second open reopened'
+
       # Gatekeeper truth (2026-08-19, out of the Harriet walkthrough). The app is
       # ad-hoc signed and NOT notarized, so a member's Mac shows the hard block:
       # "Crads-AI can't be opened because Apple cannot check it for malicious

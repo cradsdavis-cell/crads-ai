@@ -833,3 +833,53 @@ test('a REFUSED add-custom costs no existing connection its sign-in', () => {
   assert.equal(JSON.parse(readFileSync(path.join(d, '.kernel', 'mcp-oauth.json'), 'utf8')).zapier.refresh_token, 'RT', 'untouched');
   assert.equal(JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers.zapier.headers.Authorization, 'Bearer OAUTH');
 });
+
+// ---- contract 6: own header + another account (2026-10-06) -----------------
+
+test('add-custom header: the token rides the named header raw (WooCommerce X-MCP-API-Key)', () => {
+  const d = box();
+  const KEY = ['ck', '0123456789abcdef'].join('_') + ':' + ['cs', 'fedcba9876543210'].join('_');   // built at runtime: no key-shaped literal for push protection
+  const raw = execFileSync('node', [SCRIPT, d, 'add-custom'], { encoding: 'utf8', input: b64({
+    name: 'driftwood', url: 'https://shop.example/wp-json/woocommerce/mcp',
+    token_b64: Buffer.from(KEY).toString('base64'), header: 'X-MCP-API-Key' }) });
+  const r = JSON.parse(raw);
+  assert.equal(r.ok, true);
+  assert.ok(r.contract >= 6, 'contract 6 announces header + another');
+  assert.equal(svc(r, 'driftwood').auth, 'token', 'a key in its own header is still a token connection: no sign-in step');
+  assert.equal(svc(r, 'driftwood').state, 'on');
+  assert.ok(!raw.includes(KEY), 'the key must not come back out through the verb');
+  const h = JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers.driftwood.headers;
+  assert.deepEqual(h, { 'X-MCP-API-Key': KEY }, 'exactly as pasted, no Bearer, and no Authorization alongside');
+});
+
+test('add-custom header refuses bad names, transport-owned names, and a header with no key', () => {
+  const d = box();
+  const tok = Buffer.from('k').toString('base64');
+  for (const header of ['X API Key', 'X-Key:', 'Content-Type', 'mcp-session-id', 'Host']) {
+    assert.equal(run(d, 'add-custom', b64({ name: 'shop', url: 'https://a.example/mcp', token_b64: tok, header })).ok, false, header);
+  }
+  assert.equal(run(d, 'add-custom', b64({ name: 'shop', url: 'https://a.example/mcp', header: 'X-API-Key' })).ok, false);
+  // Authorization by name keeps the scheme rules
+  assert.equal(run(d, 'add-custom', b64({ name: 'shop', url: 'https://a.example/mcp', token_b64: tok, header: 'Authorization' })).ok, true);
+  const h = JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers.shop.headers;
+  assert.deepEqual(h, { Authorization: 'Bearer k' });
+});
+
+test('another: a second Slack workspace at the same address, each its own token row', () => {
+  const d = box();
+  const tok = (s) => Buffer.from(s).toString('base64');
+  assert.equal(run(d, 'add-custom', b64({ name: 'slack', url: 'https://mcp.slack.com/mcp', token_b64: tok('xoxp-one') })).ok, true);
+  // a plain repeat is still the duplicate the endpoint rule exists to stop
+  const again = run(d, 'add-custom', b64({ name: 'slack-reef', url: 'https://mcp.slack.com/mcp', token_b64: tok('xoxp-two') }));
+  assert.equal(again.ok, false);
+  assert.match(again.error, /already connected as "slack"/);
+  // another without its own token would share one sign-in: refused
+  assert.equal(run(d, 'add-custom', b64({ name: 'slack-reef', url: 'https://mcp.slack.com/mcp', another: true })).ok, false);
+  const r = run(d, 'add-custom', b64({ name: 'slack-reef', url: 'https://mcp.slack.com/mcp', token_b64: tok('xoxp-two'), another: true }));
+  assert.equal(r.ok, true);
+  assert.equal(svc(r, 'slack-reef').label, 'Slack (reef)');
+  assert.equal(svc(r, 'slack-reef').auth, 'token');
+  const srv = JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers;
+  assert.equal(srv.slack.headers.Authorization, 'Bearer xoxp-one', 'the first workspace is untouched');
+  assert.equal(srv['slack-reef'].headers.Authorization, 'Bearer xoxp-two');
+});
