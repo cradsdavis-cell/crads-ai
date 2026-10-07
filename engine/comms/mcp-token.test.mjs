@@ -230,3 +230,57 @@ test('set writes Bearer for "bearer" and Slack\'s "user"; DPoP stays DPoP', () =
     assert.equal(mcp(d).mcpServers.canva.headers.Authorization, `${want} AT`, String(tt));
   }
 });
+
+// ---- 2026-10-07: an open chat picks up a renewed token (headersHelper) -------
+// A member's Asana stopped working in any chat open past an hour: the chat kept
+// the header it started with. The helper is what Claude Code re-runs on a 401.
+import { HEADER_TOOL, headersHelperCmd } from '../lib/mcp-header-helper.mjs';
+const helper = (cmd, name, cwd) => JSON.parse(execFileSync('sh', ['-c', cmd], {
+  encoding: 'utf8', cwd, env: { ...process.env, CLAUDE_CODE_MCP_SERVER_NAME: name } }));
+
+test('set gives the connection a headersHelper that prints the CURRENT header, renewal included', () => {
+  const d = box();
+  run(d, ['set'], b64({ ...SET, name: 'asana', url: 'https://mcp.asana.com/sse', access_token: 'FIRST' }));
+  const s = mcp(d).mcpServers.asana;
+  assert.equal(s.headersHelper, headersHelperCmd(path.resolve(d)));
+  assert.equal(s.type, 'sse', 'helpers work over sse as well as http');
+  assert.deepEqual(helper(s.headersHelper, 'asana', d), { Authorization: 'Bearer FIRST' });
+  // the renewal job writes the next token through the same command
+  run(d, ['set'], b64({ name: 'asana', url: 'https://mcp.asana.com/sse', access_token: 'RENEWED', expires_at: Date.now() + 3600e3 }));
+  assert.deepEqual(helper(s.headersHelper, 'asana', d), { Authorization: 'Bearer RENEWED' },
+    'an open chat that re-runs the helper after a 401 gets the renewed token');
+  assert.ok(!JSON.stringify(helper(s.headersHelper, 'asana', d)).includes('RT'), 'never the refresh token');
+});
+
+test('the helper never fails a connection: anything wrong prints {}', () => {
+  const d = box();
+  run(d, ['set'], b64(SET));
+  const cmd = mcp(d).mcpServers.canva.headersHelper;
+  assert.deepEqual(helper(cmd, 'not-a-server', d), {}, 'unknown name');
+  assert.deepEqual(helper(cmd, '', d), {}, 'no name in the env');
+  assert.deepEqual(helper(cmd, '__proto__', d), {});
+  writeFileSync(path.join(d, '.mcp.json'), '{ not json');
+  assert.deepEqual(helper(cmd, 'canva', d), {}, 'a corrupt file');
+  // an image that lost the script (a rollback): the shell fallback answers
+  const gone = cmd.replace(HEADER_TOOL, path.join(d, 'no-such-helper.mjs'));
+  assert.notEqual(gone, cmd);
+  assert.deepEqual(helper(gone, 'canva', d), {});
+});
+
+test('a headersHelper the member set by hand is kept through a renewal', () => {
+  const d = box();
+  writeFileSync(path.join(d, '.mcp.json'), JSON.stringify({ mcpServers: { canva: { type: 'http', url: SET.url, headersHelper: '/usr/local/bin/their-own' } } }));
+  run(d, ['set'], b64(SET));
+  assert.equal(mcp(d).mcpServers.canva.headersHelper, '/usr/local/bin/their-own');
+});
+
+test('forget takes our helper with the header, and leaves a member\'s own', () => {
+  const d = box();
+  run(d, ['set'], b64(SET));
+  run(d, ['forget', 'canva']);
+  assert.equal(mcp(d).mcpServers.canva.headersHelper, undefined);
+  assert.equal(mcp(d).mcpServers.canva.headers, undefined);
+  writeFileSync(path.join(d, '.mcp.json'), JSON.stringify({ mcpServers: { canva: { type: 'http', url: SET.url, headersHelper: '/usr/local/bin/their-own', headers: { Authorization: 'Bearer X' } } } }));
+  run(d, ['forget', 'canva']);
+  assert.equal(mcp(d).mcpServers.canva.headersHelper, '/usr/local/bin/their-own');
+});

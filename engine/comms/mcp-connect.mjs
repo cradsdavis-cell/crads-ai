@@ -34,6 +34,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { connectionLabel } from '../lib/connection-labels.mjs';
 import { GOOGLE_KEY_RE, PRIMARY_GOOGLE_KEY, GOOGLE_CREDS_DIR, googleStateFiles } from '../lib/google-byo.mjs';
+import { headersHelperCmd, HELPER_RE } from '../lib/mcp-header-helper.mjs';
 
 const stateDir = path.resolve(process.argv[2] || '/state');
 const cmd = process.argv[3] || 'status';
@@ -440,11 +441,35 @@ function healBearerCase() {
   if (changed) writeMcp(doc);
 }
 
+// Give every renewing sign-in this tool made the headersHelper (2026-10-07):
+// connections signed in before mcp-token.mjs wrote it would otherwise only get
+// it at their next renewal. Scope: servers this tool added, with refresh
+// material in the store and our Authorization header. A helper the member set
+// is theirs; ours is rewritten if the engine ever moves.
+function healHeadersHelper() {
+  const doc = rdJSON(MCP_F, null);
+  if (!doc?.mcpServers) return;
+  const store = rdJSON(OAUTH_F, {});
+  const mine = appAdded();
+  const want = headersHelperCmd(stateDir);
+  let changed = false;
+  for (const [k, d0] of Object.entries(doc.mcpServers)) {
+    if (!(mine.has(k) || FEATURED[k]) || !d0?.headers?.Authorization) continue;
+    const s = store[k];
+    if (!s || s.provider === 'google-byo' || !s.refresh_token) continue;
+    if (d0.headersHelper && !HELPER_RE.test(d0.headersHelper)) continue;
+    if (d0.headersHelper === want) continue;
+    d0.headersHelper = want; changed = true;
+  }
+  if (changed) writeMcp(doc);
+}
+
 if (cmd === 'status') {
   // Heal on every read: a box provisioned before this fix (keith) has app-added
   // servers sitting behind the approval gate with no dialog anywhere to accept.
   ensureApproved(Object.keys(servers()).filter((k) => FEATURED[k] || UNAVAILABLE[k] || appAdded().has(k)));
   healBearerCase();
+  healHeadersHelper();
   out({ ok: true, contract: CONTRACT, services: rows() });
 }
 

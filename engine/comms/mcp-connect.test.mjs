@@ -883,3 +883,32 @@ test('another: a second Slack workspace at the same address, each its own token 
   assert.equal(srv.slack.headers.Authorization, 'Bearer xoxp-one', 'the first workspace is untouched');
   assert.equal(srv['slack-reef'].headers.Authorization, 'Bearer xoxp-two');
 });
+
+// ---- 2026-10-07: sign-ins made before the headersHelper existed get it ------
+import { headersHelperCmd as helperCmd } from '../lib/mcp-header-helper.mjs';
+
+test('status gives our renewing sign-ins the headersHelper, and nothing else', () => {
+  const d = box();
+  mkdirSync(path.join(d, '.kernel'), { recursive: true });
+  writeFileSync(path.join(d, '.mcp.json'), json({ mcpServers: {
+    asana: { type: 'sse', url: 'https://mcp.asana.com/sse', headers: { Authorization: 'Bearer AT' } },
+    pasted: { type: 'http', url: 'https://pasted.example/mcp', headers: { Authorization: 'Bearer KEY' } },
+    theirs: { type: 'http', url: 'https://their.example/mcp', headers: { Authorization: 'Bearer HT' } },
+    own: { type: 'http', url: 'https://own.example/mcp', headers: { Authorization: 'Bearer O' }, headersHelper: '/usr/local/bin/mine' },
+  } }));
+  writeFileSync(path.join(d, '.kernel', 'mcp-added.json'), json(['asana', 'pasted', 'own']));
+  writeFileSync(path.join(d, '.kernel', 'mcp-oauth.json'), json({
+    asana: { url: 'https://mcp.asana.com/sse', refresh_token: 'RT', token_endpoint: 'https://app.asana.com/-/oauth_token', expires_at: Date.now() + 60e3 },
+    theirs: { url: 'https://their.example/mcp', refresh_token: 'RT2' },
+    own: { url: 'https://own.example/mcp', refresh_token: 'RT3' },
+  }));
+  const r = run(d, 'status');
+  assert.equal(r.ok, true);
+  assert.ok(!JSON.stringify(r).includes('Bearer AT'), 'the token never comes out');
+  const live = JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers;
+  assert.equal(live.asana.headersHelper, helperCmd(path.resolve(d)), 'a renewing sign-in this tool made');
+  assert.equal(live.pasted.headersHelper, undefined, 'a pasted key never renews, so it needs none');
+  assert.equal(live.theirs.headersHelper, undefined, 'a server added by hand is the member\'s');
+  assert.equal(live.own.headersHelper, '/usr/local/bin/mine', 'a helper the member set is kept');
+  assert.equal(live.asana.headers.Authorization, 'Bearer AT', 'the fixed header stays for headless jobs and untrusted folders');
+});

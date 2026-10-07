@@ -22,6 +22,7 @@
 import { readFileSync, writeFileSync, mkdirSync, chmodSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { GOOGLE_KEY_RE, PRIMARY_GOOGLE_KEY, GOOGLE_CREDS_DIR, googleCredsFileName, googleEntries } from '../lib/google-byo.mjs';
+import { headersHelperCmd, HELPER_RE } from '../lib/mcp-header-helper.mjs';
 
 const stateDir = path.resolve(process.argv[2] || '/state');
 const cmd = process.argv[3] || 'show';
@@ -69,6 +70,9 @@ if (cmd === 'set') {
     type: prev.type || (/\/sse$/.test(url.pathname) ? 'sse' : 'http'),
     url: url.href,
     headers: { ...(prev.headers || {}), Authorization: `${authScheme(req.token_type)} ${req.access_token}` },
+    // an open chat re-reads the header through this when the old token 401s
+    // (lib/mcp-header-helper.mjs); a member's own helper is never replaced
+    headersHelper: prev.headersHelper && !HELPER_RE.test(prev.headersHelper) ? prev.headersHelper : headersHelperCmd(stateDir),
   };
   writeFileSync(MCP_F, JSON.stringify(doc, null, 2) + '\n');
 
@@ -167,8 +171,9 @@ if (cmd === 'forget') {
     // strip only OUR header; a member's own hand-set headers stay
     delete doc.mcpServers[arg].headers.Authorization;
     if (!Object.keys(doc.mcpServers[arg].headers).length) delete doc.mcpServers[arg].headers;
-    writeFileSync(MCP_F, JSON.stringify(doc, null, 2) + '\n');
   }
+  if (HELPER_RE.test(doc.mcpServers?.[arg]?.headersHelper || '')) delete doc.mcpServers[arg].headersHelper;
+  if (doc.mcpServers?.[arg]) writeFileSync(MCP_F, JSON.stringify(doc, null, 2) + '\n');
   const store = rd(OAUTH_F, {});
   // A BYO-Google forget removes the KEY ITSELF: unlike a remote OAuth grant
   // (which the member revokes at the provider), the member's client secret +
