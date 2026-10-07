@@ -42,7 +42,12 @@ RUN git config --system --add safe.directory '*' \
     && git config --system url."https://github.com/".insteadOf "git@github.com:"
 
 # --- Claude Code CLI (PINNED — the plugin-bake contract depends on a fixed CLI) ---
-ARG CLAUDE_CLI_VERSION=2.1.187
+# 2.1.187 -> 2.1.292 (2026-10-07): 2.1.187 never re-runs an MCP headersHelper
+# when a call answers 401, so a chat open past a sign-in's life kept sending the
+# expired token even with the helper in place (lib/mcp-header-helper.mjs).
+# 2.1.218 and 2.1.292 re-run it and retry, over HTTP servers (proven with a
+# server that rotates the token mid-chat; SSE servers retry on no version).
+ARG CLAUDE_CLI_VERSION=2.1.292
 RUN npm install -g "@anthropic-ai/claude-code@${CLAUDE_CLI_VERSION}"
 
 # --- Browser VS Code: code-server (MIT), server bundled, no runtime download ---
