@@ -390,12 +390,32 @@ async function applyUpdateDarwin(opts = {}, state = () => {}) {
   renameSync(fresh, target);
   rmSync(unpack, { recursive: true, force: true });
   rmSync(zip, { force: true });
-  if (opts.relaunch !== false) {
-    try { unlinkSync(opts.runFile || runFilePath()); } catch { /* none */ }
-    const pebble = (opts.spawn || spawn)('open', [target], { detached: true, stdio: 'ignore' });
-    if (pebble.unref) pebble.unref();
-    const exit = opts.exit || ((code) => process.exit(code));
-    setTimeout(() => exit(0), 400);
-  }
+  if (opts.relaunch !== false) macRelaunch({ ...opts, target });
   return { target };
+}
+
+// The exit code that tells the mac window host "a new bundle is in place: quit
+// and open it". EX_TEMPFAIL, so it can never be mistaken for a crash (1) or a
+// clean stop (0). The host's twin constant lives in wizard/assets/mac-host.
+export const MAC_RESTART_EXIT = 75;
+
+// After the bundle swap, start the new version (2026-10-07: two shapes).
+//   hosted  the native window host is our parent and the app LaunchServices
+//           tracks. `open <bundle>` would only re-activate that running host
+//           (same bundle id), leaving the old binary in charge of a dead
+//           server. So we exit MAC_RESTART_EXIT and the host waits for itself
+//           to be gone before opening the new bundle.
+//   bare    no host (older bundles): open the bundle and leave, as before.
+// The run file goes first either way: see the 2026-07-23 relaunch-race note.
+export function macRelaunch({ target, hosted = false, runFile, spawn: spawnFn, exit, delayMs } = {}) {
+  try { unlinkSync(runFile || runFilePath()); } catch { /* none */ }
+  const quit = exit || ((code) => process.exit(code));
+  if (hosted) {
+    setTimeout(() => quit(MAC_RESTART_EXIT), delayMs ?? 400);
+    return { relaunch: 'host' };
+  }
+  const pebble = (spawnFn || spawn)('open', [target], { detached: true, stdio: 'ignore' });
+  if (pebble.unref) pebble.unref();
+  setTimeout(() => quit(0), delayMs ?? 400);
+  return { relaunch: 'open' };
 }

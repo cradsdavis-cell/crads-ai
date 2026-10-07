@@ -17,8 +17,19 @@
 // detached pebble, macOS sees the app quit, and every click is a fresh launch
 // that reaches the reopen path. Windows has relaunched since the console-hide
 // fix; the two platforms now share one shape.
+//
+// Superseded on macOS by the native window host (2026-10-07). The handoff above
+// fixed the force quits but made the app vanish from the Dock: the window was
+// Chrome's, so the Dock showed Chrome, "Keep in Dock" was never offered, and a
+// second click opened a second window (a member, the day after it shipped).
+// The bundle's main executable is now wizard/assets/mac-host (a WKWebView
+// shell that owns the window, the Dock icon and the reopen event), and it runs
+// this binary as its child with AIOS_WINDOW_HOST=1. That child only serves:
+// no probe, no relaunch, no window. The relaunch shape stays for a bundle
+// without the host (none ship) and for Windows.
 export function launchPlan({ platform, sea, env = {}, live = false }) {
   if (!sea || env.AIOS_NO_LAUNCH === '1') return 'serve';
+  if (platform === 'darwin' && env.AIOS_WINDOW_HOST === '1') return 'serve';
   if (platform !== 'win32' && platform !== 'darwin') return 'serve';
   if (live) return 'reopen';
   if (env.AIOS_RELAUNCHED) return 'serve';

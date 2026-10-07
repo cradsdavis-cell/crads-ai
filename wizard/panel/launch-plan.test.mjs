@@ -25,6 +25,15 @@ test('a click while a copy answers reopens its window, on both platforms', () =>
   }
 });
 
+test('under the Mac window host the child only serves, even with a live copy recorded', () => {
+  // the host owns the window and the Dock icon; a relaunch here would orphan
+  // the server from the app that is supposed to stop it on quit
+  assert.equal(launchPlan({ platform: 'darwin', sea: true, env: { AIOS_WINDOW_HOST: '1' } }), 'serve');
+  assert.equal(launchPlan({ platform: 'darwin', sea: true, env: { AIOS_WINDOW_HOST: '1' }, live: true }), 'serve');
+  // the flag means nothing on Windows, which keeps its own shape
+  assert.equal(launchPlan({ platform: 'win32', sea: true, env: { AIOS_WINDOW_HOST: '1' } }), 'relaunch');
+});
+
 test('dev checkouts, linux and CI never relaunch', () => {
   assert.equal(launchPlan({ platform: 'darwin', sea: false, env: {} }), 'serve');
   assert.equal(launchPlan({ platform: 'linux', sea: true, env: {} }), 'serve');

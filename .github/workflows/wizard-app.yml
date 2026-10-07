@@ -481,6 +481,10 @@ jobs:
           retention-days: 5
 
       - name: Publish / update the rolling prerelease (tag wizard-app)
+        # A manual run on a feature branch (workflow_dispatch --ref) builds and
+        # smokes everything but must not replace the rolling release with an
+        # unmerged build (2026-10-07, the mac window host was proven this way).
+        if: github.ref == 'refs/heads/hardening-loop' || github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: wizard-app
@@ -626,6 +630,17 @@ jobs:
             --macho-segment-name NODE_SEA
           codesign -s - dist/crads-ai
 
+      # The window host (2026-10-07, wizard/assets/mac-host/main.swift) is the
+      # bundle's executable: it owns the window, the Dock icon and the reopen
+      # event, and runs the SEA binary above as its child. arm64 like the node
+      # binary it carries (macos-latest is Apple silicon).
+      - name: Build the window host (WKWebView shell; owns the Dock icon)
+        run: |
+          swiftc -O -target arm64-apple-macos11.0 \
+            -framework Cocoa -framework WebKit \
+            wizard/assets/mac-host/main.swift -o dist/crads-ai-window
+          file dist/crads-ai-window
+
       - name: Assemble the Crads-AI.app bundle (icon + plist + ad-hoc sign)
         run: |
           node wizard/assets/make-icon.mjs --iconset dist/crads-ai.iconset
@@ -634,6 +649,10 @@ jobs:
           mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
           cp dist/crads-ai "$APP/Contents/MacOS/crads-ai"
           chmod +x "$APP/Contents/MacOS/crads-ai"
+          cp dist/crads-ai-window "$APP/Contents/MacOS/crads-ai-window"
+          chmod +x "$APP/Contents/MacOS/crads-ai-window"
+          VER="$(sed -n 's/.*"version": "v\([^"]*\)".*/\1/p' dist/build-info.json)"
+          BUILD="$(sed -n 's/.*"build": \([0-9]*\).*/\1/p' dist/build-info.json)"
           cp dist/crads-ai.icns "$APP/Contents/Resources/crads-ai.icns"
           cat > "$APP/Contents/Info.plist" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -642,12 +661,23 @@ jobs:
             <key>CFBundleName</key><string>Crads-AI</string>
             <key>CFBundleDisplayName</key><string>Crads-AI</string>
             <key>CFBundleIdentifier</key><string>com.crads-ai.app</string>
-            <key>CFBundleExecutable</key><string>crads-ai</string>
+            <key>CFBundleExecutable</key><string>crads-ai-window</string>
             <key>CFBundleIconFile</key><string>crads-ai</string>
             <key>CFBundlePackageType</key><string>APPL</string>
-            <key>CFBundleShortVersionString</key><string>1.0.${{ github.run_number }}</string>
+            <key>CFBundleShortVersionString</key><string>${VER}</string>
+            <key>CFBundleVersion</key><string>${BUILD}</string>
             <key>LSMinimumSystemVersion</key><string>11.0</string>
             <key>NSHighResolutionCapable</key><true/>
+            <key>NSPrincipalClass</key><string>NSApplication</string>
+            <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
+            <!-- the window loads the app's own loopback server over plain http -->
+            <key>NSAppTransportSecurity</key><dict>
+              <key>NSAllowsLocalNetworking</key><true/>
+              <key>NSExceptionDomains</key><dict>
+                <key>localhost</key><dict><key>NSExceptionAllowsInsecureHTTPLoads</key><true/></dict>
+                <key>127.0.0.1</key><dict><key>NSExceptionAllowsInsecureHTTPLoads</key><true/></dict>
+              </dict>
+            </dict>
             <!-- D58 P2.2: claim the crads-ai:// scheme so invite links open the app
                  (Windows twin: HKCU registration in wizard/panel/protocol.mjs) -->
             <key>CFBundleURLTypes</key><array><dict>
@@ -656,6 +686,8 @@ jobs:
             </dict></array>
           </dict></plist>
           EOF
+          plutil -lint "$APP/Contents/Info.plist"
+          codesign -s - --force dist/Crads-AI.app/Contents/MacOS/crads-ai-window
           codesign -s - --force "$APP"
 
       - name: Smoke the app (boots, serves the embedded door page)
@@ -699,43 +731,179 @@ jobs:
           echo "$HTML" | grep -q 'data-make="selfhost"' || { echo 'door is missing the self-host path (data-make="selfhost")'; exit 1; }
           echo 'smoke OK: mac app boots and serves the embedded door page'
 
-      # The click path a member takes (2026-10-06). The smoke above runs the
-      # binary with AIOS_NO_LAUNCH=1, so it never touched the bug a member hit
-      # once or twice a day: the process LaunchServices started stayed up with
-      # no window, a second click only re-activated it, and nothing opened until
-      # a force quit. Here the bundle is opened the way Finder does it, twice,
-      # and the step pins three facts: the server answers, LaunchServices does
-      # NOT count the app as running (the launched process handed off and
-      # left), and the second open is a new process that took the reopen path.
-      - name: Smoke the click path (open twice; macOS must not hold the app)
+      # The click path a member takes, with the window host (2026-10-07; the
+      # 2026-10-06 version pinned the Chrome-window handoff this replaces). The
+      # bundle is opened the way Finder does it, and the step pins what a
+      # member saw go wrong on both earlier shapes:
+      #   - macOS DOES count Crads-AI as running (the leaf in the Dock, "Keep
+      #     in Dock" offered), the window belongs to the app, one server
+      #   - a second click brings the same window forward: still one window,
+      #     one server, same url (build 24 opened a second Chrome window)
+      #   - closing the window and clicking again shows it again
+      #   - quitting the app stops the server; so does a force quit (kill -9)
+      # Window counts come from CGWindowList by owner pid, not from the host's
+      # own log, so the check does not just believe the code under test.
+      - name: Smoke the click path (window host owns the window; one window, one server)
         run: |
           set -u; set +e
+          cat > dist/wincount.swift <<'SWIFT'
+          import CoreGraphics
+          import Foundation
+          let pid = Int32(CommandLine.arguments[1]) ?? -1
+          let all = (CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]) ?? []
+          let mine = all.filter { (($0[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value ?? -2) == pid && (($0[kCGWindowLayer as String] as? NSNumber)?.intValue ?? -1) == 0 }
+          print(mine.count)
+          SWIFT
+          swiftc -O dist/wincount.swift -o dist/wincount
           RUN_DIR="$HOME/Library/Application Support/Crads-AI"
-          rm -rf "$RUN_DIR"; mkdir -p "$HOME/Applications"
+          rm -rf "$RUN_DIR"; mkdir -p "$HOME/Applications" dist/shots
           rm -rf "$HOME/Applications/Crads-AI.app"
           ditto dist/Crads-AI.app "$HOME/Applications/Crads-AI.app"
           APP="$HOME/Applications/Crads-AI.app"
-          fail() { echo "::error::$1"; echo "--- startup.log"; cat "$RUN_DIR/startup.log" 2>/dev/null; echo "--- error.log"; cat "$RUN_DIR/error.log" 2>/dev/null; echo "--- lsappinfo"; lsappinfo find bundleid=com.crads-ai.app; exit 1; }
+          hostpid() { lsappinfo info -only pid "$(lsappinfo find bundleid=com.crads-ai.app | head -1)" 2>/dev/null | sed -n 's/.*=\([0-9]*\).*/\1/p'; }
+          servers() { pgrep -f 'Crads-AI.app/Contents/MacOS/crads-ai$' | wc -l | tr -d ' '; }
+          fail() { echo "::error::$1"; echo "--- startup.log"; cat "$RUN_DIR/startup.log" 2>/dev/null; echo "--- error.log"; cat "$RUN_DIR/error.log" 2>/dev/null; echo "--- lsappinfo"; lsappinfo find bundleid=com.crads-ai.app; ps -axo pid,ppid,command | grep -i crads | grep -v grep; screencapture -x dist/shots/failure.png 2>/dev/null; exit 1; }
+          waitlog() { for _ in $(seq 1 "${2:-60}"); do grep -q "$1" "$RUN_DIR/startup.log" 2>/dev/null && return 0; sleep 0.5; done; return 1; }
+
           open "$APP" || fail 'open refused the bundle'
-          URL=''
-          for _ in $(seq 1 60); do
-            URL="$(sed -n 's/.*"url":"\([^"]*\)".*/\1/p' "$RUN_DIR/app.json" 2>/dev/null)"
-            [ -n "$URL" ] && curl -sf -o /dev/null "$URL" && break
-            URL=''; sleep 0.5
-          done
-          [ -n "$URL" ] || fail 'the opened app never answered on the URL in app.json'
-          sleep 3
-          [ -z "$(lsappinfo find bundleid=com.crads-ai.app)" ] || fail 'macOS still counts Crads-AI as running: the next click would only re-activate a windowless process'
-          grep -q 'relaunching self detached' "$RUN_DIR/startup.log" || fail 'the first open did not hand off to a pebble'
+          waitlog 'window: page loaded' 90 || fail 'the window never loaded the dashboard (no "window: page loaded")'
+          URL="$(sed -n 's/.*"url":"\([^"]*\)".*/\1/p' "$RUN_DIR/app.json")"
+          curl -sf -o /dev/null "$URL" || fail "the url in app.json does not answer: $URL"
+          HP="$(hostpid)"
+          [ -n "$HP" ] || fail 'macOS does not count Crads-AI as running: no leaf in the Dock, no Keep in Dock'
+          SPID="$(sed -n 's/.*"pid":\([0-9]*\).*/\1/p' "$RUN_DIR/app.json")"
+          [ "$(ps -o ppid= -p "$SPID" | tr -d ' ')" = "$HP" ] || fail "the server (pid $SPID) is not the window host's child (host $HP)"
+          [ "$(servers)" = 1 ] || fail "expected one server, found $(servers)"
+          sleep 2
+          W="$(dist/wincount "$HP")"
+          [ "$W" = 1 ] || fail "expected one window owned by the app, found $W"
+          if pgrep -f 'app-window-profile' >/dev/null; then fail 'a Chrome app-window is running: the old window path fired'; fi
+          screencapture -x dist/shots/1-first-open.png || true
+
           open "$APP" || fail 'second open refused'
-          for _ in $(seq 1 20); do grep -q 'already running at' "$RUN_DIR/startup.log" && break; sleep 0.5; done
-          grep -q 'already running at' "$RUN_DIR/startup.log" || fail 'the second open did not reach the reopen path'
-          curl -sf -o /dev/null "$URL" || fail 'the first server died when the second open ran'
+          waitlog 'window: reopen' 20 || fail 'the second click never reached the reopen handler'
+          sleep 2
+          [ "$(hostpid)" = "$HP" ] || fail 'the second click started a new app instead of reopening'
+          [ "$(servers)" = 1 ] || fail "after the second click: expected one server, found $(servers)"
+          W="$(dist/wincount "$HP")"
+          [ "$W" = 1 ] || fail "after the second click: expected one window, found $W (the build-24 bug)"
+          curl -sf -o /dev/null "$URL" || fail 'the server stopped answering after the second click'
+
+          # close the window (Cmd-W through System Events needs Accessibility,
+          # which a runner may not grant: skip that leg loudly rather than fail)
+          if osascript -e 'tell application "System Events" to tell process "Crads-AI" to keystroke "w" using command down' 2>/dev/null; then
+            sleep 2
+            W="$(dist/wincount "$HP")"
+            if [ "$W" = 0 ]; then
+              curl -sf -o /dev/null "$URL" || fail 'closing the window stopped the server (it must not)'
+              open "$APP"
+              waitlog 'window: reopen: window shown' 20 || fail 'clicking with the window closed did not show it again'
+              sleep 2
+              W="$(dist/wincount "$HP")"
+              [ "$W" = 1 ] || fail "clicking with the window closed: expected one window, found $W"
+              echo 'close + click again: window shown, server kept'
+            else
+              echo "::notice::Cmd-W did not close the window here ($W open); close-then-click leg skipped"
+            fi
+          else
+            echo '::notice::no Accessibility for System Events on this runner; close-then-click leg skipped'
+          fi
+
+          osascript -e 'quit app id "com.crads-ai.app"' || fail 'the app refused a normal quit'
+          for _ in $(seq 1 20); do curl -sf -o /dev/null "$URL" || break; sleep 0.5; done
+          curl -sf -o /dev/null "$URL" && fail 'quitting the app left its server running'
+          [ -z "$(hostpid)" ] || fail 'the app is still running after quit'
+          [ "$(servers)" = 0 ] || fail "quit left $(servers) server(s) behind"
+          echo 'quit: app and server both gone'
+
+          # force quit: the server must notice its app is gone (stdin EOF)
+          open "$APP" || fail 'reopen after quit refused'
+          sleep 1
+          waitlog 'window: server ready' 90 || fail 'no server ready after relaunch'
+          for _ in $(seq 1 60); do [ "$(grep -c 'window: page loaded' "$RUN_DIR/startup.log")" -ge 2 ] && break; sleep 0.5; done
+          HP="$(hostpid)"
+          URL="$(sed -n 's/.*"url":"\([^"]*\)".*/\1/p' "$RUN_DIR/app.json")"
+          curl -sf -o /dev/null "$URL" || fail 'relaunched server does not answer'
+          kill -9 "$HP"
+          for _ in $(seq 1 20); do curl -sf -o /dev/null "$URL" || break; sleep 0.5; done
+          curl -sf -o /dev/null "$URL" && fail 'a force-quit app left its server running (orphan)'
+          [ "$(servers)" = 0 ] || fail "force quit left $(servers) server(s) behind"
           echo '--- startup.log'; cat "$RUN_DIR/startup.log"
-          PID="$(sed -n 's/.*"pid":\([0-9]*\).*/\1/p' "$RUN_DIR/app.json")"
-          [ -n "$PID" ] && kill "$PID"
-          pkill -f 'app-window-profile' || true
-          echo 'smoke OK: open twice, one server, macOS holds no windowless app, second open reopened'
+          echo 'smoke OK: the app owns its window, one window and one server per click, quit and force quit stop the server'
+
+      # The update restart, end to end, on a copy of the bundle whose server is a
+      # stub: it publishes a url, exits 75 (what updater.mjs macRelaunch does
+      # after the bundle swap) the first time, and serves normally the second.
+      # The host must quit and come back as a NEW process that starts a fresh
+      # server. A host that only logged would leave the member with no app.
+      - name: Smoke the update restart (server exits 75; the host relaunches the app)
+        run: |
+          set -u; set +e
+          RUN_DIR="$HOME/Library/Application Support/Crads-AI"
+          rm -rf "$RUN_DIR"; mkdir -p "$RUN_DIR"
+          STUBAPP="$HOME/Applications/Crads-AI.app"
+          rm -rf "$STUBAPP"; ditto dist/Crads-AI.app "$STUBAPP"
+          NODE="$(command -v node)"
+          cat > "$STUBAPP/Contents/MacOS/crads-ai" <<STUB
+          #!/bin/bash
+          exec "$NODE" -e '
+          const fs = require("fs"), http = require("http"), path = require("path");
+          const D = process.argv[1];
+          const s = http.createServer((q, r) => { r.writeHead(200, { "content-type": "text/html" }); r.end("<title>stub</title><h1>stub " + process.pid + "</h1>"); });
+          s.listen(0, "127.0.0.1", () => {
+            const url = "http://127.0.0.1:" + s.address().port + "/";
+            fs.writeFileSync(path.join(D, "app.json"), JSON.stringify({ pid: process.pid, url, door: url }));
+            const mark = path.join(D, "stub-restarted");
+            if (!fs.existsSync(mark)) { fs.writeFileSync(mark, "1"); setTimeout(() => process.exit(75), 4000); }
+          });
+          process.stdin.on("end", () => process.exit(0)); process.stdin.resume();
+          ' "$RUN_DIR"
+          STUB
+          chmod +x "$STUBAPP/Contents/MacOS/crads-ai"
+          codesign -s - --force "$STUBAPP"
+          fail() { echo "::error::$1"; echo "--- startup.log"; cat "$RUN_DIR/startup.log" 2>/dev/null; lsappinfo find bundleid=com.crads-ai.app; exit 1; }
+          open "$STUBAPP" || fail 'open refused the stub bundle'
+          for _ in $(seq 1 60); do grep -q 'relaunching' "$RUN_DIR/startup.log" 2>/dev/null && break; sleep 0.5; done
+          grep -q 'exited with status 75' "$RUN_DIR/startup.log" || fail 'the host did not see the restart exit'
+          grep -q 'update installed; relaunching' "$RUN_DIR/startup.log" || fail 'the host did not relaunch on exit 75'
+          for _ in $(seq 1 60); do [ "$(grep -c 'window: host start' "$RUN_DIR/startup.log")" -ge 2 ] && break; sleep 0.5; done
+          [ "$(grep -c 'window: host start' "$RUN_DIR/startup.log")" -ge 2 ] || fail 'no second host start: the update would have left the member with no app'
+          for _ in $(seq 1 60); do [ "$(grep -c 'window: server ready' "$RUN_DIR/startup.log")" -ge 2 ] && break; sleep 0.5; done
+          [ "$(grep -c 'window: server ready' "$RUN_DIR/startup.log")" -ge 2 ] || fail 'the relaunched app never got a server ready'
+          H1="$(grep 'window: host start' "$RUN_DIR/startup.log" | sed -n '1s/.*\[pid \([0-9]*\) window\].*/\1/p')"
+          H2="$(grep 'window: host start' "$RUN_DIR/startup.log" | sed -n '2s/.*\[pid \([0-9]*\) window\].*/\1/p')"
+          [ "$H1" != "$H2" ] || fail 'the relaunch reused the old host process'
+          kill -0 "$H1" 2>/dev/null && fail 'the old host is still alive next to the new one'
+          sleep 2; screencapture -x dist/shots/2-after-update-restart.png || true
+          echo '--- startup.log'; cat "$RUN_DIR/startup.log"
+          osascript -e 'quit app id "com.crads-ai.app"' || true
+          sleep 2
+          rm -rf "$STUBAPP"
+          echo 'smoke OK: exit 75 -> the host quit and the app came back as a new process with a fresh server'
+
+      # Branch runs only: the same shots, shrunk and printed into the log, for
+      # when artifact storage is full (it was, 2026-10-07) and nobody can look.
+      - name: Print window screenshots into the log (branch runs; not a gate)
+        if: always() && github.ref != 'refs/heads/hardening-loop' && github.ref != 'refs/heads/main'
+        continue-on-error: true
+        run: |
+          for f in dist/shots/*.png; do
+            [ -f "$f" ] || continue
+            sips -s format jpeg -s formatOptions 55 -Z 1280 "$f" --out "${f%.png}.jpg" >/dev/null
+            echo "=====SHOT-BEGIN $(basename "${f%.png}")"
+            base64 -i "${f%.png}.jpg" | fold -w 4000
+            echo "=====SHOT-END"
+          done
+
+      - name: Upload window screenshots (for eyes; not a gate)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: crads-ai-mac-shots
+          path: dist/shots/
+          if-no-files-found: ignore
+          retention-days: 7
 
       # Gatekeeper truth (2026-08-19, out of the Harriet walkthrough). The app is
       # ad-hoc signed and NOT notarized, so a member's Mac shows the hard block:
@@ -779,6 +947,10 @@ jobs:
           retention-days: 5
 
       - name: Attach to the rolling prerelease + mirror to the public repo
+        # A manual run on a feature branch (workflow_dispatch --ref) builds and
+        # smokes everything but must not replace the rolling release with an
+        # unmerged build (2026-10-07, the mac window host was proven this way).
+        if: github.ref == 'refs/heads/hardening-loop' || github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

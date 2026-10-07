@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFileSync, readFileSync, existsSync, mkdirSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
-import { checkForUpdate, applyUpdate, getBuildInfo, macInstalledTarget } from './updater.mjs';
+import { checkForUpdate, applyUpdate, getBuildInfo, macInstalledTarget, macRelaunch, MAC_RESTART_EXIT } from './updater.mjs';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
 
 const okJson = (obj) => Promise.resolve({ ok: true, json: () => Promise.resolve(obj) });
@@ -123,4 +123,36 @@ test('applyUpdate (mac): no bundle at the target still names itself', async () =
   await assert.rejects(
     () => applyUpdate({ platform: 'darwin', target: join(dir, 'Crads-AI.app'), relaunch: false, fetch: () => { throw new Error('should not fetch'); } }),
     /no installed copy to update/);
+});
+
+test('mac relaunch under the window host: no `open`, exit with the restart code for the host', async () => {
+  const dir = tmpDir('upd-mac-host-');
+  const runFile = join(dir, 'app.json');
+  writeFileSync(runFile, '{"pid":1,"url":"http://127.0.0.1:1/"}');
+  const spawned = [];
+  const r = await new Promise((resolve) => {
+    const out = macRelaunch({ target: '/Users/pat/Applications/Crads-AI.app', hosted: true, runFile, delayMs: 0,
+      spawn: (...a) => { spawned.push(a); return {}; }, exit: (code) => resolve({ out, code }) });
+  });
+  assert.equal(r.out.relaunch, 'host');
+  assert.equal(r.code, MAC_RESTART_EXIT);
+  assert.equal(MAC_RESTART_EXIT, 75, 'the host (mac-host/main.swift) matches on 75; change both or neither');
+  assert.deepEqual(spawned, [], '`open` on a running bundle id only re-activates the old host');
+  assert.equal(existsSync(runFile), false, 'the run file is cleared before the new copy starts');
+});
+
+test('mac relaunch without the host: open the bundle and leave cleanly, as before', async () => {
+  const dir = tmpDir('upd-mac-bare-');
+  const spawned = [];
+  const code = await new Promise((resolve) => {
+    macRelaunch({ target: '/Applications/Crads-AI.app', runFile: join(dir, 'app.json'), delayMs: 0,
+      spawn: (cmd, args) => { spawned.push([cmd, args]); return { unref() {} }; }, exit: resolve });
+  });
+  assert.deepEqual(spawned, [['open', ['/Applications/Crads-AI.app']]]);
+  assert.equal(code, 0);
+});
+
+test('the mac host and the updater agree on the restart code', () => {
+  const swift = readFileSync(new URL('../assets/mac-host/main.swift', import.meta.url), 'utf8');
+  assert.match(swift, new RegExp(`let RESTART_EXIT: Int32 = ${MAC_RESTART_EXIT}\\b`));
 });

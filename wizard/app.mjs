@@ -21,6 +21,9 @@
 //
 //   Dev / CI smoke:  AIOS_NO_LAUNCH=1 node wizard/app.mjs   (prints the URL, no window)
 //   Windows:         practice-partner-setup.exe
+//   macOS:           Crads-AI.app runs wizard/assets/mac-host (the window), which
+//                    runs this binary with AIOS_WINDOW_HOST=1; quitting the app
+//                    stops it.
 import { spawn, spawnSync } from 'node:child_process';
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -56,6 +59,11 @@ function setHostTag(sea) {
   try { HOST_TAG = String(JSON.parse(Buffer.from(sea.getAsset('build-info.json')).toString('utf8')).sha || '').slice(0, 8); }
   catch { HOST_TAG = ''; }
 }
+
+// macOS: started by the native window host (wizard/assets/mac-host), which owns
+// the window, the Dock icon and the reopen event, and runs this binary as its
+// child. Decided by the env the host sets; meaningless off macOS.
+const hostedWindow = () => process.platform === 'darwin' && process.env.AIOS_WINDOW_HOST === '1';
 
 // macOS: the packaged app ships as a Crads-AI.app bundle; execPath sits at
 // <bundle>/Contents/MacOS/crads-ai. Everything bundle-shaped keys off this.
@@ -243,6 +251,24 @@ async function main() {
     }
   }
   if (process.env.AIOS_RELAUNCHED) dbg('running as the relaunched pebble; continuing to servers');
+  // macOS window host (2026-10-07, wizard/assets/mac-host): the host started us
+  // with a pipe on stdin and holds the other end for its whole life. EOF means
+  // the app is gone (Cmd-Q, a crash, a force quit), so the server goes with it:
+  // on a Mac, quitting the app stops the app, and no orphan is left holding the
+  // ports that the next launch's window would be pointed at.
+  if (hostedWindow()) {
+    dbg('running under the mac window host; serving only, stdin EOF = the app quit');
+    const bye = (why) => { dbg(`window host gone (${why}); exiting`); process.exit(0); };
+    process.stdin.on('end', () => bye('stdin closed'));
+    process.stdin.on('error', (e) => bye(`stdin error: ${e.message}`));
+    process.stdin.resume();
+    // Belt and braces: if the pipe ever leaked into another process, EOF would
+    // never come. Being re-parented (the host died, launchd adopted us) says
+    // the same thing.
+    const parent = process.ppid;
+    const watch = setInterval(() => { if (process.ppid !== parent) bye(`re-parented from ${parent} to ${process.ppid}`); }, 2000);
+    if (watch.unref) watch.unref();
+  }
   selfInstall(sea);
   cleanupOld();
   // D58 P2.2: idempotent per-user registration of the crads-ai:// scheme, so invite
@@ -277,7 +303,7 @@ async function main() {
   const updater = {
     status: { available: false, current: buildInfo },
     handoff: { phase: 'idle' },
-    apply: () => applyUpdate({ onState: (s) => { updater.handoff = s; } }),
+    apply: () => applyUpdate({ hosted: hostedWindow(), onState: (s) => { updater.handoff = s; } }),
   };
   let lastUpdateCheck = 0;
   // refresh RETURNS the check, so a caller can wait for the truth. Until
@@ -485,6 +511,8 @@ async function main() {
       dbg(`servers up (targets=${allTargets.length}); opening ${label} -> ${openUrl}`);
       try { mkdirSync(RUN_DIR, { recursive: true }); writeFileSync(RUN_FILE, JSON.stringify({ pid: process.pid, url: openUrl, door: doorUrl })); } catch { /* cosmetic */ }
       if (process.env.AIOS_NO_LAUNCH === '1') { dbg('AIOS_NO_LAUNCH=1: leaving window unopened (CI/foreground)'); return; }
+      // the host reads app.json (pid = ours) and loads the url in its own window
+      if (hostedWindow()) { dbg('mac window host owns the window; url published in app.json'); return; }
       if (process.platform === 'win32' || process.platform === 'darwin') openAppWindow(openUrl);
       // linux: dev mode, the printed URL is the interface
     }, 400);
