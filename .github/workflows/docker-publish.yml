@@ -120,6 +120,12 @@ jobs:
 
   build-and-push:
     needs: gates
+    # Not on the canonical repo: its REG is ghcr.io/cradsdavis-cell, whose
+    # crads-* packages belong to the private product repo, so this token gets
+    # write_package denied (every run failed this way from 2026-09-09). Boxes
+    # pull :v2, which only the product repo's promote moves; the gates job
+    # above still builds and boot-smokes here. Forks publish to their own REG.
+    if: github.repository != 'cradsdavis-cell/crads-ai'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
