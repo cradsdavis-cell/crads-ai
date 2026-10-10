@@ -11,6 +11,8 @@
 // `droplet` plus `links.actions`, droplet status is new|active|off|archive,
 // and an action is in-progress|completed|errored.
 
+import { applyNetDefaults } from '../net-defaults.mjs';
+
 const API = 'https://api.digitalocean.com/v2';
 export const USER_DATA_LIMIT = 64 * 1024;
 
@@ -32,6 +34,7 @@ export class DigitalOceanClient {
     if (!token || typeof token !== 'string') throw new DigitalOceanError('a DigitalOcean API token is required');
     this.token = token;
     this.fetch = fetchImpl;
+    applyNetDefaults(); // a far API on a slow link outlasts node's 250 ms attempt window (trap 65)
     this.api = api;
     this.regionsCache = null;
   }

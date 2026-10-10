@@ -44,6 +44,7 @@ import { listLocalTargets } from './panel/local-targets.mjs';
 import { localBridge, composeBridge } from './panel/local-bridge.mjs';
 import { loadEngineAssets } from './panel/local-scaffold.mjs';
 import { pushLocalBrains } from './panel/own-brain-local.mjs';
+import { applyNetDefaults } from './net-defaults.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP_NAME = 'Crads-AI';
@@ -209,11 +210,14 @@ function dbg(msg) {
 }
 
 async function main() {
+  // Before anything can open a socket: node's 250 ms happy-eyeballs window
+  // fails every fetch to a far host on a slow link with broken IPv6 (trap 65).
+  const attemptMs = applyNetDefaults();
   let sea = null;
   try { const m = await import('node:sea'); if (m.isSea()) sea = m; } catch { /* dev: no SEA module */ }
   if (sea) setHostTag(sea);
   if (wantsUninstall(process.argv)) { await runUninstall(); process.exit(0); }
-  dbg(`main() start: platform=${process.platform} sea=${!!sea} execPath=${process.execPath} NO_LAUNCH=${process.env.AIOS_NO_LAUNCH || ''} RELAUNCHED=${process.env.AIOS_RELAUNCHED || ''}`);
+  dbg(`main() start: platform=${process.platform} sea=${!!sea} execPath=${process.execPath} NO_LAUNCH=${process.env.AIOS_NO_LAUNCH || ''} RELAUNCHED=${process.env.AIOS_RELAUNCHED || ''} netAttemptMs=${attemptMs}`);
   // One shape on Windows and macOS (see wizard/panel/launch-plan.mjs): a click
   // while a copy answers reopens its window and exits; otherwise the launched
   // process respawns itself DETACHED and exits, and the pebble runs the

@@ -9,6 +9,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpDir } from '../tests/tmp-dir.mjs';
+import { MIN_ATTEMPT_TIMEOUT_MS } from './net-defaults.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -29,4 +30,6 @@ test('app.mjs boots headless and prints its loopback URL', async () => {
   }).finally(() => child.kill('SIGKILL'));
   assert.match(url, /^http:\/\/127\.0\.0\.1:\d+$/);
   assert.doesNotMatch(err, /FATAL|ReferenceError/);
+  // trap 65: the entry widens node's happy-eyeballs window before main() does anything
+  assert.match(err, new RegExp(`netAttemptMs=${MIN_ATTEMPT_TIMEOUT_MS}\\b`));
 });

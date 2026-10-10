@@ -6,6 +6,8 @@
 // Crads service left to phone. Ownership by construction: the only SSH key on
 // the box from first boot is the user's (see selfhost-cloudinit.mjs).
 
+import { applyNetDefaults } from '../net-defaults.mjs';
+
 const API = 'https://api.hetzner.cloud/v1';
 
 export class HetznerError extends Error {
@@ -21,6 +23,7 @@ export class HetznerClient {
     if (!token || typeof token !== 'string') throw new HetznerError('a Hetzner API token is required');
     this.token = token;
     this.fetch = fetchImpl;
+    applyNetDefaults(); // a far API on a slow link outlasts node's 250 ms attempt window (trap 65)
     this.api = api;
   }
 
