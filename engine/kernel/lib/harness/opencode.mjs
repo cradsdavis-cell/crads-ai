@@ -53,8 +53,11 @@ export function compilePolicy(grants) {
   if (grants.files) {
     p.read = { '*': 'allow' };
     for (const pat of SECRET_READ_DENY) p.read[pat] = 'deny';
-    p.edit = { '*': 'allow' };   // covers edit, write and patch
-    for (const pat of CONFIG_WRITE_DENY) p.edit[pat] = 'deny';
+    if (grants.files === 'read') p.edit = 'deny';   // read-only turn (teams Slack answers)
+    else {
+      p.edit = { '*': 'allow' };   // covers edit, write and patch
+      for (const pat of CONFIG_WRITE_DENY) p.edit[pat] = 'deny';
+    }
     p.glob = 'allow';
     p.grep = 'allow';
     p.list = 'allow';
@@ -228,6 +231,7 @@ export function inspect(args, env) {
     promptsPossible: JSON.stringify(p).includes('"ask"'),
     shell: p.bash !== 'deny',
     skills: p.skill === 'allow',
+    writes: !!p.edit && p.edit !== 'deny',
     mcpServers: Object.keys(cfg.mcp || {}),
   };
 }

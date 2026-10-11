@@ -22,8 +22,9 @@ test('every section is div-balanced, so the parser can never eject later section
   const sections = main.split(/(?=<section )/g).filter((s) => s.startsWith('<section '));
   // 8 since the simple-assistant strip (2026-09-09): one nav for every
   // mineral (dashboard, seat, brain, skills, connections, secrets, terminal,
-  // help), no orgsec twins.
-  assert.equal(sections.length, 8, `found the sections (${sections.length})`);
+  // help), no orgsec twins. 9 with Team (Crads for teams, 2026-10-10), whose
+  // nav entry stays hidden unless the box is in a team.
+  assert.equal(sections.length, 9, `found the sections (${sections.length})`);
   for (const s of sections) {
     const name = (s.match(/data-sec="([^"]+)"/) || [])[1] || '?';
     const body = s.slice(0, s.indexOf('</section>'));

@@ -204,6 +204,7 @@ jobs:
               "engine/skills/inbox.md": "engine/skills/inbox.md",
               "engine/skills/onboard.md": "engine/skills/onboard.md",
               "engine/skills/plan-week.md": "engine/skills/plan-week.md",
+              "engine/skills/propose-change.md": "engine/skills/propose-change.md",
               "engine/skills/weekly.md": "engine/skills/weekly.md",
               "engine/skills/write-page.md": "engine/skills/write-page.md"
             }
@@ -614,6 +615,7 @@ jobs:
               "engine/skills/inbox.md": "engine/skills/inbox.md",
               "engine/skills/onboard.md": "engine/skills/onboard.md",
               "engine/skills/plan-week.md": "engine/skills/plan-week.md",
+              "engine/skills/propose-change.md": "engine/skills/propose-change.md",
               "engine/skills/weekly.md": "engine/skills/weekly.md",
               "engine/skills/write-page.md": "engine/skills/write-page.md"
             }

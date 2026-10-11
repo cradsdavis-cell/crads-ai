@@ -279,6 +279,10 @@ const server = createServer(async (req, res) => {
   // is still stubbed out of existence: nothing here can create anything.
   if (req.method === 'GET' && path === '/provision/status') { sendJson(res, FX.provisionStatus(pageParam(req, 'provision'))); return; }
   // the registry itself (providers.mjs), exactly as door-server serves it
+  // "Set up a team" (2026-10-10): idle unless a driven test needs more; the real
+  // flow is driven against fakes by team-shots.mjs.
+  if (req.method === 'GET' && path === '/team/status') { sendJson(res, { phase: 'idle' }); return; }
+  if (req.method === 'GET' && path === '/team/teams') { sendJson(res, { teams: [] }); return; }
   if (req.method === 'GET' && path === '/provision/providers') { sendJson(res, { providers: FX.provisionProviders() }); return; }
   if (req.method === 'POST' && path === '/provision/validate') { const a = FX.provisionValidate(await readBody(req)); sendJson(res, a.body, a.status); return; }
   if (req.method === 'POST' && path === '/provision/start') { const a = FX.provisionStart(await readBody(req)); sendJson(res, a.body, a.status); return; }
@@ -333,7 +337,9 @@ const server = createServer(async (req, res) => {
     const thinks = (String(req.headers.referer || '').match(/[?&]thinks=([a-z-]+)/) || [])[1] || '';
     // ?nocli=1 on the PAGE url: a local folder on a computer without the claude command
     const nocli = /[?&]nocli=1/.test(String(req.headers.referer || ''));
-    const result = FX.runVerb(surface, String(form.verb || ''), form.args, state, { signedOut, face, thinks, nocli });
+    // ?team=hub|member on the PAGE url: the mineral is in a team (Crads for teams, 2026-10-10)
+    const team = (String(req.headers.referer || '').match(/[?&]team=(hub|member)/) || [])[1] || '';
+    const result = FX.runVerb(surface, String(form.verb || ''), form.args, state, { signedOut, face, thinks, nocli, team });
     streamRun(res, result);
     return;
   }

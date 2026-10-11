@@ -186,3 +186,31 @@ test('search-title reaches the tab and the search result, never the share cards'
     assert.ok(h.includes(`<meta name="twitter:title" content="${esc(p.title)}">`), `${p.slug}: twitter:title is not the page title`);
   }
 });
+
+// SEO/GEO pass (2026-10-11): every published page tells search and answer
+// engines what it is, in JSON-LD that parses, and the FAQ carries every one of
+// its questions as a FAQPage.
+const ldOf = (html) => {
+  const m = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s);
+  return m ? JSON.parse(m[1]) : null;
+};
+
+test('every published page carries parseable JSON-LD with breadcrumbs', () => {
+  for (const f of build().files) {
+    const ld = ldOf(f.content);
+    assert.ok(ld, `${f.rel}: no JSON-LD`);
+    const types = ld['@graph'].map((g) => g['@type']);
+    assert.ok(types.includes('BreadcrumbList'), `${f.rel}: no BreadcrumbList`);
+    if (f.rel !== path.join('docs', 'index.html')) assert.ok(types.includes('TechArticle'), `${f.rel}: no TechArticle`);
+  }
+});
+
+test('the FAQ is published as a FAQPage with every question', () => {
+  const faq = build().files.find((f) => f.rel === path.join('docs', 'faq', 'index.html'));
+  const src = loadTree(PAGES).find((p) => p.slug === 'faq');
+  const asked = (src.body.match(/^## .*\?\s*$/gm) || []).length;
+  const page = ldOf(faq.content)['@graph'].find((g) => g['@type'] === 'FAQPage');
+  assert.ok(asked > 0);
+  assert.equal(page.mainEntity.length, asked);
+  for (const q of page.mainEntity) assert.ok(!/\]\(|\*\*/.test(q.acceptedAnswer.text), `${q.name}: Markdown left in the answer`);
+});

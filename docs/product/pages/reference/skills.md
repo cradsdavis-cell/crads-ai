@@ -1,6 +1,6 @@
 ---
 title: Every skill your mineral ships with
-summary: The 11 engine skills present on every mineral, with what each one does.
+summary: The 12 engine skills present on every mineral, with what each one does.
 audience: public
 access: public
 mode: reference
@@ -10,7 +10,7 @@ order: 10
 
 > Generated from the code by docs/product/pipeline/generate.mjs. Do not edit by hand: run the generator.
 
-Every mineral ships with these 11 skills. They are the engine set: the
+Every mineral ships with these 12 skills. They are the engine set: the
 skill library itself ships empty, so anything beyond this list is something you
 added.
 
@@ -51,3 +51,9 @@ or on any schedule you give them.
 |---|---|
 | **Follow-ups** (`/followup`) | Scan for open loops (overdue tasks, unanswered messages from key contacts, stale project actions, pending commitments) and surface what's slipping before it becomes a problem. Read-only; surfacing, not acting. |
 | **Inbox triage** (`/inbox`) | Triage unread inbox into buckets: open-loop (reply/FYI, leave unread) / mark-read (legit, no action) / archive (junk). Read-only on open-loops; bulk-confirm before any label writes. |
+
+## Your community
+
+| Skill | What it does |
+|---|---|
+| **Propose a change to the company brain** (`/propose-change`) | On a team box, propose a change to a company policy, price, process, client page or shared skill. The owner approves it in the app before anyone's assistant sees it. |

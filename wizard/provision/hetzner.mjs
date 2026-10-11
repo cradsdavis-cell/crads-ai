@@ -170,4 +170,13 @@ export class HetznerClient {
   async deleteServer(id) {
     await this.request(`/servers/${id}`, { method: 'DELETE' });
   }
+
+  /** Someone left a team (2026-10-11): their box's owner key goes too. Already gone is done. */
+  async deleteSshKey(id) {
+    try {
+      await this.request(`/ssh_keys/${id}`, { method: 'DELETE' });
+    } catch (e) {
+      if (e.code !== 'not_found' && e.status !== 404) throw e;
+    }
+  }
 }

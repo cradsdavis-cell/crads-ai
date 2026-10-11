@@ -26,7 +26,23 @@
 // Safe methods are exempt: a cross-origin GET can already read nothing.
 const SAFE = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+// DNS REBINDING (teams security review, 2026-10-11). A hostile page can point its
+// own name at 127.0.0.1; its requests then carry Origin evil.com:PORT AND Host
+// evil.com:PORT, so the Origin check below sees "same origin" and lets it in, and
+// GETs are readable by that page too (e.g. /team/teams). The defence is the Host
+// header: this app only ever addresses itself by a loopback name, so any other
+// Host is refused on EVERY method. A caller that sends no Host (raw sockets in
+// tests) passes, as before.
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
+export function hostNotLocal(req) {
+  const h = String(req.headers.host || '').trim().toLowerCase();
+  if (!h) return false;
+  const name = h.startsWith('[') ? h.slice(0, h.indexOf(']') + 1) : h.split(':')[0];
+  return !LOOPBACK_HOSTS.has(name);
+}
+
 export function crossOriginBlocked(req) {
+  if (hostNotLocal(req)) return true;
   if (SAFE.has(String(req.method || '').toUpperCase())) return false;
 
   // Sec-Fetch-Site is set by the browser and cannot be forged by page script.

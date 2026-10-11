@@ -18,7 +18,7 @@ import path from 'node:path';
 import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { registry, getHarness } from '../engine/kernel/lib/harness/index.mjs';
-import { grantsForJob, grantsForOrgPublish } from '../engine/kernel/lib/harness/grants.mjs';
+import { grantsForJob, grantsForOrgPublish, grantsForSlackAnswer } from '../engine/kernel/lib/harness/grants.mjs';
 import { runBin } from '../engine/kernel/lib/harness/spawn.mjs';
 import { tmpDir } from './tmp-dir.mjs';
 
@@ -64,6 +64,20 @@ for (const id of registry.harnesses) {
     assert.equal(i.shell, false);
     assert.deepEqual(i.mcpServers, []);
     assert.ok(!JSON.stringify([c.args, c.env.OPENCODE_CONFIG_CONTENT || '']).includes('mailer'), 'the server is not even named to the process');
+  });
+
+  test(`${id}: 2b. the company agent's Slack turn can look and never touch (teams, 2026-10-10)`, async () => {
+    const h = await getHarness(id); const state = tmpDir('hc-slack-');
+    const c = await compile(h, state, grantsForSlackAnswer());
+    const i = h.inspect(c.args, c.env);
+    assert.equal(i.denyByDefault, true);
+    assert.equal(i.writes, false, 'no edit, no write');
+    assert.equal(i.shell, false);
+    assert.equal(i.skills, false);
+    assert.deepEqual(i.mcpServers, []);
+    // and the ordinary conversational turn still writes, so the probe can tell them apart
+    const m = await compile(h, state, grantsForJob({ skill: 'message' }, { mcpJson: MCP }));
+    assert.equal(h.inspect(m.args, m.env).writes, true);
   });
 
   test(`${id}: 3. isolation: credentials and global instructions resolve inside the mineral, never $HOME`, async () => {

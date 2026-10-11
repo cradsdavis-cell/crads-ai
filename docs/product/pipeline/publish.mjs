@@ -23,7 +23,7 @@ import { loadTree, visibleTo } from './source.mjs';
 import { renderPage, renderMarkdown, renderFilm, outline } from './render.mjs';
 import { JOURNEY, DOORS, journeyGroups, journeyProblems, doorOf } from './nav.mjs';
 import { glyph } from './glyphs.mjs';
-import { shell } from './shell.mjs';
+import { shell, SITE as SITE_URL } from './shell.mjs';
 import { extractShotRefs, SHOTS as SHOT_PLAN } from './shots.mjs';
 import { skills, CATEGORY_LABEL } from './generate.mjs';
 
@@ -150,6 +150,59 @@ function tocFor(pg) {
     + `\n</ul>`;
 }
 
+// Structured data for a docs page (2026-10-11, SEO/GEO pass). The ids point at
+// the entities the site's home page already defines (the SoftwareApplication and
+// Sam), so every docs page is tied to the same Crads-AI rather than floating.
+const APP_ID = `${SITE_URL}/#crads-ai`;
+const SAM_ID = `${SITE_URL}/#sam-davis`;
+
+function crumbs(title, pathname) {
+  const items = [
+    { '@type': 'ListItem', position: 1, name: 'Crads-AI', item: `${SITE_URL}/` },
+    { '@type': 'ListItem', position: 2, name: 'Docs', item: `${SITE_URL}/docs` },
+  ];
+  if (pathname !== '/docs') items.push({ '@type': 'ListItem', position: 3, name: title, item: `${SITE_URL}${pathname}` });
+  return { '@type': 'BreadcrumbList', itemListElement: items };
+}
+
+function article(pg) {
+  return {
+    '@type': 'TechArticle',
+    headline: pg.title,
+    description: pg.summary,
+    url: `${SITE_URL}/docs/${pg.slug}`,
+    inLanguage: 'en',
+    isPartOf: { '@type': 'WebSite', name: 'Crads-AI', url: `${SITE_URL}/` },
+    about: { '@id': APP_ID },
+    publisher: { '@id': SAM_ID },
+  };
+}
+
+// A page written as `## Question` + answer (the FAQ) is also published as a
+// FAQPage, the answer text being the Markdown with links and emphasis flattened.
+export function faqEntries(md) {
+  const plain = (t) => t.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*_`]/g, '')
+    .replace(/^\s*[-*]\s+/gm, '').replace(/\s+/g, ' ').trim();
+  return md.split(/^## /m).slice(1).map((chunk) => {
+    const nl = chunk.indexOf('\n');
+    return { q: plain(chunk.slice(0, nl)), a: plain(chunk.slice(nl + 1)) };
+  }).filter((e) => e.q.endsWith('?') && e.a);
+}
+
+function ldFor(pg) {
+  const graph = [article(pg), crumbs(pg.title, `/docs/${pg.slug}`)];
+  if (pg.slug === 'faq') {
+    graph.push({
+      '@type': 'FAQPage',
+      url: `${SITE_URL}/docs/faq`,
+      mainEntity: faqEntries(pg.body).map((e) => ({
+        '@type': 'Question', name: e.q, acceptedAnswer: { '@type': 'Answer', text: e.a },
+      })),
+    });
+  }
+  return graph;
+}
+
 function nextprevFor(ordered, idx) {
   const prev = ordered[idx - 1];
   const next = ordered[idx + 1];
@@ -190,6 +243,7 @@ export function build() {
         toc: tocFor(pg),
         nextprev: trailFor(pg.slug, bySlugAll) + nextprevFor(ordered, idx),
         search,
+        ld: ldFor(pg),
         body: [
           crumbsFor(groupOf.get(pg.slug), pg.persona),
           renderPage(pg).replace(/^<article[^>]*>\n/, '').replace(/\n<\/article>$/, ''),
@@ -239,6 +293,7 @@ export function build() {
       description: 'How Crads AI works: getting a mineral, working with it, connecting it, keeping it running, and the legal detail.',
       path: '/docs',
       extraClass: 'docs-index',
+      ld: [crumbs('Docs', '/docs')],
       side: sidebar(groups, ''),
       search,
       body: `<h1>Docs</h1>\n${intro}\n${searchField('hero')}\n${watch}\n<h2 class="docs-h">By goal</h2>\n${doorsHtml}\n${canDoStrip()}\n<h2 class="docs-h">Everything, in reading order</h2>\n<div class="docs-index-groups">\n${indexGroups}\n  </div>`,

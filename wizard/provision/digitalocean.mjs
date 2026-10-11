@@ -214,6 +214,15 @@ export class DigitalOceanClient {
       if (e.status !== 404) throw e;
     }
   }
+
+  /** Someone left a team (2026-10-11): their box's owner key goes too. Already gone is done. */
+  async deleteSshKey(id) {
+    try {
+      await this.request(`/account/keys/${id}`, { method: 'DELETE' });
+    } catch (e) {
+      if (e.status !== 404) throw e;
+    }
+  }
 }
 
 function publicIp(droplet) {

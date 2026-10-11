@@ -26,7 +26,7 @@ export const REPO_ROOT = path.resolve(HERE, '..', '..');
 // Enumerated by name because the packaged exe cannot list a directory of
 // assets; local-assets.test.mjs pins this list against the directory so a
 // new skill cannot be forgotten.
-export const LOCAL_SKILL_IDS = ['capture', 'connect', 'daily', 'dashboard', 'explain', 'followup', 'inbox', 'onboard', 'plan-week', 'weekly', 'write-page'];
+export const LOCAL_SKILL_IDS = ['capture', 'connect', 'daily', 'dashboard', 'explain', 'followup', 'inbox', 'onboard', 'plan-week', 'propose-change', 'weekly', 'write-page'];
 export const LOCAL_TEMPLATE_PAGES = ['ask-me.html', 'my-people.html', 'welcome.html'];
 export const LOCAL_ASSET_FILES = [
   'engine/onboarding/interview-spec.yaml',

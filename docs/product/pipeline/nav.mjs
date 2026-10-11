@@ -23,7 +23,7 @@ export const JOURNEY = [
   {
     id: 'start', title: 'Start here',
     blurb: 'What this is, whether it is for you, and the two words everything else uses.',
-    slugs: ['what-an-ai-ea-is', 'what-a-mineral-is', 'faq'],
+    slugs: ['what-an-ai-ea-is', 'what-a-mineral-is', 'self-hosted-claude', 'faq'],
   },
   {
     id: 'setup', title: 'Getting set up',
@@ -38,6 +38,11 @@ export const JOURNEY = [
       'prompting-habits', 'grow-the-brain', 'teach-it-your-voice', 'write-your-own-skill',
       'starter-recipes', 'what-it-will-not-do', 'find-what-you-do-not-know',
       'claude-code-on-your-mineral'],
+  },
+  {
+    id: 'teams', title: 'Teams',
+    blurb: 'One company brain, an assistant for everyone, and a company agent that holds it together.',
+    slugs: ['crads-for-teams', 'set-up-a-team'],
   },
   {
     id: 'app', title: 'Every page of the app',

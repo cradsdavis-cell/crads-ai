@@ -54,7 +54,11 @@ const STATE_MD = path.join(ENGINE_DIR, 'box', 'state-md.mjs');
 // resolver retires.)
 const BR_RESOLVE = BRAIN_ROOT_SH;
 const brainRootOf = (sd) => resolveBrainRoot(sd);
-const START_COMMS = path.join(ENGINE_DIR, 'start-comms.sh');   // comms supervisor target (keeps the Telegram bridge alive)
+const START_COMMS = path.join(ENGINE_DIR, 'start-comms.sh');
+const TEAM_HUB = path.join(ENGINE_DIR, 'team', 'team-hub.mjs');
+const TEAM_SKILLS = path.join(ENGINE_DIR, 'team', 'team-skills.mjs');
+const TEAM_SLACK = path.join(ENGINE_DIR, 'team', 'team-slack.mjs');
+const TEAM_INBOX = path.join(ENGINE_DIR, 'team', 'team-inbox.mjs');   // comms supervisor target (keeps the Telegram bridge alive)
 const CADENCE_FILE = path.join(stateDir, 'cockpit', 'cadence.json');
 const DOW = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 // Stable per-box jitter (0-29 min) so a fleet's nightly auto-update restarts
@@ -326,14 +330,53 @@ function buildJobs(c) {
     },
     // Org brain (spec 2026-07-25): downflow pull hourly — whole-company context stays fresh
     // on the box with zero query-time network hops. No-op unless the box is org-enrolled.
-    { name: 'org-pull (downflow)', lid: 'org-pull', cmd: ['bash', ['-c', `[ -d ${stateDir}/org/brain/.git ] || exit 0; git -C ${stateDir}/org/brain pull --rebase -q`]], match: (h, m) => m === 23 },
+    // Teams (2026-10-10): the same pull then installs the company's shared skills
+    // (team-skills.mjs is a no-op on a box that is not in a team).
+    { name: 'org-pull (downflow)', lid: 'org-pull', cmd: ['bash', ['-c', `[ -d ${stateDir}/org/brain/.git ] || exit 0; git -C ${stateDir}/org/brain pull --rebase -q; [ -f ${TEAM_SKILLS} ] && node ${TEAM_SKILLS} ${stateDir}; true`]], match: (h, m) => m === 23 },
     // Org brain: nightly extract publish, jittered into the dead window before backup.
     // Runs through the kernel (enqueue+drain) so state-repo commits stay single-writer.
     {
       name: 'org-publish (nightly extracts)', skill: 'org-publish',
       match: (h, m) => {
-        try { readFileSync(path.join(stateDir, 'org', 'config.json')); } catch { return false; }
+        let cfg; try { cfg = JSON.parse(readFileSync(path.join(stateDir, 'org', 'config.json'), 'utf8')); } catch { return false; }
+        if (cfg && cfg.role === 'hub') return false;   // the hub merges, it never publishes
         return h === 2 && m === 20 + jitterMin;
+      },
+    },
+    // Teams stage 2: keep the company agent's Slack bridge alive. Every 2 min, hub
+    // only; a no-op (and a stop) when Slack is not connected. Odd minutes, off
+    // the even-minute org-sync.
+    {
+      name: 'team-slack (keep alive)', lid: 'team-slack',
+      cmd: ['bash', ['-c', `[ -f ${TEAM_SLACK} ] || exit 0; node ${TEAM_SLACK} ${stateDir} ensure >/dev/null`]],
+      match: (h, m) => {
+        let cfg; try { cfg = JSON.parse(readFileSync(path.join(stateDir, 'org', 'config.json'), 'utf8')); } catch { return false; }
+        return !!cfg && cfg.role === 'hub' && m % 2 === 1;
+      },
+    },
+    // Teams: the shared inbox, hourly at :50 from 07:00 to 19:00 box time, on the
+    // hub only and only once the owner switched it on (org/inbox.json). The reader
+    // turn can only read that one mailbox; see engine/team/team-inbox.mjs.
+    {
+      name: 'team-inbox (shared inbox triage)', lid: 'team-inbox',
+      cmd: ['bash', ['-c', `[ -f ${TEAM_INBOX} ] || exit 0; node ${TEAM_INBOX} ${stateDir} run`]],
+      match: (h, m) => {
+        let cfg, inbox;
+        try { cfg = JSON.parse(readFileSync(path.join(stateDir, 'org', 'config.json'), 'utf8')); inbox = JSON.parse(readFileSync(path.join(stateDir, 'org', 'inbox.json'), 'utf8')); } catch { return false; }
+        return !!cfg && cfg.role === 'hub' && !!inbox && inbox.enabled === true && h >= 7 && h <= 19 && m === 50;
+      },
+    },
+    // Teams: the company agent's merge, hourly at :35 so a proposed rule change
+    // reaches the owner's queue within the hour (stage 2), and the 03:35 run lands
+    // after every staff box's nightly publish window (02:20 + up to 29 min jitter)
+    // and before the 03:40 backup. Only the hub box runs it; deterministic, no
+    // model, so it needs no Claude sign-in. Idempotent: a quiet hour commits nothing.
+    {
+      name: 'team-hub (company merge)', lid: 'team-hub',
+      cmd: ['bash', ['-c', `[ -f ${TEAM_HUB} ] || exit 0; node ${TEAM_HUB} ${stateDir}`]],
+      match: (h, m) => {
+        let cfg; try { cfg = JSON.parse(readFileSync(path.join(stateDir, 'org', 'config.json'), 'utf8')); } catch { return false; }
+        return !!cfg && cfg.role === 'hub' && m === 35;
       },
     },
     // (The brain-public-push job went with the self-host strip, 2026-09-01: it
@@ -519,6 +562,9 @@ const DISPLAY = {
   'org-sync': { note: 'pulls anything a managing organisation has staged for this mineral, if enrolled' },
   'org-pull': { note: 'refreshes a shared organisation brain (if enrolled)' },
   'org-publish': { note: 'nightly extracts to a shared organisation brain (if enrolled)' },
+  'team-hub': { note: 'merges what each person published into the company brain (company agent only)' },
+  'team-slack': { note: 'keeps the company agent answering in Slack, once Slack is connected (company agent only)' },
+  'team-inbox': { note: 'triages the shared inbox into the company brain, read only, once the owner switches it on (company agent only)' },
   backup: { note: 'encrypted snapshot of your settings and credentials; your brain rides its own repository' },
   'brain-push': { note: 'pushes your brain to your own private repo' },
   'auto-update': { note: 'restart onto the software Crads-AI published' },

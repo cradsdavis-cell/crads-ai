@@ -136,6 +136,11 @@ function livePrompt(slug, orgDir, date) {
   );
 }
 
+export async function claudeSignedIn(stateDir) {
+  if (process.env.CLAUDE_CODE_OAUTH_TOKEN) return true;
+  try { await stat(path.join(stateDir, '.claude-auth', '.credentials.json')); return true; } catch { return false; }
+}
+
 // `runClaude(args, opts)` is the process-level test seam; it is handed to the harness
 // as its spawn implementation, so a fake sees exactly the argv a real run would.
 export async function publish(stateDir, { dryRun = false, runClaude } = {}) {
@@ -143,7 +148,13 @@ export async function publish(stateDir, { dryRun = false, runClaude } = {}) {
   try { cfg = JSON.parse(await readFile(path.join(stateDir, 'org', 'config.json'), 'utf8')); }
   catch { return { ok: true, output: 'org brain not configured — no-op' }; }
   const { slug } = cfg;
-  const orgDir = path.join(stateDir, 'org', 'brain');
+  // Team mode (2026-10-10): the hub box never publishes; it is the one writer of the
+  // company brain. A staff box writes into its OWN repo (org/outbox, the only remote
+  // its key can push to) and never into the company clone, so no box can rewrite
+  // policies, skills or a colleague's pages. Legacy configs (no outbox) keep writing
+  // into org/brain exactly as before.
+  if (cfg.role === 'hub') return { ok: true, output: 'hub box: publish is a no-op (the hub merges, it does not publish)' };
+  const orgDir = path.join(stateDir, 'org', cfg.outbox ? 'outbox' : 'brain');
   const { localDate, nowISO } = await import('./clock.mjs');
   let tz = 'UTC';
   try { tz = (await readFile(path.join(stateDir, 'profile.yaml'), 'utf8')).match(/timezone:\s*"?([^"\n]+)"?/)?.[1]?.trim() || 'UTC'; } catch {}
@@ -154,6 +165,12 @@ export async function publish(stateDir, { dryRun = false, runClaude } = {}) {
   if (dryRun) {
     await writeDryExtracts(workDir, orgDir, slug, date);
   } else {
+    // An unauthed box fails the live run with a bare `claude exited 1` (under -p the
+    // CLI prints "Not logged in" to stdout and exits 0), found in the 2026-07-26 demo.
+    // Say what is actually wrong instead.
+    if (!runClaude && !(await claudeSignedIn(stateDir))) {
+      return { ok: false, output: `publish(${slug}): skipped, this box is not signed in to Claude yet` };
+    }
     const { runTurn } = await import('../kernel/lib/harness/index.mjs');
     const { grantsForOrgPublish } = await import('../kernel/lib/harness/grants.mjs');
     await runTurn({ stateDir, cwd: workDir, prompt: livePrompt(slug, orgDir, date),

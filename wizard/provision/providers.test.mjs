@@ -6,7 +6,7 @@ import { PROVIDERS, providerOf, publicProviders, DEFAULT_PROVIDER } from './prov
 import { HetznerClient } from './hetzner.mjs';
 import { DigitalOceanClient } from './digitalocean.mjs';
 
-const CONTRACT = ['validateToken', 'listLocations', 'listServerTypes', 'listAvailability', 'ensureSshKey', 'createServer', 'waitAction', 'getServer', 'deleteServer'];
+const CONTRACT = ['validateToken', 'listLocations', 'listServerTypes', 'listAvailability', 'ensureSshKey', 'createServer', 'waitAction', 'getServer', 'deleteServer', 'deleteSshKey'];
 
 test('every provider carries the fields the door and the docs read', () => {
   for (const [id, p] of Object.entries(PROVIDERS)) {

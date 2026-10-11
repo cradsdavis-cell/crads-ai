@@ -1,7 +1,7 @@
 ---
 title: The jobs your mineral runs by itself
 search-title: The scheduled jobs your assistant runs by itself
-summary: The 15 machinery jobs Crads AI maintains on every mineral, and what each one is for.
+summary: The 18 machinery jobs Crads AI maintains on every mineral, and what each one is for.
 audience: public
 access: public
 mode: reference
@@ -20,7 +20,7 @@ You can see the ones your mineral runs, and their last outcome, on the **Health*
 card on your **Overview** page. It summarises them in a line ("3 jobs, all fine") and
 expands to the individual rows.
 
-**Your mineral runs 12 of these 15.** The jobs marked no in the
+**Your mineral runs 15 of these 18.** The jobs marked no in the
 Runs column are control-plane work the scheduler still knows how to do but that
 never fires on a mineral of your own (a member roster to pull health for, a
 shared organisation brain to refresh); they are listed so the table is the whole
@@ -39,6 +39,9 @@ the job has a rhythm only once there is something for it to do.
 | `org-sync` | pulls anything a managing organisation has staged for this mineral, if enrolled | every 2 min | yes |
 | `org-pull` | refreshes a shared organisation brain (if enrolled) | hourly at :23 | yes |
 | `org-publish` | nightly extracts to a shared organisation brain (if enrolled) | when it applies | yes |
+| `team-hub` | merges what each person published into the company brain (company agent only) | when it applies | yes |
+| `team-slack` | keeps the company agent answering in Slack, once Slack is connected (company agent only) | when it applies | yes |
+| `team-inbox` | triages the shared inbox into the company brain, read only, once the owner switches it on (company agent only) | when it applies | yes |
 | `backup` | encrypted snapshot of your settings and credentials; your brain rides its own repository | 03:40 | yes |
 | `brain-push` | pushes your brain to your own private repo | 03:50 | yes |
 | `auto-update` | restart onto the software Crads-AI published | 04:10 + a per-box offset | yes |

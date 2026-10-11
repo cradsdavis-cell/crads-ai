@@ -11,9 +11,9 @@ import { glyphIds, glyph } from './glyphs.mjs';
 const page = (slug) => ({ slug, title: slug, summary: '', body: '' });
 const allSlugs = () => [...new Set([...JOURNEY.flatMap((g) => g.slugs), ...DOORS.flatMap((d) => d.slugs)])];
 
-test('the journey is eight groups in reader order', () => {
+test('the journey is nine groups in reader order', () => {
   assert.deepEqual(JOURNEY.map((g) => g.id),
-    ['start', 'setup', 'ea', 'app', 'running', 'understand', 'reference', 'legal']);
+    ['start', 'setup', 'ea', 'teams', 'app', 'running', 'understand', 'reference', 'legal']);
   for (const g of JOURNEY) {
     assert.ok(g.title && g.blurb, `${g.id} carries a title and a blurb`);
     assert.ok(!g.blurb.includes('—'), `${g.id}: no em dash`);

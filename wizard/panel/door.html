@@ -311,6 +311,10 @@
              nothing runs while the folder is closed. -->
         <button class="bigcard" data-make="local"><b>On this computer</b>
           <span>Free, no server, no schedules: a brain folder on this computer, only awake when you are. Claude Code opens the folder; the app reads it. Scheduled jobs and Telegram need a server.</span></button>
+        <!-- Crads for teams (2026-10-10): one company brain plus one server per
+             person, all in the owner's own accounts. The owner runs this once. -->
+        <button class="bigcard" data-make="team"><b>Set up a team</b>
+          <span>A company brain your whole team contributes to, plus an assistant on its own server for each person and one for the company. Everything lives in your accounts.</span></button>
         <!-- Hosted-era cards ("I have an invitation", "Join a community")
              stripped 2026-09-01 on Sam's call: nobody can be invited TO a box
              any more, and the community board was a central directory read.
@@ -466,6 +470,104 @@
     <!-- the "On this computer" flow (2026-09-11): one screen in, the finish
          checklist out. There is no native folder picker on a loopback-served
          page, so the folder is a typed path with a default the app fills in. -->
+    <!-- "Set up a team" (Crads for teams, stage 1, 2026-10-10). Thin like the
+         self-host wizard: every decision (repos, keys, which box can write
+         where, resume) lives in team-routes.mjs; this walks the screens and polls. -->
+    <div id="tmFlow" style="display:none">
+      <a href="#" class="back" id="tmBack">&#8249; back</a>
+      <h2>Set up a team</h2>
+
+      <!-- Stage 3: a team this computer already set up. Add people, or someone's
+           leaving; a new team is still one click away. -->
+      <div id="tmManage" style="display:none">
+        <div id="tmTeams"></div>
+        <button class="act" id="tmNewTeam" style="margin-top:14px">Set up a new team instead</button>
+      </div>
+
+      <div id="tmAddForm" style="display:none">
+        <p class="hint" id="tmAddHead"></p>
+        <label for="tmAddPeople">Who is joining? One name per line</label>
+        <textarea id="tmAddPeople" rows="3" spellcheck="false" style="width:100%;font:inherit;padding:8px;border:1px solid var(--edge);border-radius:8px;background:var(--card);color:var(--ink)"></textarea>
+        <label for="tmAddToken">API token for the team&#8217;s hosting account</label>
+        <input id="tmAddToken" type="password" autocomplete="off" spellcheck="false" placeholder="paste the token here">
+        <p class="hint">Each new person gets their own server and repository, and the company agent starts merging what they publish. Nobody else&#8217;s server is touched.</p>
+        <button class="act primary" id="tmAddBtn">Add them</button>
+      </div>
+
+      <div id="tmLeaveForm" style="display:none">
+        <p class="hint" id="tmLeaveHead"></p>
+        <label for="tmLeavePerson">Who is leaving?</label>
+        <select id="tmLeavePerson"></select>
+        <p class="hint">What happens, in this order:</p>
+        <ol class="hint" style="margin:.2em 0 .8em 1.2em">
+          <li>Their <span class="mono">personal/</span> folder is copied to this computer, for you to hand to them.</li>
+          <li>Their server loses its keys to the company brain, and their repository is archived (kept, read-only).</li>
+          <li>The company agent stops merging from them. What they already published stays in the company brain.</li>
+          <li>Their server is deleted. This cannot be undone.</li>
+        </ol>
+        <label class="hint" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="tmLeaveGone" style="width:auto;margin-top:3px"> Their server is already gone (skip copying their personal folder)</label>
+        <label for="tmLeaveConfirm" id="tmLeaveConfirmLabel">Type their name to confirm</label>
+        <input id="tmLeaveConfirm" autocomplete="off" spellcheck="false">
+        <label for="tmLeaveToken">API token for the team&#8217;s hosting account</label>
+        <input id="tmLeaveToken" type="password" autocomplete="off" spellcheck="false" placeholder="paste the token here">
+        <button class="act primary" id="tmLeaveBtn">Remove them from the team</button>
+      </div>
+
+      <div id="tmIntro">
+        <p class="hint">You run this once, as the owner. It builds, in your own accounts:</p>
+        <ul class="hint" style="margin:.4em 0 .8em 1.2em">
+          <li>a <b>company brain</b>: a private repository in your GitHub that every assistant on the team reads first</li>
+          <li>a <b>company agent</b> on its own server, the only thing that can write the company brain. Every night it merges what each person&#8217;s assistant learned, with sources, and writes a digest</li>
+          <li>an <b>assistant for each person</b> on their own server. Their private <span class="mono">personal/</span> folder is never published</li>
+        </ul>
+        <p class="hint">The real costs: one server per person plus one for the company agent, billed to you by the hosting company; Claude for each person (company seats or their own plans, your choice), billed by Anthropic; nothing to Crads-AI, ever.</p>
+        <p class="hint">Be straight with your team about one thing: you own the servers. Their <span class="mono">personal/</span> folder is private from the company brain and from colleagues, not secret from you.</p>
+        <button class="act primary" id="tmIntroOk">That works for me</button>
+      </div>
+
+      <div id="tmForm" style="display:none">
+        <label for="tmCompany">Team name</label>
+        <input id="tmCompany" placeholder="e.g. acme (short, lowercase)" autocomplete="off" spellcheck="false" maxlength="20">
+        <label for="tmPeople">Who is on the team? One name per line, not counting you</label>
+        <textarea id="tmPeople" rows="5" placeholder="Jess Smith&#10;Tom Lee" spellcheck="false" style="width:100%;font:inherit;padding:8px;border:1px solid var(--edge);border-radius:8px;background:var(--card);color:var(--ink)"></textarea>
+        <p class="hint" id="tmPeopleHint">Up to 15 people. Want an assistant for yourself too? Add your own name.</p>
+        <label for="tmProvider">Hosting company</label>
+        <select id="tmProvider"></select>
+        <label for="tmToken">API token for that hosting account</label>
+        <input id="tmToken" type="password" autocomplete="off" spellcheck="false" placeholder="paste the token here">
+        <p class="hint">The same token as &#8220;Set up my own&#8221; uses (read and write). It stays on this computer and is never stored.</p>
+        <div id="tmOpts" style="display:none">
+          <label for="tmLoc">Where in the world</label>
+          <select id="tmLoc"></select>
+          <p class="hint" id="tmSizeLine"></p>
+        </div>
+        <button class="act primary" id="tmCheckBtn" style="margin-top:14px">Check the token</button>
+        <button class="act primary" id="tmBuildBtn" style="display:none;margin-top:14px">Build the team</button>
+      </div>
+
+      <div id="tmBuild" style="display:none">
+        <div class="steprow" id="tmGh" style="display:none">
+          <b>Sign in to GitHub</b>
+          <p class="hint">The company brain and each person&#8217;s repository are made in your GitHub account. Open <a href="https://github.com/login/device" id="tmGhLink" class="mono" target="_blank" rel="noopener">github.com/login/device</a> and enter this code:</p>
+          <p class="mono" id="tmGhCode" style="font-size:20px;letter-spacing:2px"></p>
+        </div>
+        <p class="hint" id="tmPhase">Starting&#8230;</p>
+        <div id="tmBoxes"></div>
+      </div>
+
+      <div id="tmDone" style="display:none">
+        <p><b id="tmDoneHead">Your team is built.</b> <span id="tmDoneRepo"></span></p>
+        <p class="hint" id="tmResult"></p>
+        <div id="tmHandover"></div>
+      </div>
+
+      <div class="msg" id="tmMsg"></div>
+      <div id="tmRetryRow" style="display:none;margin-top:10px">
+        <button class="act primary" id="tmRetryBtn">Carry on from where it stopped</button>
+        <p class="hint">Nothing is made twice: finished servers, repositories and keys are reused. GitHub will ask you to sign in again.</p>
+      </div>
+    </div>
+
     <div id="localFlow" style="display:none">
       <a href="#" class="back" id="loBack">&#8249; back</a>
       <h2>On this computer</h2>
@@ -593,6 +695,10 @@
          invitation link left with the hosted-era cards, same day. -->
     <a href="#" id="newSelfhost">Set up my own <span class="chev">›</span></a>
     <a href="#" id="newLocal">On this computer <span class="chev">›</span></a>
+    <!-- Teams (2026-10-10): the same gap again. An owner who already made a
+         mineral for themselves had no way into "Set up a team"; found on the
+         first live team build, when the resume landed on the list. -->
+    <a href="#" id="newTeam">Set up a team <span class="chev">›</span></a>
   </div>
 
   <div class="foot">This screen checks each mineral by itself; dots flip live.</div>
@@ -847,6 +953,7 @@
     if (make === 'selfhost') { startShFlow(); }
     else if (make === 'local') { startLocalFlow(); }
     else if (make === 'have') { startHaveFlow(''); }
+    else if (make === 'team') { startTmFlow(); }
   });
 
   // ---- the self-host wizard (2026-09-01) -----------------------------------
@@ -930,6 +1037,233 @@
     exitPebbleFlow();
   }
   document.getElementById('shBack').addEventListener('click', function(e){ e.preventDefault(); exitShFlow(); });
+
+  // ---- "Set up a team" (Crads for teams, 2026-10-10) ------------------------
+  var tmPoll = null;
+  var TM_PHASE = {
+    starting: 'Starting…', github: 'Waiting for you to sign in to GitHub…',
+    repos: 'Making the company brain and a repository for each person in your GitHub…',
+    servers: 'Building the servers, one at a time. Each takes a few minutes on first boot.',
+    keys: 'Giving each server its keys: staff can read the company brain and write only their own repository.',
+    enrol: 'Joining each server to the team…', ready: 'Done.',
+    export: 'Copying their personal folder to this computer…',
+  };
+  var TM_BOX = { waiting: 'Waiting', provisioning: 'Creating the server', booting: 'First boot', ready: 'Ready', keys: 'Keys', enrolling: 'Joining', failed: 'Stopped' };
+  function tmShow(stage){
+    ['tmManage','tmAddForm','tmLeaveForm','tmIntro','tmForm','tmBuild','tmDone'].forEach(function(id){ document.getElementById(id).style.display = (id === stage) ? 'block' : 'none'; });
+  }
+  function tmErr(text, retry){
+    var m = document.getElementById('tmMsg');
+    m.className = text ? 'msg on' : 'msg';
+    m.textContent = text || '';
+    document.getElementById('tmRetryRow').style.display = (text && retry) ? 'block' : 'none';
+  }
+  function tmPeople(){
+    return document.getElementById('tmPeople').value.split('\n').map(function(l){ return l.trim(); }).filter(Boolean).map(function(n){ return { name: n }; });
+  }
+  function startTmFlow(){
+    pebbleFlowActive = true;
+    document.getElementById('creatorHome').style.display = 'block';
+    document.getElementById('inv').style.display = 'none';
+    ['pebbleIntro','shFlow','haveFlow','localFlow','devApproveFlow'].forEach(function(id){ document.getElementById(id).style.display = 'none'; });
+    document.getElementById('tmFlow').style.display = 'block';
+    tmErr('');
+    fetch('/provision/providers').then(function(r){ return r.json(); }).then(function(d){
+      var sel = document.getElementById('tmProvider');
+      sel.innerHTML = ((d && d.providers) || []).map(function(p){ return '<option value="' + esc(p.id) + '">' + esc(p.label) + '</option>'; }).join('');
+    }).catch(function(){});
+    fetch('/team/status').then(function(r){ return r.json(); }).then(function(s){
+      if (s.phase && s.phase !== 'idle' && s.phase !== 'failed' && s.phase !== 'ready') { tmShow('tmBuild'); tmAttach(); }
+      else tmLoadTeams();   // finished runs are not replayed: the manage screen lists the team as it is now
+    }).catch(function(){ tmLoadTeams(); });
+  }
+  // Stage 3: teams this computer set up get a manage screen first.
+  var tmTeamsList = [];
+  var tmCurrent = null;
+  function tmLoadTeams(){
+    fetch('/team/teams').then(function(r){ return r.json(); }).then(function(d){
+      tmTeamsList = (d && d.teams) || [];
+      if (!tmTeamsList.length) { tmShow('tmIntro'); return; }
+      document.getElementById('tmTeams').innerHTML = tmTeamsList.map(function(t, i){
+        return '<div class="steprow"><b>' + esc(t.company) + '</b>'
+          + '<p class="hint">' + esc(t.people.map(function(p){ return p.name + (p.ready ? '' : ' (not built yet)'); }).join(', ') || 'nobody yet') + (t.brain ? ' · company brain ' + esc(t.brain) : '') + (t.left && t.left.length ? ' · left: ' + esc(t.left.join(', ')) : '') + '</p>'
+          + (t.unfinished ? '<p class="hint">The last change to this team stopped part way. Run it again with the same names: nothing is made twice.</p>' : '')
+          + '<button class="act" data-tm-add="' + i + '">Add people</button> <button class="act" data-tm-leave="' + i + '">Someone&#8217;s leaving</button>'
+          + '<details class="tokhelp" style="margin-top:10px"><summary>Support access for the whole team</summary>'
+          + '<p class="hint">Lets Crads AI (the software maker) into the team&#8217;s servers for 24 hours, then it closes by itself. Every grant is logged on each server. <b>Every server</b> includes your staff&#8217;s assistants: tell your team before you open those.</p>'
+          + '<button class="act" data-tm-support="grant:agent:' + i + '">Company agent only</button> <button class="act" data-tm-support="grant:all:' + i + '">Every server</button> <button class="act" data-tm-support="revoke:all:' + i + '">Close it on every server</button>'
+          + '<p class="hint" data-tm-support-out="' + i + '"></p></details></div>';
+      }).join('');
+      tmShow('tmManage');
+    }).catch(function(){ tmShow('tmIntro'); });
+  }
+  document.getElementById('tmTeams').addEventListener('click', function(e){
+    var a = e.target.closest('[data-tm-add]'), l = e.target.closest('[data-tm-leave]');
+    if (a) {
+      tmCurrent = tmTeamsList[+a.getAttribute('data-tm-add')]; tmErr('');
+      document.getElementById('tmAddHead').textContent = 'Adding to ' + tmCurrent.company + '.';
+      tmShow('tmAddForm');
+    } else if (l) {
+      tmCurrent = tmTeamsList[+l.getAttribute('data-tm-leave')]; tmErr('');
+      document.getElementById('tmLeaveHead').textContent = 'Someone is leaving ' + tmCurrent.company + '.';
+      document.getElementById('tmLeavePerson').innerHTML = tmCurrent.people.map(function(p){ return '<option value="' + esc(p.slug) + '">' + esc(p.name) + '</option>'; }).join('');
+      tmShow('tmLeaveForm');
+    }
+  });
+  document.getElementById('tmTeams').addEventListener('click', function(e){
+    var b = e.target.closest('[data-tm-support]'); if (!b) return;
+    var parts = b.getAttribute('data-tm-support').split(':'); var t = tmTeamsList[+parts[2]];
+    var out = document.querySelector('[data-tm-support-out="' + parts[2] + '"]');
+    b.disabled = true; out.textContent = 'Working…';
+    fetch('/team/support', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ company: t.company, action: parts[0], scope: parts[1], hours: 24 }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        b.disabled = false;
+        if (!d.results) { out.textContent = d.error || 'Could not reach the servers.'; return; }
+        out.textContent = d.results.map(function(x){ return x.name + ': ' + (x.ok ? (parts[0] === 'grant' ? 'open for 24 hours' : 'closed') : 'could not reach it (' + x.said + ')'); }).join(' · ');
+      })
+      .catch(function(){ b.disabled = false; out.textContent = 'The app did not answer.'; });
+  });
+  document.getElementById('tmNewTeam').addEventListener('click', function(){ tmErr(''); tmShow('tmIntro'); });
+  function tmPost(path, body){
+    fetch(path, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){ if (!x.ok) { tmErr(x.d.error || 'Could not start.'); return; } tmShow('tmBuild'); tmAttach(); })
+      .catch(function(){ tmErr('The app did not answer. Quit it and open it again, then retry.'); });
+  }
+  document.getElementById('tmAddBtn').addEventListener('click', function(){
+    tmErr('');
+    var people = document.getElementById('tmAddPeople').value.split('\n').map(function(l){ return l.trim(); }).filter(Boolean).map(function(n){ return { name: n }; });
+    var token = document.getElementById('tmAddToken').value.trim();
+    if (!people.length) { tmErr('Add at least one name.'); return; }
+    if (!token) { tmErr('Paste the hosting API token: it is never stored, so it is needed each time.'); return; }
+    tmPost('/team/add', { company: tmCurrent.company, token: token, people: people });
+  });
+  document.getElementById('tmLeavePerson').addEventListener('change', function(){
+    var p = tmCurrent && tmCurrent.people.filter(function(x){ return x.slug === this.value; }, this)[0];
+    document.getElementById('tmLeaveConfirmLabel').textContent = p ? 'Type ' + p.name + ' to confirm' : 'Type their name to confirm';
+  });
+  document.getElementById('tmLeaveBtn').addEventListener('click', function(){
+    tmErr('');
+    var person = document.getElementById('tmLeavePerson').value;
+    var token = document.getElementById('tmLeaveToken').value.trim();
+    if (!token) { tmErr('Paste the hosting API token: deleting their server needs it.'); return; }
+    tmPost('/team/remove', { company: tmCurrent.company, token: token, person: person,
+      confirm: document.getElementById('tmLeaveConfirm').value.trim(), skip_export: document.getElementById('tmLeaveGone').checked });
+  });
+  function exitTmFlow(){
+    if (tmPoll) { clearInterval(tmPoll); tmPoll = null; }
+    document.getElementById('tmFlow').style.display = 'none';
+    document.getElementById('pebbleIntro').style.display = '';
+    exitPebbleFlow();
+    load();
+  }
+  document.getElementById('tmBack').addEventListener('click', function(e){ e.preventDefault(); exitTmFlow(); });
+  document.getElementById('tmIntroOk').addEventListener('click', function(){ tmShow('tmForm'); });
+  document.getElementById('tmProvider').addEventListener('change', function(){
+    document.getElementById('tmOpts').style.display = 'none';
+    document.getElementById('tmBuildBtn').style.display = 'none';
+    document.getElementById('tmCheckBtn').style.display = '';
+  });
+  function tmSizeFor(loc){
+    var t = shResolveSize('standard', loc);
+    var n = tmPeople().length + 1;
+    var price = t && t.prices && t.prices[loc];
+    document.getElementById('tmSizeLine').textContent = t
+      ? 'Each server: ' + t.cores + ' cpu, ' + t.memoryGb + 'GB memory (' + t.name + ')' + (price ? ', around ' + (shCat.symbol || '') + Math.round(price) + ' a month' : '') + '. ' + n + ' servers in all' + (price ? ', around ' + (shCat.symbol || '') + Math.round(price * n) + ' a month' : '') + '.'
+      : 'Each server: the standard size for this location.';
+    return t;
+  }
+  document.getElementById('tmLoc').addEventListener('change', function(){ tmSizeFor(this.value); });
+  document.getElementById('tmCheckBtn').addEventListener('click', function(){
+    tmErr('');
+    var token = document.getElementById('tmToken').value.trim();
+    if (!token) { tmErr('Paste the hosting API token first.'); return; }
+    var btn = this; btn.disabled = true; btn.textContent = 'Checking…';
+    fetch('/provision/validate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ token: token, provider: document.getElementById('tmProvider').value }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        btn.disabled = false; btn.textContent = 'Check the token';
+        if (!x.ok || !x.d.ok) { tmErr('The hosting company did not accept that token. It must be an API token with write access.'); return; }
+        shCat = x.d;
+        var loc = document.getElementById('tmLoc');
+        loc.innerHTML = (x.d.locations || []).map(function(l){
+          return '<option value="' + esc(l.name) + '"' + (l.name === x.d.defaults.location ? ' selected' : '') + '>' + esc(l.country ? l.city + ', ' + l.country : l.city) + '</option>';
+        }).join('');
+        tmSizeFor(loc.value || x.d.defaults.location);
+        document.getElementById('tmOpts').style.display = 'block';
+        btn.style.display = 'none';
+        document.getElementById('tmBuildBtn').style.display = 'inline-block';
+      })
+      .catch(function(){ btn.disabled = false; btn.textContent = 'Check the token'; tmErr('Could not reach the hosting company from here.'); });
+  });
+  function tmStart(){
+    tmErr('');
+    var loc = document.getElementById('tmLoc').value || '';
+    var size = shCat ? shResolveSize('standard', loc) : null;
+    var body = {
+      company: document.getElementById('tmCompany').value.trim().toLowerCase(),
+      people: tmPeople(),
+      token: document.getElementById('tmToken').value.trim(),
+      provider: document.getElementById('tmProvider').value,
+      location: loc, server_type: (size && size.name) || '',
+    };
+    if (!body.company) { tmShow('tmForm'); tmErr('Give the team a name first.'); return; }
+    if (!body.people.length) { tmShow('tmForm'); tmErr('Add at least one person.'); return; }
+    fetch('/team/start', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        if (!x.ok) { tmShow('tmForm'); tmErr(x.d.error || 'Could not start.'); return; }
+        tmShow('tmBuild'); tmAttach();
+      })
+      .catch(function(){ tmShow('tmForm'); tmErr('The app did not answer. Quit it and open it again, then retry.'); });
+  }
+  document.getElementById('tmBuildBtn').addEventListener('click', tmStart);
+  document.getElementById('tmRetryBtn').addEventListener('click', function(){ tmShow('tmBuild'); tmStart(); });
+  function tmAttach(){
+    if (tmPoll) clearInterval(tmPoll);
+    var tick = function(){
+      fetch('/team/status').then(function(r){ return r.json(); }).then(tmRender).catch(function(){});
+    };
+    tick(); tmPoll = setInterval(tick, 2000);
+  }
+  function tmRender(s){
+    if (!s || s.phase === 'idle') return;
+    var gh = document.getElementById('tmGh');
+    if (s.github && s.github.code) {
+      gh.style.display = 'block';
+      document.getElementById('tmGhCode').textContent = s.github.code;
+      document.getElementById('tmGhLink').href = s.github.uri || 'https://github.com/login/device';
+    } else gh.style.display = 'none';
+    document.getElementById('tmPhase').textContent = TM_PHASE[s.phase] || s.phase;
+    document.getElementById('tmBoxes').innerHTML = (s.boxes || []).map(function(b){
+      return '<div class="steprow" data-box="' + esc(b.slug) + '"><span class="stepchip">' + esc(TM_BOX[b.phase] || b.phase) + '</span>'
+        + '<b>' + esc(b.role === 'hub' ? 'Company agent' : b.name) + '</b>'
+        + '<p class="hint mono">' + esc(b.slug) + (b.ip ? ' · ' + esc(b.ip) : '') + '</p>'
+        + (b.error ? '<p class="hint">' + esc(b.error) + '</p>' : '') + '</div>';
+    }).join('');
+    if (s.phase === 'failed') {
+      if (tmPoll) { clearInterval(tmPoll); tmPoll = null; }
+      tmShow(s.kind === 'add' ? 'tmAddForm' : s.kind === 'remove' ? 'tmLeaveForm' : 'tmForm');
+      tmErr('Stopped: ' + (s.error || 'unknown error'), s.kind !== 'add' && s.kind !== 'remove');
+      return;
+    }
+    if (s.phase === 'ready') {
+      if (tmPoll) { clearInterval(tmPoll); tmPoll = null; }
+      tmShow('tmDone');
+      document.getElementById('tmDoneHead').textContent = s.kind === 'add' ? 'They are on the team.' : s.kind === 'remove' ? 'Done.' : 'Your team is built.';
+      document.getElementById('tmDoneRepo').textContent = s.kind === 'remove'
+        ? (s.leaving ? s.leaving.name + ' has left the team.' : 'Done.')
+        : (s.repos && s.repos.brain ? 'The company brain is ' + s.repos.brain + ' on GitHub.' : '');
+      document.getElementById('tmResult').textContent = s.kind === 'remove' && s.result
+        ? (s.result.exported ? 'Their personal folder is saved at ' + s.result.exported + '. Hand it to them; nobody else has a copy.' : (s.result.note || ''))
+        : '';
+      document.getElementById('tmHandover').innerHTML = (s.handover || []).map(function(h){
+        return '<div class="steprow"><b>' + esc(h.role === 'hub' ? 'Company agent' : h.name) + '</b> <span class="mono hint">' + esc(h.slug) + '</span>'
+          + '<ol class="hint">' + h.todo.map(function(t){ return '<li>' + esc(t) + '</li>'; }).join('') + '</ol></div>';
+      }).join('');
+    }
+  }
 
   // ---- the "On this computer" flow (2026-09-11) ------------------------------
   // Thin, like the self-host wizard above: the decisions (path validation,
@@ -1067,6 +1401,7 @@
   // forces the takeover open over an inventory that has rows.
   document.getElementById('newSelfhost').addEventListener('click', function(e){ e.preventDefault(); startShFlow(); });
   document.getElementById('newLocal').addEventListener('click', function(e){ e.preventDefault(); startLocalFlow(); });
+  document.getElementById('newTeam').addEventListener('click', function(e){ e.preventDefault(); startTmFlow(); });
   document.getElementById('shCostsOk').addEventListener('click', function(){ shShow('shForm'); });
 
   document.getElementById('shCheckBtn').addEventListener('click', function(){

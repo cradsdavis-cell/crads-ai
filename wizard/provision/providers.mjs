@@ -5,7 +5,7 @@
 // learns a new name.
 //
 // THE CLIENT CONTRACT. Every provider ships a class the engine drives through
-// nine methods, all async, all against the person's OWN account with the
+// ten methods (deleteSshKey added 2026-10-11 for a team member leaving), all async, all against the person's OWN account with the
 // person's OWN token (hetzner.mjs is the reference implementation,
 // digitalocean.mjs the second):
 //

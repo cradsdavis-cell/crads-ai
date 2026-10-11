@@ -725,11 +725,17 @@ test('the self-host wizard reads every provider-shaped string from the registry,
   assert.match(DOOR, /shCat\.chains/, 'chains come from the validate answer');
   assert.match(DOOR, /shCat\.symbol/, 'so does the currency symbol');
   // the token, the start and the destroy all name the provider they are for
+  // EVERY call site, not just the first: "Set up a team" (2026-10-10) validates
+  // its token through the same route with its own provider picker.
   for (const route of ['validate', 'start', 'destroy']) {
-    // the body is built in the lines above the fetch; look around the call, not only after it
-    const at = DOOR.indexOf(`fetch('/provision/${route}'`);
-    const call = DOOR.slice(Math.max(0, at - 700), at + 200);
-    assert.match(call, /provider: shProvider/, `/provision/${route} carries the provider`);
+    let at = DOOR.indexOf(`fetch('/provision/${route}'`);
+    assert.ok(at !== -1, `/provision/${route} is called`);
+    while (at !== -1) {
+      // the body is built in the lines above the fetch; look around the call, not only after it
+      const call = DOOR.slice(Math.max(0, at - 700), at + 200);
+      assert.match(call, /provider: (shProvider|document\.getElementById\('tmProvider'\))/, `/provision/${route} carries the provider`);
+      at = DOOR.indexOf(`fetch('/provision/${route}'`, at + 1);
+    }
   }
   // no user-facing string still assumes Hetzner outside the Hetzner help fold
   const outsideFold = DOOR.replace(/<details class="tokhelp" id="shTokenHelp"[\s\S]*?<\/details>/, '');

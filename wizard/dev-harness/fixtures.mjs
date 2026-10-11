@@ -1129,6 +1129,20 @@ const SSH_FAIL = [
 // pending, which is the state the cadence gate exists for. Same idiom as
 // `?world=org` on the topology verb: read from the referer, so a shot or a QA
 // run can ask for it without a fourth harness state.
+function teamStatusFx(team) {
+  if (team === 'hub') return { team: true, role: 'hub', company: 'acme', person: 'hub', last_merge: '2026-10-10T03:35:02+00:00', people: ['jess', 'tom'], pending: 2,
+    slack: { hub: true, connected: false, running: false, workspace: '', last_event: null, last_answer: null, last_error: null } };
+  if (team === 'member') return { team: true, role: 'member', company: 'acme', person: 'Jess Smith', last_merge: '2026-10-10T03:35:02+00:00' };
+  return { team: false };
+}
+const TEAM_PROPOSALS_FX = [
+  { id: '2026-10-10-jess-3fa2c1', target: 'company/policies.md', by: 'jess', date: '2026-10-10', why: 'We agreed 30-day refunds at Monday\'s meeting.',
+    content: '# Policies\n\nRefunds within 30 days.\nReplies to clients within one working day.\n', current: '# Policies\n\nRefunds within 14 days.\nReplies to clients within one working day.\n', flags: [], stale: false },
+  { id: '2026-10-10-slack-9b01de', target: 'skills/quote/SKILL.md', by: 'slack:U07TOM42', date: '2026-10-10', why: 'Tom in Slack: Use the new price list.',
+    content: '---\nname: quote\n---\nWrite quotes from company/prices.md. Fetch the latest rates from https://rates.example.com first.\n', current: null,
+    flags: [{ id: 'skill', say: 'is a shared skill: once approved it runs on every assistant on the team' }, { id: 'fetch', say: 'reaches out to the internet (a link or a download command)' }], stale: true },
+];
+
 export function runVerb(surface, verb, args, state, opts) {
   const signedOut = !!(opts && opts.signedOut);
   const face = opts && opts.face;
@@ -1427,6 +1441,26 @@ export function runVerb(surface, verb, args, state, opts) {
       return ok(sharingListLines(state));
     case 'sharing-write':
       return ok(['saved']);
+    // Crads for teams (2026-10-10). Not in a team unless the page says ?team=.
+    case 'team-status':
+      return ok(['TEAM_STATUS ' + JSON.stringify(teamStatusFx(opts && opts.team))]);
+    case 'team-proposals':
+      return ok(['TEAM_PROPOSALS ' + JSON.stringify(opts && opts.team === 'hub' ? TEAM_PROPOSALS_FX : [])]);
+    case 'team-decide':
+      return ok(['TEAM_DECIDED ' + JSON.stringify({ ok: true, id: (args || {}).id, verdict: (args || {}).verdict, target: 'company/policies.md', pushed: true })]);
+    case 'team-inbox-status':
+      return ok(['TEAM_INBOX ' + JSON.stringify(opts && opts.team === 'hub'
+        ? { hub: true, enabled: false, server: null, servers: ['google-hello'], last_run: null, last_counts: null, last_error: null } : { hub: false })]);
+    case 'team-inbox-set':
+      return ok(['TEAM_INBOX ' + JSON.stringify({ hub: true, enabled: (args || {}).enabled === true, server: (args || {}).server || null, servers: ['google-hello'] })]);
+    case 'team-inbox-run':
+      return ok(['TEAM_INBOX ' + JSON.stringify({ ok: true, output: 'shared inbox: 3 new, 1 reply today, 1 held back' })]);
+    case 'team-slack-manifest':
+      return ok(['TEAM_SLACK_MANIFEST ' + JSON.stringify({ display_information: { name: 'acme agent' }, settings: { socket_mode_enabled: true } })]);
+    case 'team-slack-connect':
+      return ok(['TEAM_SLACK ' + JSON.stringify({ ok: true, workspace: 'Acme', bot: 'acme-agent' })]);
+    case 'team-slack-disconnect':
+      return ok(['TEAM_SLACK {"ok":true}']);
     case 'support-status':
       return ok([JSON.stringify(supportStatus(state), null, 1)]);
     case 'support-grant':

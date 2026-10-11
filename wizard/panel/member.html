@@ -36,6 +36,11 @@
       color-scheme:dark;
     }
   }
+  .teamin{width:100%;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit;margin-bottom:8px}
+  .diffadd{color:var(--ok,#2f6b3a)}
+  .diffdel{color:var(--warn,#a5522a);text-decoration:line-through}
+  .diffsame{color:var(--soft-2)}
+  #teamNav[data-count]::after{content:attr(data-count);margin-left:auto;font-size:11px;background:var(--accent);color:#fff;border-radius:9px;padding:0 6px}
 </style>
 <link rel="stylesheet" href="/vendor/tokens.css">
 <link rel="stylesheet" href="/vendor/inter/inter.css">
@@ -1528,6 +1533,9 @@
         </div>
       </div>
 
+      <!-- Crads for teams (2026-10-10): hidden until team-status says this box is
+           in a team. Two-people glyph, unique in the nav (nav-icons.test.mjs). -->
+      <button data-sec="team" id="teamNav" style="display:none"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="5.6" cy="5.4" r="2.1"/><circle cx="11" cy="6.2" r="1.7"/><path d="M1.8 13.2v-.6a3 3 0 0 1 3-3h1.6a3 3 0 0 1 3 3v.6"/><path d="M10.4 9.7h1.1a2.6 2.6 0 0 1 2.6 2.6v.4"/></svg>Team</button>
       <button data-sec="terminal"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><path d="m4.5 6 2.2 2-2.2 2M8.5 10.2h3"/></svg>Terminal</button>
     </nav>
     <div class="spacer"></div>
@@ -1540,7 +1548,7 @@
       <a class="navlink" id="homeLink" href="/door" style="display:none"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6.5 2.5h-3v11h3"/><path d="M10 5.5 12.5 8 10 10.5"/><path d="M12.5 8H6"/></svg>Start screen</a>
     </div>
     <div id="ownLine" style="display:none"></div>
-    <div class="foot"><b>Your mineral, your data.</b> This window only reads what your own assistant already knows. Nothing here is visible to anyone else. <span data-needs-box>To talk to your assistant, use the <b>Terminal</b> tab above; the <b>Claude Code</b> app is the fuller desktop experience (see <b>Help</b>).</span><span data-local-only style="display:none">To talk to your assistant, open your brain folder in <b>Claude Code</b>: the <b>Terminal</b> tab does it in one click.</span></div>
+    <div class="foot"><b>Your mineral, your data.</b> This window only reads what your own assistant already knows. <span id="footPrivacy">Nothing here is visible to anyone else.</span> <span data-needs-box>To talk to your assistant, use the <b>Terminal</b> tab above; the <b>Claude Code</b> app is the fuller desktop experience (see <b>Help</b>).</span><span data-local-only style="display:none">To talk to your assistant, open your brain folder in <b>Claude Code</b>: the <b>Terminal</b> tab does it in one click.</span></div>
   </aside>
 
   <main>
@@ -1647,6 +1655,69 @@
          modal merged into ONE page on both faces. Face-aware copy via
          .orgonly / .memonly; the connection name + Copy and the software-update
          folds moved here unchanged (same ids, same handlers). -->
+    <!-- Crads for teams (stage 2, 2026-10-10). On the company agent's box: the
+         owner's approvals queue and the Slack connection. On a staff box: what
+         being in a team means for this assistant. Hidden in the nav otherwise. -->
+    <section data-sec="team">
+      <h1 id="teamTitle">Your team</h1>
+      <p class="hint" id="teamLine">Checking…</p>
+
+      <div id="teamHub" style="display:none">
+        <div class="guidecard" style="margin-top:14px">
+          <p class="gtitle">Waiting for you</p>
+          <p class="hint" style="margin:6px 0 12px">Changes to the company&#8217;s rules (policies, prices, processes, client pages, shared skills) wait here until you approve them. Nobody&#8217;s assistant sees a change until you do. Warnings are checks the company agent ran; they inform you, they do not decide.</p>
+          <div id="teamProposals" class="hint">Checking…</div>
+          <div class="notice" id="teamDecideNotice" style="display:none"></div>
+        </div>
+
+        <div class="guidecard" style="margin-top:14px">
+          <p class="gtitle">The shared inbox</p>
+          <p class="hint" style="margin:6px 0 12px">If the team shares a mailbox (hello@, info@), the company agent can read it every hour from 07:00 to 19:00 and add one line per new message to the company brain: who wrote, what they want, which client, and who on the team knows them. It can only <b>read</b> that one mailbox: it never sends, drafts, files or changes anything, and anything personal or confidential is counted for you, not summarised. Connect the mailbox on this mineral&#8217;s <b>Connections</b> page first.</p>
+          <div id="teamInboxState" class="hint" style="margin:0 0 10px;color:var(--ink)">Checking…</div>
+          <div id="teamInboxSetup" style="display:none">
+            <label for="teamInboxServer" class="hint">Which connection is the shared inbox?</label>
+            <select id="teamInboxServer" class="teamin" style="font-family:inherit"></select>
+            <button class="act primary" id="teamInboxOn">Start triaging it</button>
+          </div>
+          <button class="act" id="teamInboxRun" style="display:none">Triage now</button>
+          <button class="act" id="teamInboxOff" style="display:none">Turn it off</button>
+          <div class="notice" id="teamInboxNotice" style="display:none"></div>
+        </div>
+
+        <div class="guidecard" style="margin-top:14px">
+          <p class="gtitle">The company agent in Slack</p>
+          <div id="teamSlackState" class="hint" style="margin:6px 0 12px;color:var(--ink)">Checking…</div>
+          <div id="teamSlackSetup" style="display:none">
+            <ol class="hint" style="margin:0 0 12px 1.2em">
+              <li>Open <span class="mono">api.slack.com/apps</span>, choose <b>Create New App</b>, then <b>From a manifest</b>, pick your workspace and paste this: <button class="act" id="teamSlackCopy" style="margin:4px 0 0">Copy the manifest</button></li>
+              <li>Under <b>Basic Information</b>, in <b>App-Level Tokens</b>, generate a token with the <span class="mono">connections:write</span> scope. It starts <span class="mono">xapp-</span>.</li>
+              <li>Under <b>Install App</b>, install it to your workspace and copy the <b>Bot User OAuth Token</b>. It starts <span class="mono">xoxb-</span>.</li>
+              <li>Paste both below. They are kept on the company agent&#8217;s server only.</li>
+            </ol>
+            <input id="teamSlackApp" class="teamin" type="password" placeholder="xapp-…" autocomplete="off" spellcheck="false">
+            <input id="teamSlackBot" class="teamin" type="password" placeholder="xoxb-…" autocomplete="off" spellcheck="false">
+            <button class="act primary" id="teamSlackConnect">Connect Slack</button>
+          </div>
+          <button class="act" id="teamSlackDisconnect" style="display:none">Disconnect Slack</button>
+          <p class="hint" style="margin-top:10px">It answers when someone @mentions it or sends it a direct message, never from ordinary channel chatter, and never in a channel shared with another company. It can read the company brain and nothing else. Asked to change something, it drafts a proposal that lands in <b>Waiting for you</b>.</p>
+          <div class="notice" id="teamSlackNotice" style="display:none"></div>
+        </div>
+      </div>
+
+      <div id="teamMember" style="display:none">
+        <div class="guidecard" style="margin-top:14px">
+          <p class="gtitle">How the company brain works for you</p>
+          <ul class="hint" style="margin:6px 0 0 1.2em">
+            <li>Your assistant reads the company brain first: the company&#8217;s rules, shared client and process pages, and what colleagues have published, with sources.</li>
+            <li>Every night it publishes facts from your work (clients, projects, decisions) to the company brain, with sources. Your <span class="mono">personal/</span> folder is never published.</li>
+            <li>To change a policy, price, process, client page or shared skill, ask your assistant to propose it (<span class="mono">/propose-change</span>). The owner approves it first.</li>
+            <li>Plainly: your company owns this server. <span class="mono">personal/</span> is private from the company brain and from colleagues, not secret from whoever runs the server.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="pageend">Everything here reads live from your mineral.</div>
+    </section>
+
     <section data-sec="help">
       <div class="pagehead">
         <h2>Help<button class="info" type="button" aria-label="What is this?" data-tip="Everything works right here in the Terminal tab. The free Claude Code desktop app adds a nicer window onto the same assistant: connect once and it remembers. Two minutes, whenever you feel like it.">?</button></h2>
@@ -2985,6 +3056,7 @@
     // Dialled only when Help is opened: an older box has no open-folder verb,
     // and a refusal on load would be a verb-table miss fired at every visitor.
     if (name === 'help') { loadOpenFolder(); loadSupport(); }
+    if (name === 'team') loadTeam();
     // Telegram lives on Connections now (2026-08-09 audit, R4). Its poll runs
     // only while the page that shows it is open: leaving must stop it, or a
     // background timer keeps opening SSH channels to the box for a link nobody
@@ -3522,6 +3594,7 @@
         // cockpit builder and walks the whole wiki on the box, so polling it every
         // 20s on a healthy connection would be a wiki walk per 20s for nothing.
         if (!quiet || !wasOk) { loadDashboard(true); loadPagesList(); }
+        if (!wasOk && state.kind !== 'local') loadTeamNav();
       } else {
         connectAttempts++;
         $('connDot').className = 'dot err';
@@ -6051,6 +6124,152 @@
   $('supportRevoke').onclick = function(){
     var b = this; b.disabled = true;
     run('support-revoke', {}).then(function(r){ b.disabled = false; notice('supportNotice', outText(r)); loadSupport(); });
+  };
+
+  // ---- Crads for teams (stage 2, 2026-10-10) ------------------------------
+  var teamState = null;
+  function teamParse(r){ var m = outText(r).match(/TEAM_STATUS (.*)/); try { return m ? JSON.parse(m[1]) : null; } catch(e){ return null; } }
+  function loadTeamNav(){
+    run('team-status', {}).then(function(r){
+      var st = r.ok ? teamParse(r) : null;
+      teamState = st;
+      $('teamNav').style.display = (st && st.team) ? '' : 'none';
+      // On a team box "nothing here is visible to anyone else" stops being true:
+      // facts are published to the company brain and the company owns the server.
+      if (st && st.team) $('footPrivacy').textContent = st.role === 'hub'
+        ? 'This is the company agent: it holds the company brain, and your team reads it.'
+        : 'Facts from your work are published to the company brain; your personal/ folder is not. Your company owns this server.';
+      if (st && st.team && st.role === 'hub' && st.pending) $('teamNav').setAttribute('data-count', st.pending);
+      else $('teamNav').removeAttribute('data-count');
+    });
+  }
+  function loadTeam(){
+    run('team-status', {}).then(function(r){
+      var st = r.ok ? teamParse(r) : null;
+      teamState = st;
+      if (!st || !st.team) { $('teamLine').textContent = 'This mineral is not part of a team.'; $('teamHub').style.display = 'none'; $('teamMember').style.display = 'none'; return; }
+      var hub = st.role === 'hub';
+      $('teamTitle').textContent = hub ? 'Your team: the company agent' : 'Your team';
+      $('teamLine').textContent = hub
+        ? 'This is the ' + st.company + ' company agent. It is the only thing that writes the company brain. People: ' + (st.people || []).join(', ') + '.' + (st.last_merge ? ' Last merge ' + st.last_merge.replace('T', ' ').slice(0, 16) + '.' : '')
+        : 'This assistant belongs to the ' + st.company + ' team.' + (st.last_merge ? ' The company brain last changed ' + st.last_merge.replace('T', ' ').slice(0, 16) + '.' : '');
+      $('teamHub').style.display = hub ? '' : 'none';
+      $('teamMember').style.display = hub ? 'none' : '';
+      if (hub) { loadProposals(); renderSlack(st.slack || {}); loadInbox(); }
+    });
+  }
+  // A real line diff (longest common subsequence), so a moved, duplicated or
+  // re-ordered line shows as what it is. The first version compared sets of
+  // lines and could hide exactly the change that mattered in a shared skill
+  // (teams security review, 2026-10-11). Unchanged lines show for context.
+  function proposalDiff(cur, next){
+    var a = String(cur || '').replace(/\n$/, '').split('\n'), b = String(next || '').replace(/\n$/, '').split('\n');
+    if (cur == null) a = [];
+    if (a.length * b.length > 400000) return '<div class="hint">This page is too long to compare here; read it in full on GitHub before approving.</div>';
+    var n = a.length, m = b.length, L = [];
+    for (var i = 0; i <= n; i++) { L.push(new Array(m + 1).fill(0)); }
+    for (var i2 = n - 1; i2 >= 0; i2--) for (var j2 = m - 1; j2 >= 0; j2--) L[i2][j2] = a[i2] === b[j2] ? L[i2 + 1][j2 + 1] + 1 : Math.max(L[i2 + 1][j2], L[i2][j2 + 1]);
+    var out = [], x = 0, y = 0;
+    while (x < n || y < m) {
+      if (x < n && y < m && a[x] === b[y]) { out.push('<div class="diffsame">  ' + esc(a[x]) + '</div>'); x++; y++; }
+      else if (y < m && (x >= n || L[x][y + 1] >= L[x + 1][y])) { out.push('<div class="diffadd">+ ' + esc(b[y]) + '</div>'); y++; }
+      else { out.push('<div class="diffdel">- ' + esc(a[x]) + '</div>'); x++; }
+    }
+    return out.join('');
+  }
+  function loadProposals(){
+    run('team-proposals', {}).then(function(r){
+      var m = outText(r).match(/TEAM_PROPOSALS (.*)/); var list = [];
+      try { list = m ? JSON.parse(m[1]) : []; } catch(e){ list = []; }
+      if (!list.length) { $('teamProposals').textContent = 'Nothing waiting. Proposed changes show up here within the hour.'; return; }
+      $('teamProposals').innerHTML = list.map(function(p){
+        // A Slack proposer is recorded by user id (a display name can be set to anything); their name rides in the why.
+        var who = String(p.by || '').indexOf('slack:') === 0 ? 'a colleague in Slack (' + String(p.by).slice(6) + ')' : p.by;
+        return '<div class="proposal" data-id="' + esc(p.id) + '" style="border:1px solid var(--edge);border-radius:10px;padding:12px;margin:0 0 10px">'
+          + '<b class="mono">' + esc(p.target) + '</b> <span class="hint">proposed by ' + esc(who) + ', ' + esc(p.date) + (p.current == null ? ' (a new page)' : '') + '</span>'
+          + (p.why ? '<p class="hint" style="margin:6px 0">&#8220;' + esc(p.why) + '&#8221;</p>' : '')
+          + (p.stale ? '<p class="hint" style="color:var(--warn,#a5522a)"><b>This page has changed since this was proposed.</b> Approving it is refused, because it would undo that change. Turn it down and ask for it to be proposed again on the current page.</p>' : '')
+          + (p.flags && p.flags.length ? '<ul class="hint" style="margin:6px 0 6px 1.2em;color:var(--warn,#a5522a)">' + p.flags.map(function(f){ return '<li>Warning: it ' + esc(f.say) + '.</li>'; }).join('') + '</ul>' : '')
+          + '<div class="mono" style="font-size:12px;max-height:240px;overflow:auto;margin:8px 0">' + proposalDiff(p.current, p.content) + '</div>'
+          + '<input class="pnote teamin" placeholder="a note (optional)" style="font-family:inherit">'
+          + (p.stale ? '' : '<button class="act primary" data-verdict="approve">Approve</button> ') + '<button class="act" data-verdict="reject">Turn down</button></div>';
+      }).join('');
+    });
+  }
+  $('teamProposals').addEventListener('click', function(e){
+    var b = e.target.closest('[data-verdict]'); if (!b) return;
+    var card = b.closest('.proposal'); var id = card.getAttribute('data-id');
+    var note = card.querySelector('.pnote').value.trim();
+    [].slice.call(card.querySelectorAll('button')).forEach(function(x){ x.disabled = true; });
+    run('team-decide', { id: id, verdict: b.getAttribute('data-verdict'), note_b64: note ? btoa(unescape(encodeURIComponent(note))) : '' }).then(function(r){
+      var m = outText(r).match(/TEAM_DECIDED (.*)/); var d = null; try { d = m ? JSON.parse(m[1]) : null; } catch(e){}
+      notice('teamDecideNotice', d ? (d.verdict === 'approve' ? 'Approved: ' + d.target + '. Every assistant on the team has it within the hour.' : 'Turned down: ' + d.target + '. Nothing changed.') : outText(r));
+      loadProposals(); loadTeamNav();
+    });
+  });
+  function loadInbox(){
+    run('team-inbox-status', {}).then(function(r){
+      var m = outText(r).match(/TEAM_INBOX (.*)/); var st = null; try { st = m ? JSON.parse(m[1]) : null; } catch(e){}
+      if (!st || !st.hub) { $('teamInboxState').textContent = 'Not available on this software version yet.'; $('teamInboxSetup').style.display = 'none'; return; }
+      $('teamInboxServer').innerHTML = (st.servers || []).map(function(n){ return '<option value="' + esc(n) + '"' + (n === st.server ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+      if (st.enabled) {
+        var c = st.last_counts;
+        $('teamInboxState').innerHTML = '<b>On</b>, reading <span class="mono">' + esc(st.server) + '</span>.'
+          + (st.last_run ? ' Last run ' + esc(String(st.last_run).replace('T', ' ').slice(0, 16)) + (c ? ': ' + c.messages + ' new, ' + c.today + ' to reply today, ' + c.held + ' held back.' : '.') : ' Not run yet.')
+          + (st.last_error ? '<br>Last problem: ' + esc(st.last_error) : '');
+        $('teamInboxSetup').style.display = 'none'; $('teamInboxRun').style.display = ''; $('teamInboxOff').style.display = '';
+      } else {
+        $('teamInboxState').textContent = (st.servers || []).length ? 'Off.' : 'Off. No connections on this mineral yet: connect the shared mailbox on the Connections page.';
+        $('teamInboxSetup').style.display = (st.servers || []).length ? '' : 'none'; $('teamInboxRun').style.display = 'none'; $('teamInboxOff').style.display = 'none';
+      }
+    });
+  }
+  $('teamInboxOn').onclick = function(){
+    var b = this; b.disabled = true;
+    run('team-inbox-set', { enabled: true, server: $('teamInboxServer').value }).then(function(r){ b.disabled = false; notice('teamInboxNotice', r.ok ? 'On. It reads the mailbox every hour from 07:00 to 19:00; Triage now runs it straight away.' : outText(r)); loadInbox(); });
+  };
+  $('teamInboxOff').onclick = function(){
+    var b = this; b.disabled = true;
+    run('team-inbox-set', { enabled: false }).then(function(r){ b.disabled = false; notice('teamInboxNotice', r.ok ? 'Off. Nothing more is read from the mailbox.' : outText(r)); loadInbox(); });
+  };
+  $('teamInboxRun').onclick = function(){
+    var b = this; b.disabled = true; b.textContent = 'Reading the mailbox…';
+    run('team-inbox-run', {}).then(function(r){ b.disabled = false; b.textContent = 'Triage now'; var m = outText(r).match(/TEAM_INBOX (.*)/); var o = null; try { o = m ? JSON.parse(m[1]) : null; } catch(e){} notice('teamInboxNotice', o ? o.output : outText(r)); loadInbox(); });
+  };
+  function renderSlack(sl){
+    if (sl.connected) {
+      $('teamSlackState').innerHTML = '<b>Connected</b>' + (sl.workspace ? ' to ' + esc(sl.workspace) : '') + '. ' + (sl.running ? 'Listening.' : 'Starting up (within two minutes).')
+        + (sl.last_answer ? ' Last answer ' + esc(String(sl.last_answer).replace('T', ' ').slice(0, 16)) + '.' : '')
+        + (sl.last_error ? '<br>Last problem: ' + esc(sl.last_error) : '');
+      $('teamSlackSetup').style.display = 'none'; $('teamSlackDisconnect').style.display = '';
+    } else {
+      $('teamSlackState').textContent = 'Not connected. Four steps, about five minutes:';
+      $('teamSlackSetup').style.display = ''; $('teamSlackDisconnect').style.display = 'none';
+    }
+  }
+  $('teamSlackCopy').onclick = function(){
+    var b = this;
+    run('team-slack-manifest', {}).then(function(r){
+      var m = outText(r).match(/TEAM_SLACK_MANIFEST (.*)/); if (!m) { notice('teamSlackNotice', outText(r)); return; }
+      var text = JSON.stringify(JSON.parse(m[1]), null, 2);
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(function(){ b.textContent = 'Copied'; setTimeout(function(){ b.textContent = 'Copy the manifest'; }, 2000); });
+    });
+  };
+  $('teamSlackConnect').onclick = function(){
+    var app = $('teamSlackApp').value.trim(), bot = $('teamSlackBot').value.trim();
+    if (!app || !bot) { notice('teamSlackNotice', 'Paste both tokens first: the xapp- one and the xoxb- one.'); return; }
+    var b = this; b.disabled = true; b.textContent = 'Checking with Slack…';
+    run('team-slack-connect', { tokens_b64: btoa(JSON.stringify({ app: app, bot: bot })) }).then(function(r){
+      b.disabled = false; b.textContent = 'Connect Slack';
+      var m = outText(r).match(/TEAM_SLACK (\{.*)/);
+      notice('teamSlackNotice', r.ok && m ? 'Connected. Mention the agent in a channel, or send it a direct message, to try it.' : outText(r));
+      if (r.ok) { $('teamSlackApp').value = ''; $('teamSlackBot').value = ''; }
+      loadTeam();
+    });
+  };
+  $('teamSlackDisconnect').onclick = function(){
+    var b = this; b.disabled = true;
+    run('team-slack-disconnect', {}).then(function(r){ b.disabled = false; notice('teamSlackNotice', r.ok ? 'Disconnected. The tokens are gone from the server; revoke them in Slack too if you like.' : outText(r)); loadTeam(); });
   };
 
   // ---- brain: graph-first viewer -----------------------------------------

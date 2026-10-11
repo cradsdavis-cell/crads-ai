@@ -23,12 +23,18 @@ import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from '
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { providerOf, publicProviders, DEFAULT_PROVIDER, PROVIDERS } from '../provision/providers.mjs';
-import { provisionSelfHost, destroySelfHost } from '../provision/engine.mjs';
+import { destroySelfHost } from '../provision/engine.mjs';
+import { buildBox } from './build-box.mjs';
 import { installMemberAccess } from './member-connect.mjs';
 import { pinHostForUser, runSsh } from './ssh-bridge.mjs';
 import { registerClaudeSshConfig, syncClaudeStartDir, claudeSettingsPath, OPEN_FOLDER_PROBE } from './claude-settings.mjs';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$/;
+
+// A pinned image other than :v2, for building against an unpromoted branch image
+// (e.g. ghcr.io/cradsdavis-cell/crads-pebble:sha-<commit>). Developer-only: unset,
+// every box gets the promoted :v2 exactly as before.
+export const boxImage = () => process.env.CRADS_BOX_IMAGE || '';
 
 export function provisionRoutes(opts = {}) {
   const sshDir = opts.sshDir || join(homedir(), '.ssh');
@@ -80,69 +86,21 @@ export function provisionRoutes(opts = {}) {
     return { ...rest, server_id: state?.serverId ?? null };
   };
 
+  // The deps every box build needs; "Set up a team" passes the same set.
+  const buildDeps = () => ({
+    install, pin, probe, register, syncStartDir, openFolder, settingsPath, makeClient, sshDir,
+    saveState, sleep, bootTimeoutMs, bootPollMs,
+    ...(opts.files ? { files: opts.files } : {}),
+    ...(boxImage() ? { image: boxImage() } : {}),
+  });
+
   function drive() {
     (async () => {
-      const { slug, token } = run;
       try {
-        run.phase = 'provisioning';
-        // Key before birth: installMemberAccess with a placeholder address
-        // mints (or reuses) the keypair and writes the Host block; the second
-        // call below repairs HostName to the real IP — repair-on-rerun is
-        // installAccess's own documented behaviour (2026-08-14), so a crash in
-        // between leaves nothing worse than a dead-address block the door
-        // already knows how to Forget.
-        const pre = install({ slug, host: '0.0.0.0', user: 'member' }, sshDir);
-        const ownerPubKey = String(pre.publicKey).trim().split('\n')[0];
-        const r = await provisionSelfHost({
-          token, boxName: slug, ownerPubKey, state: run.state, provider: run.provider,
-          onStep: (step, detail) => { run.steps.push(detail ? `${step} (${detail})` : step); },
-          overrides: {
-            client: makeClient(token, run.provider),
-            ...(opts.files ? { files: opts.files } : {}),
-            ...(run.location ? { location: run.location } : {}),
-            ...(run.serverType ? { serverType: run.serverType } : {}),
-          },
-        });
-        saveState(slug, run.state);
-        run.ip = r.ip;
-        install({ slug, host: r.ip, user: 'member' }, sshDir);
-        run.phase = 'booting';
-        // First boot pulls the image; minutes, not seconds. Silence here is
-        // normal, so the deadline is generous and the page says what's happening.
-        const deadline = Date.now() + bootTimeoutMs;
-        for (;;) {
-          let p; try { p = await probe(run.alias); } catch { p = null; }
-          if (p && p.code === 0 && String(p.stdout || '').includes('chain-ok')) break;
-          if (Date.now() > deadline) throw new Error('the server was created but its workspace never answered; Retry checks again, or Start over rebuilds it');
-          await sleep(bootPollMs);
-        }
-        pin(run.ip, { sshDir });
-        // THE ENVIRONMENT ENTRY IN THE CLAUDE CODE APP.
-        // The hosted-era connect flow wrote this (member-connect's
-        // registerInClaude, with the same /test open-folder leg). This flow was
-        // written without it, so a self-hosted box came up healthy, reachable
-        // and pinned, and then simply never appeared in the dropdown: the one
-        // surface that can open it. Found by Sam on the first working box,
-        // 2026-09-01.
-        //
-        // Best-effort, on the rule the connect flow already states: a settings
-        // refusal must never fail a build that worked. The box is up either way.
-        try {
-          register({ id: run.alias, name: run.slug, sshHost: run.alias, startDirectory: '/state' }, settingsPath);
-          // /state/<name> is the folder the box wants opened, and it can only be
-          // asked now the chain is proven. Registering a folder nobody has
-          // confirmed exists is a session Claude Code cannot open, which is why
-          // this is a second step and not a guess at install time.
-          let of = null;
-          try { of = await openFolder(run.alias); } catch { of = null; }
-          if (of && of.code === 0) syncStartDir(run.alias, String(of.stdout || ''), settingsPath);
-        } catch { /* the mineral is up; the dropdown entry is repairable by hand */ }
-        run.state.booted = true;
-        saveState(slug, run.state);
-        run.phase = 'ready';
+        await buildBox(run, buildDeps());
         run.token = null;
       } catch (e) {
-        saveState(slug, run.state);
+        saveState(run.slug, run.state);
         run.error = String((e && e.message) || e);
         run.phase = 'failed';
       }

@@ -23,6 +23,7 @@ import { removeIdentityAccess } from './member-connect.mjs';
 import { fetchChangelog, plainRelease } from './updater.mjs';
 import { inventoryRoutes } from './inventory-routes.mjs';
 import { provisionRoutes } from './provision-routes.mjs';
+import { teamRoutes } from './team-routes.mjs';
 import { deviceRoutes } from './device-routes.mjs';
 import { createOwnBrainRoutes } from './own-brain-routes.mjs';
 import { setupStepsRoutes } from './setup-steps.mjs';
@@ -87,6 +88,8 @@ export function createDoorServer(opts = {}) {
   const html = () => (opts.htmlText ?? readFileSync(opts.htmlPath || join(HERE, 'door.html')));
   const url = (name) => { const u = (opts.urls || {})[name]; return typeof u === 'function' ? u() : u; };
   const provision = provisionRoutes(opts.provision || {});
+  // Crads for teams (2026-10-10): the owner's one-run team build.
+  const team = teamRoutes(opts.team || {});
   // Wizard-local device enrolment (self-host pivot, 2026-09-01): the old
   // machine approves the new one over SSH, no account and no worker. Mounted
   // exactly like provision; injectables for tests ride opts.device.
@@ -269,6 +272,7 @@ export function createDoorServer(opts = {}) {
     // provisioning engine. Own module, mounted like inventory; everything it
     // needs is injectable for tests via opts.provision.
     if (provision(req, res, path)) return;
+    if (team(req, res, path)) return;
 
     // The two-machine device enrolment (offer / approve / complete).
     if (device(req, res, path)) return;

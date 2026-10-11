@@ -52,7 +52,8 @@ through Crads AI: no account, no directory, no billing, no tunnel. There is
 nothing of yours for us to hold. The one way anyone else gets in is a
 [support window you deliberately grant](/docs/grant-support-access), which
 expires on its own clock. The [privacy policy](/docs/privacy-policy) is the
-binding version.
+binding version. What does go to Anthropic, on your own Claude account, is laid out on
+[self-hosted Claude: what runs where](/docs/self-hosted-claude).
 
 ## Do I need to be technical?
 

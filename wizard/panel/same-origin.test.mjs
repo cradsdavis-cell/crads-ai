@@ -83,3 +83,14 @@ test('the gate is live on a real server, and does not disturb ordinary use', asy
       'reading the page cross-origin is not the threat and is not blocked');
   } finally { s.close(); }
 });
+
+test('DNS rebinding: a request whose Host is not a loopback name is refused, GETs included (teams review 2026-10-11)', () => {
+  // evil.example re-pointed at 127.0.0.1: Origin and Host agree, so only the Host name gives it away
+  assert.equal(crossOriginBlocked(req('POST', { host: 'evil.example:4610', origin: 'http://evil.example:4610' })), true);
+  assert.equal(crossOriginBlocked(req('GET', { host: 'evil.example:4610' })), true, 'and it cannot read either');
+  for (const host of ['127.0.0.1:4610', 'localhost:4610', '[::1]:4610', 'LOCALHOST:4610']) {
+    assert.equal(crossOriginBlocked(req('GET', { host })), false, host);
+    assert.equal(crossOriginBlocked(req('POST', { host, origin: `http://${host.toLowerCase()}` })), false, host);
+  }
+  assert.equal(crossOriginBlocked(req('POST', {})), false, 'a caller with no Host (node, curl) still passes');
+});

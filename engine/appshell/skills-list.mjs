@@ -62,7 +62,11 @@ export function listSkills(stateDir) {
     if (!CATEGORIES.includes(category)) category = 'other';
 
     let source = 'member';
-    if (engine.includes(id)) source = 'engine';
+    // Teams (2026-10-10): a skill installed from the company brain by
+    // team-skills.mjs carries origin "company" and is replaced on every pull.
+    const origin = readJson(path.join(base, id, '.origin.json'));
+    if (origin && origin.origin === 'company') source = 'company';
+    else if (engine.includes(id)) source = 'engine';
     else if (SEED_IDS.includes(id)) source = 'seed';
 
     return {

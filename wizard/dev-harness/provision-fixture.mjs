@@ -35,6 +35,7 @@ export function fakeClient(calls, provider = 'hetzner') {
     waitAction: async () => ({ status: 'success' }),
     getServer: async () => ({ id: 42, name: 'aios-demo', status: 'running', ip: '203.0.113.9' }),
     deleteServer: async (id) => { calls.push(['delete', id, provider]); },
+    deleteSshKey: async (id) => { calls.push(['delete-key', id, provider]); },
   };
 }
 

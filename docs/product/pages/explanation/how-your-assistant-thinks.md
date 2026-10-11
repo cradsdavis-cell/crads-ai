@@ -62,7 +62,8 @@ folder somewhere else and the knowledge goes with you.
 
 That ownership is the reason I stopped hosting anything for anyone.
 [What a mineral is](/docs/what-a-mineral-is) says why a box each; this page
-is about what lives in it.
+is about what lives in it. Exactly which parts stay on your machine and which go to Anthropic is on
+[self-hosted Claude: what runs where](/docs/self-hosted-claude).
 
 ## Two kinds of memory
 

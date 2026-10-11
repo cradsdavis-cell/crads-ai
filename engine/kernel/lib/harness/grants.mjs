@@ -8,7 +8,8 @@
 // --allowedTools, opencode.mjs to a permission policy). Pure on purpose: the
 // runner reads files, this decides.
 //
-//   files   read/edit/write/glob/grep inside the working directory
+//   files   true: read/edit/write/glob/grep inside the working directory
+//           'read': read/glob/grep only (the company agent's Slack answers)
 //   shell   run shell commands
 //   skills  load a skill by name
 //   mcp     [{ server, tool, raw }]  tool '*' = every tool on that server
@@ -40,4 +41,12 @@ export function grantsForJob(job, { mcpJson = '', allowFile = '' } = {}) {
 // org-publish: files only, plus the one extra directory it writes extracts into.
 export function grantsForOrgPublish(orgDir) {
   return { files: true, shell: false, skills: false, mcp: [], addDirs: [orgDir] };
+}
+
+// Teams (2026-10-10): the company agent answering in Slack. It reads the company
+// brain and nothing else: no edits, no shell, no skills, no MCP. Its cwd is the
+// brain clone, so that is all it can see; anything it wants changed comes back as
+// a proposal block the bridge queues for the owner.
+export function grantsForSlackAnswer() {
+  return { files: 'read', shell: false, skills: false, mcp: [], addDirs: [] };
 }

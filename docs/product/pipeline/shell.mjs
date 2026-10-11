@@ -490,7 +490,17 @@ const STYLE = `
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
   .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-export function shell({ title, searchTitle = '', description, path, body, extraClass = '', side = '', toc = '', nextprev = '', search = '' }) {
+// schema.org JSON-LD for a page: what search engines and AI answer engines read
+// to know what the page is (an article in the Crads-AI docs, a set of questions
+// and answers) without guessing from the layout. `</` is escaped so no string
+// in the data can close the script tag.
+export function jsonLd(graph) {
+  if (!graph || !graph.length) return '';
+  const data = JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }).replace(/<\//g, '<\\/');
+  return `<script type="application/ld+json">${data}</script>`;
+}
+
+export function shell({ title, searchTitle = '', description, path, body, extraClass = '', side = '', toc = '', nextprev = '', search = '', ld = [] }) {
   // Middle dot, not an em dash. The zero-em-dash rule applies to everything we
   // write, and this template was written in violation of it: publish.test.mjs
   // caught the title of every single page. The site's own older titles use an em
@@ -524,6 +534,7 @@ ${STYLE}
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
 <meta name="twitter:image" content="${SITE}/lib/img/og-card.png">
+${jsonLd(ld)}
 </head>
 <body>
 ${NAV}

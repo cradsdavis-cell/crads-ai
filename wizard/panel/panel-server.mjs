@@ -1171,6 +1171,62 @@ export const MEMBER_VERBS = {
     build: () => ({ command: 'node /app/engine/support/support-access.mjs /state revoke' }),
   },
 
+  // ---- Crads for teams (stage 2, 2026-10-10). The Team page: who this box is in
+  // the team, and on the company agent's box the owner's approvals queue and the
+  // Slack connection. Every value the owner types rides STDIN as base64. Boxes
+  // whose image predates teams answer "team":false, so the page simply stays hidden.
+  'team-status': {
+    build: () => ({ command: `[ -f /app/engine/team/team-status.mjs ] && node /app/engine/team/team-status.mjs /state || echo 'TEAM_STATUS {"team":false}'` }),
+  },
+  'team-proposals': {
+    build: () => ({ command: 'node /app/engine/team/team-proposals.mjs list /state' }),
+  },
+  'team-decide': {
+    mutating: true,
+    build: (a = {}) => {
+      const id = String(a.id || '');
+      if (!/^\d{4}-\d{2}-\d{2}-[a-z0-9-]{1,40}-[0-9a-f]{6}$/.test(id)) bad('id must be a proposal id');
+      if (a.verdict !== 'approve' && a.verdict !== 'reject') bad('verdict must be approve or reject');
+      const note = String(a.note_b64 ?? '');
+      if (note.length > 1000 || (note && !B64_RE.test(note))) bad('note_b64 must be base64, under 1000 characters');
+      return { command: `node /app/engine/team/team-proposals.mjs decide /state ${id} ${a.verdict} -`, stdin: note + '\n' };
+    },
+  },
+  'team-slack-manifest': {
+    build: () => ({ command: 'node /app/engine/team/team-slack.mjs /state manifest' }),
+  },
+  'team-slack-connect': {
+    mutating: true,
+    build: (a = {}) => {
+      const b64 = String(a.tokens_b64 ?? '');
+      if (!b64 || b64.length > 2000 || !B64_RE.test(b64)) bad('tokens_b64 must be base64 JSON {app, bot}');
+      // The script decodes its own stdin (same rule as telegram-verify).
+      return { command: 'node /app/engine/team/team-slack.mjs /state connect', stdin: b64 + '\n' };
+    },
+  },
+  // The shared inbox (rebuilt 2026-10-11): off until the owner picks a mailbox.
+  'team-inbox-status': {
+    build: () => ({ command: `[ -f /app/engine/team/team-inbox.mjs ] && node /app/engine/team/team-inbox.mjs /state status || echo 'TEAM_INBOX {"hub":false}'` }),
+  },
+  'team-inbox-set': {
+    mutating: true,
+    build: (a = {}) => {
+      const enabled = a.enabled === true || a.enabled === 'true';
+      const server = String(a.server || '');
+      if (enabled && !/^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$/.test(server)) bad('server must be a connection name');
+      return { command: `node /app/engine/team/team-inbox.mjs /state set '${JSON.stringify({ enabled, server: enabled ? server : '' })}'` };
+    },
+  },
+  'team-inbox-run': {
+    mutating: true,
+    timeoutMs: 330000,
+    build: () => ({ command: 'node /app/engine/team/team-inbox.mjs /state run' }),
+  },
+  'team-slack-disconnect': {
+    mutating: true,
+    build: () => ({ command: 'node /app/engine/team/team-slack.mjs /state disconnect' }),
+  },
+
   // ---- the secret store (2026-07-28 design). Two tiers, and the tier is a fact
   // about the box rather than a preference: HOT means a scheduled job needs the
   // value at 3am, so the box must be able to read it (and Crads AI could too, with

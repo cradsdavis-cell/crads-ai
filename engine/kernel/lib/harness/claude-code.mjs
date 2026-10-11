@@ -23,7 +23,10 @@ export function compileGrants(grants) {
   const tools = [];
   if (grants.skills) tools.push('Skill');
   if (grants.shell) tools.push('Bash');
-  if (grants.files) tools.push('Read', 'Edit', 'Write', 'Glob', 'Grep');
+  // files: 'read' (teams, 2026-10-10) is the company agent's Slack turn: it may
+  // look, never touch. true keeps all five, exactly as before.
+  if (grants.files === 'read') tools.push('Read', 'Glob', 'Grep');
+  else if (grants.files) tools.push('Read', 'Edit', 'Write', 'Glob', 'Grep');
   for (const m of grants.mcp || []) tools.push(m.raw);
   return tools.join(',');
 }
@@ -61,6 +64,7 @@ export function inspect(args) {
     promptsPossible: false,                       // stdin is closed; an unapproved tool aborts
     shell: tools.includes('Bash'),
     skills: tools.includes('Skill'),
+    writes: tools.includes('Edit') || tools.includes('Write'),
     mcpServers: tools.filter((t) => t.startsWith('mcp__')).map((t) => t.split('__')[1]),
   };
 }
