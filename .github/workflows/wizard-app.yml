@@ -492,43 +492,30 @@ jobs:
           name: Crads-AI (Windows + Mac, rolling)
           prerelease: true
           make_latest: false
-          # ONE source of truth for the release prose, shared with the public
-          # mirror step below. It was inline here and absent there, which is how
-          # the page members actually read drifted three weeks behind this one.
+          # ONE source of truth for the release prose. It was once inline here
+          # and absent from a mirror step, which is how the page members
+          # actually read drifted three weeks behind this one.
           body_path: wizard/assets/release-notes.md
+          # version.json is NOT in this list: softprops uploads its files in
+          # parallel, so listing it here gives no order. It goes up in the next
+          # step, after this one succeeded, because it is the switch installed
+          # apps read: a run that fails half way must leave the OLD sha
+          # advertised, never a new sha beside an old exe or changelog.
           files: |
             dist/crads-ai.exe
-            dist/version.json
+            dist/changelog.json
 
-      - name: Mirror to the public app repo (crads-ai-app, tag wizard-app)
-        # Installed apps poll the public app-release repo (RELEASE_BASE in
-        # wizard/panel/updater.mjs), not this repo's release. Cross-repo, so the
-        # default GITHUB_TOKEN can't write it; needs the CRADS_AI_APP_TOKEN secret
-        # plus the CRADS_AI_APP_REPO repository variable (owner/name). Forks that
-        # set neither simply skip the mirror and keep this repo's own release.
-        # bash, not pwsh: -e aborts before the version.json upload if the exe
-        # upload fails, so a half-failed run keeps the OLD sha advertised
-        # (fail-safe) instead of pairing a new sha with an old exe.
+      - name: Advertise the build (version.json, last)
+        # Runs only when the exe and the changelog are already up (steps stop at
+        # the first failure). 2026-10-11: until now changelog.json was uploaded
+        # only by a mirror step for the retired crads-ai-app repo, which skipped,
+        # so build 30 shipped with no what's-new list at all. Installed apps read
+        # THIS repo's release (RELEASE_BASE in wizard/panel/updater.mjs).
+        if: github.ref == 'refs/heads/hardening-loop' || github.ref == 'refs/heads/main'
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.CRADS_AI_APP_TOKEN }}
-          MIRROR_REPO: ${{ vars.CRADS_AI_APP_REPO }}
-        run: |
-          if [ -z "$GH_TOKEN" ] || [ -z "$MIRROR_REPO" ]; then
-            echo "::warning::CRADS_AI_APP_TOKEN secret / CRADS_AI_APP_REPO variable not set: the public mirror was NOT updated. Installed apps keep seeing the previous build until the mirror is refreshed or the secret+variable are set."
-            exit 0
-          fi
-          gh release upload wizard-app dist/crads-ai.exe --clobber --repo "$MIRROR_REPO"
-          gh release upload wizard-app dist/changelog.json --clobber --repo "$MIRROR_REPO"
-          gh release upload wizard-app dist/version.json --clobber --repo "$MIRROR_REPO"
-          # The mirror release is what a MEMBER actually lands on, and until
-          # 2026-08-18 this step uploaded assets and never touched its title or
-          # body, so the public page still read "Crads-AI (Windows)" and gave
-          # Windows-only instructions three weeks after the Mac build started
-          # shipping into that very release. Sync the prose with the assets.
-          gh release edit wizard-app --repo "$MIRROR_REPO" \
-            --title 'Crads-AI (Windows + Mac, rolling)' \
-            --notes "$(cat wizard/assets/release-notes.md)"
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload wizard-app dist/version.json --clobber --repo "$GITHUB_REPOSITORY"
 
   build-macos-app:
     # Same SEA build as Windows, packaged as a Crads-AI.app bundle and zipped.
@@ -948,7 +935,7 @@ jobs:
           if-no-files-found: error
           retention-days: 5
 
-      - name: Attach to the rolling prerelease + mirror to the public repo
+      - name: Attach to the rolling prerelease
         # A manual run on a feature branch (workflow_dispatch --ref) builds and
         # smokes everything but must not replace the rolling release with an
         # unmerged build (2026-10-07, the mac window host was proven this way).
@@ -956,12 +943,4 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          MIRROR_TOKEN: ${{ secrets.CRADS_AI_APP_TOKEN }}
-          MIRROR_REPO: ${{ vars.CRADS_AI_APP_REPO }}
-        run: |
-          gh release upload wizard-app dist/crads-ai-mac.zip --clobber --repo "$GITHUB_REPOSITORY"
-          if [ -z "$MIRROR_TOKEN" ] || [ -z "$MIRROR_REPO" ]; then
-            echo "::warning::CRADS_AI_APP_TOKEN secret / CRADS_AI_APP_REPO variable not set: the public mirror did not get the Mac build."
-            exit 0
-          fi
-          GH_TOKEN="$MIRROR_TOKEN" gh release upload wizard-app dist/crads-ai-mac.zip --clobber --repo "$MIRROR_REPO"
+        run: gh release upload wizard-app dist/crads-ai-mac.zip --clobber --repo "$GITHUB_REPOSITORY"

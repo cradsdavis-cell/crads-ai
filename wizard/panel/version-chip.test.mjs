@@ -100,6 +100,12 @@ const REAL_INTERNAL = [
   'stamp: the rock\'s Access warning stops asserting a hole that is not there',
   'evidence: the teardown purge is deployed',
   'docs-pipeline: the annotated-shot test reads a tracked fixture',
+  // The public repo's bookkeeping, verbatim from its build-30 window (trap 67):
+  // installed apps read THAT log, and these reached the chip as written.
+  'Sync: bring the extraction to the product tip (16f3187)',
+  'sync: bring the extraction to the product tip (a091291)',
+  'README: link the website and download at the top',
+  'Extraction policy: no personal phone in the repo, no real first names in fixtures',
 ];
 const REAL_MEMBER_FACING = [
   'a rock showed its assistant\'s name where its organisation should be',

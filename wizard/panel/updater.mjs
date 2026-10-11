@@ -83,6 +83,11 @@ const INTERNAL_SCOPES = new Set([
   // six are all documents, tests, ledgers or operator machinery, and every one
   // of them appeared in that one window.
   'docs-pipeline', 'evidence', 'spec', 'stamp', 'suite', 'traps',
+  // Added 2026-10-11 (trap 67): the PUBLIC repo's own bookkeeping, measured on
+  // its build-30 window. Installed apps read the public changelog, whose log is
+  // mostly "Sync: bring the extraction to the product tip (<sha>)"; a sync with
+  // a `notes:` line still shows, because a note always wins.
+  'sync', 'readme', 'extraction',
 ]);
 // Vocabulary that only exists inside the build: a subject carrying any of it is
 // addressed to the person holding the checklist, whatever its scope says.
