@@ -22,7 +22,8 @@ import { withBrainLock } from './team-lock.mjs';
 
 const STALE_MS = 36 * 60 * 60 * 1000;   // flag a person silent for more than 36h
 
-const gitIn = (dir, ...args) => execFileSync('git', ['-C', dir, '-c', 'user.name=company-agent', '-c', 'user.email=hub@team.local', ...args], { stdio: 'pipe', encoding: 'utf8' });
+// Every git call is bounded, so one huge repo cannot hold the brain lock past its stale age.
+const gitIn = (dir, ...args) => execFileSync('git', ['-C', dir, '-c', 'user.name=company-agent', '-c', 'user.email=hub@team.local', ...args], { stdio: 'pipe', encoding: 'utf8', timeout: 180000 });
 
 // Limits on what one person can push at the agent in one merge (teams security
 // review, 2026-10-11): one repo must never be able to stall the merge for everyone.
@@ -62,8 +63,10 @@ export function inspectMemberTree(dir, slug = null) {
       if (total > LIMITS.totalBytes) { refused.push(`${r} (over the ${LIMITS.totalBytes / 1048576} MB total)`); continue; }
       const text = readFileSync(p, 'utf8');
       if (!PROVENANCE_RE.test(text)) { refused.push(`${r} (no source line)`); continue; }
-      // Every source line must name THIS person: Jess cannot publish "source: tom/...".
-      if (own && text.split('\n').some((l) => l.startsWith('source: ') && !own.test(l))) { refused.push(`${r} (a source line names someone else)`); continue; }
+      // Every source-shaped line must name THIS person: Jess cannot publish
+      // "source: tom/...", nor slip it past as "Source:", " source:" or "source:\t"
+      // (second review, 2026-10-12).
+      if (own && text.split(/\r?\n/).some((l) => /^\s*source\s*:/i.test(l) && !own.test(l))) { refused.push(`${r} (a source line names someone else)`); continue; }
       files.push(r);
     }
   };
@@ -143,6 +146,17 @@ function pendingProposals(cloneDir) {
   });
 }
 
+// Only the hub writes headings into a merged view. Anything in a person's text
+// that would RENDER as a heading (an ATX "#" with up to three leading spaces, a
+// setext underline, an HTML <h1>-<h6>) is quoted, so nobody can fake a
+// colleague's "## from" section or a digest heading (review 2).
+export function quoteHeadings(text) {
+  return String(text)
+    .replace(/^([^\n]*\S[^\n]*)\n([ \t]{0,3}(=+|-{2,})[ \t]*)$/gm, '> $1\n> $2')
+    .replace(/^([ \t]{0,3}#{1,6}([ \t]|$))/gm, '> $1')
+    .replace(/<(\/?)(h[1-6])\b/gi, '&lt;$1$2');
+}
+
 export function synthesize(cloneDir, { now = new Date(), importReport = [] } = {}) {
   const membersDir = path.join(cloneDir, 'members');
   const members = existsSync(membersDir)
@@ -157,7 +171,7 @@ export function synthesize(cloneDir, { now = new Date(), importReport = [] } = {
       // A body line shaped like the hub's own "## from <person>" heading would be
       // read as a section by someone else (and counted as theirs in the week
       // page): quote it so only the hub writes that heading.
-      const body = readFileSync(path.join(edir, f), 'utf8').trim().replace(/^(#{1,6}\s+from\s)/gim, '> $1');
+      const body = quoteHeadings(readFileSync(path.join(edir, f), 'utf8').trim());
       byEntity.get(f).push({ slug, body });
     }
   }
@@ -204,7 +218,7 @@ export function synthesize(cloneDir, { now = new Date(), importReport = [] } = {
     try {
       const u = readFileSync(path.join(membersDir, slug, 'updates.md'), 'utf8');
       const m = u.match(/^## .*$([\s\S]*?)(?=^## |\n*$(?![\s\S]))/m);
-      latest = m ? m[0].split('\n').slice(0, 12).join('\n') : latest;
+      latest = m ? `### ${m[0].split('\n')[0].replace(/^#+\s*/, '').replace(/[#<>]/g, '')}\n` + quoteHeadings(m[0].split('\n').slice(1, 12).join('\n')) : latest;
     } catch {}
     digest.push(`## ${slug}`, '', latest, '');
   }

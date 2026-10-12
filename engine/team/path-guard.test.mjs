@@ -29,4 +29,9 @@ test('inside the copy is allowed; anything outside, by path, glob, .. or symlink
   assert.equal(ok({ path: '/' }, 'Grep'), 2);
   assert.equal(ok({ file_path: 'sneaky/team/brain' }), 2, 'a symlink inside the copy that points out is refused');
   assert.equal(run(work, 'not json'), 2, 'fails closed');
+  // review 2: Grep and Glob expand their path AFTER the hook, trimming and expanding ~
+  assert.equal(ok({ path: ' /state/secrets/team', pattern: '.' }, 'Grep'), 2);
+  assert.equal(ok({ path: '~/secrets' }, 'Glob'), 2);
+  assert.equal(ok({ path: '$HOME/x' }, 'Grep'), 2);
+  assert.equal(ok({ path: 'company ' }, 'Grep'), 2);
 });

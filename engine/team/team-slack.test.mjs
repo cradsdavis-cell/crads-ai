@@ -141,3 +141,17 @@ test('replies cannot ping the channel or hide a link; guests get nothing; the qu
   assert.equal(asked.filter((x) => x === 'U7').length, 5, 'one person gets five answers in ten minutes');
   assert.ok(posts.some((t) => /Give me ten minutes/.test(t)));
 });
+
+test('review 2: a failed users.info never lets anyone through, and is not cached', async () => {
+  const s = hubState();
+  const log = [];
+  let calls = 0;
+  const slack = fakeSlack(log, { 'users.info': () => { calls++; return calls === 1 ? { ok: false, error: 'ratelimited' } : { ok: true, user: { profile: { display_name: 'Jess' } } }; } });
+  await connect(s, { app: 'xapp-1', bot: 'xoxb-1' }, { fetcher: slack });
+  const msgs = [ev({ type: 'app_mention', text: '<@UBOT> one' }), { ...ev({ type: 'app_mention', text: '<@UBOT> two' }), envelope_id: 'E2' }];
+  class FakeWS { constructor() { setTimeout(() => { for (const m of msgs.concat({ type: 'disconnect' })) this.onmessage({ data: JSON.stringify(m) }); }, 0); } send() {} close() { this.onclose && this.onclose(); } }
+  const asked = [];
+  await run(s, { fetcher: slack, WS: FakeWS, answerImpl: async (st, q) => { asked.push(q.question); return { reply: 'ok' }; }, once: true, log: () => {} });
+  assert.deepEqual(asked, ['two'], 'the first question waited for a lookup that worked');
+  assert.ok(log.some(([m, b]) => m === 'chat.postMessage' && /could not check who you are/.test(b.text)));
+});

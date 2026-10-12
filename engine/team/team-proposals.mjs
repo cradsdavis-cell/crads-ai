@@ -36,6 +36,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { isMain } from '../lib/is-main.mjs';
 import { withBrainLock } from './team-lock.mjs';
+import { headerProblems } from './team-skills.mjs';
 
 // What a proposal may change. Everything the agent regenerates (members/,
 // entities/, digest/, decisions/, .org/) and the proposals area itself are out.
@@ -57,7 +58,7 @@ export const sha = (text) => (text == null ? 'none' : createHash('sha256').updat
 const MAX_BYTES = 64 * 1024;
 
 const readJson = (p) => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; } };
-const gitIn = (dir, ...a) => execFileSync('git', ['-C', dir, '-c', 'user.name=company-agent', '-c', 'user.email=hub@team.local', ...a], { stdio: 'pipe', encoding: 'utf8' });
+const gitIn = (dir, ...a) => execFileSync('git', ['-C', dir, '-c', 'user.name=company-agent', '-c', 'user.email=hub@team.local', ...a], { stdio: 'pipe', encoding: 'utf8', timeout: 120000 });
 
 // ---- the file format --------------------------------------------------------
 
@@ -104,7 +105,7 @@ const FLAG_RULES = [
   { id: 'secrets', re: /(\.ssh\/|id_ed25519|id_rsa|\.credentials\.json|\.env\b|api[_ -]?key|access[_ -]?token|password|secrets\/)/i, say: 'mentions keys, tokens or passwords' },
   { id: 'send', re: /\b(send|email|forward|post|upload)\b[^.\n]{0,60}\b(to|at)\b[^.\n]{0,40}(@|https?:\/\/)/i, say: 'tells the assistant to send something somewhere' },
   { id: 'blob', re: /[A-Za-z0-9+/=]{200,}/, say: 'contains a long encoded blob' },
-  { id: 'hidden', re: /[​-‏‪-‮⁠-⁤﻿]/, say: 'contains invisible characters' },
+  { id: 'hidden', re: /[\p{Cf}\u{E0000}-\u{E007F}\u2066-\u2069]/u, say: 'contains invisible characters (text the owner cannot see but an assistant can read)' },
   { id: 'shell', re: /(\brm -rf|\bchmod\b|\bsudo\b|\bbash -c|\|\s*(ba|z)?sh\b|\beval\s*\(|child_process|\bexec\()/i, say: 'contains shell or code-execution commands' },
 ];
 export function scanProposal(p) {
@@ -113,8 +114,8 @@ export function scanProposal(p) {
   if (Buffer.byteLength(p.content, 'utf8') > MAX_BYTES) flags.push({ id: 'size', say: 'is unusually large' });
   if (p.target.startsWith('skills/')) {
     flags.unshift({ id: 'skill', say: 'is a shared skill: once approved it runs on every assistant on the team' });
-    const fm = (String(p.content).match(/^---\n([\s\S]*?)\n---/) || [])[1] || '';
-    if (/^(allowed-tools|hooks|disallowed-tools|model|permission-mode)\s*:/mi.test(fm)) flags.push({ id: 'tools', say: 'asks for extra tool permissions in its header (these are removed when it is installed)' });
+    const extra = headerProblems(p.content);
+    if (extra.length) flags.push({ id: 'tools', say: `has header lines beyond name and description (${extra.slice(0, 3).join('; ')}); these are removed when it is installed` });
   }
   return flags;
 }

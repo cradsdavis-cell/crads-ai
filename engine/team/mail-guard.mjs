@@ -8,7 +8,13 @@
 // refused. FAILS CLOSED.
 //   node mail-guard.mjs <server>   (payload on stdin)
 const READ = /(search|get|list|read|fetch|query|find)/i;
-const WRITE = /(send|draft|reply|forward|delete|trash|archive|label|modify|move|mark|create|update|batch|remove|insert|set|manage|import|upload|share|filter|write|append|post|patch|put|copy|run|exec|unsubscribe|accept|decline|respond)/i;
+// Mail tools only (second security review, 2026-10-12): on a Google Workspace or
+// Microsoft Graph server, Drive, Docs, Sheets, Calendar, Contacts and web search
+// all have read-shaped names too, and an injected email could otherwise pull
+// them into the digest every colleague reads.
+const MAIL = /(gmail|mail|inbox|email)/i;   // not bare "message": Google Chat's get_messages is not mail
+const OTHER = /(drive|doc|sheet|slide|calendar|event|contact|people|task|form|file|custom|web|chat|space|site)/i;
+const WRITE = /(replace|send|draft|reply|forward|delete|trash|archive|label|modify|move|mark|create|update|batch|remove|insert|set|manage|import|upload|share|filter|write|append|post|patch|put|copy|run|exec|unsubscribe|accept|decline|respond)/i;
 
 // ToolSearch only loads tool DESCRIPTIONS (Claude Code defers MCP tools behind it,
 // found live 2026-10-11: blocking it blocked the reading too). It cannot touch
@@ -20,7 +26,7 @@ export function allowed(server, toolName) {
   const prefix = `mcp__${server}__`;
   if (typeof toolName !== 'string' || !toolName.startsWith(prefix)) return false;
   const tool = toolName.slice(prefix.length);
-  return READ.test(tool) && !WRITE.test(tool);
+  return READ.test(tool) && MAIL.test(tool) && !OTHER.test(tool) && !WRITE.test(tool);
 }
 
 if (process.argv[1] && process.argv[1].endsWith('mail-guard.mjs')) {

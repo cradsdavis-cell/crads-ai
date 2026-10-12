@@ -38,6 +38,9 @@ import { boxImage } from './provision-routes.mjs';
 
 const COMPANY_RE = /^[a-z0-9][a-z0-9-]{0,18}[a-z0-9]$/;   // short, so <company>-<person> fits a box name
 const MAX_PEOPLE = 15;
+// Names the company agent and its records use for themselves; a person called
+// "Hub" would otherwise publish as "hub/..." (second review, 2026-10-12).
+const RESERVED = ['agent', 'hub', 'owner', 'slack', 'company', 'team'];
 const ENROL = '/app/engine/team/team-enrol.mjs';
 const sq = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 
@@ -60,7 +63,8 @@ export function planTeam(company, people) {
   const slugs = personSlugs(people);
   if (slugs.some((s) => !s || s.length < 2)) throw new Error('every person needs a name of at least two letters');
   if (new Set(slugs).size !== slugs.length) throw new Error('two people would get the same box name; add surnames');
-  if (slugs.includes('agent')) throw new Error('"agent" is the company agent\'s name; pick another name for that person');
+  const reserved = slugs.find((x) => RESERVED.includes(x));
+  if (reserved) throw new Error(`"${reserved}" is reserved for the company agent; add a surname or an initial for that person`);
   const boxes = [{ slug: `${company}-agent`, role: 'hub', person: null, name: 'Company agent' }]
     .concat(slugs.map((s, i) => ({ slug: `${company}-${s}`, role: 'member', person: s, name: String(people[i].name).trim() })));
   return {
@@ -79,7 +83,7 @@ export function extendPlan(plan, people) {
   if (!Array.isArray(people) || !people.length) throw new Error('add at least one person');
   const members = plan.boxes.filter((b) => b.role === 'member');
   if (members.length + people.length > MAX_PEOPLE) throw new Error(`up to ${MAX_PEOPLE} people for now`);
-  const taken = new Set(members.map((b) => b.person).concat('agent'));
+  const taken = new Set(members.map((b) => b.person).concat(RESERVED));
   const added = [];
   for (const p of people) {
     const name = String(p.name || '').trim();
@@ -476,6 +480,8 @@ export function teamRoutes(opts = {}) {
           location: String(form.location || '') || (prev && prev.location) || null,
           serverType: String(form.server_type || '') || (prev && prev.serverType) || null,
           boxes: (prev && prev.boxes) || {}, repos: (prev && prev.repos) || {}, owner: (prev && prev.owner) || null,
+          // a resume keeps the record of what this team made and who left (review 2)
+          reposMade: (prev && prev.reposMade) || undefined, left: (prev && prev.left) || [],
           phase: 'starting', error: null, github: null,
           token: String(form.token), ghToken: null,
         };

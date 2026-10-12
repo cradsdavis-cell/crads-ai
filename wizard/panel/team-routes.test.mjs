@@ -380,3 +380,24 @@ test('review 13: a repo or a mineral this team did not make is refused, never re
   const f2 = await until(h2.call, 'failed');
   assert.match(f2.error, /already has a mineral called acme-jess/);
 });
+
+test('review 2: names the agent uses for itself are reserved; a resumed start keeps what the team made', async (t) => {
+  for (const name of ['Hub Jones', 'Owner', 'Slack']) assert.throws(() => planTeam('acme', [{ name }]), /reserved/);
+  assert.throws(() => extendPlan(planTeam('acme', [{ name: 'Jess' }]), [{ name: 'Hub' }]), /same box name|reserved/);
+  // a start that failed inside the repos step resumes and accepts its own repos
+  let fail = true;
+  const made = new Set();
+  const github = () => ({
+    whoami: async () => 'owner',
+    // the hiccup happens BEFORE GitHub made the repo (a create that half-succeeded is refused
+    // on resume, deliberately: recording it as ours unconfirmed would reopen the collision hole)
+    ensureRepo: async (o, name) => { if (fail && name === 'acme-from-tom') throw new Error('GitHub hiccup'); const c = !made.has(name); made.add(name); return { created: c }; },
+    ensureFile: async () => ({ created: true }), ensureDeployKey: async () => ({ added: true }),
+  });
+  const h = harness({ github }); t.after(h.close);
+  await h.call('POST', '/team/start', START);
+  await until(h.call, 'failed');
+  fail = false;
+  await h.call('POST', '/team/start', START);
+  await until(h.call, 'ready');
+});

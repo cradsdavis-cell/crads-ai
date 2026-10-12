@@ -331,8 +331,10 @@ function buildJobs(c) {
     // Org brain (spec 2026-07-25): downflow pull hourly — whole-company context stays fresh
     // on the box with zero query-time network hops. No-op unless the box is org-enrolled.
     // Teams (2026-10-10): the same pull then installs the company's shared skills
-    // (team-skills.mjs is a no-op on a box that is not in a team).
-    { name: 'org-pull (downflow)', lid: 'org-pull', cmd: ['bash', ['-c', `[ -d ${stateDir}/org/brain/.git ] || exit 0; git -C ${stateDir}/org/brain pull --rebase -q; [ -f ${TEAM_SKILLS} ] && node ${TEAM_SKILLS} ${stateDir}; true`]], match: (h, m) => m === 23 },
+    // (team-skills.mjs is a no-op on a box that is not in a team). Skipped on the
+    // company agent's box (review 2): its merge pulls the brain under the brain
+    // lock, and a second, unlocked writer there could collide with a decision.
+    { name: 'org-pull (downflow)', lid: 'org-pull', cmd: ['bash', ['-c', `[ -d ${stateDir}/org/brain/.git ] || exit 0; grep -q '"role": "hub"' ${stateDir}/org/config.json 2>/dev/null && exit 0; git -C ${stateDir}/org/brain pull --rebase -q; [ -f ${TEAM_SKILLS} ] && node ${TEAM_SKILLS} ${stateDir}; true`]], match: (h, m) => m === 23 },
     // Org brain: nightly extract publish, jittered into the dead window before backup.
     // Runs through the kernel (enqueue+drain) so state-repo commits stay single-writer.
     {

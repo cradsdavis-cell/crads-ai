@@ -16,18 +16,38 @@ import { isMain } from '../lib/is-main.mjs';
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,50}$/;
 const readJson = (p) => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; } };
 
-export function stripPowers(md) {
-  const m = String(md).match(/^---\n([\s\S]*?)\n---\n?/);
-  if (!m) return md;
-  const kept = [];
-  let dropping = false;
-  for (const line of m[1].split('\n')) {
-    if (/^(allowed-tools|disallowed-tools|hooks|model|permission-mode)\s*:/i.test(line)) { dropping = true; continue; }
-    if (dropping && /^\s/.test(line)) continue;      // the dropped key's indented children
-    dropping = false;
-    kept.push(line);
+// A company skill's header keeps ONLY these keys, each as a plain one-line
+// "key: value". Everything else is dropped: tool grants, hooks, model, agent,
+// context and anything not on the list (second security review, 2026-10-12: a
+// deny-list missed CRLF headers, "--- " openings, quoted and indented keys and
+// flow mappings, all of which Claude Code still reads).
+export const HEADER_KEYS = ['name', 'title', 'description', 'category', 'when_to_use', 'argument-hint'];
+// Claude Code's own header pattern, CR-tolerant: /^---\s*\n([\s\S]*?)---\s*\n?/
+const HEADER_RE = /^---[ \t]*\r?\n([\s\S]*?)\r?\n?---[ \t]*(\r?\n|$)/;
+
+export function headerProblems(md) {
+  const text = String(md).replace(/^\uFEFF/, '');
+  const m = text.match(HEADER_RE);
+  if (!m) return /^\s*---/.test(text) ? ['a header the installer cannot read'] : [];
+  const out = [];
+  for (const line of m[1].split(/\r?\n/)) {
+    if (!line.trim() || /^#/.test(line)) continue;
+    const k = line.match(/^([a-z_-]+):[ \t](.*)$/);
+    if (!k || !HEADER_KEYS.includes(k[1]) || /^[[{|>&*!%@`]/.test(k[2].trim())) out.push(line.trim().slice(0, 60));
   }
-  return `---\n${kept.join('\n')}\n---\n` + String(md).slice(m[0].length);
+  return out;
+}
+
+export function stripPowers(md) {
+  const text = String(md).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+  const m = text.match(/^---[ \t]*\n([\s\S]*?)\n?---[ \t]*(\n|$)/);
+  if (!m) return /^\s*---/.test(text) ? `---\nname: company-skill\n---\n${text.replace(/^\s*---[\s\S]*?\n---[^\n]*\n?/, '')}` : text;
+  const kept = [];
+  for (const line of m[1].split('\n')) {
+    const k = line.match(/^([a-z_-]+):[ \t](.*)$/);
+    if (k && HEADER_KEYS.includes(k[1]) && !/^[[{|>&*!%@`]/.test(k[2].trim())) kept.push(`${k[1]}: ${k[2].trim()}`);
+  }
+  return `---\n${kept.length ? `${kept.join('\n')}\n` : ''}---\n` + text.slice(m[0].length);
 }
 
 export function syncCompanySkills(stateDir) {

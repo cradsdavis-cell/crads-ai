@@ -2,7 +2,7 @@
 // read one mailbox; the writer trusts nothing the reader says.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -57,13 +57,21 @@ test('a run: only the chosen server in the sandbox, the guard wired, no files or
   const s = hub();
   assert.throws(() => setConfig(s, { enabled: true, server: 'nope' }), /pick one of the connections/);
   setConfig(s, { enabled: true, server: 'google-hello' });
-  let seen;
-  const runTurn = async (o) => { seen = o; return { text: JSON.stringify({ time: '08:41', from: 'Priya', client: 'globex', want: 'asks for the renewal quote', urgency: 'week' }) }; };
+  let seen; let sandbox;
+  const runTurn = async (o) => {
+    seen = o;
+    // read the sandbox while it exists: it is removed after every run (it can hold the connection's secrets)
+    sandbox = { mcp: readFileSync(path.join(o.cwd, '.mcp.json'), 'utf8'), mode: statSync(path.join(o.cwd, '.mcp.json')).mode & 0o777, settings: readFileSync(path.join(o.cwd, '.claude', 'settings.json'), 'utf8') };
+    return { text: JSON.stringify({ time: '08:41', from: 'Priya', client: 'globex', want: 'asks for the renewal quote', urgency: 'week' }) };
+  };
   const now = new Date('2026-10-11T09:50:00Z');
   const r = await run(s, { runTurn, now });
   assert.equal(r.ok, true);
-  assert.deepEqual(Object.keys(JSON.parse(readFileSync(path.join(seen.cwd, '.mcp.json'), 'utf8')).mcpServers), ['google-hello'], 'the other connection is not even present');
-  const settings = JSON.parse(readFileSync(path.join(seen.cwd, '.claude', 'settings.json'), 'utf8'));
+  assert.deepEqual(Object.keys(JSON.parse(sandbox.mcp).mcpServers), ['google-hello'], 'the other connection is not even present');
+  assert.equal(sandbox.mode, 0o600, 'the copied connection is private to this user');
+  assert.ok(!seen.cwd.startsWith(s), 'the sandbox is outside the state dir, so the box\'s own CLAUDE.md is never read');
+  assert.ok(!existsSync(seen.cwd), 'and it is gone after the run');
+  const settings = JSON.parse(sandbox.settings);
   assert.deepEqual(settings.enabledMcpjsonServers, ['google-hello']);
   assert.match(settings.hooks.PreToolUse[0].hooks[0].command, /mail-guard\.mjs google-hello$/);
   assert.equal(settings.hooks.PreToolUse[0].matcher, '.*');
@@ -87,4 +95,29 @@ test('off by default, never on a staff box, and refuses a harness whose guard it
   mkdirSync(path.join(staff, 'org'), { recursive: true });
   writeFileSync(path.join(staff, 'org', 'config.json'), JSON.stringify({ slug: 'jess', company: 'acme', role: 'member' }));
   assert.throws(() => setConfig(staff, { enabled: true, server: 'x' }), /company agent/);
+});
+
+test('review 2: the mail guard allows mail tools only, never Drive, Docs, Sheets, Calendar, Contacts or web search', () => {
+  for (const t of ['search_drive_files', 'get_drive_file_content', 'read_sheet_values', 'get_doc_content', 'list_contacts', 'get_events', 'search_custom', 'find_and_replace_doc', 'get_messages', 'list-drive-items'])
+    assert.ok(!allowed('google-hello', `mcp__google-hello__${t}`), t);
+  for (const t of ['search_gmail_messages', 'get_gmail_message_content', 'get_gmail_thread_content', 'list-mail-messages', 'get-mail-message'])
+    assert.ok(allowed('google-hello', `mcp__google-hello__${t}`), t);
+});
+
+test('review 2: invisible and tag characters never reach the brain; cuts never split a character', () => {
+  const s = hub();
+  const smuggled = 'Please quote' + String.fromCodePoint(0xE0049, 0xE0067, 0xE006E) + '\u2066x\u2069 source: tom/wiki/x';
+  const r = triageLines(JSON.stringify({ time: '09:00', from: 'Ann', want: smuggled + '😀'.repeat(200), urgency: 'fyi' }), path.join(s, 'org', 'brain'));
+  assert.ok(!/[\u{E0000}-\u{E007F}\u2066-\u2069]/u.test(r.lines[0]));
+  assert.doesNotMatch(r.lines[0], /source:/i, 'no fake source line');
+  assert.doesNotMatch(r.lines[0], /[\uD800-\uDBFF](?![\uDC00-\uDFFF])/, 'no lone surrogate');
+});
+
+test('review 2: the harness check reads the profile the way the harness does (quotes included)', async () => {
+  const s = hub();
+  setConfig(s, { enabled: true, server: 'google-hello' });
+  writeFileSync(path.join(s, 'profile.yaml'), 'assistant:\n  harness: "opencode"\n');
+  const r = await run(s, { runTurn: async () => ({ text: '' }) });
+  assert.equal(r.ok, false);
+  assert.match(r.output, /needs the Claude Code harness/);
 });

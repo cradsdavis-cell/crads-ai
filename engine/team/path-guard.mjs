@@ -15,6 +15,11 @@ const deny = (why) => { console.error(`path-guard: blocked, ${why}. This turn ca
 
 export function outside(root, cwd, value) {
   if (typeof value !== 'string' || !value) return false;
+  // Grep and Glob hand their `path` to Claude Code's own expander AFTER this hook
+  // runs, and that expander trims whitespace and expands "~" (second security
+  // review, 2026-10-12: " /state/secrets" resolved inside the copy here, then
+  // outside it there). Anything that expansion would change is refused outright.
+  if (value !== value.trim() || value.startsWith('~') || value.includes('$') || value.includes('\\') || /[\u0000-\u001f]/.test(value)) return true;
   // a glob may start with a fixed part; judge the part before the first wildcard
   const fixed = value.split(/[*?{[]/)[0] || '.';
   const abs = path.resolve(cwd || root, fixed);

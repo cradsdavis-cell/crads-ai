@@ -4,8 +4,8 @@ summary: What is stored, where it runs, what leaves your mineral, and why almost
 audience: public
 access: public
 mode: legal
-version: 0.13
-effective: 2026-09-28
+version: 0.17
+effective: 2026-10-12
 order: 10
 ---
 
@@ -14,7 +14,7 @@ order: 10
 Crads AI is operated by Samuel Davis, trading as Crads AI, **ABN 26 929 349
 775**, in Coogee, New South Wales, Australia. Contact: cradsdavis@gmail.com.
 
-This is version 0.13, effective 28 September 2026. The version and date at the
+This is version 0.17, effective 12 October 2026. The version and date at the
 top of this page change whenever the text does, and prior versions stay on
 the record.
 
@@ -32,7 +32,17 @@ always yours. Changed in 0.11: the community model (a shared repository your
 mineral pulled read-only) was removed from the software on 2026-09-09, so the
 one sentence about it is gone; nothing else changed. Changed in 0.13: roadmap
 calls, recorded only with your OK, added under "What we hold about you", and
-the version line above corrected.*
+the version line above corrected. Changed in 0.14: the crads-ai.com
+website, these docs included, now counts page views with Vercel Web Analytics,
+so the sentence saying the docs site had no analytics is gone and "Visiting
+crads-ai.com" below says exactly what is recorded. Nothing about the app or
+your mineral changed. Changed in 0.15: the website also counts two kinds of
+click (into booking, and into the app download), and the booking confirmation
+page no longer records the payment reference in its address; both are
+described under "Visiting crads-ai.com". Changed in 0.16: the essay
+mailing list, which started on 11 October 2026, added under "What we hold
+about you". Changed in 0.17: where that list is stored, now named (the United
+States) instead of "may be outside Australia".*
 
 ## The short version
 
@@ -49,15 +59,15 @@ The rest of this page is that sentence, in detail.
 ## What we hold about you
 
 For a person who downloads the software and runs a mineral: **nothing**.
-There is no account to create, no registration, no telemetry, and no
-analytics in the app or on the docs site. The few things the app remembers
+There is no account to create, no registration, and no telemetry or
+analytics in the app. The few things the app remembers
 (which mineral you opened last, which side-menu groups you folded) live in
 your own computer's storage and are never sent anywhere.
 
 If you correspond with us (email, a support engagement, a paid service), we
 hold that correspondence and the ordinary business records of it, together
-with any roadmap call recordings you agreed to: that is the whole list, and
-it exists because you wrote to us.
+with any roadmap call recordings you agreed to and, if you are on it, the
+essay mailing list below: that is the whole list.
 
 **Roadmap calls.** If you book an AI problem-solving roadmap, we ask at the
 start of the call whether we can record it with an AI note-taker. If you say
@@ -67,6 +77,43 @@ If you say no, nothing is recorded and we take our own notes. Setup sessions
 (the walkthrough and guided setup) are not recorded. You can ask for a
 recording or transcript of your call to be deleted: email
 cradsdavis@gmail.com.
+
+**The essay mailing list.** If you are on it, we hold your email address, the
+page you signed up from, when you joined, which of the three ways below you
+joined by, and a random code that makes your unsubscribe link work. You join
+by signing up on the site and clicking the confirmation link we email you; by
+ticking the box when you book a discovery call; or, if you are already a
+client or have had a roadmap call with us, because of that existing
+relationship. The emails come from sam@crads-ai.com and are sent through
+Resend, an email delivery service. The list is kept in the website's
+database, run by Redis Cloud on Amazon Web Services servers in the United
+States. Every email has a one-click
+unsubscribe link. When you unsubscribe we keep your address marked as
+unsubscribed, only so that you are never added back; to have it removed
+completely, email cradsdavis@gmail.com. To stop the sign-up form being
+abused, the site counts sign-ups from each network address for 15 minutes,
+and that count then expires.
+
+## Visiting crads-ai.com
+
+The website, these docs included, counts visits with Vercel Web Analytics,
+run by Vercel, the company in the United States that hosts the site. For each
+page view it records the page address, the site that linked you here, your
+approximate location (country, region and city), your browser, operating
+system and device type, and the time. It also counts two kinds of click: a
+link to book a call, and a link to download the app. Each records only the page
+you were on and the page the link pointed to. On the confirmation page after a
+booking, the payment reference in the page's address is removed before
+anything is recorded.
+
+It sets no cookies and stores nothing in your browser. Vercel tells one visit
+from another with a hash made from the request, which it discards after 24
+hours, and it does not tie a visit to you or to your IP address, or collect
+anything that follows you to other websites. What we see is totals: how many
+people read which page, and where they came from. Nothing in it identifies
+you. If you block the script, the site works exactly the same.
+
+The app, and your mineral, send nothing of this kind.
 
 ## Where your mineral runs
 

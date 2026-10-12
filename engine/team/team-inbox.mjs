@@ -19,6 +19,8 @@
 // The owner switches it on and picks the mailbox on the agent's Team page.
 //   node team-inbox.mjs <state> status | set '<json {enabled, server}>' | run
 import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, existsSync, appendFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isMain } from '../lib/is-main.mjs';
@@ -60,10 +62,13 @@ export function buildReaderWorkdir(stateDir, server) {
   const doc = readJson(path.join(stateDir, '.mcp.json')) || {};
   const entry = (doc.mcpServers || {})[server];
   if (!entry) throw new Error(`the connection "${server}" is not on this box any more`);
-  const work = path.join(stateDir, '.kernel', 'inbox-work');
+  // Outside /state, so Claude Code's upward CLAUDE.md search never reaches the
+  // box's own instructions (second review, 2026-10-12); private to this user, and
+  // removed after every run because .mcp.json can carry the connection's secrets.
+  const work = path.join(tmpdir(), `crads-inbox-${createHash('sha256').update(stateDir).digest('hex').slice(0, 12)}`);
   rmSync(work, { recursive: true, force: true });
-  mkdirSync(path.join(work, '.claude'), { recursive: true });
-  writeFileSync(path.join(work, '.mcp.json'), JSON.stringify({ mcpServers: { [server]: entry } }, null, 2) + '\n');
+  mkdirSync(path.join(work, '.claude'), { recursive: true, mode: 0o700 });
+  writeFileSync(path.join(work, '.mcp.json'), JSON.stringify({ mcpServers: { [server]: entry } }, null, 2) + '\n', { mode: 0o600 });
   const guard = path.join(HERE, 'mail-guard.mjs');
   writeFileSync(path.join(work, '.claude', 'settings.json'), JSON.stringify({
     enabledMcpjsonServers: [server],
@@ -85,11 +90,12 @@ export function readerPrompt({ since, server }) {
 }
 
 // ---- 2. the writer --------------------------------------------------------------
-const clean = (s, max) => String(s ?? '')
+const cut = (s, max) => Array.from(s).slice(0, max).join('');   // by code point: never half a surrogate pair
+const clean = (s, max) => cut(String(s ?? '')
   .replace(/https?:\/\/\S+/gi, '(link)').replace(/\bwww\.\S+/gi, '(link)')
   .replace(/[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+/g, '(address)')
-  .replace(/[\u0000-\u001f\u007f​-‏‪-‮⁠-⁤﻿]/g, ' ')
-  .replace(/[`*_[\]<>#|]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
+  .replace(/[\u0000-\u001f\u007f\p{Cf}\u{E0000}-\u{E007F}\u2066-\u2069]/gu, ' ')
+  .replace(/[`*_[\]<>#|]/g, '').replace(/\bsource\s*:/gi, 'source -').replace(/\s+/g, ' ').trim(), max);
 const slugify = (s) => String(s || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 function knownClients(brain) {
@@ -136,13 +142,17 @@ export async function run(stateDir, { runTurn, now = new Date() } = {}) {
   if (!s.hub) return { ok: true, output: 'not the company agent: no-op' };
   if (!s.enabled || !s.server) return { ok: true, output: 'shared inbox is off' };
   const profile = (() => { try { return readFileSync(path.join(stateDir, 'profile.yaml'), 'utf8'); } catch { return ''; } })();
-  if (/^\s*harness:\s*opencode/m.test(profile)) return { ok: false, output: 'the shared inbox needs the Claude Code harness (its mail guard is a Claude Code hook)' };
+  const { readAssistant } = await import('../kernel/lib/harness/index.mjs');
+  let harness = 'claude-code';
+  try { harness = readAssistant(profile).harness; } catch { harness = 'unknown'; }
+  if (harness !== 'claude-code') return { ok: false, output: 'the shared inbox needs the Claude Code harness (its mail guard is a Claude Code hook)' };
   const st = readJson(statePath(stateDir)) || {};
   const since = st.last_run || new Date(now.getTime() - 24 * 3600 * 1000).toISOString();
   const brain = path.join(stateDir, 'org', 'brain');
   const remember = (patch) => { mkdirSync(path.join(stateDir, '.kernel'), { recursive: true }); writeFileSync(statePath(stateDir), JSON.stringify({ ...st, ...patch }, null, 2) + '\n'); };
+  let work = null;
   try {
-    const work = buildReaderWorkdir(stateDir, s.server);
+    work = buildReaderWorkdir(stateDir, s.server);
     const turn = runTurn || (await import('../kernel/lib/harness/index.mjs')).runTurn;
     const grants = { files: false, shell: false, skills: false, mcp: [{ server: s.server, tool: '*', raw: `mcp__${s.server}__*` }], addDirs: [] };
     const out = await turn({ stateDir, cwd: work, prompt: readerPrompt({ since, server: s.server }), grants, timeoutMs: 300000 });
@@ -161,6 +171,8 @@ export async function run(stateDir, { runTurn, now = new Date() } = {}) {
   } catch (e) {
     remember({ last_error: String((e && e.message) || e).slice(0, 300) });
     return { ok: false, output: `shared inbox: ${String((e && e.message) || e)}` };
+  } finally {
+    if (work) rmSync(work, { recursive: true, force: true });
   }
 }
 

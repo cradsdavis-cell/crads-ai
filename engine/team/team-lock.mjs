@@ -7,7 +7,8 @@
 // (found by the teams security review, 2026-10-11). A directory lock is atomic on
 // every filesystem the box uses; a lock older than STALE_MS is a crashed holder
 // and is broken.
-import { mkdirSync, rmdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmdirSync, rmSync, statSync, writeFileSync, readFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 
 const STALE_MS = 10 * 60 * 1000;
@@ -25,8 +26,13 @@ export function withBrainLock(brainDir, fn, { waitMs = 120000, now = () => Date.
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, sleepMs);
     }
   }
-  try { writeFileSync(path.join(lock, 'pid'), String(process.pid)); } catch { /* informational */ }
+  // A token, so a holder whose lock was broken as stale never removes its
+  // successor's lock on the way out (review 2).
+  const token = `${process.pid}-${randomBytes(8).toString('hex')}`;
+  try { writeFileSync(path.join(lock, 'token'), token); } catch { /* the lock dir is still ours */ }
   try { return fn(); } finally {
-    try { rmSync(lock, { recursive: true, force: true }); } catch { /* already gone */ }
+    let still = false;
+    try { still = readFileSync(path.join(lock, 'token'), 'utf8') === token; } catch { still = false; }
+    if (still) { try { rmSync(lock, { recursive: true, force: true }); } catch { /* already gone */ } }
   }
 }

@@ -320,8 +320,9 @@ test('a Slack answer is a read-only turn in the company brain, and a change requ
     return { text: 'Our refunds are 14 days (company/policies.md).\nPROPOSE-CHANGE target=company/policies.md why=Jess says we agreed 30 days\n# Policies\nRefunds within 30 days.\nEND-PROPOSE-CHANGE' };
   };
   const r = await answer(hub, { question: 'make refunds 30 days', asker: { id: 'U123', name: 'Jess' } }, { runTurn });
-  // a throwaway copy of the brain, with the path guard wired, never the clone itself
-  assert.equal(seen.cwd, path.join(hub, '.kernel', 'slack-work'));
+  // a throwaway copy of the brain OUTSIDE the state dir (so the box's own
+  // CLAUDE.md is never read), with the path guard wired, never the clone itself
+  assert.ok(!seen.cwd.startsWith(hub) && /crads-slack-[0-9a-f]{12}$/.test(seen.cwd));
   assert.ok(existsSync(path.join(seen.cwd, 'company', 'policies.md')));
   assert.ok(!existsSync(path.join(seen.cwd, '.git')));
   assert.match(readFileSync(path.join(seen.cwd, '.claude', 'settings.json'), 'utf8'), /path-guard\.mjs/);
@@ -484,4 +485,62 @@ test('review 11: a company skill never grants itself tools; the header lines are
   const installed = readFileSync(path.join(jess, '.claude', 'skills', 'company-helper', 'SKILL.md'), 'utf8');
   assert.doesNotMatch(installed, /allowed-tools|hooks|PreToolUse/);
   assert.match(installed, /^---\nname: helper\ndescription: helps\n---\nDo the thing\./);
+});
+
+
+// ---- second security review, 2026-10-12 ---------------------------------------
+import { stripPowers, headerProblems } from './team-skills.mjs';
+import { quoteHeadings } from './team-hub.mjs';
+import { withBrainLock } from './team-lock.mjs';
+
+test('review 2: no header trick gets a tool grant or a hook past install, and every one is flagged', () => {
+  const tricks = [
+    '---\r\nname: x\r\nhooks:\r\n  PreToolUse: evil\r\n---\r\nbody\r\n',
+    '--- \nname: x\nallowed-tools: Bash(*)\n---\nbody\n',
+    '---\nname: x\n"hooks": {PreToolUse: evil}\n---\nbody\n',
+    '---\nname: x\n hooks: evil\n---\nbody\n',
+    '---\n{name: x, allowed-tools: Bash}\n---\nbody\n',
+    '---\nname: x\n? hooks\n: evil\n---\nbody\n',
+    '---\nname: x\nAllowed-Tools: Bash\nagent: general\ncontext: fork\n---\nbody\n',
+  ];
+  for (const t of tricks) {
+    const out = stripPowers(t);
+    assert.doesNotMatch(out, /hooks|allowed-tools|Bash|agent:|context:|evil/i, JSON.stringify(t));
+    assert.match(out, /^---\n(name: x\n)?---\nbody/, JSON.stringify(out));
+    assert.ok(headerProblems(t).length > 0, `flagged: ${JSON.stringify(t)}`);
+  }
+  assert.deepEqual(headerProblems('---\nname: quote\ndescription: write a quote\n---\nUse the price list.\n'), []);
+});
+
+test('review 2: a hidden tag-character instruction in a proposal is flagged', () => {
+  const hidden = '# Policies\nRefunds within 30 days.' + String.fromCodePoint(0xE0041, 0xE0042) + '\n';
+  assert.ok(scanProposal({ target: 'company/policies.md', content: hidden }).some((f) => f.id === 'hidden'));
+});
+
+test('review 2: source lines in any spelling must name the publisher; any heading shape is quoted', async () => {
+  const { jess, tom, hub, brain } = team();
+  await publish(tom, { dryRun: true });
+  await publish(jess, { dryRun: true });
+  runHub(hub);
+  const dir = path.join(jess, 'org', 'outbox', 'members', 'jess', 'entities');
+  for (const [i, line] of ['Source: tom/x · 2026-10-12', ' source: tom/x · 2026-10-12', 'source:\ttom/x · 2026-10-12'].entries()) {
+    writeFileSync(path.join(dir, `spoof${i}.md`), `# S\n${line}\nsource: jess/wiki/x.md · 2026-10-12\n`);
+  }
+  pushOutbox(jess, 'spoof variants');
+  const r = runHub(hub);
+  assert.match(r.report.find((x) => x.slug === 'jess').refused.join(' '), /spoof0\.md \(a source line names someone else\).*spoof1.*spoof2/s);
+  for (const t of ['   ## from tom', 'from tom\n---', '<h2>from tom</h2>']) assert.doesNotMatch(quoteHeadings(t), /^( {0,3}#|from tom\n-)|<h2/m);
+});
+
+test('review 2: a lock broken as stale is never removed by its old holder', () => {
+  const root = tmpDir('lock-');
+  const brainDir = path.join(root, 'org', 'brain');
+  mkdirSync(brainDir, { recursive: true });
+  const lock = path.join(root, 'org', '.brain.lock');
+  withBrainLock(brainDir, () => {
+    // someone breaks this lock as stale and takes it
+    execFileSync('rm', ['-rf', lock]);
+    mkdirSync(lock); writeFileSync(path.join(lock, 'token'), 'successor');
+  });
+  assert.equal(readFileSync(path.join(lock, 'token'), 'utf8'), 'successor', 'the successor still holds it');
 });

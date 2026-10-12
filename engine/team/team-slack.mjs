@@ -29,6 +29,9 @@ import { fileURLToPath } from 'node:url';
 import { isMain } from '../lib/is-main.mjs';
 import { putHot, getHot, removeSecret } from '../vault/vault.mjs';
 import { isAllowedTarget, queue, newId } from './team-proposals.mjs';
+import { withBrainLock } from './team-lock.mjs';
+import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 
 const API = process.env.SLACK_API_BASE || 'https://slack.com/api';
 export const APP_TOKEN = 'team-slack-app-token';
@@ -187,7 +190,9 @@ export function handleProposals(stateDir, text, { asker, date = new Date().toISO
 // the turn could leave behind outlives it.
 export function buildAnswerWorkdir(stateDir) {
   const brain = path.join(stateDir, 'org', 'brain');
-  const work = path.join(stateDir, '.kernel', 'slack-work');
+  // Outside /state: Claude Code reads every CLAUDE.md from the working folder up
+  // to the root, and /state/CLAUDE.md is the box's own instructions (review 2).
+  const work = path.join(tmpdir(), `crads-slack-${createHash('sha256').update(stateDir).digest('hex').slice(0, 12)}`);
   rmSync(work, { recursive: true, force: true });
   const copy = (src, dst) => {
     mkdirSync(dst, { recursive: true });
@@ -202,6 +207,7 @@ export function buildAnswerWorkdir(stateDir) {
       else if (st.isFile()) copyFileSync(s, d);
     }
   };
+  mkdirSync(work, { recursive: true, mode: 0o700 });
   copy(brain, work);
   mkdirSync(path.join(work, '.claude'), { recursive: true });
   const guard = path.join(HERE, 'path-guard.mjs');
@@ -212,8 +218,9 @@ export function buildAnswerWorkdir(stateDir) {
 export async function answer(stateDir, { question, asker }, { runTurn, pull = true } = {}) {
   const cfg = teamCfg(stateDir);
   const brain = path.join(stateDir, 'org', 'brain');
-  if (pull) { try { execFileSync('git', ['-C', brain, 'pull', '-q', '--rebase', '--autostash'], { stdio: 'pipe' }); } catch { /* answer from the local copy */ } }
-  const work = buildAnswerWorkdir(stateDir);
+  // Under the brain lock, like every other writer of the clone (review 2).
+  if (pull) { try { withBrainLock(brain, () => execFileSync('git', ['-C', brain, 'pull', '-q', '--rebase', '--autostash'], { stdio: 'pipe', timeout: 120000 }), { waitMs: 20000 }); } catch { /* answer from the local copy */ } }
+  const work = withBrainLock(brain, () => buildAnswerWorkdir(stateDir), { waitMs: 60000 });
   const turn = runTurn || (await import('../kernel/lib/harness/index.mjs')).runTurn;
   const { grantsForSlackAnswer } = await import('../kernel/lib/harness/grants.mjs');
   const who = typeof asker === 'object' && asker ? asker : { id: 'UNKNOWN', name: String(asker || '') };
@@ -264,12 +271,17 @@ export async function run(stateDir, { fetcher = fetch, WS = globalThis.WebSocket
   const people = new Map();
   const whoIs = async (user) => {
     if (people.has(user)) return people.get(user);
-    let w = { id: user, name: user, guest: false };
+    // Fails CLOSED and is not cached on failure (review 2): a lookup that errors
+    // or is rate-limited must not let a guest through for the bridge's lifetime.
+    let w = { id: user, name: user, guest: true, unknown: true };
     try {
       const u = await slackCall('users.info', t.bot, { user }, { fetcher });
-      if (u.ok) w = { id: user, name: u.user.profile?.display_name || u.user.real_name || u.user.name || user, guest: !!(u.user.is_restricted || u.user.is_ultra_restricted), bot: !!u.user.is_bot };
-    } catch {}
-    people.set(user, w); return w;
+      if (u.ok && u.user) {
+        w = { id: user, name: u.user.profile?.display_name || u.user.real_name || u.user.name || user, guest: !!(u.user.is_restricted || u.user.is_ultra_restricted || u.user.deleted), bot: !!u.user.is_bot };
+        people.set(user, w);
+      }
+    } catch { /* stays unknown, not cached */ }
+    return w;
   };
   const post = (q, text) => slackCall('chat.postMessage', t.bot, { channel: q.channel, thread_ts: q.thread, text }, { fetcher });
   const recent = new Map();   // user -> [timestamps]
@@ -288,6 +300,7 @@ export async function run(stateDir, { fetcher = fetch, WS = globalThis.WebSocket
       try {
         const who = await whoIs(q.user);
         // Guests (single- and multi-channel) are clients or contractors, not the team.
+        if (who.unknown) { await post(q, 'I could not check who you are with Slack just now. Ask me again in a minute.'); return; }
         if (who.guest || who.bot) { await post(q, 'Sorry, I only answer people on the team.'); return; }
         const r = await answerImpl(stateDir, { question: q.text, asker: who });
         for (const c of chunks(slackEscape(r.reply))) await post(q, c);
