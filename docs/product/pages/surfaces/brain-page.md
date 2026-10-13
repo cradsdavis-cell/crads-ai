@@ -12,7 +12,7 @@ reviewed: 2026-08-25
 
 *Everything your assistant knows.*
 
-Your brain is a folder of linked markdown pages on your own machine. This page
+Your brain is a folder of linked markdown pages on your own mineral. This page
 draws them, and it draws **what is actually there** rather than what a template
 expected.
 

@@ -174,6 +174,13 @@
      recency. */
   p.hint{color:var(--soft-2);font-size:13.5px;line-height:1.6;margin:0 0 18px}
   .cards3{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
+  /* "On this computer" is retired as a way to MAKE a mineral (Sam, 2026-10-13:
+     "It should all be in the cloud. Makes things less confusing."). Every offer
+     to create one carries data-local-create and stays hidden unless the switch
+     OFFER_LOCAL_CREATE (top of the script below) puts data-offer-local on
+     <html>. Hidden by CSS from first paint, so it never flashes. A brain
+     folder that already exists is untouched: its row, chip and face all stay. */
+  html:not([data-offer-local]) [data-local-create]{display:none !important}
   .bigcard{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--edge);border-radius:var(--r-card);padding:16px 18px;cursor:pointer;color:var(--ink);font-family:inherit;box-shadow:var(--shadow-1);transition:border-color .12s ease,background .12s ease,box-shadow .12s ease,transform .12s ease}
   .bigcard:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--card));box-shadow:var(--shadow-2);transform:translateY(-2px)}
   .bigcard:active{transform:translateY(0);box-shadow:var(--shadow-1)}
@@ -308,8 +315,10 @@
           <span>Free and self-hosted. Your brain runs on a server in your own hosting account, and you pay the host directly. Nothing is stored with Crads-AI.</span></button>
         <!-- The no-server door (Sam's ruling 2026-09-11): a brain folder on
              this computer. Same offer, no metal. Honest about what it is not:
-             nothing runs while the folder is closed. -->
-        <button class="bigcard" data-make="local"><b>On this computer</b>
+             nothing runs while the folder is closed. RETIRED from the door
+             2026-10-13 (data-local-create, see OFFER_LOCAL_CREATE): kept in
+             the markup so re-offering it is a one-line change. -->
+        <button class="bigcard" data-make="local" data-local-create><b>On this computer</b>
           <span>Free, no server, no schedules: a brain folder on this computer, only awake when you are. Claude Code opens the folder; the app reads it. Scheduled jobs and Telegram need a server.</span></button>
         <!-- Crads for teams (2026-10-10): one company brain plus one server per
              person, all in the owner's own accounts. The owner runs this once. -->
@@ -694,7 +703,7 @@
          existing users had no path to the self-host wizard at all). The
          invitation link left with the hosted-era cards, same day. -->
     <a href="#" id="newSelfhost">Set up my own <span class="chev">›</span></a>
-    <a href="#" id="newLocal">On this computer <span class="chev">›</span></a>
+    <a href="#" id="newLocal" data-local-create>On this computer <span class="chev">›</span></a>
     <!-- Teams (2026-10-10): the same gap again. An owner who already made a
          mineral for themselves had no way into "Set up a team"; found on the
          first live team build, when the resume landed on the list. -->
@@ -707,6 +716,15 @@
 <script>
 (function(){
   'use strict';
+  // THE SWITCH: whether the door offers "On this computer" as a way to make a
+  // new mineral. Off since 2026-10-13 (Sam: "It should all be in the cloud.
+  // Makes things less confusing."). Off hides the card and the "New here?" link
+  // (the CSS gate on [data-local-create]) and nothing else: brain folders this
+  // computer already has still list, open and run exactly as before, and the
+  // whole local face (local-*.mjs, the flow below) stays in place. Re-offering
+  // it is this one line.
+  var OFFER_LOCAL_CREATE = false;
+  if (OFFER_LOCAL_CREATE) document.documentElement.setAttribute('data-offer-local', '');
   // `rows` is the merged inventory from /inventory (spec 2026-08-13): one entry
   // per MINERAL, carrying whether this machine can open it, rather than one
   // entry per source list. `account` is the state of the account layer:
@@ -899,7 +917,8 @@
     a.onclick = function(ev){
       ev.preventDefault();
       var ask = r.tier === 'local'
-        ? 'Forget "' + r.label + '" in this app?\n\nThe folder and everything in it stay where they are; only this app stops listing it. Add it back any time from On this computer with the same path.'
+        ? 'Forget "' + r.label + '" in this app?\n\nThe folder and everything in it stay where they are; only this app stops listing it. '
+          + (OFFER_LOCAL_CREATE ? 'Add it back any time from On this computer with the same path.' : 'This app no longer adds brain folders, so it will not come back to this list.')
         : 'Remove "' + r.label + '" from this computer?\n\nThis deletes only this computer\'s key and connection entry for it; no mineral or brain anywhere is touched. If the ' + noun + ' still exists, another of your computers can let it back in.';
       if (!confirm(ask)) return;
       fetch('/forget', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host: r.alias }) })

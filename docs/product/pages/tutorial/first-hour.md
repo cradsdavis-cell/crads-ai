@@ -14,7 +14,7 @@ This walks the whole way in, from nothing at all to an assistant that answers
 you. Nothing here assumes you are technical. Every step says what to do, what
 you should see afterwards, and what to do if you see something else.
 
-![Set it up, in eighty seconds: the door, on this computer or a server, the token, the build, then the GitHub backup.](film:docs-1-set-it-up)
+![Set it up, in eighty seconds: the door, the token, the build, then the GitHub backup.](film:docs-1-set-it-up)
 
 The setup itself takes about fifteen minutes, most of it watching a progress
 bar while your server builds. The interview at the end is the better part of
@@ -25,8 +25,7 @@ step and come back; nothing here is lost by walking away.
 to a paid Claude account (Pro is the minimum; the free tier will not run an
 assistant), a free GitHub account for your brain's private backup, and an
 account at one of the two hosting companies the wizard supports, with an API
-token for it (skip this one if you choose **On this computer**, below).
-Hetzner is the cheaper; DigitalOcean has a Sydney location. The wizard
+token for it. Hetzner is the cheaper; DigitalOcean has a Sydney location. The wizard
 explains the token as you go, and
 [get a Hetzner API token](/docs/get-a-hetzner-api-token) or
 [get a DigitalOcean API token](/docs/get-a-digitalocean-api-token) is the
@@ -44,22 +43,17 @@ store it in.
 
 The first screen is called **the door**. It asks what we are making.
 
-**You should see:** two large choices. **Set up my own** builds a new mineral,
-and it is the one you want. **I already have one** is for a second computer
-joining a mineral that already exists; that path is
-[its own page](/docs/add-another-computer).
-
-**On this computer** is the third choice on current builds. It skips the
-server entirely and opens the assistant against a folder on your own machine:
-free, but no scheduled jobs, no Telegram and no connections, because it is
-only awake when you are. This page is the server route; if you pick On this
-computer, the steps below about a host, a token and a build do not apply, and
-you go straight to [the interview](/docs/the-interview).
+**You should see:** three large choices. **Set up my own** builds a new
+mineral, and it is the one you want. **Set up a team** is for an owner making
+assistants for several people at once; that is
+[its own page](/docs/set-up-a-team). **I already have one** is for a second
+computer joining a mineral that already exists; that path is
+[its own page](/docs/add-another-computer) too.
 
 **If instead you see a list of names**, someone has used Crads AI on this
 computer before. The same **Set up my own** choice is below the list.
 
-![The door on a computer that has never opened a mineral: two large choices.](shot:door-empty)
+![The door on a computer that has never opened a mineral.](shot:door-empty)
 
 ## Step 2. The costs, before anything else
 
@@ -223,8 +217,7 @@ in your world, how you work, what to never touch.
 Open Claude Code on your laptop and connect it to your mineral: the app's
 **Help** page shows the connection name and the three clicks (the
 **Environment** dropdown, **Add SSH connection**, paste the name; then pick the
-folder called **state**). For a folder on this computer, it is **Open folder**.
-Say "introduce yourself", and you should see your assistant greeting you, in
+folder called **state**). Say "introduce yourself", and you should see your assistant greeting you, in
 Claude Code. Then type:
 
 ```

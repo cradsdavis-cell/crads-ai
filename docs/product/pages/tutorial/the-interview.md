@@ -24,8 +24,7 @@ page in these docs assumes it has happened.
 ## Starting it
 
 Open your mineral in Claude Code (the app's **Help** page shows the
-connection; for a folder on this computer, **Open folder** and pick it), type
-this, and press Enter:
+connection), type this, and press Enter:
 
 ```
 /onboard

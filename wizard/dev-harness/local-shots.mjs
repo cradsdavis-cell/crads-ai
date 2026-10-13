@@ -6,11 +6,13 @@
 //
 //   cd wizard/dev-harness && node local-shots.mjs [--out <dir>] [--port 4665]
 //
-// Shots: the door with its three cards, the local flow (form + finish
-// checklist), then the member face on the folder: Overview, Brain, Skills
-// (the schedule strip hidden, the honest note in its place), Help (the folder
-// copy where the connection name used to be). Full-page PNGs + a per-shot
-// console-error report, so a broken page cannot photograph as a good one.
+// Shots: the door with the create card retired (2026-10-13), the local flow
+// (form + finish checklist, reached by flipping the switch in the page, see
+// offerLocal below), then the member face on the folder: Overview, Brain,
+// Skills (the schedule strip hidden, the honest note in its place), Help (the
+// folder copy where the connection name used to be). Full-page PNGs + a
+// per-shot console-error report, so a broken page cannot photograph as a good
+// one.
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
@@ -34,17 +36,26 @@ await new Promise((res, rej) => {
   harness.on('exit', (c) => rej(new Error(`harness exited early (${c})`)));
 });
 
+// "On this computer" is retired as a way to MAKE a mineral (2026-10-13): the
+// door hides every [data-local-create] unless OFFER_LOCAL_CREATE in door.html
+// puts data-offer-local on <html>. The flow itself is kept, so these shots
+// flip that attribute in the page to photograph it, exactly what turning the
+// switch back on would show.
+const offerLocal = (page) => page.evaluate(() => document.documentElement.setAttribute('data-offer-local', ''));
+
 const SHOTS = [
-  // a fresh install: the takeover with THREE cards, "On this computer" third
-  { name: 'door-three-cards', path: '/door?state=empty', waitMs: 2000 },
+  // a fresh install: the takeover with the local create card hidden
+  { name: 'door-no-local-card', path: '/door?state=empty', waitMs: 2000 },
   // the local flow's one form
   { name: 'door-local-flow', path: '/door?state=empty', waitMs: 1500, after: async (page) => {
+    await offerLocal(page);
     await page.click('[data-make="local"]');
     await page.fill('#loName', 'Idris');
     await page.waitForTimeout(400);
   } },
   // the finish checklist after Make it
   { name: 'door-local-done', path: '/door?state=empty', waitMs: 1500, after: async (page) => {
+    await offerLocal(page);
     await page.click('[data-make="local"]');
     await page.fill('#loName', 'Idris');
     await page.click('#loMakeBtn');
@@ -105,6 +116,8 @@ for (const shot of SHOTS) {
         sshCard: vis('#ohHost'), folderCard: vis('#ohLocalCard'),
         notes: [...document.querySelectorAll('[data-needs-box-note]')].filter((n) => n.getBoundingClientRect().height).length,
         localCards: document.querySelectorAll('[data-make]').length,
+        makeCardsShown: [...document.querySelectorAll('[data-make]')].filter((n) => n.getBoundingClientRect().height).map((n) => n.getAttribute('data-make')),
+        newLocalShown: vis('#newLocal'),
         connStat: (document.getElementById('connStat') || {}).textContent || null,
         ohPath: (document.getElementById('ohPath') || {}).textContent || null,
         orgline: (document.getElementById('orgline') || {}).textContent || null,

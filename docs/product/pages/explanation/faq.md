@@ -33,12 +33,6 @@ runs on and the AI inside it, and you pay both providers directly:
 - your own **Claude subscription**, billed to you by Anthropic
 - **nothing to Crads-AI, ever**
 
-The server is optional. The app's **On this computer** mode runs the
-assistant against a folder on your own machine instead: free, nothing to
-rent. What you give up is everything that needs a machine that stays on: no
-scheduled jobs, no Telegram, no connections to your email or calendar. It is
-only awake when you are.
-
 Those facts are also the first screen of the wizard, before anything is
 created, so the bill is never a surprise. If someone sets your mineral up for
 you or supports you afterwards, that is a service you agree with them, priced
@@ -85,9 +79,7 @@ the two are different.
 
 On the server you created, in the location you picked in the wizard, in your
 own Hetzner or DigitalOcean account, plus a backup in a private GitHub
-repository in your own account. In **On this computer** mode there is no
-server: your brain is a folder on your own machine, plus the same GitHub
-backup if you connect one. The wizard offers whatever locations your
+repository in your own account. The wizard offers whatever locations your
 host sells (DigitalOcean has Sydney; Hetzner does not), so where your
 data lives is your choice, and if you are in Australia and pick a European
 location, your data is stored overseas: the

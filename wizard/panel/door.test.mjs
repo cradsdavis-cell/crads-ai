@@ -743,3 +743,39 @@ test('the self-host wizard reads every provider-shaped string from the registry,
   const strings = script.split('\n').filter((l) => !/^\s*\/\//.test(l) && /'[^'\n]*Hetzner[^'\n]*'/.test(l));
   assert.deepEqual(strings, [], 'no Hetzner-only copy left in the script');
 });
+
+// "On this computer" retired as a way to MAKE a mineral (Sam, 2026-10-13: "It
+// should all be in the cloud. Makes things less confusing."). Hidden, not
+// deleted: one switch, and an existing brain folder keeps working. The screen
+// itself is driven in qa-door-local-retired.test.mjs; this pins the markup the
+// screen depends on, so a re-added card or a second switch fails here first.
+test('local mode is retired from the door behind ONE switch, and only its create offers hang on it', () => {
+  const sw = DOOR.match(/var OFFER_LOCAL_CREATE = (true|false);/g) || [];
+  assert.equal(sw.length, 1, 'exactly one switch');
+  assert.equal(sw[0], 'var OFFER_LOCAL_CREATE = false;', 'and it is off');
+  assert.match(DOOR, /if \(OFFER_LOCAL_CREATE\) document\.documentElement\.setAttribute\('data-offer-local', ''\);/,
+    'the switch is what reveals the offers');
+  assert.match(DOOR, /html:not\(\[data-offer-local\]\) \[data-local-create\]\{display:none !important\}/,
+    'hidden by CSS from first paint, so it never flashes');
+  // every way to START the local flow is gated: the takeover card and the "New here?" link
+  const card = DOOR.match(/<button class="bigcard" data-make="local"[^>]*>/g) || [];
+  assert.equal(card.length, 1);
+  assert.match(card[0], /data-local-create/, 'the takeover card is gated');
+  assert.match(DOOR, /<a href="#" id="newLocal" data-local-create>/, 'the "New here?" link is gated');
+  const starts = DOOR.match(/startLocalFlow\(\);/g) || [];
+  assert.equal(starts.length, 2, 'the card and the link are the only two ways in (a third entry point must be gated too)');
+  // the code stays: the flow, its route and its screens
+  assert.match(DOOR, /function startLocalFlow\(\)\{/);
+  assert.match(DOOR, /fetch\('\/local\/create'/);
+  assert.match(DOOR, /<div id="localFlow" style="display:none">/);
+  // the gate is ONLY on creating. An existing folder's row, chip, href and
+  // probe never consult the switch.
+  const render = DOOR.slice(DOOR.indexOf('function render(){'), DOOR.indexOf('function forgetRow('));
+  assert.doesNotMatch(render, /OFFER_LOCAL_CREATE|data-offer-local/, 'listing and opening a brain folder does not depend on the switch');
+  assert.match(render, /if \(r\.tier === 'local'\) \{ location\.href = localRowHref\(r\); return; \}/, 'a folder row still opens on its alias');
+  assert.match(render, /function localChip\(\)/, 'and still carries its own chip');
+  // forgetting a folder no longer promises a way back that is hidden
+  const forget = DOOR.slice(DOOR.indexOf('function forgetRow('), DOOR.indexOf('function forgetRow(') + 2000);
+  assert.match(forget, /OFFER_LOCAL_CREATE \? 'Add it back any time from On this computer/, 'the "add it back" line only shows while the offer exists');
+  assert.match(forget, /This app no longer adds brain folders, so it will not come back to this list\./);
+});

@@ -71,14 +71,6 @@ scheduled jobs; [Shopify and Xero](/docs/connect-shopify-and-xero) has the
 detail. Every other connection signs in on your mineral and keeps its token
 there.
 
-## On this computer moves the machine, not the mind
-
-The app's **On this computer** mode makes your mineral a folder on your own
-laptop instead of a rented server. Your brain and credentials live there.
-Every answer still comes from Claude, at Anthropic, on your account. What you
-give up is everything that needs a machine that stays on: no scheduled jobs,
-no Telegram, no connections.
-
 ## If nothing may leave your building, use a local model
 
 Some people need every word to stay on hardware they own: a clinic under

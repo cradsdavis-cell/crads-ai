@@ -205,3 +205,27 @@ machine and does every sign-in itself, so the app needs to hold nothing.
 Still open: the first live run of the terminal buttons on Windows and macOS
 (the plans are unit-tested, not yet clicked on a real machine), and a Claude
 desktop app deep link, which does not exist for a local folder.
+
+## Retired from the door (2026-10-13)
+
+Sam's ruling: "It should all be in the cloud. Makes things less confusing."
+Scope: hide, keep the code, and an existing local brain keeps working.
+
+- **The switch** is `var OFFER_LOCAL_CREATE = false;` at the top of
+  `wizard/panel/door.html`'s script. Off, it hides every element marked
+  `data-local-create` (the takeover's "On this computer" card and the "New
+  here?" link) through one CSS rule that holds from first paint. Setting it
+  to `true` puts `data-offer-local` on `<html>` and brings both back. Nothing
+  else reads it except the forget dialog, which stops promising "add it back
+  from On this computer" while there is no way back.
+- **Unchanged:** a registered folder still lists (path, "This computer" chip,
+  probe), still opens on its `-local` alias, and its whole face (this file's
+  v1 and v2) runs as before. `/local/create` and the flow's screens are still
+  in the tree; the dev harness photographs them by setting the attribute in the
+  page (`local-shots.mjs`, `offerLocal`).
+- **Pinned by** `door.test.mjs` (one switch, off, gating only the create
+  offers) and `qa-door-local-retired.test.mjs` (a real browser: a new install
+  sees selfhost, team and "I already have one" only; an existing folder lists
+  and opens on its alias).
+- **The cost, named:** a person who forgets a folder can no longer re-add it
+  from the door. The forget dialog says so.
