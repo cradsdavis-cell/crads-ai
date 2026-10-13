@@ -4,15 +4,24 @@ summary: What you get, what it costs, what we each promise, and how either of us
 audience: public
 access: public
 mode: legal
-version: 0.10
-effective: 2026-09-28
+version: 0.11
+effective: 2026-10-13
 order: 20
 ---
 
 Plain terms. Between you and **Samuel Davis, trading as Crads AI, ABN 26 929
-349 775**, Coogee NSW, Australia ("we", "us"). By running a mineral you agree
-to these. By booking a paid session you agree to them too, including
-section 10 on cancellations and refunds.
+349 775**, Coogee NSW, Australia ("we", "us"). These terms cover our paid
+services and the promises we make about the software. The software itself is
+licensed to you under the GNU Affero General Public License v3.0 (AGPL-3.0);
+nothing here takes away anything that licence gives you. By booking a paid
+session you agree to these terms, including section 10 on cancellations and
+refunds.
+
+*(Changed in 0.11: the software is open source under AGPL-3.0 (section 8 and
+the opening); running it no longer means agreeing to these terms; section 5
+describes the nightly backup as it actually works; section 1 covers minerals
+set up through Crads for Teams; section 2 names build work; the lawyer line
+says plainly that no review has happened yet.)*
 
 *(Changed in 0.10: the roadmap now includes a second 30-minute call to go
 through the report, and costs A$250; its refund line in section 10 follows.)*
@@ -24,22 +33,28 @@ removed from section 2.)*
 *(Changed in 0.8: section 10, cancellations and refunds for paid sessions,
 agreed with a tick box at booking.)*
 
-Version 0.5, effective 1 September 2026. *(Changed in 0.5: the self-host
+*(Changed in 0.5, effective 1 September 2026: the self-host
 redesign. Crads AI no longer provisions, hosts, bills for, or holds any
 account over minerals: you create your mineral on your own hosting account
 with the setup wizard, and the software is free. Everything in versions 0.1
 to 0.4 about beta pricing, the 26 September pricing decision, invitations,
 suspension of hosted machines, and our provisioning obligations is gone
 because the machinery it described is gone. Prior versions stay on the
-record.)* A lawyer reviews these before any paid service programme grows; the
-version and date change whenever the text does.
+record.)*
+
+These terms have not yet been reviewed by a lawyer; that review is owed now
+that paid services have started. The version and date change whenever the
+text does.
 
 ## 1. What you are getting
 
 Software, free of charge: the mineral image, the engine, the desktop app and
 the documentation. You run it on a **mineral**: a server you create in your
 own hosting account, holding an assistant and a brain that belong to you.
-One person's private workspace; we also call it a **pebble**.
+One person's private workspace; we also call it a **pebble**. If you were
+set up as part of a team with Crads for Teams, your server sits in the team
+owner's hosting account, not yours; the [privacy policy](/docs/privacy-policy)
+says what that means.
 
 We maintain and publish the machinery: the container image, the engine, the
 app, the scheduler and the system pages. You own the machine and the content:
@@ -58,7 +73,8 @@ to you), and Anthropic for your Claude
 subscription. The setup wizard states both before anything is created.
 
 Paid **services** exist separately: the AI problem-solving roadmap, the
-walkthrough, guided setup and hourly support. Each is agreed with you at a stated price before any work
+walkthrough, guided setup, hourly support, and any build work quoted in a
+roadmap. Each is agreed with you at a stated price before any work
 happens. Buying none of them takes nothing away from the software.
 
 We are not registered for GST, so no GST is charged.
@@ -82,8 +98,8 @@ We are not registered for GST, so no GST is charged.
 
 ## 4. What we promise
 
-- **We do not read your notes, and we could not.** Nothing of yours routes
-  through us: no account, no directory, no telemetry. The
+- **We do not read your notes, and we could not.** Nothing from your mineral
+  routes through us: no account, no directory, no telemetry. The
   [privacy policy](/docs/privacy-policy) sets out the one exception honestly:
   a support session you deliberately grant.
 - **We tell you when something is broken**, including when we caused it.
@@ -111,10 +127,12 @@ Being specific is more use to you than a disclaimer.
 - **No guarantee a connected service keeps working.** Google, Microsoft and
   the rest change their APIs and their rules whenever they like. When one
   breaks we fix it if we can and tell you if we cannot.
-- **No guarantee of data recovery beyond your own backup.** Your mineral
-  takes a nightly encrypted backup to a repository you own. If no repository
-  is connected and the machine dies, the content that only existed there is
-  gone. Connect the repository.
+- **No guarantee of data recovery beyond your own backup.** Every night your
+  mineral pushes its brain, as readable files, to a private GitHub repository
+  in your own account, with its settings and credentials beside them as an
+  encrypted snapshot. The setup wizard offers this step and lets you skip it;
+  if you skip it and the machine dies, what only existed there is gone.
+  Connect the repository.
 - **We are one person.** Not a company with a support rota. Response times
   depend on one human being awake and not on a mountain.
 
@@ -148,10 +166,12 @@ Your brain, your pages and your data are **yours**. They never reach us, we
 claim no licence over them, and we will not train anything on them or use
 them to build anything.
 
-The engine, the app, the images and the documentation are ours, and are
-provided free for running minerals. The project is being prepared for an
-open-source release; until a licence file says otherwise, do not resell the
-software as your own product.
+The software is open source, published at
+[github.com/cradsdavis-cell/crads-ai](https://github.com/cradsdavis-cell/crads-ai)
+under the GNU AGPL-3.0, and that licence sets out what you may do with it,
+including copying, changing and sharing it. The Crads AI name, and this
+documentation unless the repository says otherwise, are not covered by that
+licence.
 
 ## 9. Liability, stated honestly
 
@@ -171,7 +191,7 @@ This covers the paid services: the AI problem-solving roadmap, the
 walkthrough, guided setup and any extra hours. You agree to it when you tick
 the box at booking. The roadmap is a 30-minute call, a written report within
 3 business days of that call, and a second 30-minute call to go through the
-report, A$250, paid up front. The walkthrough and guided setup are two
+report, A$250 (less any discount code), paid up front. The walkthrough and guided setup are two
 sessions each, paid for up front.
 
 - **Cancelling with at least 24 hours' notice.** Full refund, or a free

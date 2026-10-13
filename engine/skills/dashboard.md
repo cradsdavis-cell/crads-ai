@@ -1,7 +1,7 @@
 ---
 name: dashboard
 title: "Build pages & cards"   # human name shown on the Skills page (2026-08-09 audit R6); the slash id stays as a chip
-description: Build or change the member's own app pages and dashboard cards, the box-hosted surface their companion app renders. "Build me a page that shows X", "change my dashboard", "add a card for Y".
+description: Build or change your own app pages and dashboard cards, the pages the Crads-AI app shows from your mineral. "Build me a page that shows X", "change my dashboard", "add a card for Y".
 category: box             # Skills-page grouping (briefing|capture|comms|box|org|other), wire vocabulary, not copy
 generic: true        # config-driven; no client-specific values in this file
 reads:
@@ -12,7 +12,7 @@ reads:
 
 # Skill: /dashboard  (generic)
 
-The member's companion app is a SHELL: beyond its built-in tabs it renders whatever lives under `/state/dashboard/`. That folder is the member's own (three-layer model, layer 3), this skill is how they change it without touching code. You write the files; the app picks them up on its next refresh.
+The Crads-AI app is a SHELL: beyond its built-in pages it renders whatever lives under `/state/dashboard/`. That folder is the person's own (three-layer model, layer 3), this skill is how they change it without touching code. You write the files; the app picks them up on its next refresh.
 
 ## The page contract (follow exactly)
 
@@ -51,8 +51,8 @@ A page is an **HTML fragment** at `dashboard/pages/<id>.html` plus a manifest en
 
 ## Template updates
 
-`.template-version` records which Crads/org template generation seeded this mineral. If the member asks to "get the latest template" for a page they have edited, diff the current template file against theirs, show what would change, and re-apply only with their OK, their edits win by default.
+`.template-version` records which Crads-AI template generation seeded this mineral. If the person asks to "get the latest template" for a page they have edited, diff the current template file against theirs, show what would change, and re-apply only with their OK, their edits win by default.
 
 ## Summary line (run history)
 
-End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the member's app (run history); without it the last output line is used.
+End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the app (run history); without it the last output line is used.

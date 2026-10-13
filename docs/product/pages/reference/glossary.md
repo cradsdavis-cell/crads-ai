@@ -21,19 +21,23 @@ underneath.
 |---|---|---|
 | Assistant | The whole thing: a brain that thinks, a memory that knows you, and the services it can reach. In these docs also called your EA. | [What an AI EA is](/docs/what-an-ai-ea-is) |
 | Mineral | The server you own, in your own hosting account, that everything runs on. Yours all the way down. | [What a mineral is](/docs/what-a-mineral-is) |
+| Pebble | One person's mineral: yours. The app's page about the machine itself is **Your mineral** in the sidebar. | [What a mineral is](/docs/what-a-mineral-is) |
+| The Crads AI app | The desktop app (Mac or Windows) you set up with and open your mineral from. Its setup wizard builds the server in your hosting account. | [Your first hour](/docs/first-hour) |
+| Hosting account, API token | Your account at Hetzner or DigitalOcean, where the server is built and billed, and the token that lets the app build it there. The token stays on your computer. | [Get a Hetzner API token](/docs/get-a-hetzner-api-token) |
 | Brain | Your assistant's long-term memory: plain markdown pages in a private GitHub repo you own, kept on the mineral and mirrored to GitHub. | [Brain](/docs/brain-page) |
 | Layer | One of the eight sections the brain is organised into, from what you are for (layer 1) to how you work and write (layer 8). | [How your assistant thinks](/docs/how-your-assistant-thinks) |
-| Skill | A saved recipe: a numbered procedure in a text file that runs when you type its name after a slash. Eleven are built in; the rest are yours. | [Skills](/docs/skills-page) |
+| Skill | A saved recipe: a numbered procedure in a text file that runs when you type its name after a slash. The built-in ones ship with every mineral; the rest are yours. | [Skills](/docs/skills-page) |
 | Recipe | A skill and a schedule set up together, with the reason for the timing. | [Starter recipes](/docs/starter-recipes) |
-| Connection | A service (mail, calendar, Notion, a search service) your assistant can read, added from a catalogue of about sixty. | [What you can connect](/docs/connections) |
+| Connection | A service (mail, calendar, Notion, a search service) your assistant can read, added from a catalogue of more than sixty. | [What you can connect](/docs/connections) |
 | Schedule | When a skill runs with nobody at the keyboard. Every schedule ships switched off. | [Skills](/docs/skills-page) |
 | Terminal | The tab where you talk to your assistant. Headed "Meet your assistant" in the app. | [Terminal](/docs/terminal-page) |
 | Telegram bot | A bot you own that delivers scheduled results to your phone and answers a message you send it. | [Connect Telegram](/docs/connect-telegram) |
 | Card, page | A tile on your Overview, or a screen of your own in the app, built by `/dashboard` from the Terminal. | [Overview](/docs/overview-page) |
-| Device | A machine allowed to open your mineral, admitted by one that already can. | [Devices and access](/docs/devices-and-access) |
+| Device | A machine allowed to open your mineral, admitted by one that already can. | [Machines that can open your mineral](/docs/devices-and-access) |
 | Support grant | Permission for someone to look at your mineral for a fixed time, which you can end early. | [Grant support access](/docs/grant-support-access) |
-| Machinery | The jobs the mineral runs to look after itself: backups, updates, the heartbeat. Not skills, and not yours to schedule. | [Jobs your mineral runs by itself](/docs/machinery-jobs) |
+| Machinery | The jobs the mineral runs to look after itself: backups, updates, refreshing your connections. Not skills, and not yours to schedule. | [Jobs your mineral runs by itself](/docs/machinery-jobs) |
 | Secret | A key or token stored on the mineral so a connection works. | [Secrets](/docs/secrets-page) |
+| Company brain | With Crads for teams: one shared brain the whole team contributes to, beside each person's own assistant. Changes to it go through the owner. | [Crads for teams](/docs/crads-for-teams) |
 
 ## Doing things
 

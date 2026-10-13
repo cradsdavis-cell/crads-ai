@@ -647,7 +647,7 @@ function cadenceListLines(state) {
   out.push('__ALLSKILLS__', 'SKILLS_STATE ' + JSON.stringify(allSkillsState()));
   out.push('__PLANJSON__', JSON.stringify({ machinery: [
     { id: 'auto-update', when: 'around 04:00, local', note: 'nightly software update' },
-    { id: 'heartbeat', when: 'hourly', note: 'tells your rock this box is alive' },
+    { id: 'heartbeat', when: 'hourly', note: 'notes once an hour that this mineral is alive and signed in' },
     { id: 'backup', when: '02:30 nightly', note: 'encrypted snapshot of your settings and credentials' },
   ] }));
   return out;
@@ -694,15 +694,15 @@ function secretsList(state) {
 function secretsDiscover(state) {
   if (state === 'empty') return [];
   return [
-    { name: 'claude-signin', label: 'Claude sign-in', what: 'Lets your mineral run skills with nobody at the keyboard. Used by every scheduled job.', where: '.claude-auth/.credentials.json', set: true, kind: 'sign-in', revoke: { via: 'seat' }, updated: iso(3 * D), readable_by_box: true },
-    { name: 'github-login', label: 'GitHub login', what: 'Backs your brain up to your own private repository. Used by the nightly backup.', where: '.kernel/gh', set: true, kind: 'sign-in', revoke: { via: 'seat' }, updated: iso(20 * D), readable_by_box: true },
+    { name: 'claude-signin', label: 'Claude sign-in', what: 'The account your mineral uses to think. Used by every job and chat; signing in again in the Terminal replaces it.', where: '.claude-auth/.credentials.json', set: true, kind: 'sign-in', revoke: { via: 'none' }, updated: iso(3 * D), readable_by_box: true },
+    { name: 'github-login', label: 'GitHub login', what: 'Lets your mineral push your brain to your own GitHub. Used by the nightly brain push and the Backup card; to cut it off, revoke it in your GitHub settings under Applications.', where: '.kernel/gh', set: true, kind: 'sign-in', revoke: { via: 'none' }, updated: iso(20 * D), readable_by_box: true },
     { name: 'mcp-notion', label: 'Notion', what: 'Your Notion sign-in, so jobs can read and write your pages. Used by any skill that uses Notion.', where: '.kernel/mcp-oauth.json', set: true, kind: 'connection', revoke: { via: 'connections', key: 'notion' }, updated: iso(2 * D), readable_by_box: true },
     { name: 'mcp-linear', label: 'Linear', what: 'Your Linear sign-in. Added, not signed in yet.', where: '.kernel/mcp-oauth.json', set: false, kind: 'connection', revoke: { via: 'connections', key: 'linear' }, updated: null, readable_by_box: true },
     { name: 'google-key', label: 'Google Workspace key', what: 'Your own Google key, so jobs can read mail and calendar. Used by the morning brief.', where: '.kernel/google-creds/mel@gmail.com.json', set: true, kind: 'connection', revoke: { via: 'connections', key: 'google' }, updated: iso(5 * D), readable_by_box: true },
     { name: 'telegram_bot_token', label: 'Telegram bot token', what: 'Lets your box talk to you on Telegram. Used by the Telegram bridge and your scheduled jobs.', where: 'secrets/telegram_bot_token', set: true, kind: 'channel', revoke: { via: 'telegram' }, updated: iso(38 * D), readable_by_box: true },
     { name: 'backup_passphrase', label: 'Backup passphrase', what: 'Encrypts your nightly backup before it leaves the box. Used by the backup job; you need it to restore.', where: 'secrets/backup_passphrase', set: true, kind: 'backup', revoke: { via: 'none' }, updated: iso(60 * D), readable_by_box: true },
     { name: 'backup_passphrase.escrowed', label: 'Backup passphrase, escrow marker', what: 'A note that your backup passphrase has been saved off this mineral. Until it exists, your backup reports as not recoverable.', where: 'secrets/backup_passphrase.escrowed', set: true, kind: 'backup', revoke: { via: 'none' }, updated: iso(58 * D), readable_by_box: true },
-    { name: 'box_directory_token', label: 'Directory token', what: 'Proves to the Crads-AI directory that this box is yours. Used by the device enrolment and status jobs.', where: 'secrets/box_directory_token', set: true, kind: 'platform', revoke: { via: 'none' }, updated: iso(60 * D), readable_by_box: true },
+    { name: 'box_directory_token', label: 'Directory token', what: 'Left over from the Crads-AI directory, which was retired in September 2026. Written at set-up; nothing on this mineral uses it now.', where: 'secrets/box_directory_token', set: true, kind: 'platform', revoke: { via: 'none' }, updated: iso(60 * D), readable_by_box: true },
     { name: 'client-portal-login', label: 'Client portal login', what: 'Sealed to your own computers. Your mineral cannot open it, and neither can Crads AI.', where: 'secrets/vault/client-portal-login', set: true, kind: 'vault', revoke: { via: 'none' }, updated: iso(9 * D), readable_by_box: false },
   ];
 }
@@ -1078,7 +1078,7 @@ export function provisionStatus(override) {
     // boot never answered, which is the one failure a person can act on
     PROV.failReads += 1;
     if (PROV.failReads === 1) return provView('booting', BUILD_STEPS.slice(0, 4));
-    return provView('failed', BUILD_STEPS.slice(0, 4), { error: 'the server was created but its workspace never answered; Retry checks again, or Start over rebuilds it' });
+    return provView('failed', BUILD_STEPS.slice(0, 4), { error: 'The server was created, but its workspace never answered.' });
   }
   if (PROV.phase === 'idle') return { phase: 'idle' };
   if (PROV.phase === 'ready') return provView('ready', BUILD_STEPS);

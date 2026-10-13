@@ -151,7 +151,7 @@ question they never asked.
 An empty page is not a failure, either. The app says so when it has nothing
 to show, and says why rather than pretending:
 
-![Nothing here yet](shot:member-empty)
+![Overview on a new mineral: no pages and no skills of your own yet, and the next steps listed](shot:member-empty)
 
 ## Audit your skills
 

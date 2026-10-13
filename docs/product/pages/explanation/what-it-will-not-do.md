@@ -5,8 +5,8 @@ audience: public
 access: public
 mode: explanation
 order: 280
-pins: engine/skills/inbox.md, engine/skills/capture.md, engine/skills/explain.md
-reviewed: 2026-09-10
+pins: engine/skills/inbox.md, engine/skills/capture.md, engine/skills/explain.md, engine/box/brain-claude-md.mjs
+reviewed: 2026-10-13
 ---
 
 Most of these docs tell you what your assistant can do. This page is the other
@@ -36,11 +36,15 @@ brain](/docs/grow-the-brain) is the page for that.
 
 ## What is built in
 
-These are the software's own limits. You do not have to ask for them, and you
-cannot talk it out of them in conversation.
+These come with the software, so you do not have to ask for them. The last
+two are hard limits you cannot talk it out of. The first four are how the
+built-in skills are written, and they hold every time those skills run.
 
-- **It drafts. It does not send.** Email, messages, anything outbound: it
-  writes the draft and stops. You send.
+- **The built-in skills draft. They do not send.** Email, messages, anything
+  outbound: the skill writes the draft and stops. You send. This is how the
+  skills are written, not a lock on your mail: a Google connection that can
+  read your email can also send it, so if you ask it to send something in a
+  conversation, it can.
 - **`/inbox` asks once before it touches a label.** It sorts unread mail into
   buckets and shows you the lot; nothing is marked read or archived until you
   give one bulk confirmation.
@@ -54,9 +58,10 @@ cannot talk it out of them in conversation.
   until the mineral has its own Claude sign-in.
 - **It reaches what you connected and nothing else.** A skill can only read a
   service you have added on the Connections page ([what you can
-  connect](/docs/connections) is the catalogue). It does not browse the web
-  on its own. Research means your brain, your connected services, what you
-  paste, and a search service like Exa if you connect one.
+  connect](/docs/connections) is the catalogue). Scheduled runs cannot browse
+  the web at all. In a conversation, Claude Code can look something up on the
+  web, and it asks you first. Research means your brain, your connected
+  services, what you paste, and a search service like Exa if you connect one.
 
 That is the list. Notice what is not on it.
 
@@ -120,8 +125,10 @@ has the rest of what I owe him). So I scope to the lowest rung that solves the
 problem. A daily report that always runs the same five steps does not need
 anything deciding its path; it needs five steps. And I scope the tools, not
 just the words. Telling it "never send email" in a prompt is a wish. Not
-connecting the thing that can send is a wall. The engine already builds the
-wall for sending; for everything else, you decide what to connect and when.
+connecting the thing that can send is a wall. The engine builds that wall in
+one place: a message you send your assistant from Telegram cannot reach any
+connected service at all. Everywhere else, you decide what to connect and
+when.
 
 The rule of thumb I use: a skill earns a schedule after it has run well by
 hand three times, and a connection earns a wider grant after I have read its

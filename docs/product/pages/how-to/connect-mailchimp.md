@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 75
 pins: engine/comms/mailchimp-mcp.mjs, engine/comms/mcp-connect.mjs, wizard/panel/member.html
-reviewed: 2026-10-02
+reviewed: 2026-10-13
 ---
 
 Mailchimp connects with **an API key you make in your own account**. You paste
@@ -21,9 +21,9 @@ this is for.
 
 ## Why your own key, and why on your mineral
 
-Mailchimp does not publish an official connection for assistants that covers
-audiences and campaigns. The services that offer one host it themselves,
-which means your audience passes through their machines.
+Mailchimp's own connections for assistants run inside ChatGPT or Claude's
+apps, hosted by them, so your audience passes through their machines, and
+they cannot run in your mineral's scheduled jobs.
 
 So this one runs **on your mineral**. Your key is stored there, the small
 program that talks to Mailchimp runs there, and your contact list never passes
@@ -72,8 +72,9 @@ numbers, a dash, and a short code such as `us21`. That ending tells your
 mineral which of Mailchimp's servers holds your account, so copy all of it.
 
 **A key can do whatever the Mailchimp user who made it can.** Mailchimp does not
-offer smaller, limited keys. If that matters to you, have someone with a
-smaller role in your Mailchimp account make the key instead.
+offer smaller, limited keys. If that matters to you, have a user with the
+Manager role make the key instead (Mailchimp's Premium plan); Authors and
+Viewers cannot make keys at all.
 
 ## Step 2. Paste the key
 

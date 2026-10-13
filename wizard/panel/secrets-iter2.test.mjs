@@ -45,9 +45,10 @@ test('rows are grouped by kind, label bold, what on the line, where only on hove
 test('revoke links deep-link to the surface that owns the credential; none renders nothing', () => {
   const rv = js.split('function secRevoke(f)')[1].split('function secRowHtml(')[0];
   assert.match(rv, /r\.via === 'connections'\) return \{ sec: 'connections', label: 'Connections', key: r\.key \|\| ''/);
-  // The face collapse (2026-09-01): there is no org face and no Your rock
-  // page, so the seat route points at the one seat section unconditionally.
-  assert.match(rv, /r\.via === 'seat'\) return \{ sec: 'seat', label: 'Your mineral', key: '' \}/, 'the one seat page, no face fork');
+  // 2026-10-13: the seat route is gone. Your mineral has no control that
+  // revokes the Claude sign-in or GitHub, so an older engine's 'seat' rows fall
+  // through to no button rather than send people to a page that cannot do it.
+  assert.doesNotMatch(rv, /r\.via === 'seat'\) return/, 'no button points at Your mineral');
   assert.match(rv, /r\.via === 'telegram'\) return \{ sec: 'connections', label: 'Telegram'/, 'Telegram lives on Connections');
   assert.match(rv, /return null;\s*\}$/m, 'none = no link');
   assert.match(js, /activateSec\(sec\);/, 'the click navigates');

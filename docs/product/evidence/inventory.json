@@ -37,6 +37,13 @@
       "group": "Privacy & access"
     },
     {
+      "sec": "team",
+      "label": "Team",
+      "face": "both",
+      "hidden": true,
+      "group": null
+    },
+    {
       "sec": "terminal",
       "label": "Terminal",
       "face": "both",
@@ -67,6 +74,14 @@
   "memberVerbs": [
     {
       "verb": "ask-answer",
+      "mutating": true
+    },
+    {
+      "verb": "assistant-probe",
+      "mutating": false
+    },
+    {
+      "verb": "assistant-set",
       "mutating": true
     },
     {
@@ -138,8 +153,16 @@
       "mutating": true
     },
     {
+      "verb": "mcp-add-mailchimp",
+      "mutating": true
+    },
+    {
       "verb": "mcp-adopt",
       "mutating": true
+    },
+    {
+      "verb": "mcp-check",
+      "mutating": false
     },
     {
       "verb": "mcp-remove",
@@ -244,6 +267,42 @@
     {
       "verb": "support-status",
       "mutating": true
+    },
+    {
+      "verb": "team-decide",
+      "mutating": true
+    },
+    {
+      "verb": "team-inbox-run",
+      "mutating": true
+    },
+    {
+      "verb": "team-inbox-set",
+      "mutating": true
+    },
+    {
+      "verb": "team-inbox-status",
+      "mutating": true
+    },
+    {
+      "verb": "team-proposals",
+      "mutating": true
+    },
+    {
+      "verb": "team-slack-connect",
+      "mutating": true
+    },
+    {
+      "verb": "team-slack-disconnect",
+      "mutating": true
+    },
+    {
+      "verb": "team-slack-manifest",
+      "mutating": true
+    },
+    {
+      "verb": "team-status",
+      "mutating": false
     },
     {
       "verb": "telegram-forget",
@@ -607,6 +666,13 @@
       "featured": false
     },
     {
+      "key": "pipedrive",
+      "label": "Pipedrive",
+      "category": "Comms",
+      "auth": "oauth",
+      "featured": false
+    },
+    {
       "key": "hubspot",
       "label": "HubSpot",
       "category": "Comms",
@@ -653,6 +719,41 @@
       "label": "MongoDB",
       "category": "Data",
       "auth": "token",
+      "featured": false
+    },
+    {
+      "key": "slack",
+      "label": "Slack",
+      "category": "Comms",
+      "auth": "token",
+      "featured": false
+    },
+    {
+      "key": "mailchimp",
+      "label": "Mailchimp",
+      "category": "Comms",
+      "auth": "token",
+      "featured": false
+    },
+    {
+      "key": "wordpress",
+      "label": "WordPress",
+      "category": "Web",
+      "auth": "token",
+      "featured": false
+    },
+    {
+      "key": "shopify",
+      "label": "Shopify",
+      "category": "Payments",
+      "auth": "account",
+      "featured": false
+    },
+    {
+      "key": "xero",
+      "label": "Xero",
+      "category": "Payments",
+      "auth": "account",
       "featured": false
     },
     {
@@ -756,6 +857,11 @@
       "category": "briefing"
     },
     {
+      "name": "propose-change",
+      "title": "Propose a change to the company brain",
+      "category": "org"
+    },
+    {
       "name": "weekly",
       "title": "Weekly review",
       "category": "briefing"
@@ -771,6 +877,9 @@
     "org-sync",
     "org-pull",
     "org-publish",
+    "team-hub",
+    "team-slack",
+    "team-inbox",
     "backup",
     "brain-push",
     "auto-update",
@@ -789,16 +898,16 @@
     "error"
   ],
   "totals": {
-    "navSections": 7,
+    "navSections": 8,
     "navByFace": {
-      "both": 7
+      "both": 8
     },
-    "memberVerbs": 49,
-    "mutatingVerbs": 34,
-    "connectors": 62,
+    "memberVerbs": 62,
+    "mutatingVerbs": 44,
+    "connectors": 68,
     "featuredConnectors": 6,
-    "engineSkills": 11,
-    "machineryJobs": 15,
-    "surfaceStates": 21
+    "engineSkills": 12,
+    "machineryJobs": 18,
+    "surfaceStates": 24
   }
 }

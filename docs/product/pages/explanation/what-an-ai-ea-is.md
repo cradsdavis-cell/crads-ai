@@ -58,7 +58,9 @@ to name in full: the **Daily brief**, **Inbox triage**, **Follow-ups**,
 **Plan your week**, the **Weekly review**, **Capture the session**,
 **Connect a service**, **Build pages and cards**, **Explain this system**,
 and the **Onboarding interview**. The engine also ships **Write a page**,
-which builds you a page of your own. That is the whole built-in set:
+which builds you a page of your own, and a mineral that belongs to a
+[team](/docs/crads-for-teams) also gets **Propose a change to the company
+brain**. That is the whole built-in set:
 anything beyond it is something you added, and the
 generated table at [every skill your mineral ships with](/docs/skills) is
 the authoritative list, straight from the code, of what each one does.

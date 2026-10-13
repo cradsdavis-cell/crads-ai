@@ -17,13 +17,14 @@
 // recoverable:false, because an offsite blob nobody can decrypt is not a backup.
 //
 // Run: node engine/backup.mjs <state-dir>     (cadence: gen-crontab emits a 03:40 line)
-// Restore: docs/box-restore-runbook.md
+// Restore: node engine/restore.mjs (docs/mineral-restore-runbook.md)
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync, statSync, renameSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PASS_ENV, encryptArgs, decryptArgs } from './lib/snapshot-cipher.mjs';
 
 const stateDir = path.resolve(process.argv[2] || process.env.STATE_DIR || '.');
 if (!existsSync(path.join(stateDir, 'profile.yaml'))) {
@@ -77,7 +78,7 @@ try {
   sh('tar', ['czf', tarPath, '-C', stateDir, ...present]);
 
   mkdirSync(OUT_DIR, { recursive: true });
-  const env = { ...process.env, AIOS_BACKUP_PASSPHRASE: passphrase() };
+  const env = { ...process.env, [PASS_ENV]: passphrase() };
   // WRITE BESIDE, VERIFY, THEN REPLACE (2026-08-20 audit). This encrypted
   // straight over OUT, the single canonical snapshot path, and only decrypted it
   // afterwards to check the round trip. So a failed or truncated run destroyed
@@ -87,13 +88,11 @@ try {
   // costs one rename and means the previous snapshot survives every failure mode
   // between here and the assertions.
   const staged = OUT + '.tmp';
-  sh('openssl', ['enc', '-aes-256-cbc', '-pbkdf2', '-iter', '200000', '-salt',
-    '-in', tarPath, '-out', staged, '-pass', 'env:AIOS_BACKUP_PASSPHRASE'], { env });
+  sh('openssl', encryptArgs(tarPath, staged), { env });
 
   // decrypt-verify + sentinel extraction: a backup that can't restore is theatre
   const verifyTar = path.join(staging, 'verify.tar.gz');
-  sh('openssl', ['enc', '-d', '-aes-256-cbc', '-pbkdf2', '-iter', '200000',
-    '-in', staged, '-out', verifyTar, '-pass', 'env:AIOS_BACKUP_PASSPHRASE'], { env });
+  sh('openssl', decryptArgs(staged, verifyTar), { env });
   const drill = path.join(staging, 'drill');
   mkdirSync(drill);
   sh('tar', ['xzf', verifyTar, '-C', drill]);
@@ -129,7 +128,10 @@ try {
   let offsite = false;
   try {
     sh('git', ['-C', stateDir, 'add', '--', 'backups/']);
-    try { sh('git', ['-C', stateDir, 'commit', '-q', '-m', `backup: nightly state snapshot ${new Date().toISOString().slice(0, 10)}`]); } catch { /* nothing new staged */ }
+    // An explicit identity, as every other engine commit carries: without one a box
+    // (or a CI runner) with no global git identity fails this commit silently, and
+    // the snapshot only reached GitHub with the 03:50 brain push (found 2026-10-13).
+    try { sh('git', ['-C', stateDir, '-c', 'user.name=AI OS kernel', '-c', 'user.email=kernel@ai-os.local', 'commit', '-q', '-m', `backup: nightly state snapshot ${new Date().toISOString().slice(0, 10)}`]); } catch { /* nothing new staged */ }
     const remotes = sh('git', ['-C', stateDir, 'remote']).trim();
     if (remotes) { sh('git', ['-C', stateDir, 'push', '-q']); offsite = true; }
   } catch { /* commit/push best-effort — heartbeat carries the truth */ }

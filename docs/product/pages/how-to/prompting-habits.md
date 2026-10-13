@@ -7,6 +7,8 @@ audience: public
 access: public
 mode: how-to
 order: 230
+pins: engine/box/brain-claude-md.mjs
+reviewed: 2026-10-13
 ---
 
 None of these is a trick. They are the habits of someone who briefs a capable
@@ -65,7 +67,7 @@ of where that matters most.
 
 ## Habit four: match the effort to the job
 
-There is no effort dial on your mineral; the words in your ask do the work.
+You do not need to touch a setting for this; the words in your ask do the work.
 A quick lookup and a careful piece of writing want different amounts of
 thinking, and the assistant calibrates from how you phrase it.
 

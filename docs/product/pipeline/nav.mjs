@@ -23,12 +23,14 @@ export const JOURNEY = [
   {
     id: 'start', title: 'Start here',
     blurb: 'What this is, whether it is for you, and the two words everything else uses.',
-    slugs: ['what-an-ai-ea-is', 'what-a-mineral-is', 'self-hosted-claude', 'faq'],
+    slugs: ['what-an-ai-ea-is', 'faq', 'what-a-mineral-is', 'self-hosted-claude'],
   },
   {
     id: 'setup', title: 'Getting set up',
     blurb: 'From nothing to an assistant that is awake, knows you, and reaches your phone.',
-    slugs: ['get-a-hetzner-api-token', 'get-a-digitalocean-api-token', 'first-hour', 'the-interview', 'your-first-week', 'connect-google', 'connect-telegram',
+    // first-hour leads: its step 3 links the two token pages, so the reader
+    // meets them in the order the walkthrough sends them there.
+    slugs: ['first-hour', 'get-a-hetzner-api-token', 'get-a-digitalocean-api-token', 'the-interview', 'your-first-week', 'connect-google', 'connect-telegram',
       'connect-slack', 'connect-wordpress', 'connect-mailchimp', 'connect-shopify-and-xero'],
   },
   {
@@ -48,7 +50,7 @@ export const JOURNEY = [
     id: 'app', title: 'Every page of the app',
     blurb: "Each screen, opening with the app's own words for it.",
     slugs: ['overview-page', 'your-pebble-page', 'brain-page',
-      'skills-page', 'connections-page', 'secrets-page', 'terminal-page'],
+      'skills-page', 'connections-page', 'secrets-page', 'terminal-page', 'team-page'],
   },
   {
     id: 'running', title: 'Keep it running',
@@ -63,7 +65,7 @@ export const JOURNEY = [
   },
   {
     id: 'reference', title: 'Reference',
-    blurb: 'Generated from the software itself, so it cannot drift.',
+    blurb: 'Lists generated from the software itself, so they cannot drift, plus the words these docs use and where the ideas came from.',
     slugs: ['skills', 'connections', 'machinery-jobs', 'glossary', 'where-these-ideas-come-from'],
   },
   {
@@ -86,8 +88,8 @@ export const DOORS = [
   },
   {
     id: 'build', title: 'I want to set one up', glyph: 'server',
-    lead: 'A token, fifteen minutes of building, and an interview that makes it yours.',
-    slugs: ['get-a-hetzner-api-token', 'first-hour', 'the-interview'],
+    lead: 'A token from Hetzner or DigitalOcean, fifteen minutes of building, and an interview that makes it yours.',
+    slugs: ['get-a-hetzner-api-token', 'get-a-digitalocean-api-token', 'first-hour', 'the-interview'],
   },
   {
     id: 'work', title: 'I want real work out of it', glyph: 'bolt',

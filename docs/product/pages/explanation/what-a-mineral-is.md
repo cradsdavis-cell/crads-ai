@@ -6,7 +6,7 @@ audience: public
 access: public
 mode: explanation
 order: 10
-reviewed: 2026-09-09
+reviewed: 2026-10-13
 pins: wizard/panel/door.html
 ---
 
@@ -36,8 +36,9 @@ interviewed is not onboarding friction, it is the product.
 ## A pebble is your mineral
 
 A **pebble** is what we call one person's mineral: your private workspace.
-The app's sidebar calls the page about the machine itself "Your pebble", and
-the moment the first read lands it takes the name you gave your assistant.
+The app's sidebar calls the page about the machine itself **Your mineral**,
+and the page's title takes the name you gave your assistant as soon as it has
+read the machine.
 Every mineral made since September 2026 is a pebble. You will meet the word
 "rock" in old conversations and old commit messages; it named a community's
 hub in an earlier shape of the product, and there is no such thing any more.
@@ -52,13 +53,15 @@ server from its first boot is yours.
 
 The costs, plainly, because they are the first screen of the wizard too:
 
-- a cloud server, roughly €4 to €30 a month depending on the size you pick,
-  billed to you by your hosting provider
+- a cloud server, billed to you by your hosting provider: at Hetzner about
+  €6 to €21 a month on the Arm machines the wizard picks first (dearer where
+  a location only sells Intel or AMD), at DigitalOcean roughly US$24 to $96,
+  depending on the size you pick
 - your own Claude subscription, billed to you by Anthropic
 - nothing to Crads-AI, ever
 
 Your identity here is your SSH key, not an email or a password. There is no
-sign-in because there is nothing to sign in to: the app on your computer talks
+Crads-AI sign-in because there is no Crads-AI account to sign in to: the app on your computer talks
 straight to your box, and a second computer gets in because a computer you
 already trust [lets it in](/docs/add-another-computer).
 

@@ -154,3 +154,29 @@ jobs:
           files: docker-bake.hcl
           targets: default          # base + member + rock (the `default` group)
           push: true
+      # ARM IS THE DEFAULT MACHINE (2026-10-13): the wizard now builds Hetzner
+      # Arm (cax) servers first, so the arm64 half of every index is what most
+      # new minerals pull, and it was never smoked here (the gate above runs
+      # amd64 only). Both platforms of the pushed per-commit tag are checked
+      # before promote.yml can move :v2 to it, because promote refuses a sha
+      # whose publish run did not succeed. image-smoke.sh reads each native
+      # binary's ELF machine field: under QEMU an amd64 binary that slipped into
+      # the arm64 image would still run, so "it starts" alone proves nothing.
+      - name: Every published name carries both platforms
+        env:
+          TAG: sha-${{ github.sha }}
+        run: |
+          set -euo pipefail
+          for img in crads-base crads-pebble crads-rock ai-os-base ai-os-member ai-os-parent; do
+            plats=$(docker buildx imagetools inspect "${REG}/${img}:${TAG}" --format '{{range .Manifest.Manifests}}{{.Platform.OS}}/{{.Platform.Architecture}} {{end}}')
+            for want in linux/amd64 linux/arm64; do
+              case " $plats " in *" $want "*) ;; *) echo "::error::${img}:${TAG} has no ${want} manifest (has: ${plats})"; exit 1 ;; esac
+            done
+            echo "  ${img}:${TAG}: ${plats}"
+          done
+      - name: Smoke the member image on both platforms
+        run: |
+          set -euo pipefail
+          for p in linux/amd64 linux/arm64; do
+            bash scripts/image-smoke.sh "${REG}/crads-pebble:sha-${{ github.sha }}" "$p"
+          done

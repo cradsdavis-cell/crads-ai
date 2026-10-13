@@ -7,7 +7,7 @@ access: public
 mode: explanation
 order: 5
 pins: engine/team/team-hub.mjs
-reviewed: 2026-10-11
+reviewed: 2026-10-13
 ---
 
 A single assistant knows one person's work. A team needs two things at once:
@@ -65,7 +65,8 @@ way: someone **proposes** it, and the owner approves it.
 
 - A person asks their assistant to propose a change. In Slack, anyone can ask
   the company agent the same way.
-- The company agent puts it in **Waiting for you** on its Team page, with the
+- The company agent puts it in **Waiting for you** on its
+  [Team page](/docs/team-page), with the
   exact lines that change and any warnings: a shared skill reaches every
   assistant on the team, so a skill that downloads things, mentions keys or
   tries to override instructions is flagged.
@@ -117,4 +118,5 @@ company; Claude for each person (company seats or their own plans, your
 choice), billed by Anthropic; and Slack and GitHub as you already use them.
 Nothing is paid to Crads AI unless you want help setting it up.
 
-[Set up a team](/docs/set-up-a-team) walks through it.
+[Set up a team](/docs/set-up-a-team) walks through it, and [the Team
+page](/docs/team-page) shows what the owner and each person see in the app.

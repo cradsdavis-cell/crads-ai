@@ -5,6 +5,8 @@ audience: public
 access: public
 mode: explanation
 order: 299
+pins: engine/box/brain-claude-md.mjs
+reviewed: 2026-10-13
 ---
 
 I did not invent most of what is in this section. I borrowed, and I would
@@ -75,7 +77,8 @@ work is in assembling the right context, not in polishing the prompt. The
 second is the LLM wiki: a body of plain markdown pages that the model reads
 and writes, organised so it can find things, that gets better the more you
 use it. That is what the brain is. Eight layers of markdown in a repository
-you own, read at the start of every session, grown by correction and capture.
+you own, the two that shape every reply loaded at the start of every session,
+grown by correction and capture.
 
 Where to find him: [karpathy.ai](https://karpathy.ai).
 

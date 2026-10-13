@@ -1,7 +1,7 @@
 ---
 name: capture
 title: "Capture the session"   # human name shown on the Skills page (2026-08-09 audit R6); the slash id stays as a chip
-description: End-of-session sweep. Scans the conversation AND any configured capture sources (meetings, comms), diffs against the client's brain + tasks + calendar, proposes the updates that should have been written but weren't, confirms, writes.
+description: End-of-session sweep. Scans the conversation AND any configured capture sources (meetings, comms), diffs against your brain, tasks and calendar, proposes the updates that should have been written but weren't, confirms, writes.
 category: capture         # Skills-page grouping (briefing|capture|comms|box|org|other), wire vocabulary, not copy
 generic: true        # config-driven; no client-specific values in this file
 reads_profile:
@@ -134,22 +134,15 @@ Calendar: 1 moved. CRM: proposing lead update, <name>.
 ---
 
 ### Genericisation notes
-Lifted from the Sam-coupled original → now config (or dropped):
-| Was hard-coded | Now reads from |
+Config this skill reads (nothing about any person is written into this file):
+| Concern | Reads from |
 |---|---|
-| Otter as primary meeting tool + its 4 MCP tools + sweep log | a `profile.capture.sources` entry (`provider`-driven) |
-| Slack sweep + hard-coded workspace DM channel IDs | a `profile.capture.sources` entry gated on `accounts.messaging.slack` |
-| Granola sweep (already retired) | dropped: Sam-specific |
-| 5-type meeting taxonomy (WC / Consulting / Career / PhD / Personal) | `profile.classifications` |
-| Named routing targets (`short-term-income`, `wildly-calm`, `long-term-career`, `phd` projects; `matt-cleary`, etc.) | classification routing + `profile.capture.brain_path` |
-| WC `_TEMPLATE - Meeting Minutes` Drive doc auto-fill | dropped: Sam-specific (a classification's routing can name a doc template if a client needs one) |
-| `notes/` / `decisions/log.md` / `notes/system/*-sweep-log.md` paths | `profile.capture.brain_path` |
-| `mcp__todoist__*`, `mcp__otter__*`, `mcp__slack__*` tool names | provider abstraction (`accounts.tasks.provider`, source `provider`) |
-| a hard-coded timezone / calendar address | `profile.identity.timezone` / `profile.accounts.calendar.calendar_id` |
-| Leads Sheet diff-and-confirm discipline | generic CRM surface + `comms.outbound_policy` |
-| `/lead`, `/meeting`, `/thread`, `/morning` skill cross-refs + deep-dive escalation | dropped: depend on Sam's specific skill set |
-| memory anchors (`feedback_*`) | dropped: Sam-specific (intent folded into the task filter + rules) |
+| meeting and message sources | `profile.capture.sources` (`provider`-driven; Slack gated on `accounts.messaging.slack`) |
+| meeting types and where things are filed | `profile.classifications` + `profile.capture.brain_path` |
+| tasks | `profile.accounts.tasks.provider` (provider-agnostic) |
+| timezone and calendar | `profile.identity.timezone` / `profile.accounts.calendar.calendar_id` |
+| what may be sent or written without asking | `comms.outbound_policy` |
 
 ## Summary line (run history)
 
-End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the member's app (run history); without it the last output line is used.
+End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the app (run history); without it the last output line is used.

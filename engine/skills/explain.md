@@ -69,4 +69,4 @@ Plain, direct, friendly. You are the system explaining itself to its owner. No j
 
 ## Summary line (run history)
 
-End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the member's app (run history); without it the last output line is used.
+End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the app (run history); without it the last output line is used.

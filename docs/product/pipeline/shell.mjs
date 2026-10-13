@@ -107,6 +107,14 @@ const STYLE = `
   .docs-kbd { font-family: var(--sans); font-size: 10.5px; font-weight: 600;
     color: var(--ink-faint); border: 1px solid var(--rule); border-bottom-width: 2px;
     border-radius: 5px; padding: 1px 5px; background: var(--bg-soft); }
+  /* The shortcut hint is for a keyboard. On a phone, a tablet, or any narrow
+     screen there is no Command key to press, so the hint is noise (and it
+     crowds the field): hide it and give the text its room back. */
+  @media (max-width: 820px), (hover: none), (pointer: coarse) {
+    .docs-search-in-wrap .docs-kbd { display: none; }
+    .docs-search-in { padding-right: 12px; }
+    .docs-search-in-wrap.hero .docs-search-in { padding-right: 16px; }
+  }
   .docs-side .navhome { display: block; font-size: 13px; font-weight: 600;
     color: var(--ink-soft); text-decoration: none; padding: 4px 0 10px; }
   .docs-side .navhome:hover { color: var(--accent-deep); }
@@ -254,6 +262,25 @@ const STYLE = `
   .docs-article figure.diagram figcaption { font-family: var(--sans); font-size: 12.5px;
     color: var(--ink-faint); margin-top: 10px; }
   .docs-article figure.diagram text { font-family: var(--sans); }
+  /* Wide diagrams borrow the on-page rail's column on desktop (2026-10-13).
+     With the rail showing, the text column is about 520px, and a diagram
+     drawn 824 units wide rendered its labels at 7 to 8px. So above the rail
+     breakpoint a diagram spans the text column plus the gap plus the 200px
+     rail, capped at 760px and centred on that span; the rail fades while a
+     diagram passes under it (script below). It never reaches past the shell,
+     so nothing scrolls sideways. At 1080px and below the rail is gone and the
+     text column is already the full content width; below 600px the stacked
+     narrow drawing (diagrams.mjs) takes over. */
+  @media (min-width: 1081px) {
+    .docs-article figure.diagram {
+      --dgm-span: calc(100% + var(--space-4) + 200px);
+      position: relative; z-index: 1; background: var(--bg-main);
+      width: min(760px, var(--dgm-span));
+      margin-left: calc((var(--dgm-span) - min(760px, var(--dgm-span))) / 2);
+    }
+    .docs-toc { transition: opacity .15s ease; }
+    .docs-toc.under { opacity: 0; pointer-events: none; }
+  }
 
   /* ---- on-page rail, scroll-spied ------------------------------------------ */
   .docs-toc { position: sticky; top: var(--space-3); font-family: var(--sans); font-size: 12.5px; }
@@ -415,6 +442,26 @@ const STYLE = `
         var h = document.getElementById(id);
         if (h) io.observe(h);
       });
+    }
+
+    // A wide diagram borrows the rail's column on desktop (see the CSS), so the
+    // rail steps aside while one passes beneath it. rAF-throttled, read-only.
+    var rail = document.querySelector('.docs-toc');
+    var wide = Array.prototype.slice.call(document.querySelectorAll('.docs-article figure.diagram'));
+    if (rail && wide.length && window.matchMedia) {
+      var desk = window.matchMedia('(min-width: 1081px)');
+      var queued = false;
+      var check = function () {
+        queued = false;
+        if (!desk.matches) { rail.classList.remove('under'); return; }
+        var t = rail.getBoundingClientRect();
+        var hit = wide.some(function (f) { var r = f.getBoundingClientRect(); return r.bottom > t.top && r.top < t.bottom; });
+        rail.classList.toggle('under', hit);
+      };
+      var later = function () { if (!queued) { queued = true; requestAnimationFrame(check); } };
+      window.addEventListener('scroll', later, { passive: true });
+      window.addEventListener('resize', later);
+      check();
     }
 
     // Search: the index ships with the page (window.__DOCS_INDEX__, built at

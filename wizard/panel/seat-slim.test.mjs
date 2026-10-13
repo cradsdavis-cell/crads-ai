@@ -23,8 +23,8 @@ test('the hand-ownership ask is RETIRED (2026-09-01), and so is the receiving en
   // Nothing central can stage one any more, so the accept path went with it
   // and the Waits card renders one honest static line instead.
   assert.ok(!html.includes("run('transfer-accept'"), 'the accept path stays gone');
-  assert.ok(html.includes("$('seatWaits').textContent = 'Nothing needs your answer.';"),
-    'the Waits card is honestly empty');
+  assert.ok(!html.includes('id="seatWaitsCard"'),
+    'and the Waits card those fed is gone too (2026-10-13): it could only ever say nothing');
 });
 
 test('promote is RETIRED (2026-09-01): there is no rock edition to promote into', () => {

@@ -119,7 +119,7 @@ test('the snapshot is staged beside the real one and only replaces it once verif
   const src = readFileSync(new URL('./backup.mjs', import.meta.url), 'utf8');
   const staged = src.indexOf("const staged = OUT + '.tmp'");
   const rename = src.indexOf('renameSync(staged, OUT)');
-  const verify = src.indexOf("'-in', staged, '-out', verifyTar");
+  const verify = src.indexOf('decryptArgs(staged, verifyTar)');   // the cipher flags live in lib/snapshot-cipher.mjs since 2026-10-13
   assert.ok(staged > -1 && rename > -1 && verify > -1, 'staging, verify and promote all present');
   assert.ok(staged < verify, 'the blob is written to the staging path first');
   assert.ok(verify < rename,

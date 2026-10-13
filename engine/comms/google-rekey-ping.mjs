@@ -120,7 +120,7 @@ async function probe(key, g) {
   const who = g.email ? ` for ${g.email}` : '';
   mkdirSync(OUTBOX, { recursive: true });
   writeFileSync(path.join(OUTBOX, `google-rekey-dead-${key}-${g.keyed_at}.json`),
-    JSON.stringify({ chat_id: chatId, text: `Your Google sign-in${who} has stopped working (Google dropped the key), so your scheduled jobs cannot reach that Gmail or Calendar until you sign in again. Two clicks in your Crads-AI app: Connections, then ${row}, then Sign in.` }) + '\n');
+    JSON.stringify({ chat_id: chatId, text: `Your Google sign-in${who} has stopped working (Google dropped the key), so your scheduled jobs cannot reach that Gmail or Calendar until you sign in again. To fix it, open your Crads-AI app, go to Connections, find ${row} and press Sign in.` }) + '\n');
   slot.dead_sent_at = now;
   save();
   return { sent: 'dead' };

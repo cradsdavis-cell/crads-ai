@@ -71,19 +71,25 @@ export function snapshot(dir = stateDir) {
 
 // Plain words per field: what changed and what it means, no jargon the member
 // has to decode. Each returned string is one event.
+//
+// Self-host restatement (2026-10-13): communities were removed on 2026-09-09,
+// so the owner/anchor/transfer/evict/re-anchor fields can only move on an OLD
+// community mineral whose files a community once wrote. The wording says
+// "community" (never rock or Mountain) and points at help that exists: the
+// Help page's Support access card, not a person's name.
 export function describe(prev, cur) {
   const ev = [];
   if (prev.owner !== cur.owner) {
     ev.push(cur.owner === 'org'
-      ? `OWNERSHIP CHANGED: this mineral is now owned by your rock${cur.owner_slug ? ` (${cur.owner_slug})` : ''}. Its brain syncs to the rock's repo from now on. If you did not accept a transfer in your app, tell Sam immediately.`
-      : `OWNERSHIP CHANGED: this mineral is now member-owned (yours). Nobody else can read it.`);
+      ? `OWNERSHIP CHANGED: this mineral is now owned by your community${cur.owner_slug ? ` (${cur.owner_slug})` : ''}. Its brain syncs to the community's repository from now on. If you did not accept a transfer in your app, something is wrong: open Help in your app and grant Crads AI support access so it can be looked at.`
+      : `OWNERSHIP CHANGED: this mineral is now yours alone. Nobody else can read it.`);
   } else if (prev.owner_slug !== cur.owner_slug && cur.owner === 'org') {
-    ev.push(`Owner rock changed: ${prev.owner_slug || '(none)'} -> ${cur.owner_slug || '(none)'}.`);
+    ev.push(`Owning community changed: ${prev.owner_slug || '(none)'} -> ${cur.owner_slug || '(none)'}.`);
   }
   if (prev.anchor !== cur.anchor) {
     ev.push(cur.anchor === 'crads-ai'
-      ? `Anchor changed: this mineral is no longer anchored to ${prev.anchor || 'a rock'}; it is anchored to Crads-AI (the Mountain) again.`
-      : `Anchor changed: this mineral is now anchored to ${cur.anchor}${prev.anchor ? ` (was ${prev.anchor})` : ''}.`);
+      ? `Community link changed: this mineral is no longer linked to ${prev.anchor || 'a community'}; it stands on its own again.`
+      : `Community link changed: this mineral is now linked to ${cur.anchor}${prev.anchor ? ` (was ${prev.anchor})` : ''}.`);
   }
   if (prev.holder !== cur.holder && (prev.holder || cur.holder)) {
     ev.push(`Holder changed: ${prev.holder || '(none)'} -> ${cur.holder || '(none)'}.`);
@@ -98,21 +104,21 @@ export function describe(prev, cur) {
   }
   if (prev.transfer_in !== cur.transfer_in) {
     ev.push(cur.transfer_in
-      ? `Your rock has asked to take custody of this mineral (invited ${cur.transfer_in.split(':')[1] || 'today'}). Nothing happens unless you accept in your app.`
-      : `The transfer-to-rock invitation was withdrawn or completed.`);
+      ? `Your community has asked to take custody of this mineral (invited ${cur.transfer_in.split(':')[1] || 'today'}). Nothing happens unless you accept in your app.`
+      : `The transfer-to-community invitation was withdrawn or completed.`);
   }
   if (prev.grant_in !== cur.grant_in) {
     ev.push(cur.grant_in
-      ? `Your rock offers to hand custody of this mineral to you. Accept in your app when ready.`
+      ? `Your community offers to hand custody of this mineral to you. Accept in your app when ready.`
       : `The custody-to-you offer was withdrawn or completed.`);
   }
   if (prev.evict !== cur.evict && cur.evict) {
     const [org] = cur.evict.split(':');
-    ev.push(`${org || 'Your rock'} ended your membership. Your mineral, brain and seat continue; it re-anchors to Crads-AI.`);
+    ev.push(`${org || 'Your community'} ended your membership. Your mineral and brain carry on, and it stands on its own from now on.`);
   }
   if (prev.reanchor !== cur.reanchor && cur.reanchor) {
     const [na] = cur.reanchor.split(':');
-    ev.push(`Your anchor is moving to ${na || 'a new rock'} (re-anchor notice received).`);
+    ev.push(`Your community link is moving to ${na || 'a new community'} (notice received).`);
   }
   return ev;
 }
@@ -142,7 +148,7 @@ export function run(dir = stateDir, { now = new Date(), notify = true } = {}) {
     try { chatId = readFileSync(chatF, 'utf8').trim(); } catch { /* no telegram link */ }
     if (chatId) {
       mkdirSync(outbox, { recursive: true });
-      const text = `Custody / access change on your mineral:\n\n${events.map((e) => `• ${e}`).join('\n')}\n\nFull history: your app, Custody log.`;
+      const text = `Custody or access change on your mineral:\n\n${events.map((e) => `• ${e}`).join('\n')}\n\nFull history: custody-log.jsonl on your mineral (ask your assistant to show it).`;
       writeFileSync(path.join(outbox, `custody-${now.getTime()}.json`), JSON.stringify({ chat_id: chatId, text, job: 'custody-watch' }) + '\n');
       sent = true;
     }

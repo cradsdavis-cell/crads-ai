@@ -560,10 +560,10 @@ const argAt = process.argv.indexOf('--at');
 // DISPLAY carries only the human wording. A job with no entry still renders,
 // using its own name, because a silent omission is the failure this had.
 const DISPLAY = {
-  heartbeat: { note: 'status metadata to a managing organisation, if this mineral has one' },
-  'org-sync': { note: 'pulls anything a managing organisation has staged for this mineral, if enrolled' },
-  'org-pull': { note: 'refreshes a shared organisation brain (if enrolled)' },
-  'org-publish': { note: 'nightly extracts to a shared organisation brain (if enrolled)' },
+  heartbeat: { note: 'notes once an hour that this mineral is alive and signed in, for the Health card, and refreshes STATE.md; it stays on the mineral' },
+  'org-sync': { note: 'only on old community minerals, where it pulled what the community staged; never on a mineral of your own', pebble: false },
+  'org-pull': { note: 'refreshes the company brain and its shared skills, on a mineral in a team; does nothing otherwise' },
+  'org-publish': { note: 'publishes facts from your work (never your personal/ folder) to the company brain each night, on a mineral in a team' },
   'team-hub': { note: 'merges what each person published into the company brain (company agent only)' },
   'team-slack': { note: 'keeps the company agent answering in Slack, once Slack is connected (company agent only)' },
   'team-inbox': { note: 'triages the shared inbox into the company brain, read only, once the owner switches it on (company agent only)' },
@@ -571,17 +571,17 @@ const DISPLAY = {
   'brain-push': { note: 'pushes your brain to your own private repo' },
   'auto-update': { note: 'restart onto the software Crads-AI published' },
   'seen-drain': { note: 'keeps the "last seen" column of the device roster on Your mineral true' },
-  reconcile: { note: 'applies registry changes this box has not caught up with', pebble: false },
-  'heartbeat-pull': { note: 'pulls each member check-in so the roster tells the truth', pebble: false },
+  reconcile: { note: 'only on old community servers, where it applied registry changes; never on a mineral of your own', pebble: false },
+  'heartbeat-pull': { note: 'only on old community servers, where it gathered the check-ins of the minerals it ran; never on a mineral of your own', pebble: false },
   'mcp-refresh': { note: 'refreshes your connected services' },
   'google-rekey': { note: 'checks your Google sign-in still works, and tells you once if it ever stops' },
-  'custody-watch': { note: 'tells you the moment ownership, anchor, support or access grants change' },
+  'custody-watch': { note: 'tells you the moment support access, or any other access grant to this mineral, changes' },
   'gh-refresh': { note: 'renews the GitHub credential your backups use' },
   // pebble: false marks the control-plane jobs whose match or guard can never
   // fire on a member box (no control/ dir, or org-box gated). The docs
   // generator's Pebble column reads this field; the app's Health card only ever
   // shows jobs the box actually schedules, so it needs nothing from it.
-  'state-md': { note: 'rewrites STATE.md, the page your assistant reads about this mineral', pebble: false },
+  'state-md': { note: 'only on old community servers, where it rewrote STATE.md; on yours the hourly check-in does this', pebble: false },
 };
 
 // "every 2 min", "hourly at :07", "03:40" — read off the SAME match function the

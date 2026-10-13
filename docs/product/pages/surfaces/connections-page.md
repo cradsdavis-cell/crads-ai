@@ -7,12 +7,12 @@ mode: reference
 surface: connections
 order: 108
 pins: engine/comms/mcp-connect.mjs, wizard/panel/mcp-catalogue.mjs, wizard/panel/google-connect-routes.mjs
-reviewed: 2026-10-06
+reviewed: 2026-10-13
 ---
 
 *What your assistant can reach.*
 
-Every outside service your mineral is wired to, and whether it is working, in
+Every outside service your mineral is connected to, and whether it is working, in
 plain words. Read from your mineral when you open the page, so it is the
 current answer rather than a remembered one.
 
@@ -133,6 +133,15 @@ in scheduled jobs. The **Claude account** filter shows just these.
 [Shopify and Xero, through your Claude account](/docs/connect-shopify-and-xero)
 has the detail.
 
+**More than one account.** Once a Google account is working, the list offers
+**Add another Google account**: a work address, a client's, another Gmail, each
+with its own row and its own key. Slack works the same way once one workspace
+is connected: **Add another Slack workspace** opens the Slack card again with
+one extra field, a short name for the workspace (lowercase letters, numbers
+and dashes), which becomes its row, "Slack (reef)" for example, so your
+assistant can tell your workspaces apart. Each workspace gets its own app and
+its own token.
+
 ## Connect something else, by URL
 
 Anything not in the catalogue can be added from this page: "Anything with an
@@ -203,10 +212,10 @@ statement, in the place you would look. The walkthrough is
 ## When the page cannot answer
 
 Two states look similar and are kept strictly apart. A mineral running older
-software than this page expects is told so, kindly and with the fix: "This
-page needs a newer version of your mineral than it is running. Open the Claude
-Code tab and press Update and restart, then come back here. It takes about a
-minute, and everything of yours stays exactly as it is."
+software than this page expects is told so, kindly and with the fix: it needs
+a newer version of your mineral. Open **Help** and press **Update and
+restart**, then come back. It takes about a minute, and everything of yours
+stays exactly as it is.
 
 A mineral that simply did not respond gets a different sentence, because
 silence is not emptiness: "Your mineral did not answer, so this list is

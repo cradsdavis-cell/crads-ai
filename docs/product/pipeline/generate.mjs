@@ -81,7 +81,7 @@ function skillMeta(file) {
 // do" strip groups skills exactly as the generated Skills page does.
 export const CATEGORY_LABEL = {
   box: 'Your mineral', briefing: 'Briefings', capture: 'Capture',
-  comms: 'Email and messages', org: 'Your community', other: 'Everything else',
+  comms: 'Email and messages', org: 'Your team', other: 'Everything else',
 };
 
 export function skills() {
@@ -228,11 +228,11 @@ function connectionsPage() {
   const GUIDE = { slack: '/docs/connect-slack', wordpress: '/docs/connect-wordpress', mailchimp: '/docs/connect-mailchimp', account: '/docs/connect-shopify-and-xero' };
   const signIn = (c) => (c.guided ? `[${c.auth === 'account' ? 'Claude account' : 'Guided'}](${GUIDE[c.guided]})`
     : c.auth === 'oauth' ? 'One click' : 'Token');
-  const where = (c) => (c.boxKey ? 'Featured' : c.auth === 'account' ? 'Chats only' : 'By URL');
+  const where = (c) => (c.boxKey ? 'Featured' : c.auth === 'account' ? 'Chats only' : c.guided ? 'Guided setup' : 'From the list');
   const body = [`> ${STAMP}`, '',
     `${mineral.length} services your mineral can connect to without you finding an endpoint`,
     `yourself. ${featured} of them ship inside the box as featured connectors; the rest`,
-    'connect by URL from the same page.' + (account.length
+    'are in the list on the same page, and you connect them from there.' + (account.length
       ? ` ${account.length} more (${account.map((c) => c.label).join(' and ')}) are listed so you can find them, but they only`
         + ' connect through your Claude account, so they work in your chats and never in scheduled jobs.' : ''), '',
     'The sign-in column says how you authorise it. **One click** means the service supports',
@@ -240,11 +240,17 @@ function connectionsPage() {
     'token instead, because that endpoint advertises no one-click flow. **Guided** means the',
     'Connections page walks you through making your own key, step by step, and its link is',
     'the same walkthrough in writing. **Claude account** means the service only lets',
-    "Claude's own connector sign in.", '',
-    '**Google is not in this table, and that is not an omission of the product.** Gmail,',
-    'Google Calendar and Google Drive connect through their own wizard on the Connections',
-    'page, with your own key, and [connecting Google](/docs/connect-google) walks the whole',
-    'thing. Everything below connects from the same page in one or two clicks.', '',
+    "Claude's own connector sign in. The last column says where it comes from: **Featured**",
+    'connectors ship inside your mineral, **From the list** ones are in the list on the',
+    'Connections page, **Guided setup** ones have a step-by-step wizard there, and',
+    '**Chats only** ones live in your Claude account.', '',
+    '**Google is not in this table, and that is not an omission of the product.** Google',
+    'Workspace (Gmail, Calendar, Drive, Docs, Sheets, Tasks and Contacts) connects as one',
+    'row, through its own wizard on the Connections page, with your own key, and',
+    '[connecting Google](/docs/connect-google) walks the whole thing. Most services below',
+    'connect in one or two clicks; the ones marked **Guided** take a few minutes of setup',
+    'on your side first, and the ones marked **Claude account** connect in your Claude',
+    'settings, not on your mineral.', '',
     'Absences are deliberate rather than oversights: every endpoint here was probed live',
     'before it was listed, and a service that advertises a connection flow which does not',
     'actually work is left out until it does. If something you use is missing, ask, and it',
@@ -280,13 +286,12 @@ function machineryPage() {
     'card on your **Overview** page. It summarises them in a line ("3 jobs, all fine") and',
     'expands to the individual rows.', '',
     `**Your mineral runs ${onPebble} of these ${rows.length}.** The jobs marked no in the`,
-    'Runs column are control-plane work the scheduler still knows how to do but that',
-    'never fires on a mineral of your own (a member roster to pull health for, a',
-    'shared organisation brain to refresh); they are listed so the table is the whole',
-    'scheduler, not a flattering subset of it.', '',
+    'Runs column belonged to the old community servers, removed in September 2026. The',
+    'scheduler still knows them, but they never fire on a mineral of your own; they are',
+    'listed so the table is the whole scheduler, not a flattering subset of it.', '',
     'A yes does not mean the job fires on every box every day: several jobs guard',
     'themselves to nothing until they apply (no connected services means nothing to',
-    'refresh; no managing organisation means nothing to sync). The column says where',
+    'refresh; a mineral in no team has no company brain to publish to). The column says where',
     'a job *can* run, and the Health card on your Overview says what yours actually',
     'did. The When column is read from the scheduler itself; "when it applies" means',
     'the job has a rhythm only once there is something for it to do.', '',

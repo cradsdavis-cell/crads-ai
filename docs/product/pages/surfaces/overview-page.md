@@ -7,7 +7,7 @@ mode: reference
 surface: dashboard
 order: 100
 pins: wizard/panel/member.html
-reviewed: 2026-09-01
+reviewed: 2026-10-13
 ---
 
 *What your assistant knows and how it is doing.*
@@ -19,11 +19,11 @@ are hoisted to the front rather than left in place.
 
 | Card | Answers |
 |---|---|
-| **Your assistant** | its name, whose it is, and a way straight into a conversation |
+| **Assistant** | its name, whose it is, and where it is up to |
 | **Onboarding** | how much of the interview is done, out of eight layers |
 | **Brain** | how many pages your assistant has to read from |
 | **Skills** | how many are installed, and how many run on a schedule |
-| **What your pebble can do** | each capability, whether it is on, and the way in if it is not |
+| **What your mineral can do** | each capability, whether it is on, and the way in if it is not |
 | **Health** | the jobs your mineral runs by itself, and whether they are fine |
 
 ## Before the cards load
@@ -51,8 +51,9 @@ Each means something different, and only some of them are worth waiting on:
   through. Usually a network hiccup or a mineral mid-restart. Press Try again.
 - **"Your assistant is not running"**: the mineral itself is switched on and
   answering, but the assistant inside it has stopped. The panel says the honest
-  thing: it will not come back on its own, and it cannot be restarted from this
-  app. The technical detail the panel folds away underneath is what to report.
+  thing: it will not come back on its own. It is your own server, so reboot it
+  from your hosting console; if that does not bring it back, the technical
+  detail the panel folds away underneath says why.
 - **"This computer has not been let in yet"**: the mineral is up and answering,
   it just does not know this computer. A machine that already opens the
   mineral is what lets a new one in:
@@ -62,9 +63,9 @@ Each means something different, and only some of them are worth waiting on:
 
 Until onboarding is finished, a banner sits at the top: "Your assistant is
 ready to meet you." with the reassurance "Right here, nothing to install. One
-sign-in to Claude and you're talking." Its button opens the Terminal and runs
-a scripted introduction for you, so your first conversation starts without you
-having to know what to type.
+sign-in to Claude and you're talking." Its button, **"Meet your assistant"**,
+opens the Terminal and runs a scripted introduction for you, so your first
+conversation starts without you having to know what to type.
 
 Once onboarding completes, the banner goes and a hero strip takes over from the
 Assistant card: your assistant's name, large, and the button becomes
@@ -81,7 +82,7 @@ that.
 line before expanding to the individual jobs. It is the only card that tells you
 something is wrong before you notice the symptom.
 
-**"What your pebble can do" is the map of what is still switched off.** Each row
+**"What your mineral can do" is the map of what is still switched off.** Each row
 either says it is ready, or links to the thing that turns it on. Working down that
 list is a reasonable definition of setting your mineral up properly.
 
@@ -95,8 +96,9 @@ nothing is hidden, just not shouted):
 - **"Not sure yet"**: the mineral has not reported a status yet.
 - **"Mostly working"**: something is degraded but retrying. It keeps retrying
   on its own; if it hangs around, mention it to your assistant.
-- **"Not working right now"**: a real failure worth a Refresh first, and worth
-  reporting if it stays.
+- **"Not working right now"**: a real failure. The card says what to try:
+  Refresh first; if it stays, restart the mineral from Help, or reboot the
+  server from your hosting console.
 
 Under the headline sits "Checked N ago" (the exact time is on hover), then a
 one-line summary of the machinery: "3 jobs, all fine", or "1 of 3 needs a
@@ -106,16 +108,17 @@ you the failing row without a click.
 
 The rows are the protected jobs from
 [the jobs your mineral runs by itself](/docs/machinery-jobs), relabelled for
-humans: the heartbeat shows as **"Status check-in"**, the update job as
-**"Software updates"**, the backup as **"Nightly backup"**. Each carries a
-chip: **on**, **failed**, **opted out** (updates switched off deliberately), or
-**checking** while the first report is still on its way. The backup row defers
-to the Backup card on Your pebble until it has a real run to answer for, rather
-than claiming a success it cannot show.
+humans: **"Software updates"**, **"Nightly backup"**, and the heartbeat (the
+mineral's own note that it is alive and signed in, which never leaves the
+mineral). Each carries a chip: **on**, **failed**, **opted out** (updates
+switched off deliberately), or **checking** while the first report is still on
+its way. The backup row says **see Backup** and defers to the Backup card on
+Your mineral until it has a real run to answer for, rather than claiming a
+success it cannot show; once it has one, its chip says when it ran.
 
 ## The capability ladder, concretely
 
-The "What your pebble can do" card has two halves. The left is three rungs, in
+The "What your mineral can do" card has two halves. The left is three rungs, in
 order: **"Sign in to Claude on your mineral"**, **"Onboard your brain"**,
 **"Make your first backup"**. The right is what those rungs open: run scheduled
 tasks, add another device, connect email and calendar, and message it on
@@ -136,14 +139,14 @@ not checked yet" is not something you can act on.
 ## The two sign-ins that are not the same sign-in
 
 The single most common Overview confusion. Connecting the Claude Code desktop
-app signs in **your laptop**, which reaches into your mineral over SSH. That is
+app signs in **this computer**, which reaches into your mineral over SSH. That is
 an extra, not a step: it does not sign the mineral itself in, so scheduled jobs
 stay off and the ladder's first rung stays unticked however long the app is
 connected.
 
 The mineral's own credential is written one way: open the Terminal tab and run
 `claude` once. The ladder says so on the rung ("Open the Terminal tab and run
-claude once. The desktop app signs in your laptop, not this mineral"), and its
+claude once. The desktop app signs in this computer, not this mineral"), and its
 **Open Terminal** button lands you in the Terminal with the command already
 typed. Nothing to read, nothing to work out.
 
@@ -175,7 +178,8 @@ separate, and live under **Your pages** in the sidebar.
 Those separate pages deserve a word here, because this is where you go looking
 for them. **Your pages** is a sidebar section that appears once your mineral
 has any: pages you and your assistant build together, by asking for them
-("build me a page that shows X") through the **Build pages & cards** skill.
+("build me a page that shows X") or by running `/write-page`. They are also
+listed, with a **Remove** button each, on [Your mineral](/docs/your-pebble-page).
 
 Each page carries its provenance. One your assistant seeded as a starting
 point wears an "Example page" chip. Every page has a **Delete** button, and the confirmation
@@ -190,3 +194,16 @@ pages, read-only. So a badly built page, even one a misbehaving assistant
 wrote, can deface itself but cannot touch your data, your settings, or the
 outside world. The worst a bad page can do is look wrong, and Delete is right
 there.
+
+## If your mineral is part of a team
+
+On a mineral set up with [Crads for Teams](/docs/crads-for-teams), a **Team**
+tab appears in the sidebar. On the company agent it holds the owner's
+approvals (**Waiting for you**, with a count on the tab when something is
+waiting), the shared inbox and the company agent in Slack; on each person's
+assistant it explains how the company brain works for them. The footer line
+under the sidebar changes too, because on a team mineral "nothing here is
+visible to anyone else" stops being true: facts from your work are published
+to the company brain, and your company owns the server. [The Team page](/docs/team-page) covers
+both views, and the owner's side is walked through in
+[set up a team](/docs/set-up-a-team).

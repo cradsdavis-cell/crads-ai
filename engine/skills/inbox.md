@@ -24,15 +24,15 @@ writes:
 
 Triage unread inbox in buckets. Reply-owed and active-context threads stay unread and surface. Legit FYI gets marked read. Junk gets archived. Bulk-confirm before any writes. **Everything client-specific comes from `/state/profile.yaml`, this skill hard-codes nothing about any person, label, or address.**
 
-> **Mail source (architecture, D3).** This product does NOT read the client's Gmail API. The client auto-forwards mail to an operator-owned mailbox, `profile.accounts.inbox_triage.forwarding_mailbox`. All reads + label writes target THAT mailbox. There is no per-client custom-label classifier; buckets are config-driven (`profile.inbox.buckets`).
+> **Mail source.** Read the person's own mailbox through the mail connection on this mineral: the Google Workspace connection (Gmail), set up on the app's Connections page with their own key, or any other mail connection they added there. Nothing passes through anyone else's mailbox. If `profile.accounts.inbox_triage.forwarding_mailbox` is set, an older setup forwarded mail there: read and label that mailbox instead. If neither exists, say so and stop. There is no custom-label classifier; buckets are config-driven (`profile.inbox.buckets`).
 
 ## Trigger
 - `/inbox`, full triage pass
 - `/inbox --dry-run`, surface proposed buckets, skip the confirm/write step (trust-building mode)
 - Chained from the morning brief (`/daily`) when inbox triage is wanted
 
-## 1. Pull all unread in the forwarding mailbox
-Search the mailbox at `profile.accounts.inbox_triage.forwarding_mailbox` for `is:unread in:inbox`, page_size 50. Paginate up to the email cap (`profile.inbox.cap`, default 100).
+## 1. Pull all unread in the mailbox
+Search the mailbox (see Mail source) for `is:unread in:inbox`, page_size 50. Paginate up to the email cap (`profile.inbox.cap`, default 100).
 If more than the cap returned: process the first `cap`, surface footer `⚠ N more unread beyond the {cap}-email cap, run /inbox again after this round.`
 *(If `accounts.inbox_triage.enabled` is false, skip, say so, don't invent.)*
 
@@ -116,7 +116,7 @@ Apply writes? (y = both / m = mark-read only / a = archive only / skip / edit: <
 This is the `profile.comms.outbound_policy: propose-confirm` contract (D4) applied to label writes, nothing changes without explicit approval.
 
 ## 7. Apply writes
-At most 2 batched label calls against the forwarding mailbox:
+At most 2 batched label calls against the same mailbox:
 1. **Mark-as-read batch:** remove `UNREAD`
 2. **Archive batch:** remove `UNREAD` + `INBOX`
 Skip a call if its bucket is empty.
@@ -139,22 +139,17 @@ Triaged N. Open loops: {{count}} ({{m}} reply / {{m}} flag). Marked read: {{coun
 ---
 
 ### Genericisation notes (delete once stable)
-Lifted from the Sam-coupled original → now config:
-| Was hard-coded | Now reads from |
+Config this skill reads (nothing about any person, label or address is written into this file):
+| Concern | Reads from |
 |---|---|
-| a hard-coded mailbox / `is:unread in:inbox` on one Gmail | `profile.accounts.inbox_triage.forwarding_mailbox` (forwarding-mailbox model, D3) |
-| `AEST` | `profile.identity.timezone` |
-| 9 custom Gmail labels (Pipeline / Applications / Network / PhD / Wildly-Calm / Personal / Noise / USYD-Admin / `?Review`) | dropped: Sam-specific; replaced by `profile.classifications` categories |
-| Apps Script classifier + Override Sheet additions (Step 8) | dropped: Sam-specific; no per-client custom classifier in this product |
-| `notes/people/` tier scan (core/live/warm) | `profile.classifications` (match → category → action) |
-| `notes/applications/` stage scan + org/contact slugs | dropped: Sam-specific; generic equivalent = a `profile.classifications` "booked_client"/"supplier" category |
-| Leads Sheet `Leads!A2:M50` active rows | `profile.classifications` + `profile.priorities.source` |
-| `decisions/log.md` tail | recent decisions in client state |
-| `mcp__todoist__find-tasks` | `profile.accounts.tasks` (provider-agnostic) |
-| `notes/_layers/6-goals.md` priorities | `profile.priorities.source` |
-| 100-email hard cap | `profile.inbox.cap` |
-| PhD-label / Matt-Clara-RECS open-loop rule | dropped: Sam-specific |
+| mail | the mailbox connected on this mineral (see Mail source), or `profile.accounts.inbox_triage.forwarding_mailbox` when an older setup set one |
+| timezone | `profile.identity.timezone` |
+| who matters and how to act | `profile.classifications` (match, category, action) |
+| buckets | `profile.inbox.buckets` |
+| tasks | `profile.accounts.tasks` (provider-agnostic) |
+| priorities | `profile.priorities.source` |
+| how many per run | `profile.inbox.cap` |
 
 ## Summary line (run history)
 
-End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the member's app (run history); without it the last output line is used.
+End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the app (run history); without it the last output line is used.

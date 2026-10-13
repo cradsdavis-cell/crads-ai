@@ -180,6 +180,10 @@ $35/mo pass-through, seat fees, and tier pricing are gone with the billing code.
   free, no schedules, only awake when you are". Built on branch `local-face`;
   design + v1 gap list in `docs/local-face-design.md`. Owed: a run on a real Windows
   machine, the docs page, and the one-click Claude Code open (v1 is a path to copy).
+  **Retired from the door 2026-10-13 (Sam: "It should all be in the cloud. Makes things
+  less confusing."):** new minerals are made on a server only; existing brain folders still
+  list and open; the code stays, dormant, behind `OFFER_LOCAL_CREATE` in
+  `wizard/panel/door.html`. See `docs/local-face-design.md` § Retired from the door.
 
 ## 8. Addendum — what the 1 Sep strip run established
 

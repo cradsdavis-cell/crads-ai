@@ -41,7 +41,7 @@ If `profile.accounts.tasks.enabled`, query the configured provider (`profile.acc
 *(If tasks disabled, skip, say so, don't invent.)*
 
 ## 2. Unanswered messages (inbox)
-If `profile.accounts.inbox_triage.enabled`, scan the configured source. Per decisions D3, v1 reads the **forwarding mailbox** (`profile.accounts.inbox_triage.forwarding_mailbox`), NOT the client's own inbox API, unless `mode: "api"`.
+If `profile.accounts.inbox_triage.enabled`, scan the person's own mailbox through the mail connection on this mineral (the Google Workspace connection, Gmail, set up on the app's Connections page with their own key, or any other mail connection they added there). If `profile.accounts.inbox_triage.forwarding_mailbox` is set, an older setup forwarded mail there: read that mailbox instead. No mail connection and no forwarding mailbox → skip this section, say so, don't invent.
 
 **Who counts as a key contact = `profile.classifications`** (not a hard-coded list). For each classification whose `category` marks it relationship-load-bearing (e.g. `booked_client`, `enquiry`, `supplier`, `personal`), find inbound threads from a sender matching its `match` patterns where the client hasn't replied. Flag:
 - Unread threads from key contacts
@@ -116,20 +116,16 @@ Prune to max 20 entries, drop the oldest.
 ---
 
 ### Genericisation notes (delete once stable)
-Lifted from the Sam-coupled original → now config:
-| Was hard-coded | Now reads from |
+Config this skill reads (nothing about any person is written into this file):
+| Concern | Reads from |
 |---|---|
-| a hard-coded mailbox (Gmail API scan) | `profile.accounts.inbox_triage.forwarding_mailbox` (D3 forwarding model) |
-| `AEST` | `profile.identity.timezone` |
-| a personal key-contact list | `profile.classifications` (match patterns + category + badge) |
-| a personal WhatsApp key-contact list | `profile.accounts.messaging.whatsapp` + `profile.classifications` |
-| Slack IC workspace + hard-coded channel IDs (#help-needed, #opportunities-recommendations) | `profile.accounts.messaging.slack` + `profile.classifications` (generic DM/@-mention scan; IC-specific channel scans dropped: Sam-specific) |
-| Todoist MCP calls + LinkedIn-draft-rot flag | `profile.accounts.tasks` (provider-agnostic); LinkedIn-rot dropped: Sam-specific |
-| `notes/projects/*/README.md` (named project list) | `wiki/projects/` (whatever the client's wiki holds) |
-| `notes/people/` named-person checks | `wiki/people/` + `profile.classifications` |
-| Leads Tracker Sheet + `.claude/config/leads-sheet.yaml` + `staleness-thresholds` | dropped: Sam-specific (CRM-as-Sheet); generic equivalent folds into §4 people-in-limbo |
-| `[[flows/followup]]`, `notes/areas/pipeline.md` supersession notes | dropped: Sam-specific wiki artefacts |
+| mail | the mailbox connected on this mineral (see § 2), or `profile.accounts.inbox_triage.forwarding_mailbox` when an older setup set one |
+| timezone | `profile.identity.timezone` |
+| key contacts | `profile.classifications` (match patterns + category + badge) |
+| messaging | `profile.accounts.messaging.whatsapp` / `.slack` + `profile.classifications` |
+| tasks | `profile.accounts.tasks` (provider-agnostic) |
+| projects and people | `wiki/projects/`, `wiki/people/` |
 
 ## Summary line (run history)
 
-End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the member's app (run history); without it the last output line is used.
+End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the app (run history); without it the last output line is used.

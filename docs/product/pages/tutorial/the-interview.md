@@ -51,7 +51,7 @@ who walks away mid-interview comes back to something with a name rather than to
 "your assistant".
 
 **One name, everywhere.** The mineral and the assistant share it: the sidebar,
-your pebble page and the greeting all say the same word, and the Rename button
+the **Your mineral** page and the greeting all say the same word, and the Rename button
 changes that one thing. Renaming never touches the address, the
 connection or the keys.
 

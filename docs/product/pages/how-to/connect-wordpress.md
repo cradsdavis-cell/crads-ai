@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 73
 pins: wizard/panel/member.html, engine/comms/mcp-connect.mjs, wizard/panel/mcp-catalogue.mjs
-reviewed: 2026-10-02
+reviewed: 2026-10-13
 ---
 
 Your assistant connects to your WordPress site **as a user you make for it**,
@@ -48,10 +48,14 @@ opens the right page on your site.
 
 **Without WooCommerce:**
 
-1. Press **Download MCP Adapter** to download the plugin's zip file. It comes
-   from WordPress's own GitHub; it is not in the plugin directory yet.
+1. Press **Download MCP Adapter** to download the plugin's zip file from
+   WordPress's own GitHub.
 2. Press **Upload a plugin**, choose the zip, press **Install Now**, then
    **Activate**.
+
+The adapter is now in the plugin directory too, which is quicker: in your
+site's admin, open **Plugins**, **Add New**, search for **MCP Adapter**, press
+**Install Now**, then **Activate**. Either way it needs WordPress 6.9 or newer.
 
 ## Step 2. Make a user for your assistant
 
@@ -61,8 +65,9 @@ like `assistant`, and an email address you own.
 Pick its **role** with care, because the role is what your assistant can do:
 
 - **Shop manager** if you run WooCommerce. It can manage products and orders,
-  including refunds and customer details. It cannot change your site's
-  settings, themes or plugins, or other users.
+  including refunds and customer details, and it can change WooCommerce's own
+  settings and customer accounts. It cannot change WordPress's settings,
+  themes, plugins or staff accounts.
 - **Editor** for a site without a shop.
 
 Do not give it Administrator. Your assistant does not need it, and a separate,
@@ -74,14 +79,15 @@ smaller user is the whole point.
 2. Scroll down to **Application Passwords**.
 3. Under **New Application Password Name**, type `Crads`.
 4. Press **Add Application Password**.
-5. WordPress shows the new password **once**, in groups of four letters.
+5. WordPress shows the new password **once**, in groups of four letters and numbers.
    Copy all of it, spaces included.
 
 **If there is no Application Passwords section:** something has switched the
 feature off. The usual cause is a security plugin. Wordfence does it by
 default: in Wordfence, open **All Options**, then **Brute Force Protection**,
-and turn off **Disable WordPress application passwords**. A site that is not
-on https never shows the section at all.
+and turn off **Disable WordPress application passwords**. On a site that is
+not on https, WordPress shows the section with a notice that it needs https
+instead: move the site to https first.
 
 ## Step 4. Connect
 

@@ -84,14 +84,15 @@ const OLD_ROWS = [
 test('2: an old-image row shape renders a human label, a gloss, and never a dangling separator', () => {
   const lib = secretsLib(false);
   const n = Object.fromEntries(OLD_ROWS.map((r) => [r.name, lib.secNormalise(r)]));
-  assert.equal(n.owner_e.label, 'Owner email');
-  assert.match(n.owner_e.what, /^Owner email \(for directory registration\)/);
+  // 2026-10-13: the directory is retired, so the glosses say what is true now
+  assert.equal(n.owner_e.label, 'Owner fingerprint');
+  assert.match(n.owner_e.what, /retired Crads-AI directory\. Nothing on this mineral uses it now\./);
   assert.equal(n.machine_salt.label, 'Machine salt');
-  assert.match(n.machine_salt.what, /^Machine salt, seeds this mineral's device fingerprints/);
-  assert.equal(n.box_reg_host.label, 'Registered host name');
-  assert.match(n.box_reg_host.what, /^Registered host name/);
+  assert.match(n.machine_salt.what, /^Left over from the retired Crads-AI directory/);
+  assert.equal(n.box_reg_host.label, 'Mineral name');
+  assert.match(n.box_reg_host.what, /^The name this mineral was built with/);
   assert.equal(n.box_directory_token.label, 'Directory token');
-  assert.match(n.box_directory_token.what, /^Directory token, how this mineral proves itself to the directory/);
+  assert.match(n.box_directory_token.what, /^Left over from the Crads-AI directory/);
   // every old-shape row files under Platform
   for (const r of OLD_ROWS) assert.equal(n[r.name].kind, 'platform', r.name + ' under Platform');
   // an unknown legacy name is sentence-cased, hyphens and underscores to spaces
@@ -105,12 +106,16 @@ test('2: an old-image row shape renders a human label, a gloss, and never a dang
     assert.ok(!/>\s*·|·\s*</.test(h), r.name + ': no separator beside an empty field (' + h + ')');
     assert.match(h, new RegExp('<b>' + n[r.name].label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '</b>'));
   }
-  assert.match(lib.secRowHtml(OLD_ROWS[0]), /Directory token, how this mineral proves itself to the directory[^<]*· 2026-08-17</, 'gloss · date when both exist');
+  assert.match(lib.secRowHtml(OLD_ROWS[0]), /Left over from the Crads-AI directory[^<]*· 2026-08-17</, 'gloss · date when both exist');
   assert.doesNotMatch(lib.secRowHtml(OLD_ROWS[4]), /class="hint"/, 'no gloss and no date: no hint line at all');
   // a NEW row (label + kind present) passes through untouched
   const fresh = { name: 'mcp-notion', label: 'Notion', kind: 'connection', what: 'x', set: true, revoke: { via: 'connections', key: 'notion' } };
   assert.equal(lib.secNormalise(fresh), fresh);
   assert.match(lib.secRowHtml(fresh), /Revoke via Connections/);
+  // 2026-10-13: an older engine's seat rows get no button, because Your mineral
+  // has no control that revokes the Claude sign-in or GitHub
+  const seatRow = { name: 'claude-sign-in', label: 'Claude sign-in', kind: 'sign-in', what: 'x', set: true, revoke: { via: 'seat' } };
+  assert.doesNotMatch(lib.secRowHtml(seatRow), /Revoke via/);
 });
 
 test('2: the page-side legacy glosses mirror the engine names, and loadSecrets normalises before grouping', () => {

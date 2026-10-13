@@ -12,26 +12,33 @@
 // sell it; prices per location in euros), populated enough that a screenshot
 // of the size cards shows real-looking choices rather than one option.
 //
-// Prices are Hetzner's list prices as read on 2026-09-09, gross, rounded the
+// Prices are Hetzner's list prices as read on 2026-10-13, gross, rounded the
 // way the door rounds them. They are INDICATIVE: any page that shows them
 // says so (claims.mjs BILLING_SHOTS), and the wizard reads live prices when a
 // person actually runs it. Tests never touch provisioning (harness/lib/
 // live-guard.sh); nothing in this file can.
 
-import { PROVIDERS, publicProviders } from '../provision/providers.mjs';
+import { PROVIDERS, publicProviders, defaultLocationFor } from '../provision/providers.mjs';
 export { publicProviders };
 
 export function fakeClient(calls, provider = 'hetzner') {
   return {
     validateToken: async () => ({ ok: true }),
-    listLocations: async () => [{ name: 'nbg1', city: 'Nuremberg', country: 'DE' }],
+    listLocations: async () => [
+      { name: 'nbg1', city: 'Nuremberg', country: 'DE' },
+      { name: 'hel1', city: 'Helsinki', country: 'FI' },
+    ],
+    // The 2026-10-13 shape in miniature: the Arm Standard machine is sold in
+    // hel1 and not nbg1, cx33 is sold nowhere, and cpx11 only in hel1.
     listServerTypes: async () => [
       { id: 1, name: 'cx33', cores: 4, memoryGb: 8, diskGb: 80, arch: 'x86' },
       { id: 2, name: 'cpx11', cores: 2, memoryGb: 2, diskGb: 40, arch: 'x86' },
+      { id: 93, name: 'cax21', cores: 4, memoryGb: 8, diskGb: 80, arch: 'arm' },
+      { id: 117, name: 'cpx32', cores: 4, memoryGb: 8, diskGb: 160, arch: 'x86' },
     ],
-    listAvailability: async () => ({ nbg1: [1], hel1: [1, 2] }),
+    listAvailability: async () => ({ nbg1: [117], hel1: [2, 93, 117] }),
     ensureSshKey: async () => 7,
-    createServer: async (o) => { calls.push(['create', o.name, provider]); return { id: 42, ip: '203.0.113.9', actionId: 9 }; },
+    createServer: async (o) => { calls.push(['create', o.name, provider, o.serverType, o.location]); return { id: 42, ip: '203.0.113.9', actionId: 9 }; },
     waitAction: async () => ({ status: 'success' }),
     getServer: async () => ({ id: 42, name: 'aios-demo', status: 'running', ip: '203.0.113.9' }),
     deleteServer: async (id) => { calls.push(['delete', id, provider]); },
@@ -39,9 +46,12 @@ export function fakeClient(calls, provider = 'hetzner') {
   };
 }
 
-// The door's catalogue world. cx (Intel shared) is sold in the EU datacentres
-// only; cpx everywhere. That split is what the door's per-location filter
-// exists for, so the fixture keeps it.
+// The door's catalogue world, as Hetzner sold it on 2026-10-13 (monthly gross
+// euros, read live): Arm (cax) in the EU only and not every size everywhere,
+// the cheap Intel cx line sold out everywhere (so absent: the validate answer
+// drops a type sold nowhere), cpx22/32/42 in the EU and Singapore, and the
+// older cpx21/31/41 only in the US. That patchwork is what the door's
+// per-location filter exists for, so the fixture keeps it.
 export const LOCATIONS = [
   { name: 'nbg1', city: 'Nuremberg', country: 'DE' },
   { name: 'fsn1', city: 'Falkenstein', country: 'DE' },
@@ -50,16 +60,18 @@ export const LOCATIONS = [
   { name: 'hil', city: 'Hillsboro, OR', country: 'US' },
   { name: 'sin', city: 'Singapore', country: 'SG' },
 ];
-const EU = ['nbg1', 'fsn1', 'hel1'];
-const ALL = LOCATIONS.map((l) => l.name);
 const priced = (locs, eur) => Object.fromEntries(locs.map((l) => [l, eur]));
+const US = ['ash', 'hil'];
 export const SERVER_TYPES = [
-  { id: 1, name: 'cx23', cores: 2, memoryGb: 4, diskGb: 40, arch: 'x86', locations: EU, prices: priced(EU, 4.75) },
-  { id: 2, name: 'cx33', cores: 4, memoryGb: 8, diskGb: 80, arch: 'x86', locations: EU, prices: priced(EU, 7.72) },
-  { id: 3, name: 'cx43', cores: 8, memoryGb: 16, diskGb: 160, arch: 'x86', locations: EU, prices: priced(EU, 14.27) },
-  { id: 4, name: 'cpx21', cores: 3, memoryGb: 4, diskGb: 80, arch: 'x86', locations: ALL, prices: priced(ALL, 8.39) },
-  { id: 5, name: 'cpx31', cores: 4, memoryGb: 8, diskGb: 160, arch: 'x86', locations: ALL, prices: priced(ALL, 15.59) },
-  { id: 6, name: 'cpx41', cores: 8, memoryGb: 16, diskGb: 240, arch: 'x86', locations: ALL, prices: priced(ALL, 29.63) },
+  { id: 92, name: 'cax11', cores: 2, memoryGb: 4, diskGb: 40, arch: 'arm', locations: ['fsn1', 'hel1'], prices: priced(['fsn1', 'hel1'], 5.99) },
+  { id: 93, name: 'cax21', cores: 4, memoryGb: 8, diskGb: 80, arch: 'arm', locations: ['fsn1', 'hel1'], prices: priced(['fsn1', 'hel1'], 10.49) },
+  { id: 94, name: 'cax31', cores: 8, memoryGb: 16, diskGb: 160, arch: 'arm', locations: ['hel1'], prices: priced(['hel1'], 20.99) },
+  { id: 116, name: 'cpx22', cores: 2, memoryGb: 4, diskGb: 80, arch: 'x86', locations: ['nbg1', 'fsn1', 'hel1', 'sin'], prices: { ...priced(['nbg1', 'fsn1', 'hel1'], 19.49), sin: 26.49 } },
+  { id: 117, name: 'cpx32', cores: 4, memoryGb: 8, diskGb: 160, arch: 'x86', locations: ['nbg1', 'fsn1', 'hel1', 'sin'], prices: { ...priced(['nbg1', 'fsn1', 'hel1'], 35.49), sin: 48.99 } },
+  { id: 118, name: 'cpx42', cores: 8, memoryGb: 16, diskGb: 320, arch: 'x86', locations: ['fsn1', 'hel1', 'sin'], prices: { ...priced(['fsn1', 'hel1'], 69.49), sin: 93.49 } },
+  { id: 4, name: 'cpx21', cores: 3, memoryGb: 4, diskGb: 80, arch: 'x86', locations: US, prices: priced(US, 31.99) },
+  { id: 5, name: 'cpx31', cores: 4, memoryGb: 8, diskGb: 160, arch: 'x86', locations: US, prices: priced(US, 62.49) },
+  { id: 6, name: 'cpx41', cores: 8, memoryGb: 16, diskGb: 240, arch: 'x86', locations: US, prices: priced(US, 120.49) },
 ];
 
 // DigitalOcean's world (2026-09-09): one US-dollar list price everywhere, and
@@ -86,22 +98,24 @@ export const DO_SERVER_TYPES = [
 export function catalogue(provider = 'hetzner') {
   const P = PROVIDERS[provider] || PROVIDERS.hetzner;
   const dO = P.id === 'digitalocean';
+  const types = (dO ? DO_SERVER_TYPES : SERVER_TYPES).map((t) => ({ ...t, locations: [...t.locations], prices: { ...t.prices } }));
   return {
     ok: true,
     provider: P.id, label: P.label, symbol: P.symbol, chains: structuredClone(P.sizeChains),
     locations: (dO ? DO_LOCATIONS : LOCATIONS).map((l) => ({ ...l })),
-    server_types: (dO ? DO_SERVER_TYPES : SERVER_TYPES).map((t) => ({ ...t, locations: [...t.locations], prices: { ...t.prices } })),
-    defaults: { location: P.defaults.location, server_type: P.defaults.serverType },
+    server_types: types,
+    defaults: { location: defaultLocationFor(P, types), server_type: P.defaults.serverType },
   };
 }
 
 // The engine's step names, in order, with the detail the real onStep carries
 // (wizard/provision/engine.mjs). The door renders these lines verbatim, so a
 // screenshot of the build screen shows what a person will actually read.
+// What build-box.mjs's stepWords() turns the engine's step ids into (13 Oct 2026).
 export const BUILD_STEPS = [
-  'validate-token',
-  'ensure-ssh-key',
-  'create-server (cx33 @ nbg1)',
-  'wait-running',
-  'done (203.0.113.9)',
+  'Checking your hosting token',
+  'Adding this computer\u2019s key to your hosting account',
+  'Creating your server',
+  'Waiting for the server to switch on',
+  'Server switched on, at 203.0.113.9',
 ];

@@ -33,12 +33,13 @@ test('one group on one page, no tabs (the community group left 2026-09-09)', () 
 
 
 
-test('every installed card carries its origin chip (built-in, starter, yours)', () => {
+test('every installed card carries its origin chip (built-in, starter, company, yours)', () => {
   assert.match(row, /<span class="chip origin">' \+ esc\(srcBadge\(s\)\)/, 'origin chip in the card head');
   const badge = html.split('function srcBadge(s)')[1].split('\n  function ')[0];
   assert.match(badge, /'built-in'/);
   assert.match(badge, /'starter'/);
   assert.match(badge, /'yours'/);
+  assert.match(badge, /s\.source === 'company'\) return 'company'/, 'a company-installed skill is not called yours (teams, 2026-10-10)');
   assert.ok(!badge.includes('s.rock'), 'no from-<rock> badge: communities left 2026-09-09');
 });
 
@@ -80,3 +81,10 @@ test('the page head is one line with the explainer in a bubble (R28)', () => {
 let chromium = null;
 try { ({ chromium } = await import(join(HERE, '..', 'dev-harness', 'node_modules', 'playwright', 'index.mjs'))); } catch { /* no local playwright */ }
 
+
+test('the Skills page speaks of teams, not communities, and hides /propose-change off a team', () => {
+  assert.match(html, /\{ key: 'org',\s+label: 'Your team' \}/, 'the org category is the team');
+  assert.ok(!/each community you belong to/.test(html), 'no community offers in the tooltip');
+  assert.match(render, /if \(teamState && !teamState\.team\) skills = skills\.filter\(function\(s\)\{ return s\.id !== 'propose-change'; \}\);/,
+    'propose-change is hidden once the mineral is known to be in no team');
+});

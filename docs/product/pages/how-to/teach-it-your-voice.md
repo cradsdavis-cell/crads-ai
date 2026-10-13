@@ -7,8 +7,8 @@ audience: public
 access: public
 mode: how-to
 order: 250
-pins: engine/skills/onboard.md
-reviewed: 2026-09-10
+pins: engine/skills/onboard.md, engine/box/brain-claude-md.mjs
+reviewed: 2026-10-13
 ---
 
 Your assistant will not sound like you on day one. It has read the samples
@@ -111,11 +111,11 @@ struck out, and the standing checks you asked for. The assistant reads it at
 the start of every session, before you have typed a word, which is why a
 lesson taught on Tuesday is still in force in a fresh session on Friday.
 
-You can read that page yourself on the [Brain](/docs/brain-page) page, and
-you can edit it directly. If the assistant has written something about your
-voice that is wrong, fixing the page fixes every future draft. If you want a
-longer sitting with it, [Claude Code on your mineral](/docs/claude-code-on-your-mineral)
-opens the same files in a full editor.
+You can read that page yourself on the [Brain](/docs/brain-page) page. To
+change it, tell the assistant in the Terminal what is wrong, or edit the file
+yourself: [Claude Code on your mineral](/docs/claude-code-on-your-mineral)
+opens the same files in a full editor. If the assistant has written something
+about your voice that is wrong, fixing the page fixes every future draft.
 
 > Tip: put the self-check in the workflow page rather than pasting it each
 > time. "Add the voice check to my workflow page and run it on every draft I

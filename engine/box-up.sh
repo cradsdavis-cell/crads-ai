@@ -61,6 +61,15 @@ fi
 # and the Help copy. Idempotent; a real directory of that name is never touched.
 node "$ENGINE/lib/open-folder.mjs" "$BOX" >/dev/null 2>&1 || true
 
+# ---- "read your brain first" in CLAUDE.md (2026-10-13) ------------------------
+# Every way into this mineral (the Terminal tab, Claude Code over SSH, scheduled
+# skill runs) starts Claude Code at or under $BOX, so $BOX/CLAUDE.md is read every
+# session. This keeps one marker-guarded block in it that loads the person's
+# workflow and self layer pages and names the other six. Every start, so existing
+# minerals get it at their next nightly restart; it writes only when the block
+# changed, never touches text outside its markers, and skips org boxes.
+node "$ENGINE/box/brain-claude-md.mjs" "$BOX" || true
+
 # ---- mineral machinery comes from the IMAGE, not from cloud-init ----------------
 # These scripts (org-sync, heartbeat-push, org-brain-wire; evict-apply,
 # re-anchor-apply and transfer-accept left with the tie machinery on

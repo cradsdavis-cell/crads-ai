@@ -36,7 +36,7 @@ test('the seat Backup card survives, with the own-brain flow rendering beside it
   // flow region sits OUTSIDE #seatBackup on purpose: finishing repaints that
   // card from the mineral, and an earlier cut put the flow inside it, so the
   // "Done" line was wiped by its own success.
-  const card = html.slice(html.indexOf('id="seatBackupCard"'), html.indexOf('id="seatWaits"'));
+  const card = html.slice(html.indexOf('id="seatBackupCard"'), html.indexOf('id="thinksCard"'));
   assert.match(card, /<div class="gtitle">Backup<\/div>/, 'the card keeps its name');
   assert.match(card, /id="seatBackup"/, 'the state line renders from the mineral');
   assert.match(card, /id="seatObLive"/, 'the flow region exists');

@@ -12,6 +12,21 @@
 // persists run.state through deps.saveState.
 import { provisionSelfHost } from '../provision/engine.mjs';
 
+// The engine names its steps with ids ('validate-token', 'create-server' with
+// "cx33 @ nbg1" as detail); the door printed those raw, under a tick each, to a
+// person who has never seen either. Plain words here, the ids stay the engine's
+// (its tests and resume state speak them). An unknown id still shows, as itself.
+export function stepWords(step, detail) {
+  switch (step) {
+    case 'validate-token': return 'Checking your hosting token';
+    case 'ensure-ssh-key': return 'Adding this computer\u2019s key to your hosting account';
+    case 'create-server': return 'Creating your server';
+    case 'wait-running': return 'Waiting for the server to switch on';
+    case 'done': return detail ? `Server switched on, at ${detail}` : 'Server switched on';
+    default: return detail ? `${step} (${detail})` : step;
+  }
+}
+
 export async function buildBox(run, deps) {
   const { install, pin, probe, register, syncStartDir, openFolder, settingsPath, makeClient,
     saveState = () => {}, sleep, bootTimeoutMs, bootPollMs, files, image, sshDir } = deps;
@@ -25,7 +40,7 @@ export async function buildBox(run, deps) {
   const ownerPubKey = String(pre.publicKey).trim().split('\n')[0];
   const r = await provisionSelfHost({
     token: run.token, boxName: run.slug, ownerPubKey, state: run.state, provider: run.provider,
-    onStep: (step, detail) => { run.steps.push(detail ? `${step} (${detail})` : step); },
+    onStep: (step, detail) => { run.steps.push(stepWords(step, detail)); },
     overrides: {
       client: makeClient(run.token, run.provider),
       ...(files ? { files } : {}),
@@ -46,7 +61,9 @@ export async function buildBox(run, deps) {
   for (;;) {
     let p; try { p = await probe(run.alias); } catch { p = null; }
     if (p && p.code === 0 && String(p.stdout || '').includes('chain-ok')) break;
-    if (Date.now() > deadline) throw new Error('the server was created but its workspace never answered; Retry checks again, or Start over rebuilds it');
+    // No button names here: the door and the team flow offer different ones,
+    // and each adds its own (2026-10-13: this once named a button no screen has).
+    if (Date.now() > deadline) throw new Error('The server was created, but its workspace never answered.');
     await sleep(bootPollMs);
   }
   pin(run.ip, { sshDir });

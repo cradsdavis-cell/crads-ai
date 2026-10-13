@@ -208,7 +208,7 @@ test('provision/validate: a good token answers the catalogue, a bad one 401s', a
   const cat = await good.json();
   assert.equal(cat.ok, true);
   assert.ok(cat.locations.length >= 3 && cat.server_types.length >= 3, 'enough choices to photograph');
-  assert.equal(cat.defaults.location, 'nbg1');
+  assert.equal(cat.defaults.location, 'hel1');
   for (const t of cat.server_types) {
     assert.ok(Array.isArray(t.locations), `${t.name}: stamped with the locations that sell it`);
     for (const loc of t.locations) assert.equal(typeof t.prices[loc], 'number', `${t.name}: a price at ${loc}`);
@@ -221,7 +221,7 @@ test('provision/validate: a good token answers the catalogue, a bad one 401s', a
 test('provision/start walks to ready across status polls, then destroy resets to idle', async () => {
   await fetch(base + '/state/empty');
   assert.equal((await (await fetch(base + '/provision/status')).json()).phase, 'idle');
-  const r = await postJson('/provision/start', { token: 'fixture-token', name: 'mel', location: 'nbg1', server_type: 'cx33' });
+  const r = await postJson('/provision/start', { token: 'fixture-token', name: 'mel', location: 'hel1', server_type: 'cax21' });
   assert.equal(r.status, 200);
   assert.equal((await r.json()).alias, 'mel-box');
   const phases = []; let steps = 0;

@@ -7,7 +7,7 @@ mode: reference
 surface: terminal
 order: 104
 pins: wizard/panel/member.html
-reviewed: 2026-09-21
+reviewed: 2026-10-13
 ---
 
 *Meet your assistant.*
@@ -61,8 +61,11 @@ full before you type anything. The everyday ones:
 - `/weekly`: the week reviewed. The log, project health, next week's focus.
 
 `/write-page` is here too: it builds you a page of your own, which lands in
-the sidebar. The generated [skills reference](/docs/skills) is the
-authoritative list.
+the sidebar. On a mineral that belongs to a team, `/propose-change` asks the
+owner to approve a change to the company's rules (a policy, a price, a
+process, a client page or a shared skill); on any other mineral it says there
+is no company brain and stops. The generated [skills reference](/docs/skills)
+is the authoritative list.
 
 ## Opening and closing a session
 
@@ -113,10 +116,10 @@ line.
 
 Two small links sit under the terminal. "Prefer the full desktop app?" opens
 the Help page, which is the guide to connecting Claude Code on your laptop for
-long sessions. "Stuck? Get a human" goes to the Sharing page and puts you in
-front of [support access](/docs/grant-support-access): the consent switch that
-lets a helper you trust in for a limited time, which is what a human needs
-before they can help.
+long sessions. "Stuck? Get a human" goes to the same Help page and scrolls to
+its **Support access** card ([grant support access](/docs/grant-support-access)):
+the consent switch that lets Crads AI in for a limited time, which is what a
+human needs before they can help.
 
 ## When to use something else
 

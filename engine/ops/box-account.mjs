@@ -15,8 +15,13 @@
 // skill_ok_runs in engine/heartbeat.mjs: runs that keep finishing.
 //
 // ONE LINE OF STDOUT, ALWAYS. box-up.sh's own comment records the day a second line turned ACCT
-// into two lines and produced the message "OPERATOR (<operator-email> NOT-SIGNED-IN)". Do not
+// into two lines and produced the message "OPERATOR (<operator address> NOT-SIGNED-IN)". Do not
 // add one.
+//
+// NO BUILT-IN OPERATOR (2026-10-13). This defaulted to one person's own address, which shipped
+// that address in every public image and, on a self-hosted mineral, has nothing to guard: the
+// person who owns the box IS the right account. The check now runs only when the old rock
+// provisioning sets AIOS_OPERATOR_EMAIL.
 //
 //   node box-account.mjs <boxDir>
 //   stdout: NOT-SIGNED-IN | OK:<email> | OPERATOR:<email> | UNKNOWN
@@ -24,7 +29,7 @@
 import { readClaudeCredential } from '../lib/claude-credential.mjs';
 
 const box = process.argv[2] || '.';
-const OPERATOR = (process.env.AIOS_OPERATOR_EMAIL || '').toLowerCase();
+const OPERATOR = String(process.env.AIOS_OPERATOR_EMAIL || '').trim().toLowerCase();
 // One reader for all three callers of this question (see the module header): this file used to
 // count a non-empty file while engine/heartbeat.mjs counted mere existence, so the two could
 // disagree about the same box.

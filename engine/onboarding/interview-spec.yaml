@@ -3,7 +3,7 @@
 # ============================================================================
 # Adaptive, not a form: the orchestrator probes each module with follow-ups
 # until the coverage checklist is satisfied, then synthesises answers into wiki
-# pages. "Extensive" by design — mirrors Sam's 8 canonical layers + more.
+# pages. "Extensive" by design: mirrors an 8-layer personal brain, and more.
 # Extend freely: add modules / cover items as the product learns.
 # ============================================================================
 

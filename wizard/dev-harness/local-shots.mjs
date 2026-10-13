@@ -112,7 +112,7 @@ for (const shot of SHOTS) {
         navPrivacy: vis('#nav .navgroup[data-group="privacy"]'),
         cadGate: vis('#cadGate'), cadenceSave: vis('#cadenceSave'),
         firstToggle: vis('section[data-sec="skills"] .cadrow .toggle'),
-        devicesCard: vis('#seatDevicesCard'), waitsCard: vis('#seatWaitsCard'),
+        devicesCard: vis('#seatDevicesCard'),
         sshCard: vis('#ohHost'), folderCard: vis('#ohLocalCard'),
         notes: [...document.querySelectorAll('[data-needs-box-note]')].filter((n) => n.getBoundingClientRect().height).length,
         localCards: document.querySelectorAll('[data-make]').length,

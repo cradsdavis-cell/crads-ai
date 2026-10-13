@@ -10,7 +10,7 @@
 // itself died (self-host pivot, 2026-09-01), and the button, the entitlement
 // ask and the emailed-invitation branch all went with it. ONE way in remains,
 // and it involves no third party: another of the person's own computers, one
-// that already opens the mineral, adds this one from its Map page over SSH
+// that already opens the mineral, adds this one from its start screen over SSH
 // (device-routes.mjs). The denied copy now says exactly that, and the old
 // account relays answer 410 tombstones so a stale page gets a sentence
 // instead of a hang.
@@ -94,7 +94,7 @@ test('the copy still tells them the mineral is fine, and now names a route that 
   const body = html.match(/\$\('connErrBody'\)\.textContent = denied\s*\n?\s*\? '([^']+)'/);
   assert.ok(body, 'the denied branch has its own copy');
   assert.match(body[1], /up and answering/i, 'says the mineral is not the problem');
-  assert.match(body[1], /add this one from its Map page/, 'names the one action that works: device-add from an already-connected computer');
+  assert.match(body[1], /find the mineral on the start screen and choose Add a device/, 'names the one action that works: device-add from an already-connected computer');
   assert.match(body[1], /a computer that already has access/, 'and says which machine can do it');
   assert.match(body[1], /Nothing new is made/, 'and that nothing is created by letting it in');
   assert.doesNotMatch(body[1], /nothing you need to do/i, 'never the reassuring lie');
@@ -128,7 +128,7 @@ test('the panel answers the dead account relays with 410 tombstones, in plain wo
     assert.equal(dev.status, 410, 'gone for good, not not-found');
     const devBody = await dev.json();
     assert.equal(devBody.retired, true);
-    assert.match(devBody.reason, /add this computer from one that already opens the mineral \(Map page\)/,
+    assert.match(devBody.reason, /add this computer from one that already opens the mineral \(its start screen, Add a device\)/,
       'the tombstone names the way in that works now');
     const enr = await fetch(`${base}/account/enrol-device`, { method: 'POST',
       headers: { 'content-type': 'application/json' }, body: '{}' });

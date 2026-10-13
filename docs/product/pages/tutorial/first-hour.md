@@ -7,23 +7,22 @@ access: public
 mode: tutorial
 order: 10
 pins: wizard/panel/door.html, wizard/panel/provision-routes.mjs, wizard/panel/setup-steps.mjs, wizard/panel/member.html
-reviewed: 2026-09-21
+reviewed: 2026-10-13
 ---
 
 This walks the whole way in, from nothing at all to an assistant that answers
 you. Nothing here assumes you are technical. Every step says what to do, what
 you should see afterwards, and what to do if you see something else.
 
-![Set it up, in eighty seconds: the door, the token, the build, then the GitHub backup.](film:docs-1-set-it-up)
+![Set it up, in about seventy seconds: the door, the token, the build, then the GitHub backup.](film:docs-1-set-it-up)
 
 The setup itself takes about fifteen minutes, most of it watching a progress
 bar while your server builds. The interview at the end is the better part of
 an hour on top, and it is a conversation, not a form. You can stop after any
 step and come back; nothing here is lost by walking away.
 
-**You need four things:** the Crads AI app, the Claude desktop app signed in
-to a paid Claude account (Pro is the minimum; the free tier will not run an
-assistant), a free GitHub account for your brain's private backup, and an
+**You need four things:** the Crads AI app, a paid Claude account (Pro is
+the minimum; the free tier will not run an assistant), a free GitHub account for your brain's private backup, and an
 account at one of the two hosting companies the wizard supports, with an API
 token for it. Hetzner is the cheaper; DigitalOcean has a Sydney location. The wizard
 explains the token as you go, and
@@ -61,13 +60,14 @@ Press **Set up my own**. The first screen asks where it should live, then
 shows the bill, in full, before anything is created:
 
 - a cloud server in your own account at the company you picked: at Hetzner
-  roughly €4 to €30 a month, at DigitalOcean roughly $24 to $96, depending on
-  the size you pick, billed to you by them
+  about €6 to €21 a month on its Arm machines (more where only Intel or AMD
+  is sold), at DigitalOcean roughly $24 to $96, depending on the size you
+  pick, billed to you by them
 - your own Claude subscription, billed to you by Anthropic
 - nothing to Crads-AI, ever
 
-If that works for you, say so and carry on. There is no other screen where a
-cost appears later.
+If that works for you, press **That works for me**. There is no other screen
+where a cost appears later.
 
 ![The costs screen: pick a host, then the whole bill, then one button to carry on.](shot:door-costs)
 
@@ -81,7 +81,8 @@ on the next screen follow your pick.
 ## Step 3. Name it, and paste your token
 
 Two boxes. The **name** is what your mineral, and your assistant, will be
-called; your first name is a fine answer. The **token** is the API token for
+called; your first name is a fine answer (lowercase letters, digits and
+hyphens only, no spaces). The **token** is the API token for
 the hosting company you picked, and a fold on the same screen walks you
 through getting one in about five minutes if you have not yet.
 
@@ -108,6 +109,12 @@ The three mean the same thing at either company (4, 8 and 16 GB of memory):
   assistant, day in and day out.
 - **Roomy**: headroom for heavy use and never having to think about it.
 
+At Hetzner the wizard starts on an Arm machine, in a location that sells it
+on the day (Helsinki, when this page was written). Somewhere that does not sell Arm, or
+does not sell it in that size, the card falls back to an Intel or AMD machine
+with the same memory, at that machine's price; a size a location sells in no
+form at all says so and cannot be picked.
+
 Pick one and press **Build it**.
 
 ![The token checked: a location list and three size cards, each with its real machine and monthly price.](shot:door-catalogue)
@@ -120,10 +127,11 @@ time you run it, so the numbers on your screen are the ones you will pay.
 
 The wizard creates the server on your account and shows each step as it
 happens. The server boots and then downloads its workspace, which takes a few
-minutes; the screen notices by itself. If you close the app partway, opening
-it again picks the build back up, and if a build fails you get a **Remove the
-half-made server** button that uses your own token, so nothing half-made ever
-sits on your bill unnoticed.
+minutes; the screen notices by itself. If you quit the app partway, open it,
+press **Set up my own** again and build with the same name and token: it picks
+up where it stopped instead of starting over. If a build fails you get
+**Retry**, and a **Remove the half-made server** button that uses your own
+token, so nothing half-made ever sits on your bill unnoticed.
 
 ![The build screen: each step ticked as it lands, and the note that first boot takes minutes.](shot:door-building)
 
@@ -141,12 +149,12 @@ done or not-yet chip.
   names. The wizard makes a private repository in your own account and your
   brain pushes there nightly from then on.
   [Back up and restore](/docs/back-up-and-restore) is the full picture.
-- **Connect Claude** opens the app's Terminal tab with the sign-in already
-  running; that is step 7 below, and the checklist notices by itself once it
-  is done.
+- **Connect Claude**: press **Open the terminal** and the app opens its
+  Terminal tab with the sign-in already running; that is step 7 below, and the
+  checklist notices by itself once it is done.
 
 Both can wait, and both stay available in the app later (the Backup card on
-**Your pebble**, and the Terminal tab), so pressing **Open it** first is never
+**Your mineral**, and the Terminal tab), so pressing **Open it** first is never
 wrong.
 
 ## Step 6. Look around, briefly
@@ -158,7 +166,7 @@ of these docs assume its names.
 - [**Overview**](/docs/overview-page) is home: *what your assistant knows and
   how it is doing*. The Health card here is also where
   [the jobs your mineral runs by itself](/docs/machinery-jobs) report in.
-- [**Your pebble**](/docs/your-pebble-page) is this mineral itself: its name,
+- [**Your mineral**](/docs/your-pebble-page) is this mineral itself: its name,
   its backup, the computers that can open it, and your own pages.
 - **Your assistant** opens onto [**Brain**](/docs/brain-page) (*everything
   your assistant knows*), [**Skills**](/docs/skills-page) (*what it can do,
@@ -180,8 +188,8 @@ Your mineral is inert until you sign Claude in on it. Claude is the AI your
 assistant runs on, and it runs on **your** Claude account, on **your**
 machine.
 
-If you pressed **Connect Claude** on the setup screen's finish checklist, you
-are already here with the sign-in running: skip to point 3.
+If you pressed **Open the terminal** on the setup screen's finish checklist,
+you are already here with the sign-in running: skip to point 3.
 
 1. On the Overview, press the big **Meet your assistant** button. (The same
    place is always reachable later as **Terminal** at the bottom of the
@@ -214,11 +222,13 @@ The last and longest step. Your assistant interviews you, and out of that
 interview it builds your brain: who you are, what you are trying to do, who is
 in your world, how you work, what to never touch.
 
-Open Claude Code on your laptop and connect it to your mineral: the app's
-**Help** page shows the connection name and the three clicks (the
-**Environment** dropdown, **Add SSH connection**, paste the name; then pick the
-folder called **state**). Say "introduce yourself", and you should see your assistant greeting you, in
-Claude Code. Then type:
+Open the Claude Code app on your laptop and connect it to your mineral. The
+setup wizard usually adds the connection for you: look in Claude Code's
+**Environment** dropdown, before you type anything, and pick your mineral's
+name. If it is not there, the app's **Help** page shows the connection name
+and the by-hand steps (**Add SSH connection**, paste the name, then pick the
+folder Help names). Say "introduce yourself", and you should see your
+assistant greeting you, in Claude Code. Then type:
 
 ```
 /onboard
@@ -228,7 +238,8 @@ and press Enter.
 
 This is where you will talk to it from now on. The app is for looking at what
 it knows, switching schedules on, and connecting services; Claude Code is
-where the work happens.
+where the work happens. (The app's Terminal tab accepts `/onboard` too, if
+you would rather not install anything else today.)
 
 It runs as a conversation, one question at a time, and its first question is
 what you want to call your assistant. It is resumable: leave whenever you like

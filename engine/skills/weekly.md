@@ -114,24 +114,17 @@ Ask the client: *"Want me to save this as a weekly note?"* If yes, write to `wik
 ---
 
 ### Genericisation notes (delete once stable)
-Lifted from the Sam-coupled original → now config:
-| Was hard-coded | Now reads from |
+Config this skill reads (nothing about any person is written into this file):
+| Concern | Reads from |
 |---|---|
-| `notes/log.md` | `wiki/log.md` |
-| enumerated 6-project README list (short-term-income, long-term-career, wildly-calm, life-admin, australia-goodbye-runway, van) | enumerate `wiki/projects/*/README.md` where `status: active` |
-| `notes/daily/*-session.md` | `wiki/daily/*-session.md` |
-| `decisions/log.md` | `wiki/decisions/log.md` |
-| Todoist-specific MCP tool names | `profile.accounts.tasks.provider` (provider-agnostic) |
-| `AEST` | `profile.identity.timezone` |
-| "Sam" / first-person framing | `profile.identity.user_short` |
-| next-week focus tied to current-priorities | `profile.priorities.source` + `profile.business.quarter_goal` |
-| max-effort model assertion | `profile.models.strategy` |
-| § 3.5 cash-on-hand (a personal budget-tracking sheet + named inflows) | dropped: operator-specific finance setup; no generic equivalent in v1 (a future `accounts.budget_sheet` field could re-enable) |
-| § 3.8 Leads Tracker reconciliation (`leads-sheet.yaml` + Gmail/WhatsApp drift) | dropped: Sam-specific CRM; no generic leads-sheet contract in profile yet |
-| § 3.9 Layer 4 (Network) frontmatter regen | dropped: EA-system-specific; a client wiki has no Layer structure |
-| § 3.95 coaching health (`/coaching-pipeline`) | dropped: Sam-specific coaching-business skill family |
-| § 5.5 refresh `notes/_hot.md` auto-loaded state surface | dropped: EA-system-specific live-state file; a client wiki has none |
+| the week's log | `wiki/log.md`, `wiki/daily/*-session.md`, `wiki/decisions/log.md` |
+| active projects | `wiki/projects/*/README.md` where `status: active` |
+| tasks | `profile.accounts.tasks.provider` (provider-agnostic) |
+| timezone | `profile.identity.timezone` |
+| first-person framing | `profile.identity.user_short` |
+| next week's focus | `profile.priorities.source` + `profile.business.quarter_goal` |
+| deep-reasoning model | `profile.models.strategy` |
 
 ## Summary line (run history)
 
-End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the member's app (run history); without it the last output line is used.
+End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the app (run history); without it the last output line is used.

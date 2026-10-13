@@ -96,8 +96,10 @@ test('machinery rows carry human labels, never raw job ids', () => {
   // Self-host restatement (2026-09-01): the heartbeat no longer checks in with
   // anyone. It is a local liveness stamp the page itself reads, the label says
   // so, and the row copy promises it stays on the mineral.
-  assert.match(html, /'heartbeat': 'Liveness stamp'/, 'heartbeat is not a word a member needs');
-  assert.match(html, /A local liveness stamp this page reads; it stays on the mineral\./, 'the row says the stamp never leaves');
+  assert.match(html, /'heartbeat': 'Last check-in'/, 'heartbeat is not a word a member needs');
+  assert.match(html, /this page reads that note; it stays on the mineral\./, 'the row says the check-in never leaves');
+  assert.doesNotMatch(html, /Liveness stamp|Publishing to members/, 'no stamp vocabulary, no members');
+  assert.match(html, /\.filter\(function\(j\)\{ return j\.when !== 'never'; \}\)/, 'a job that cannot fire on this mineral is not listed as on');
   assert.match(html, /'auto-update': 'Software updates'/, 'kebab ids are mapped');
   assert.match(html, /esc\(machineryLabel\(m\.id\)\)/, 'the row renders through the map');
   assert.doesNotMatch(html, /OPTED OUT via cockpit\/auto-update\.json/, 'no config file paths in member copy');

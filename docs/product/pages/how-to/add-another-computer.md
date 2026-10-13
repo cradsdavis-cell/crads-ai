@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 75
 pins: wizard/panel/device-routes.mjs, wizard/panel/door.html
-reviewed: 2026-09-01
+reviewed: 2026-10-13
 ---
 
 Your identity on your mineral is an SSH key, one per computer. So a new laptop
@@ -20,20 +20,21 @@ between them). The whole thing takes about two minutes.
 
 ## On the new computer
 
-1. Open the Crads AI app. On the door, choose **I already have one**.
+1. Open the Crads AI app. On the start screen, choose **I already have one**.
 2. Type the mineral's name, exactly as it was set up ("the name it was set up
    with" is the prompt, and a wrong guess is refused later rather than
    installed under a mismatched name).
 3. Press **Show this computer's key**. A single line appears, starting
-   `ssh-ed25519`. Copy it.
+   `ssh-ed25519`. Press **Copy the key**.
 
 ## On the computer that already opens the mineral
 
-1. Open the app. Find the mineral in the list and choose **Add a device**.
-2. Paste the new computer's key and confirm.
+1. Open the app's start screen. Find the mineral in the list and choose
+   **Add a device**.
+2. Paste the new computer's key and press **Approve it**.
 3. The app appends the key to the box's own door over SSH, and answers with a
-   **connection bundle**: one line starting `crads1:`. Copy that back to the
-   new computer.
+   **connection bundle**: one line starting `crads1:`. Press **Copy the
+   bundle** and carry it back to the new computer.
 
 The paste is strict on purpose: exactly one key line is accepted, and
 anything else (a second line, a stray character) is refused rather than
@@ -41,7 +42,7 @@ smuggled in. Appending the same key twice changes nothing.
 
 ## Back on the new computer
 
-Paste the bundle and confirm. The app repairs its connection details from the
+Paste the bundle and press **Connect**. The app repairs its connection details from the
 bundle, pins the box's host key before first contact when the bundle carries
 one, then proves the whole chain with a real connection and says honestly
 whether the mineral answered. When it does, this computer is in: same
@@ -58,9 +59,9 @@ server. At no point did anything leave the three machines you own.
 
 ## If it does not connect
 
-- **"That name does not match"**: the mineral's name on the new computer must
-  be the name the bundle was minted for. Re-run the offer with the right
-  name.
+- **"this bundle is for ..., but the key you showed was made for ..."**: the
+  mineral's name on the new computer must be the name the bundle was made
+  for. Start again with the right name.
 - **The probe says the mineral did not answer**: the box may be restarting or
   the address unreachable from this network. The bundle is still good; try
   again in a minute.

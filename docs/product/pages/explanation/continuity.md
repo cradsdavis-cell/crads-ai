@@ -53,11 +53,12 @@ assistant. Your assistant is your Claude account talking to your files on
 your machine. If every piece of my infrastructure went dark tonight,
 nothing you use tomorrow would notice.
 
-**The software is headed into the open.** Crads-AI is free, and the code is
-being prepared for a public open-source release. Once it lands, the last
-remaining dependency on me (new software, fixes for the connectors that rot
-when Google or Microsoft change something) becomes something anyone can pick
-up: you, someone you hire, or whoever cares enough.
+**The software is in the open.** Crads-AI is free, and the code has been
+public since September 2026 under an open-source licence (AGPL-3.0, at
+[github.com/cradsdavis-cell/crads-ai](https://github.com/cradsdavis-cell/crads-ai)).
+That turns the last remaining dependency on me (new software, fixes for the
+connectors that rot when Google or Microsoft change something) into something
+anyone can pick up: you, someone you hire, or whoever cares enough.
 
 ## What you would actually lose
 
@@ -82,8 +83,8 @@ rather than a description:
 1. **Notice, not silence.** If I wind this down deliberately, everyone running
    a mineral I know about gets told, with a stated date, not left to notice
    the updates stopped.
-2. **The code goes public first**, if it somehow is not already, so that
-   anyone can keep their machine maintained.
+2. **The code stays public**, so that anyone can keep their machine
+   maintained.
 3. **The docs stay up** long enough to outlive the transition, and this page
    is updated to say plainly what has changed.
 

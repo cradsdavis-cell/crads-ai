@@ -7,15 +7,15 @@ access: public
 mode: how-to
 order: 70
 pins: engine/connect-telegram.sh, engine/comms/telegram-link.mjs, wizard/panel/member.html
-reviewed: 2026-09-01
+reviewed: 2026-10-13
 ---
 
 Telegram is how your assistant reaches you when you are not at the app: the
 morning brief on your phone, a question answered from the beach, and the place
 scheduled output lands when a recipe says `deliver: true`.
 
-It is one of the three arming steps for a new mineral ([your first hour](/docs/first-hour) walks all three), and it is the one people
-are most surprised by, because you make **your own private bot** rather than
+It is one of the first things [your first hour](/docs/first-hour) suggests
+switching on, and it is the one people are most surprised by, because you make **your own private bot** rather than
 messaging ours. A bot here just means a contact in Telegram that a machine
 answers instead of a person. Yours answers to your mineral, and to nothing
 else.
@@ -70,8 +70,8 @@ Three refusals exist, and each names its own fix:
 - **"That token didn't work (rejected by Telegram). Check it with @BotFather
   and try again."** The token is the right shape but Telegram refused it; the
   words in the brackets are Telegram's own reason. Usually the token was
-  revoked or mistyped in a way that kept the shape. BotFather's `/mybots` shows
-  your bot and can issue a fresh token.
+  revoked or mistyped in a way that kept the shape. In BotFather, `/token`
+  issues a fresh one (or `/mybots`, pick your bot, **API Token**).
 - **"Could not reach Telegram from this box."** Nothing is wrong with your
   token: your mineral could not reach Telegram at that moment. Wait a moment
   and press Save token again.
@@ -141,8 +141,8 @@ does not happen, because the scheduler has nowhere to send it. Connect
 Telegram and the next run's result arrives on your phone; there is nothing to
 reset.
 
-Access changes also land here: a support grant, a device added or removed.
-Your phone hears about anything that changes who can reach your mineral.
+Support access lands here too: when a [support grant](/docs/grant-support-access)
+opens or closes, your phone hears about it.
 
 ## Where the token shows up afterwards
 

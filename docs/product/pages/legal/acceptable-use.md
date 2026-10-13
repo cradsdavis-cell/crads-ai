@@ -4,8 +4,8 @@ summary: The short list of things you must not do with a mineral, and what enfor
 audience: public
 access: public
 mode: legal
-version: 0.4
-effective: 2026-09-09
+version: 0.5
+effective: 2026-10-13
 order: 40
 ---
 
@@ -13,7 +13,10 @@ A mineral is a machine on the internet with your credentials on it and an
 assistant that can act. This page is the short list of what you must not point
 it at. Part of the [terms](/docs/terms).
 
-Version 0.3, effective 1 September 2026. *(Changed in 0.3: the self-host
+*(Changed in 0.5: the resale line now points at the AGPL-3.0 licence the
+software was published under on 9 September 2026. Changed in 0.4, 9 September
+2026: the lines about publishing to a community and telling a community host
+were removed with the community model. Changed in 0.3, 1 September 2026: the self-host
 redesign. The resale line now defers to the coming open-source licence, the
 platform-attack line now names what actually exists to attack, and the
 enforcement section says plainly what we can and cannot do about a machine we
@@ -38,10 +41,10 @@ cannot reach. The conduct list itself is unchanged.)*
   *you* is the product; the interview even learns your voice for it. Using it
   to write as somebody else, or to make automated output look like a specific
   real person wrote it, is not.
-- **Misrepresent the software.** Do not resell it as your own product or
-  charge people for the software itself; charge for your services, plainly
-  labelled as yours. The coming open-source licence will state the binding
-  version of this.
+- **Misrepresent the software.** The software is licensed under the GNU
+  AGPL-3.0, which governs copying, changing and redistributing it, including
+  for money. Do not present it as something you wrote, or your services as
+  ours.
 
 ## Some judgement, honestly
 

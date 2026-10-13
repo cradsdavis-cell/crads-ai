@@ -1,5 +1,5 @@
 ---
-title: Your pebble
+title: Your mineral
 summary: The machine itself: its name, where its backup goes, the computers that can open it, and your own pages.
 audience: public
 access: public
@@ -7,7 +7,7 @@ mode: reference
 surface: seat
 order: 101
 pins: wizard/panel/member.html
-reviewed: 2026-09-09
+reviewed: 2026-10-13
 ---
 
 *The page about the machine itself rather than about what it knows.*
@@ -15,28 +15,36 @@ reviewed: 2026-09-09
 Most people open it twice: once out of curiosity, and once when something
 about the backup needs settling.
 
+![Your mineral: its name, who owns it, the backup and the computers that can open it](shot:member-seat)
+
 ## The page names itself after your mineral
 
-"Your pebble" is only the placeholder. The moment the first read from your
-mineral lands, the heading becomes the mineral's name, which is also your
-assistant's name: one name, everywhere. The word "pebble" demotes to the
-subtitle line, where it belongs, because it describes the kind of thing this
-is, not which one is yours. Only the sidebar tab keeps the tier word, since it
-names the page rather than the mineral.
+The sidebar tab says **Your mineral**, and so does the heading until the first
+read from your mineral lands. Then the heading becomes the mineral's name,
+which is also your assistant's name: one name, everywhere. The kind of thing
+it is ("mineral · your assistant") demotes to the line under the name, because
+it describes what this is, not which one is yours.
 
 **Rename** sits beside the name, and the form under it says exactly how far a
-rename reaches: just the name you see. Your keys and your connections stay
-exactly as they are.
+rename reaches: "Just the name you see. The address and your keys stay exactly
+as they are."
 
 ## Whose machine this is
 
 The short answer, for every mineral made since September 2026: yours, in the
-plainest sense available. The server sits in your own hosting account, Hetzner or
-DigitalOcean, billed to you by them, and the only keys that open it are on
-[your own roster](/docs/devices-and-access). There is no owner field to check
-because there is no other candidate: whoever pays the hosting bill and holds
-the keys holds the box, and both are you by construction. The longer version
-of that argument is [who edits what](/docs/the-three-layers).
+plainest sense available. The card's **Ownership** row says **Yours** and its
+**Hosting** row says **Your own hosting account**. The server sits in your own
+hosting account, Hetzner or DigitalOcean, billed to you by them, and the only
+keys that open it are on [your own roster](/docs/devices-and-access). There is
+no other candidate: whoever pays the hosting bill and holds the keys holds the
+box, and both are you by construction. The longer version of that argument is
+[who edits what](/docs/the-three-layers).
+
+One exception. If your company set your assistant up for you with
+[Crads for Teams](/docs/crads-for-teams), the server sits in the owner's
+hosting account and the company owns it. Your `personal/` folder is kept out of
+the company brain and away from colleagues, but it is not secret from whoever
+runs the server.
 
 ## Backup
 
@@ -45,9 +53,11 @@ name, when the last snapshot was sent, and whose account it lives in:
 private, in your own GitHub account, every night. Not connected, it does not
 soften anything: "Your brain lives on this mineral and nowhere else."
 
-**Download a copy now** works in both states, no GitHub account needed. It
-hands you the brain as a file, straight from the mineral. So even before you
-connect a repository, a copy of everything is one click away.
+A download works in both states, no GitHub account needed: **Download a copy
+now** when a repository is connected, **Or download a copy** beside **Connect
+my GitHub** when it is not. It hands you the brain as a file, straight from the
+mineral. So even before you connect a repository, a copy of everything is one
+click away.
 
 ## Connecting GitHub without leaving the page
 
@@ -69,10 +79,14 @@ The whole story, including the one step only you can do, is
 ## Every computer that can open this mineral
 
 Under the backup card sits the roster: every computer whose SSH key opens
-this mineral, with when it was last seen. It is the same file the mineral's
-door checks, so what is listed here is exactly what can connect, and nothing
-else can. **Revoke** on a row takes effect the next time that machine tries;
-if a laptop is lost or stolen, this is where you shut it out. Adding one is
+this mineral, with when it was added and when it was last seen. It is the
+same file the mineral's door checks, so what is listed here is exactly what
+can connect, and nothing else can. **Rename** gives a row a name you will
+recognise later (a computer that added itself is listed as "This computer").
+**Revoke** takes effect the next time that machine tries, and also removes it
+from every sealed secret; adding it back later does not restore those. If a
+laptop is lost or stolen, this is where you shut it out. A support window you
+granted from Help shows here as its own row, with its own Revoke. Adding one is
 [its own two-minute walk](/docs/add-another-computer), done from a computer
 that is already on the list. [Devices and access](/docs/devices-and-access)
 has the whole model.
@@ -82,7 +96,8 @@ has the whole model.
 The last card lists the pages your assistant has built for you: each one is
 also an entry in the sidebar under "Your pages". Remove one here and it goes
 from the sidebar too, after the same are-you-sure the page's own header uses.
-Ask for a new one in the Terminal with `/write-page`.
+Ask for a new one with `/write-page`, in the Terminal or in Claude Code on your
+mineral.
 
 ## Why there is no danger zone
 

@@ -16,7 +16,7 @@ schema_version: 0.1
 identity:
   user_name: ""          # the human this OS serves, e.g. "Maya Chen"
   user_short: ""         # what the assistant calls them, e.g. "Maya"
-  assistant_name: ""     # the assistant's name (Sam's is "Idris")
+  assistant_name: ""     # the assistant's name, e.g. "Idris"
   timezone: "Australia/Sydney"   # IANA tz. Drives ALL scheduling. box-up.sh copies this
                          # file verbatim as a new box's profile.yaml and NOTHING else ever
                          # writes this key, so whatever ships here IS the default every box

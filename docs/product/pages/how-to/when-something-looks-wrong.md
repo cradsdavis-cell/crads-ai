@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 90
 pins: docs/traps.md
-reviewed: 2026-09-01
+reviewed: 2026-10-13
 ---
 
 Most problems on a mineral present as one of the symptoms below, and most have
@@ -40,7 +40,7 @@ reported.
 ## I connected the Claude Code app but the checklist still says not signed in
 
 That is the expected result, not a failure. Connecting the app signs in
-**your laptop** and reaches into your mineral over SSH; it does not sign the
+**this computer** and reaches into your mineral over SSH; it does not sign the
 **mineral** in, so it does not switch on scheduled jobs and nothing it does
 makes the Overview checklist tick. The app now says it in bold: "This is an
 extra, not a step." The checklist item belongs to the Terminal tab: open it
@@ -57,21 +57,16 @@ no button is a service connected to your **Claude account** in the app's own
 fold: those can never run in jobs, because there is nothing on the mineral to
 move; connect the service on the mineral instead.
 
-## The app says "software unknown" for my mineral
-
-The mineral is running a build too old to report which build it is. The fix is an
-update: open **Help**, and under **Mineral software** run **Update and restart
-this mineral**. When it comes back it will be current and say so;
-[how updates reach you](/docs/how-updates-reach-you) is the mechanics.
-
 ## Sign in answers a raw error like "bad server url"
 
 The mineral's software is behind the app. The Connections page fills in the
 addresses it signs in against from what the mineral reports, and a mineral
 running older software does not report them, so the sign-in starts with a
 blank address and fails with a raw error instead of a kind sentence. The fix
-is the same update as above: open **Help** and run the software update under
-**Mineral software**. Once the mineral is current, Sign in behaves.
+is a software update: open **Help**, and on the card headed **Software update:
+restart your assistant's mineral** press **Update and restart**. Once the
+mineral is current, Sign in behaves; [how updates reach
+you](/docs/how-updates-reach-you) is the mechanics.
 
 ## My new computer cannot connect
 
@@ -90,10 +85,10 @@ app's name. The whole story is in [connect Google](/docs/connect-google).
 ## I got a Telegram message saying my Google sign-in stopped working
 
 Rare, and real: Google dropped the key your mineral holds, so "your scheduled
-jobs cannot reach Gmail or Calendar until you sign in again". The mineral
+jobs cannot reach that Gmail or Calendar until you sign in again". The mineral
 checks the key itself and sends that message exactly once, not on repeat. The
-fix is the two clicks the message names: **Connections**, then **Google**,
-then **Sign in**. If the sign-in itself misbehaves,
+fix is the steps the message names: open **Connections**, find **Google**,
+and press **Sign in**. If the sign-in itself misbehaves,
 [connect Google](/docs/connect-google) has the whole story.
 
 ## There is a machine on my roster I do not recognise
@@ -139,9 +134,9 @@ yours is touched.
 ## The mineral is unreachable
 
 Sometimes it is genuinely the machine, and sometimes it is between you and it.
-Give it a minute, then open **Help** and run **Update and restart this mineral**
-(under **Mineral software**), which restarts the mineral's software without
-touching anything of yours. If it stays unreachable, the machine itself is
+Give it a minute, then open **Help** and press **Update and restart** on the
+software update card, which restarts the mineral's software without touching
+anything of yours. If it stays unreachable, the machine itself is
 worth a look in your own hosting console, Hetzner's or DigitalOcean's (it is
 your server; their console can reboot it), and a person helping you can go deeper
 [with your permission](/docs/grant-support-access).

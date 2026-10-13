@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 40
 pins: engine/connect, wizard/panel/member-connect.mjs
-reviewed: 2026-08-25
+reviewed: 2026-10-13
 ---
 
 Connections break. Not often, and almost never because of anything you did: an
@@ -19,8 +19,8 @@ noticing your morning brief stopped arriving three weeks ago.
 
 ## Where to look
 
-The Connections page, and only the Connections page. It shows every service your
-mineral is wired to and whether it is working, in plain words.
+The Connections page, under **Your assistant**. It shows every service your
+mineral is connected to and whether it is working, in plain words.
 
 ![Each connection and its state, in plain words](shot:member-connections)
 
@@ -36,7 +36,7 @@ The vocabulary is deliberately small. Six states cover every row:
 | "working, including in scheduled jobs" | The credential is present and current, and your jobs load this service. | Nothing. |
 | "added, waiting for you to sign in once" | The service is set up on your mineral but has never been signed in. | Press **Sign in**. |
 | "sign-in expired, needs you once more" | The credential reached the end of its life. The service is fine; the sign-in is not. | Press **Sign in**. |
-| "not connected" | Nothing is set up. | Press **Connect**, if you want it. |
+| "not connected" | Nothing is set up. | Press **Connect** (or **Set up**, for a guided one like Google), if you want it. |
 | "in your chats only, not in scheduled jobs" | Connected inside Claude Code, invisible to your scheduled jobs. | Press **Use in jobs too**. |
 | "sign-in can never finish on this endpoint, disconnect it" | A dead first-generation Google endpoint from before the current Google flow. | Press **Disconnect**; connect [Google](/docs/connect-google) from its own row instead. |
 
@@ -125,13 +125,13 @@ The app updates itself in minutes; your mineral updates only on a restart you
 choose. When the two drift too far apart, buttons on this page used to fail
 oddly (at its worst, a raw "bad server url" on every press). Now the page
 detects the version skew and says so in words: "That needs a newer version of
-your mineral. Open the Claude Code tab, press Update and restart (about a
-minute, nothing of yours changes), then try again." That update is the whole
+your mineral." The fix is **Update and restart**, on the **Help** page (about
+a minute, nothing of yours changes), then try again. That update is the whole
 fix.
 
 ## If a connect is refused as a duplicate
 
-Two refusals protect you from wiring the same service twice. Connecting an
+Two refusals protect you from connecting the same service twice. Connecting an
 address your mineral already has, under any name, answers 'already connected
 as "…" on this box', naming the existing row. And connecting a featured
 service by hand answers that it 'is a featured service, connect it from its

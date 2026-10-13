@@ -1,7 +1,7 @@
 ---
 name: plan-week
 title: "Plan your week"   # human name shown on the Skills page (2026-08-09 audit R6); the slash id stays as a chip
-description: Monday goal-setter. SETS this week's 3 to 5 concrete outcomes (Mon to Fri) and writes them to wiki/this-week.md, the surface the daily brief reads and the close-of-day checks against. The planning yang to /weekly's review yin. Run at the start of the week.
+description: Monday goal-setter. Sets this week's 3 to 5 concrete outcomes (Mon to Fri) and writes them to wiki/this-week.md, which the daily brief reads and the close-of-day checks against. It plans the week ahead; /weekly reviews the week behind. Run at the start of the week.
 category: briefing        # Skills-page grouping (briefing|capture|comms|box|org|other), wire vocabulary, not copy
 generic: true        # config-driven; no client-specific values in this file
 reads_profile:
@@ -116,7 +116,7 @@ Scannable. No prose paragraphs.
 ---
 
 ### Genericisation notes (delete once stable)
-Built generic from the start (no Sam-coupled original). Config dependencies:
+Config this skill reads (nothing about any person is written into this file):
 | Concern | Reads from |
 |---|---|
 | timezone / week-start | `profile.identity.timezone` |
@@ -129,4 +129,4 @@ Built generic from the start (no Sam-coupled original). Config dependencies:
 
 ## Summary line (run history)
 
-End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the member's app (run history); without it the last output line is used.
+End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the app (run history); without it the last output line is used.

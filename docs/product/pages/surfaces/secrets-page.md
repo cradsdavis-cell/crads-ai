@@ -7,7 +7,7 @@ mode: reference
 surface: secrets
 order: 103
 pins: engine/vault/vault.mjs, wizard/panel/member.html
-reviewed: 2026-08-25
+reviewed: 2026-10-13
 ---
 
 *Every password, token and key this mineral holds, and what each one is for.*
@@ -23,16 +23,19 @@ instead of being something you hope about.
 
 ## How to read a row
 
-Every row is the same four things. A plain name ("Telegram bot token", "Google
-Workspace sign-in"). A chip that says "set" or "not set". A line saying what
+Every row is the same four things. A plain name ("Telegram bot token", "Claude
+sign-in"). A chip that says "set" or "not set". A line saying what
 the thing is and who on the box uses it ("Lets your box talk to you on
 Telegram. Used by the Telegram bridge and your scheduled jobs."), with the
-date it last changed. And, where revoking is yours to do, a button: "Revoke
-via Connections", "Revoke via Your pebble", "Revoke via Telegram". Pressing it
-does not revoke anything by itself; it lands you on the surface that owns the
-credential, on the exact row, where disconnecting destroys it. Rows without a
-button are the box's own plumbing (status keys, directory tokens): nothing of
-yours to revoke there.
+date it last changed. And, where revoking is yours to do in the app, a button:
+"Revoke via Connections" or "Revoke via Telegram". Pressing it does not revoke
+anything by itself; it lands you on the surface that owns the credential, on the
+exact row, where disconnecting destroys it. The Claude sign-in and GitHub access
+rows have no button, because the app has no control that revokes them: signing
+in again in the Terminal replaces the Claude sign-in, and the GitHub row's own
+line says where to revoke it in your GitHub settings. Other rows without a
+button are the box's own plumbing (the backup passphrase, the browser editor
+password): nothing of yours to revoke there.
 
 Be precise about what "set" means: the entry holds something non-empty. That
 is all. A wrong password is set; an expired token is set. Whether a credential
@@ -98,9 +101,10 @@ Opening this page also quietly heals the sealed tier. This computer publishes
 its own key onto the device roster if it has not yet, and when that just
 happened, existing sealed secrets are re-wrapped so this computer can open
 them too. The only visible trace is a notice when it did something: "Sealed
-secrets now open on this computer too", naming them. A secret sealed before
-this computer was enrolled cannot be healed from here, and the page says what
-to do instead: open the app on an older computer to refresh it.
+secrets now open on this computer too", naming them. When a sealed secret
+cannot be refreshed from this computer (after you revoke a device, for
+example), the page names it and says what to do instead: open the app on an
+older computer to refresh it.
 
 ## The two backup rows
 

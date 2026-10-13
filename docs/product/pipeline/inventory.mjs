@@ -41,7 +41,12 @@ export function navSections() {
     const face = /\borgonly\b/.test(attrs) ? 'rock' : /\bmemonly\b/.test(attrs) ? 'pebble' : 'both';
     if (!label) continue;
     if (out.some((o) => o.sec === sec)) continue;
-    out.push({ sec, label, face });
+    // A button the page reveals only when it applies (the Team tab, shown once
+    // team-status says this mineral is in a team) is still a screen a reader
+    // can reach, so it counts; it is flagged so nobody reads its absence from a
+    // screenshot of an ordinary mineral as a bug.
+    const hidden = /style="[^"]*display\s*:\s*none/.test(attrs);
+    out.push(hidden ? { sec, label, face, hidden } : { sec, label, face });
   }
   if (!out.length) throw new Error('inventory: no nav buttons found; the nav markup changed');
   return out;

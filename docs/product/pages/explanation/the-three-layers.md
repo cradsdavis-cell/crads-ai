@@ -20,14 +20,15 @@ before you have to ask.
 The container image, the engine, the desktop app, the skill runner, the scheduler
 and its run history, the system pages, and a handful of protected jobs.
 
-You do not edit these, and you also do not have to maintain them. They arrive
-by a nightly restart onto the latest published software
-([how updates reach you](/docs/how-updates-reach-you)).
+You do not edit these, and you also do not have to maintain them. Everything
+on the server arrives by a nightly restart onto the latest published software
+([how updates reach you](/docs/how-updates-reach-you)); the desktop app offers
+its own updates on your computer.
 
 The trade is honest: you give up the ability to change the engine, and in
 return the engine is somebody else's problem. And because the software is free
-and headed to an open-source release, "somebody else" is not forever a single
-company: the layer is maintained *for* you, never held *over* you.
+and open source, "somebody else" is not forever a single company: the layer is
+maintained *for* you, never held *over* you.
 
 One consequence is worth spelling out, because it looks like a missing feature
 until you see why it is there. The machinery jobs (the nightly update restart,

@@ -67,14 +67,45 @@ test('validate: a good token answers catalogues + defaults', async (t) => {
   const r = await h.call('POST', '/provision/validate', { token: 't' });
   assert.equal(r.status, 200);
   assert.equal(r.body.ok, true);
-  assert.equal(r.body.defaults.server_type, 'cx33');
+  assert.equal(r.body.defaults.server_type, 'cax21', 'Arm is the Standard default (2026-10-13)');
+  assert.equal(r.body.defaults.location, 'hel1', 'the default location is one that SELLS the default machine');
   assert.equal(r.body.locations[0].city, 'Nuremberg');
   // per-location availability rides each type, so the page can refuse to offer
   // a pair Hetzner does not sell (cpx11 @ nbg1 was refused live, 2026-09-01)
-  const cx33 = r.body.server_types.find((t) => t.name === 'cx33');
+  const cax21 = r.body.server_types.find((t) => t.name === 'cax21');
   const cpx11 = r.body.server_types.find((t) => t.name === 'cpx11');
-  assert.deepEqual(cx33.locations.sort(), ['hel1', 'nbg1']);
+  assert.deepEqual(cax21.locations, ['hel1'], 'cax21 must not be offered at nbg1');
   assert.deepEqual(cpx11.locations, ['hel1'], 'cpx11 must not be offered at nbg1');
+  // A type sold NOWHERE is dropped, not stamped with an empty list: the page
+  // reads an empty list as "unknown, offer everywhere", which is how cx33
+  // stayed the default on the day Hetzner sold it nowhere (2026-10-13).
+  assert.equal(r.body.server_types.find((t) => t.name === 'cx33'), undefined);
+});
+
+test('validate: an unreadable availability offers every type everywhere, never a dead form', async (t) => {
+  const h = harness({
+    makeClient: (token, provider) => ({ ...fakeClient([], provider), listAvailability: async () => { throw new Error('deprecated_api_endpoint'); } }),
+  });
+  t.after(h.close);
+  const r = await h.call('POST', '/provision/validate', { token: 't' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.server_types.length, 4, 'nothing dropped when availability is unknown');
+  for (const ty of r.body.server_types) assert.deepEqual(ty.locations, []);
+  assert.equal(r.body.defaults.location, PROVIDERS.hetzner.defaults.location);
+});
+
+test('start with no machine named builds what the location sells, not a stale default', async (t) => {
+  const h = harness(); t.after(h.close);
+  const r = await h.call('POST', '/provision/start', { token: 't', name: 'pick', location: 'nbg1' });
+  assert.equal(r.status, 200);
+  await untilPhase(h.call, 'ready');
+  const create = h.calls.find((c) => c[0] === 'create');
+  assert.deepEqual(create.slice(3), ['cpx32', 'nbg1'], 'nbg1 sells no Arm Standard machine, so the x86 one in the chain');
+  const r2 = await h.call('POST', '/provision/start', { token: 't', name: 'pick2' });
+  assert.equal(r2.status, 200);
+  await untilPhase(h.call, 'ready');
+  const create2 = h.calls.filter((c) => c[0] === 'create')[1];
+  assert.deepEqual(create2.slice(3), ['cax21', 'hel1']);
 });
 
 test('validate: a rejected token is a 401, not a build', async (t) => {

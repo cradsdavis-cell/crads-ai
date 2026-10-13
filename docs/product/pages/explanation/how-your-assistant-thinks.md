@@ -5,8 +5,8 @@ audience: public
 access: public
 mode: explanation
 order: 200
-pins: engine/skills/onboard.md, engine/skills/capture.md
-reviewed: 2026-09-10
+pins: engine/skills/onboard.md, engine/skills/capture.md, engine/box/brain-claude-md.mjs
+reviewed: 2026-10-13
 ---
 
 I set up every assistant this way, mine included, and the reason it works is
@@ -51,8 +51,9 @@ believe. You never need to know how any of this is built. Your job is to say
 what you want, in ordinary sentences, the way you would brief a capable new
 hire on their first week. The mind works out the how.
 
-What you do own, completely, is the memory. It is markdown files in a private
-GitHub repository that belongs to you, organised in eight layers: north star,
+What you do own, completely, is the memory. It is markdown files on your own
+mineral, backed up every night to a private GitHub repository that belongs to
+you, and it starts out organised in eight layers: north star,
 philosophy, self, network, past, goals, tasks, and workflow. Open any page on
 the [Brain](/docs/brain-page) page and you are reading the same file your
 assistant reads. Rewrite it and the assistant reads the rewrite. Take the
@@ -79,8 +80,10 @@ once. And when the session ends, it is gone. Sessions on your mineral do not
 resume; a new Open is a new session, and yesterday's conversation is not in
 the room unless somebody wrote it down.
 
-**The brain** is permanent. It is there at the start of every session,
-automatically, before you have typed anything. When your assistant knows that
+**The brain** is permanent. Its two everyday pages, who you are and how you
+work, are loaded at the start of every session, automatically, before you have
+typed anything, and your assistant reads the rest of the brain when a question
+touches it. When your assistant knows that
 the physio clinic's biggest referrer hates being chased on Mondays, or that
 the garden-design studio's day rate went up in March, that knowledge lives in
 a page, not in any one chat.
@@ -101,8 +104,9 @@ source in. Both end in the same place. There is no hidden third thing, and
 Everyone rents the same minds. If the mind were the advantage, nobody would
 have one. What makes your assistant yours is the context you wrap around it:
 the pages, the connections, the skills, the standing instructions about how
-you like things done. Andrej Karpathy's name for the practice is context
-engineering, and the shape he describes, a folder of plain pages an assistant
+you like things done. The practice has a name, context engineering, that
+Andrej Karpathy has argued for over "prompt engineering", and the shape he
+describes, a folder of plain pages an assistant
 reads, writes into and links together, is exactly what a brain is; the credit
 and the reading are in
 [where these ideas come from](/docs/where-these-ideas-come-from).
@@ -116,7 +120,7 @@ stops recurring, in every future session, without you repeating yourself.
 ## The four things you can grow
 
 The four Cs are Nate Herk's framing, and I use it because it maps almost
-exactly onto the four tabs in the app; credit in
+exactly onto the app: three pages and a switch. Credit is in
 [where these ideas come from](/docs/where-these-ideas-come-from).
 
 | The C | In the app | What growing it looks like |

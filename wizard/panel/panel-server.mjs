@@ -1997,12 +1997,12 @@ export function createPanelServer(opts = {}) {
     // stay as honest tombstones so an old page gets an answer, not a hang.
     if (req.method === 'GET' && path === '/account/devices') {
       res.writeHead(410, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ ok: false, retired: true, reason: 'the central account service has been retired; add this computer from one that already opens the mineral (Map page)' }));
+      res.end(JSON.stringify({ ok: false, retired: true, reason: 'the central account service has been retired; add this computer from one that already opens the mineral (its start screen, Add a device)' }));
       return;
     }
     if (req.method === 'POST' && path === '/account/enrol-device') {
       res.writeHead(410, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ ok: false, retired: true, reason: 'the central account service has been retired; add this computer from one that already opens the mineral (Map page)' }));
+      res.end(JSON.stringify({ ok: false, retired: true, reason: 'the central account service has been retired; add this computer from one that already opens the mineral (its start screen, Add a device)' }));
       return;
     }
 

@@ -167,7 +167,7 @@ add('member-overview', 'member', 'rich', {
     { sel: '#heroStrip', say: 'Your assistant, by the name you gave it. "Talk to it" opens a conversation.' },
     { sel: '[data-card="onboarding"]', say: 'How much of the interview is done. Until this completes, every answer your assistant gives is generic.' },
     { sel: '[data-card="brain"]', say: 'How many pages your brain holds. This is what your assistant reads before it answers anything.' },
-    { sel: '[data-card="ladder"]', say: 'What your pebble can do, and what is still switched off. Each row links to the way in.' },
+    { sel: '[data-card="ladder"]', say: 'What your mineral can do, and what is still switched off. Each row links to the way in.' },
     { sel: '[data-card="health"]', say: 'The jobs your mineral runs by itself. Expand it to see each one and when it last ran.' },
   ],
 });
@@ -186,7 +186,7 @@ add('member-connections', 'member', 'rich', { sec: 'connections', note: 'wired M
 // the harness did not stub it, so every capture showed "Checking..." cards.
 // The stub landed with the granular-walkthrough round; if this shot ever shows
 // a could-not-reach banner again, pull it rather than publish an error state.
-add('member-seat', 'member', 'rich', { sec: 'seat', waitMs: 2200, note: 'Your pebble: ownership, the backup card, and anything waiting on the member' });
+add('member-seat', 'member', 'rich', { sec: 'seat', waitMs: 2200, note: 'Your mineral: ownership, the backup card, and anything waiting on the member' });
 add('member-telegram-setup', 'member', 'rich', { sec: 'connections', waitMs: 2200, clicks: ['#tgToggle'],
   note: 'the Telegram card expanded: step 1 (BotFather + token) as a fresh mineral shows it' });
 add('member-empty', 'member', 'empty', { full: true, note: 'a box before onboarding: the state a new seat actually opens on' });
@@ -194,6 +194,15 @@ add('member-empty', 'member', 'empty', { full: true, note: 'a box before onboard
 // --- the remaining member surfaces, one per nav section (coverage pass) ---
 add('member-secrets', 'member', 'rich', { sec: 'secrets', note: 'Secrets: every password, token and key the mineral holds, and what each is for' });
 add('member-terminal', 'member', 'rich', { sec: 'terminal', waitMs: 2200, note: 'Terminal: talking to the assistant directly' });
+// The Team tab only exists on a team mineral: its nav button stays hidden until
+// team-status says so. The harness answers team-status from `?team=hub|member`
+// on the page URL (fixtures.mjs teamStatusFx), so `query` opens the tab on the
+// company agent (two changes waiting, one stale with warnings) or on a person's
+// assistant. Viewport, not full: the point is the header and the first card.
+add('member-team', 'member', 'rich', { sec: 'team', query: 'team=hub', waitMs: 2200,
+  note: "the company agent's Team page: the people, the pending count, and Waiting for you" });
+add('member-team-staff', 'member', 'rich', { sec: 'team', query: 'team=member', waitMs: 2200,
+  note: "a person's assistant: How the company brain works for you" });
 
 
 export const SHOTS = S;

@@ -455,7 +455,7 @@
         <div class="steprow" id="shRowClaude">
           <span class="stepchip" id="shClaudeChip">Checking&hellip;</span>
           <b id="shClaudeTitle">Connect Claude</b>
-          <p class="hint" id="shClaudeHint">Your mineral is inert until it is signed in to Claude, on your own Claude subscription. Open the terminal and run <span class="mono">claude</span> once: it prints a sign-in link and a code, you approve it in your browser, and your assistant wakes up. Scheduled jobs run on this sign-in, so nothing works overnight without it. This screen notices by itself once it is done.</p>
+          <p class="hint" id="shClaudeHint">Your mineral is inert until it is signed in to Claude, on your own Claude subscription. Press <b>Open the terminal</b> and the sign-in starts by itself: it prints a link and a code, you approve it in your browser, and your assistant wakes up. Scheduled jobs run on this sign-in, so nothing works overnight without it. This screen notices by itself once it is done.</p>
           <button class="act" id="shClaudeBtn">Open the terminal</button>
           <!-- Tester-only (second-harness spec 2026-09-17): revealed by
                localStorage['crads.experimental-harness']='1' in THIS window. Not offered to
@@ -710,7 +710,7 @@
     <a href="#" id="newTeam">Set up a team <span class="chev">›</span></a>
   </div>
 
-  <div class="foot">This screen checks each mineral by itself; dots flip live.</div>
+  <div class="foot" id="invFoot">This screen checks each mineral by itself; dots flip live.</div>
 </div>
 
 <script>
@@ -769,6 +769,9 @@
       document.getElementById('invLead').style.display = fresh ? 'none' : '';
     }
     document.getElementById('none').style.display = 'none';   // superseded by the takeover
+    // The footer explains the list's status dots; with nothing listed there are
+    // no dots, and a fresh install read "dots flip live" under an empty screen.
+    document.getElementById('invFoot').style.display = fresh ? 'none' : '';
     // ANCHOR ONLY ON A REAL RECORD. This used to fall back to rows[0], which is
     // SSH-config parse order wearing the clothes of a recommendation.
     var last = lastUsed();
@@ -1682,7 +1685,13 @@
         if (s.phase === 'failed') {
           clearInterval(shPoll); shPoll = null;
           shShow('shForm');
-          shErr(s.error || 'The build failed.');
+          // Errors come from the engine, the provider or the boot wait, in any
+          // case; a sentence starts with a capital, and the two buttons that
+          // show under it are named here, where they are (2026-10-13).
+          var em = String(s.error || 'The build failed.');
+          em = em.charAt(0).toUpperCase() + em.slice(1);
+          if (!/[.!?]$/.test(em)) em += '.';
+          shErr(em + ' Press Retry to carry on from where it stopped, or Remove the half-made server to delete it from your account and start again.');
         }
       }).catch(function(){ /* one missed poll is nothing */ });
     };

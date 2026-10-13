@@ -7,7 +7,7 @@ mode: reference
 surface: skills
 order: 107
 pins: engine/skills, engine/cron/cadence-lib.mjs, wizard/panel/member.html
-reviewed: 2026-09-01
+reviewed: 2026-10-13
 ---
 
 *What your assistant can do, and when it runs.*
@@ -23,16 +23,18 @@ have to remember to ask for.
 Every mineral ships with the same engine set: everyday skills like `capture`,
 `connect`, `daily`, `dashboard`, `explain`, `followup`, `inbox`, `onboard`,
 `plan-week` and `weekly`, plus `write-page`, which builds you a page of your
-own. They are also the terminal's slash commands (`/daily`, `/inbox` and so
+own, and `propose-change`, which only does anything on a mineral that belongs
+to a [team](/docs/crads-for-teams). They are also the terminal's slash commands (`/daily`, `/inbox` and so
 on), and [every skill your mineral ships with](/docs/skills) is the generated,
 authoritative list. Anything beyond that set is something you wrote, or asked
 your assistant to write, in the Terminal.
 
 The page is one list, **"On this mineral"**: everything installed, grouped by
 category (briefings and planning, capture and review, inbox and comms, your
-mineral, other), and every card wears an origin chip that says where it came
-from: "built-in" for engine skills, "starter" for seeded ones, "yours" for
-anything you wrote.
+mineral, other, plus **Your team** for `propose-change`, which shows only on a
+mineral that is in a team), and every card wears an origin chip that says where
+it came from: "built-in" for engine skills, "starter" for seeded ones, "company"
+for skills your team's company brain installed, "yours" for anything you wrote.
 
 Each row stays slim: the skill's name, its chips, and a switch for whether it
 runs. Everything else lives in a drawer that opens on the row.
@@ -72,7 +74,7 @@ and your mineral cannot keep that promise without its **own** Claude sign-in.
 On a mineral known not to have one, a banner explains why everything is
 locked: "Scheduled jobs run with nobody at the keyboard, so they need the
 mineral's own sign-in. Connecting the Claude Code desktop app does not give it
-one: that signs in your laptop and reaches in over SSH. Open a terminal here
+one: that signs in this computer and reaches in over SSH. Open a terminal here
 and run `claude` once. Running and scheduling stay locked until it lands."
 
 While gated, every switch refuses rather than flipping (a switch that turns
@@ -144,10 +146,14 @@ your Overview, and they are listed in
 
 ## Getting more out of it
 
-Five of the built-in skills arrive with a schedule already attached and switched
-off: inbox triage before you get up, a brief before the day starts, a chase for
-the people who owe you a reply, and the plan-the-week and close-the-week pair.
-Start with the triage and the weekly review. Add the rest when you miss them.
+Four of the built-in skills arrive with a schedule already attached and
+switched off. Out of the box they are the daily brief at 07:00, inbox triage
+every 30 minutes (paused overnight), the end-of-day capture at 18:00, and the
+weekly review on Sunday at 17:00. Switch one on and its drawer shows the time,
+which you can change. Start with the brief and the weekly review. Triage every
+half hour uses your Claude plan all day long, so give it a longer interval if
+you switch it on. Every other skill, follow-ups and plan-your-week included,
+takes a schedule the same way. Add the rest when you miss them.
 
 When the list stops covering what you actually do, the next step is
 [write your own skill](/docs/write-your-own-skill): a saved recipe of your own

@@ -7,16 +7,14 @@ category: box
 
 # Skill: /write-page
 
-One page, for the member's own app, written into the member's own folder. The
-companion app is a shell: beyond its built-in tabs it renders whatever lives
-under `/state/dashboard/`, which is the member's (three-layer model, layer 3).
+One page, for the person's own app, written into their own folder. The
+Crads-AI app is a shell: beyond its built-in pages it renders whatever lives
+under `/state/dashboard/`, which belongs to the person (three-layer model, layer 3).
 `/dashboard` is the wider skill (pages and cards, config, template updates);
 this one is the short path for "build me a page that shows X".
 
-(Rewritten 2026-09-10. Until then this body described the hosted era: a rock
-authoring pages into a Catalogue for members to pick up. There is no rock, no
-Catalogue and no pickup any more; the page lands on this mineral, in this
-member's sidebar, on the next refresh.)
+(Rewritten 2026-09-10. The page lands on this mineral, in this person's
+sidebar, on the next refresh. Nothing is shared or picked up anywhere else.)
 
 ## The page contract (follow exactly)
 
@@ -36,19 +34,19 @@ entry in `dashboard/pages.json`:
 
 ## How to run it
 
-1. **Establish the intent.** What does the member look at this page to find out or to do? A reference they read, or something they interact with? If it needs data, is that data already in the brain or in `data.json`? One question if the ask is vague, not an interview.
-2. **Read `dashboard/pages.json`** and the existing page files: know what is already there, and do not overwrite a page the member did not ask to change.
+1. **Establish the intent.** What does the person look at this page to find out or to do? A reference they read, or something they interact with? If it needs data, is that data already in the brain or in `data.json`? One question if the ask is vague, not an interview.
+2. **Read `dashboard/pages.json`** and the existing page files: know what is already there, and do not overwrite a page the person did not ask to change.
 3. **Pick a kebab id**, write the fragment, add the manifest entry. Valid JSON, valid id, fragment only.
-4. **Lint it:** `node /app/engine/appshell/page-lint.mjs dashboard/pages/<id>.html`. Fix every error. A page that will not lint renders as a blank area with no error the member can see, which is why the lint exists.
-5. **Show the member the page before saving** when it is more than a few lines, then save.
+4. **Lint it:** `node /app/engine/appshell/page-lint.mjs dashboard/pages/<id>.html`. Fix every error. A page that will not lint renders as a blank area with no error the person can see, which is why the lint exists.
+5. **Show the person the page before saving** when it is more than a few lines, then save.
 6. **Tell them** the page appears in the app sidebar under **Your pages** on the next refresh (the Refresh button, or reopening the app).
 
 ## Rules to hold
 
-- **Degrade visibly.** If something the page wants is missing, say so on the page. A member cannot debug a blank screen.
+- **Degrade visibly.** If something the page wants is missing, say so on the page. Nobody can debug a blank screen.
 - **Never edit `/app`** (the machinery). This skill only ever writes under `/state/dashboard/`.
-- **Propose the draft, do not assume it is right.** The member owns this folder.
+- **Propose the draft, do not assume it is right.** The person owns this folder.
 
 ## Summary line (run history)
 
-End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the member's app (run history); without it the last output line is used.
+End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the app (run history); without it the last output line is used.

@@ -6,14 +6,14 @@ audience: public
 access: public
 mode: how-to
 order: 5
-pins: wizard/panel/door.html, wizard/provision/engine.mjs
-reviewed: 2026-09-09
+pins: wizard/panel/door.html, wizard/provision/engine.mjs, wizard/provision/hetzner.mjs, wizard/provision/providers.mjs
+reviewed: 2026-10-13
 ---
 
 Crads-AI is self-hosted: your assistant runs on a server in your own hosting
 account. The setup wizard offers two hosting companies and builds the server
-on whichever you pick. This page is the Hetzner one: a German company, the
-cheapest of the two at every size, with locations in Germany, Finland, the US
+on whichever you pick. This page is the Hetzner one: a German company, much
+the cheaper of the two in Europe, with locations in Germany, Finland, the US
 and Singapore. [Get a DigitalOcean API token](/docs/get-a-digitalocean-api-token)
 is the other, and the one to read if you want your server in Sydney. To build
 on your Hetzner account the wizard needs an API token from you; this page gets
@@ -27,8 +27,17 @@ Treat it like a password all the same.
 
 Go to **console.hetzner.com** and sign up with your email. Confirm the email,
 then add a payment method: the server is billed to you by Hetzner directly,
-roughly four to thirty euros a month depending on the size you pick in
-the wizard, and nothing is charged until a server actually exists.
+and nothing is charged until a server actually exists.
+
+What it costs depends on the size and the location. The wizard picks
+Hetzner's Arm machines first, because they are the cheapest it sells with
+enough memory: about €6 a month for Small, €10.50 for Standard and €21 for
+Roomy (Hetzner's list prices on 13 October 2026). Arm is sold in Germany and
+Finland only. Where a location does not sell Arm, the wizard falls back to an
+Intel or AMD machine with the same memory, which costs more: roughly €19 to
+€70 a month in Germany and Finland, and more again in Singapore and the US. The
+wizard shows the real price for the location you pick before anything is
+built.
 
 Hetzner sometimes asks new accounts to verify identity before they can create
 servers. That check is theirs, not ours; if it appears, complete it and come
@@ -48,7 +57,9 @@ Open the project. In the left sidebar choose **Security**, then the
 
 Name it something you will recognise later ("crads-ai" is fine), and set the
 permissions to **Read & Write**. This matters: a read-only token can look at
-your project but cannot build anything in it, and the wizard will refuse it.
+your project but cannot build anything in it. The wizard's token check only
+reads, so a read-only token passes it and then the build fails at its first
+step.
 
 ## 4. Copy it straight away
 

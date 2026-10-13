@@ -31,7 +31,9 @@
 //   kind    'sign-in' | 'connection' | 'channel' | 'backup' | 'platform' | 'vault'
 //   revoke  { via: 'connections' | 'seat' | 'telegram' | 'none', key?: <mcp key> }
 //           connections = the Connections page (Disconnect, R8), key = its row
-//           seat        = Your pebble / Your rock (sign-in, GitHub custody)
+//           seat        = Your mineral (no row uses it since 2026-10-13: that page
+//                         has no control that revokes the Claude sign-in or GitHub;
+//                         old panels still understand it)
 //           telegram    = the Telegram section of Your assistant
 //           none        = the box's own plumbing; nothing for the member to revoke
 //   updated ISO date of the file's last change, or null
@@ -46,7 +48,6 @@ const NOT_A_SECRET = new Set(['vault', '.gitignore', '.gitkeep', 'README.md']);
 
 const NONE = { via: 'none' };
 const TELEGRAM = { via: 'telegram' };
-const SEAT = { via: 'seat' };
 
 // What each known legacy file actually is, in the member's terms, written from
 // the code that reads it (the "used by" half names that code's job). An unknown
@@ -67,30 +68,34 @@ const KNOWN = {
     what: 'Encrypts your nightly backup before it leaves the box. Used by the backup job; you need it to restore.' },
   'backup_passphrase.escrowed': { label: 'Backup passphrase, escrow marker', kind: 'backup', revoke: NONE,
     what: 'A note that your backup passphrase has been saved to your own computer. Read by the backup job and the status update.' },
-  'catalog_deploy_key': { label: 'Catalogue key', kind: 'platform', revoke: NONE,
-    what: 'Lets your box pull shared content it is entitled to. Used by the catalogue sync job.' },
+  // Self-host restatement (2026-10-13). The directory and communities are gone,
+  // so these rows say what is true NOW: three are still written at set-up but
+  // read by nothing (mineral-arm.mjs mints them; box_reg_host also names the
+  // folder), and the rest exist only on a mineral a community once ran.
+  'catalog_deploy_key': { label: 'Community catalogue key', kind: 'platform', revoke: NONE,
+    what: 'Only on minerals a community once ran: let the box pull the skills that community shared. Nothing uses it now.' },
   'provisioning.env.local': { label: 'Set-up credentials', kind: 'platform', revoke: NONE,
-    what: 'Set-up credentials from when this box was built. Used when a rock seeds a new organisation.' },
+    what: 'Only on servers a community once ran: credentials for building minerals for its members. A mineral of your own never uses it.' },
   'box_directory_token': { label: 'Directory token', kind: 'platform', revoke: NONE,
-    what: 'Proves to the Crads-AI directory that this box is yours. Used by the device enrolment and status jobs.' },
-  'box_reg_host': { label: 'Registered address', kind: 'platform', revoke: NONE,
-    what: 'The name this box is registered under in the directory. Used by the enrolment job and the claim step.' },
+    what: 'Left over from the Crads-AI directory, which was retired in September 2026. Written at set-up; nothing on this mineral uses it now.' },
+  'box_reg_host': { label: 'Mineral name', kind: 'platform', revoke: NONE,
+    what: 'The name this mineral was built with. Used to name the folder you open in Claude Code.' },
   'owner_e': { label: 'Owner fingerprint', kind: 'platform', revoke: NONE,
-    what: 'A one-way fingerprint of the owner account, so only your own devices can enrol. Used by the device enrolment job.' },
+    what: 'A one-way fingerprint of the owner email, written at set-up for the retired Crads-AI directory. Nothing on this mineral uses it now.' },
   'heartbeat_deploy_key': { label: 'Status key', kind: 'platform', revoke: NONE,
-    what: 'Lets your mineral send its status update to your rock. Used by the status job.' },
+    what: 'Only on minerals a community once ran: let the box send its status to that community. Nothing uses it now.' },
   'heartbeat_deploy_key.pub': { label: 'Status key, public half', kind: 'platform', revoke: NONE,
-    what: 'The shareable half of the status key. Published to your rock when this box is claimed.' },
+    what: 'The shareable half of that old status key. Nothing uses it now.' },
   'heartbeat_deploy_key.reanchor': { label: 'Status key, pending move', kind: 'platform', revoke: NONE,
-    what: 'A new status key waiting to take over when this box moves to another rock. Used by the re-anchor step.' },
+    what: 'Only on minerals a community once ran: a status key that was waiting for a move to another community. Nothing uses it now.' },
   'org_brain_deploy_key': { label: 'Organisation brain key', kind: 'platform', revoke: NONE,
-    what: 'Lets this rock write its organisation brain to its own GitHub repository. Used by the organisation brain sync.' },
+    what: 'Only on servers a community once ran: let the community write its brain to its own GitHub repository.' },
   'org_inbox_deploy_key': { label: 'Organisation inbox key', kind: 'platform', revoke: NONE,
-    what: 'Lets your mineral read what your rock shares with it. Used by the organisation sync job.' },
+    what: 'Only on minerals a community once ran: let the box read what that community shared with it.' },
   'org_inbox_deploy_key.pub': { label: 'Organisation inbox key, public half', kind: 'platform', revoke: NONE,
-    what: 'The shareable half of the organisation inbox key. Published to your rock when this box is claimed.' },
+    what: 'The shareable half of that old organisation inbox key.' },
   'org_pull_token': { label: 'Organisation pull token', kind: 'platform', revoke: NONE,
-    what: 'A short-lived token a rock uses to fetch its organisation from the directory. Cleared once the claim completes.' },
+    what: 'Only on servers a community once ran: a short-lived token for fetching the community from the retired directory.' },
 };
 
 // A CREDENTIAL CAN BE A DIRECTORY (finding 108, 2026-08-13). This read every
@@ -159,7 +164,7 @@ export function discover(stateDir, env = process.env) {
       // after the rock, so the label is too.
       const joined = !k && /^heartbeat_deploy_key\.([A-Za-z0-9-]{1,39})$/.exec(e.name);
       if (joined) k = { label: `Status key for ${joined[1]}`, kind: 'platform', revoke: NONE,
-        what: `Lets your mineral send its status update to ${joined[1]}, a rock you joined. Used by the status job; removed when that membership ends.` };
+        what: `Only on minerals that joined a community: let the box send its status to ${joined[1]}, a community you joined. Removed when that membership ends.` };
       push({
         name: e.name,
         label: k ? k.label : sentence(e.name.replace(/[_-]+/g, ' ')),
@@ -179,10 +184,13 @@ export function discover(stateDir, env = process.env) {
   // 3. Credentials that live outside secrets/ entirely. Named individually rather
   //    than by a directory walk: a walk over /state would sweep up the brain.
   for (const [rel, name, label, what, kind, revoke] of [
+    // revoke NONE, not seat (2026-10-13): Your mineral has no control that
+    // revokes either, so a "Revoke via Your mineral" button sent people to a
+    // page that could not do it. The way out is in the gloss instead.
     ['.claude-auth/.credentials.json', 'claude-sign-in', 'Claude sign-in',
-      'The account your box uses to think. Used by every job and chat; signing in again replaces it.', 'sign-in', SEAT],
+      'The account your mineral uses to think. Used by every job and chat; signing in again in the Terminal replaces it.', 'sign-in', NONE],
     ['.kernel/gh', 'github-access', 'GitHub access',
-      'Lets your box push your brain to your own GitHub. Used by the backup job and the custody card.', 'backup', SEAT],
+      'Lets your mineral push your brain to your own GitHub. Used by the nightly brain push and the Backup card; to cut it off, revoke it in your GitHub settings under Applications.', 'backup', NONE],
   ]) {
     const p = join(stateDir, rel);
     if (!existsSync(p)) continue;

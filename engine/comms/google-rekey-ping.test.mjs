@@ -105,7 +105,7 @@ test('invalid_grant: the marker lands and the member hears exactly once', async 
     const rec = JSON.parse(readFileSync(path.join(d, '.kernel', 'outbox', files[0]), 'utf8'));
     assert.equal(rec.chat_id, '12345');
     assert.match(rec.text, /stopped working/i);
-    assert.match(rec.text, /Connections, then Google/i, 'the message says exactly where to click');
+    assert.match(rec.text, /go to Connections, find Google/i, 'the message says exactly where to click');
   } finally { s.close(); }
 });
 
@@ -164,7 +164,7 @@ test('two accounts: the dead work key is marked and named; the alive primary is 
       assert.equal(files.length, 1);
       const rec = JSON.parse(readFileSync(path.join(d, '.kernel', 'outbox', files[0]), 'utf8'));
       assert.match(rec.text, /jane@acme\.example/, 'the message names the account');
-      assert.match(rec.text, /Connections, then Google Workspace \(work\), then Sign in/, 'and the exact row to press');
+      assert.match(rec.text, /go to Connections, find Google Workspace \(work\) and press Sign in/, 'and the exact row to press');
       assert.equal(state.hits, 1); assert.equal(dead.state.hits, 1);
       // next tick: both throttled, nothing repeats
       const r2 = await run(d);

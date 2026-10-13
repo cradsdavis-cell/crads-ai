@@ -7,7 +7,7 @@ mode: reference
 surface: brain
 order: 106
 pins: engine/lib/brain-root.mjs, wizard/panel/member.html
-reviewed: 2026-08-25
+reviewed: 2026-10-13
 ---
 
 *Everything your assistant knows.*
@@ -32,9 +32,10 @@ not as it was when the graph was drawn.
 
 ## Your structure is yours
 
-A new mineral starts with eight pages as a **starting template, not a schema**:
-north star, philosophy, self, network, past, goals, tasks, workflow. Rearrange
-them, rename them, delete half of them, invent your own. Nothing breaks.
+The interview writes your brain onto eight pages, a **starting template, not a
+schema**: north star, philosophy, self, network, past, goals, tasks, workflow.
+Rearrange them, rename them, delete half of them, invent your own. Nothing
+breaks.
 
 That is a constraint on us rather than a permission for you: no update, no system
 page and no engine feature may assume your brain has a particular shape. It is the
@@ -47,7 +48,9 @@ type is derived from the folder it lives in: pages in `people/` draw as
 person, pages in `projects/` as project, top-level pages as note. Invent a
 `clients/` folder and a **client** type appears in the legend with its own
 colour, without anyone having shipped a feature. The software takes its
-categories from you, not the other way round.
+categories from you, not the other way round. The one type it supplies itself
+is **scaffold**: the few pages the mineral keeps for its own bookkeeping, such
+as the log, draw in a quieter grey.
 
 Each legend row is also a control: click a type to hide it from the view,
 click again to bring it back, "reset" restores everything. Node size carries
@@ -68,7 +71,7 @@ Each control explains itself if you hover it; this is the same wording:
 
 - **Files** ("Show or hide the file tree"): the pane on the left, with its own
   "Filter files…" box.
-- **Search**: see below.
+- **Search** (the box reads "Search 12 pages…", with your own count): see below.
 - **Depth 1 / 2 / 3** ("How far from the selected page to look"): 1 shows
   pages one link away from the focused page, 2 and 3 widen to two and three
   hops. Depth only means something with a focus; whole-brain and orphans
@@ -76,10 +79,10 @@ Each control explains itself if you hover it; this is the same wording:
 - **Whole brain** ("Show every page at once, including unlinked ones").
 - **Orphans**: carries a live count on the button itself, and reads "Show
   only the 3 pages nothing links to yet".
-- **Back** ("Back to the previous page"): retraces your focus steps.
-- **Fit** ("Fit the whole view on screen").
-- **Reheat** ("Untangle: rearrange the layout"): re-runs the physics when a
-  layout has knotted itself.
+- The last three are icons rather than words. **Back** (the arrow, "Back to
+  the previous page") retraces your focus steps. **Fit** ("Fit the whole view
+  on screen") frames everything. **Untangle** (the circular arrow, "Untangle:
+  rearrange the layout") re-runs the physics when a layout has knotted itself.
 
 ## Click a node: the graph is a reader
 

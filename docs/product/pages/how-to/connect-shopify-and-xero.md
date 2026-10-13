@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 74
 pins: wizard/panel/member.html, wizard/panel/mcp-catalogue.mjs
-reviewed: 2026-10-02
+reviewed: 2026-10-13
 ---
 
 Shopify and Xero both run their own connections for assistants. Today, both
@@ -26,9 +26,9 @@ steps, not a connection.
 
 ## Why not on your mineral
 
-- **Shopify:** its sign-in only sends you back to Claude's or ChatGPT's own
-  apps. Any other app, ours included, is turned away before you ever see a
-  Shopify login.
+- **Shopify:** its sign-in only sends you back to the AI apps Shopify has
+  approved (Claude, ChatGPT, Gemini and a few others). Any other app, ours
+  included, is turned away before you ever see a Shopify login.
 - **Xero:** its connection for assistants turns down sign-ins from apps other
   than Claude's built-in connector at the moment.
 
@@ -62,5 +62,6 @@ Ask your assistant about your store or your numbers in a chat and it can
 answer straight away. If you want a regular report, ask for it in a chat when
 you want it: a scheduled job cannot reach these.
 
-To disconnect either one, remove it in your Claude connector settings. There
-is nothing on your mineral to remove.
+To disconnect either one, remove it in your Claude connector settings. For
+Shopify, also uninstall the integration in your Shopify admin, which is what
+actually withdraws its access. There is nothing on your mineral to remove.

@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 6
 pins: wizard/panel/door.html, wizard/provision/digitalocean.mjs, wizard/provision/providers.mjs
-reviewed: 2026-09-09
+reviewed: 2026-10-13
 ---
 
 Crads-AI is self-hosted: your assistant runs on a server in your own hosting
@@ -16,11 +16,12 @@ DigitalOcean, and builds the server on whichever you pick. This page is the
 DigitalOcean one; [get a Hetzner API token](/docs/get-a-hetzner-api-token) is
 the other.
 
-Why DigitalOcean, when Hetzner is cheaper at every size? Location.
+Why DigitalOcean, when Hetzner is much cheaper in Europe? Location.
 DigitalOcean has a Sydney datacentre, along with Singapore, London, Frankfurt,
-Amsterdam, New York, San Francisco, Toronto and Bangalore. If you are in
-Australia and want your data to stay in Australia, this is the way to have
-that. The wizard defaults to Sydney when you pick DigitalOcean.
+Amsterdam, New York, San Francisco, Toronto and Bangalore, among others. If
+you are in Australia and want your server, and the brain stored on it, in
+Australia, this is the way to have that. (The thinking still happens at
+Anthropic: [self-hosted Claude](/docs/self-hosted-claude) draws that line.) The wizard defaults to Sydney when you pick DigitalOcean.
 
 To build on your account the wizard needs an API token from you. The token is
 the key to your DigitalOcean account. It stays on your computer, the app sends
@@ -41,7 +42,7 @@ come back.
 
 ## 2. Open the API page
 
-In the control panel's left sidebar, near the bottom, choose **API**. The
+In the control panel's left sidebar, open **Account**, then **API**. The
 **Tokens** tab is the one you want. (DigitalOcean calls a server a "droplet";
 the wizard says "server" throughout, and they are the same thing.)
 
@@ -54,9 +55,24 @@ a token that has expired simply means generating another before the next
 build.
 
 Give it **Full Access**. This matters: a read-only token can look at your
-account but cannot build anything in it, and the wizard will refuse it. If you
-would rather scope it by hand, the wizard needs to read your account, regions
-and sizes, create and read SSH keys, and create, read and delete droplets.
+account but cannot build anything in it. The wizard's token check only reads,
+so a read-only token passes it and then the build fails at its first step.
+
+If you would rather choose **Custom Scopes**, tick every one of these, or the
+build stops part way:
+
+- account: read
+- regions: read
+- sizes: read
+- image: read
+- snapshot: read
+- vpc: read
+- actions: read
+- ssh_key: create, read and delete
+- droplet: create, read and delete
+- tag: create and read
+
+The ssh_key delete is used only when you remove someone from a team.
 
 ## 4. Copy it straight away
 

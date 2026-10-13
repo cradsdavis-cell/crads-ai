@@ -8,16 +8,15 @@ access: public
 mode: how-to
 order: 60
 pins: wizard/panel/member.html
-reviewed: 2026-09-21
+reviewed: 2026-10-13
 ---
 
-Where you talk to your assistant. The app is the window onto your mineral;
-Claude Code is the room you work in. The app shows you what it knows and lets
-you switch things on. Claude Code is where you do the interview, ask it things,
-and have it draft. Same assistant, same brain, the whole of it in context.
+The app is the window onto your mineral; Claude Code is the room you work in.
+The app shows you what your assistant knows and lets you switch things on.
+Claude Code is where you do the interview, ask it things, and have it draft.
+Same assistant, same brain, the whole of it in context, and much more room.
 
-That is Claude Code, connected to your mineral over SSH. Same assistant, same
-brain, much more room. SSH is not a side door here: your keys are the only
+Claude Code reaches your mineral over SSH. SSH is not a side door here: your keys are the only
 identity your mineral has, so this route is the product's own front door with
 the panelling off.
 
@@ -74,7 +73,7 @@ A service you connect from inside a Claude Code session works when you chat
 and is invisible to your scheduled jobs, which load their connections from a
 different place. This is not hidden from you: the
 [Connections page](/docs/connections-page) lists such a service honestly,
-marked "in your chats only, not in scheduled jobs", and gives it a one-click
+labelled "in your chats only, not in scheduled jobs", and gives it a one-click
 **"Use in jobs too"** button that moves it where jobs can load it. The
 sign-in survives the move.
 
@@ -110,7 +109,8 @@ Skills have an address as well: your own live under the brain's
 `.claude/skills/<name>/`, one folder per skill, which is what
 [write your own skill](/docs/write-your-own-skill) walks you through. The mineral's software
 version is on the self-description page
-too, and in the app under **Help**, in the Mineral software fold.
+too, and **Update and restart** on the app's **Help** page tells you which
+version it landed on.
 
 ## The terminal in the app
 

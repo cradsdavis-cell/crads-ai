@@ -73,8 +73,8 @@ Do it a handful of times and the drafts stop needing the two sentences.
 Next she wants three figures from last month's plant costs in the proposal
 she is writing. If the spreadsheet lives in a connected service, she asks and
 it reads them. If it does not, she pastes the rows into the Terminal and asks.
-Nothing on the mineral reaches out to the web or to a service that is not
-connected, which is why [what you can connect](/docs/connections) is worth a
+Your assistant works from your brain and the services you have connected,
+which is why [what you can connect](/docs/connections) is worth a
 look in the first week.
 
 ## Afternoon: decisions go straight into the brain
@@ -115,7 +115,7 @@ contact she mentioned by name, a decision about the planting date, a task for
 Thursday. It shows a diff for each and writes only what she confirms. Nothing
 is written silently.
 
-Then she closes the session. Tomorrow's Open is a new session, and that is
+Then she closes the session. Tomorrow's terminal is a new session, and that is
 fine, because everything that mattered is now in a page.
 
 > Careful: the one habit that undoes all of this is having a good long

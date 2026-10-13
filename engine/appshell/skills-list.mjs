@@ -4,14 +4,14 @@
 // page; spec docs/superpowers/specs/2026-08-04-skills-cadence-library-design.md).
 //
 // Enumerates /state/.claude/skills/*/, joins SKILL.md frontmatter, skill.yaml
-// (org-pushed packages), .origin.json (provenance, written by org-sync.sh),
+// (old org-pushed packages), .origin.json (provenance, written by team-skills.mjs),
 // the member's cadence.json and skill-runs.json, and classifies each skill's
 // source. Read-only; emits a single "SKILLS_STATE {json}" line, the same
 // prefix-line idiom as member-console-state.
 //
 // Source classification (first match wins):
-//   org    — .origin.json present (rock recorded), or skill.yaml present
-//            (legacy org install that predates the origin marker)
+//   company: .origin.json says origin "company" (installed from the company
+//             brain by team-skills.mjs on a mineral in a team)
 //   engine — id exists in the image's own /app/engine/skills catalog
 //   seed   — one of the cloud-init seed skills stamped by the factory
 //   member — everything else (authored on this box)

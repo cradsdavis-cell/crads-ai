@@ -28,9 +28,9 @@ test('the transfer row is RETIRED (2026-09-01): the phantom cannot re-form', () 
   assert.ok(!html.includes('state.waiting = w;'), 'the seat no longer publishes a waiting state');
 });
 
-test('the Waits card is honestly static: no ask can be staged any more', () => {
-  assert.ok(html.includes("$('seatWaits').textContent = 'Nothing needs your answer.';"),
-    'one sentence, no phantom rows');
+test('the Waits card is RETIRED (2026-10-13): nothing fed it, so it is gone, not static', () => {
+  assert.ok(!html.includes('id="seatWaitsCard"'), 'no Waiting on you card');
+  assert.ok(!html.includes("$('seatWaits')"), 'and nothing writes to one');
 });
 
 

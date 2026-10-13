@@ -7,7 +7,7 @@
 // The whole surface is gone now: the button, the /account/devices entitlement
 // read behind it, and the account system that answered it were all deleted
 // with the self-host strip. A machine is admitted locally instead, from a
-// computer that already opens the mineral (the Map page's device roster), so
+// computer that already opens the mineral (its start screen, Add a device), so
 // there is no async entitlement answer left for a render to race.
 //
 // The lesson stands and is recorded here on purpose: when a control's
@@ -31,6 +31,6 @@ test('the let-in button and its entitlement read stay gone', () => {
 });
 
 test('the recovery copy points at the local device-add instead', () => {
-  assert.match(html, /add this one from its Map page/,
+  assert.match(html, /find the mineral on the start screen and choose Add a device/,
     'the denied state names the way in that actually exists: another computer that already opens the mineral');
 });

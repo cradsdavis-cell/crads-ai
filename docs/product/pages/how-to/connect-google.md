@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 15
 pins: wizard/panel/google-connect-routes.mjs, docs/design-google-byo-connect.md, engine/lib/google-byo.mjs
-reviewed: 2026-09-14
+reviewed: 2026-10-13
 ---
 
 Connecting Google takes about ten minutes and it is the only connection in the
@@ -42,9 +42,9 @@ page. Five short visits, about five minutes:
 |---|---|
 | 1 | **Create a project.** Name it anything, press Create. |
 | 2 | **Turn on the services.** One confirm enables Gmail, Calendar, Drive, Docs, Sheets, Tasks and Contacts for your key. |
-| 3 | **Name the app.** Any name, your own email in both contact fields. |
-| 4 | **Say who can use it.** Choose External, then **Publish app** so the status reads *In Production*. |
-| 5 | **Make the key.** Create client, choose **Desktop app**, download the JSON. |
+| 3 | **Name the app.** Press **Get started**: any app name, your own email as the support email, choose **External**, your email again as the contact, agree, press **Create**. |
+| 4 | **Publish it.** On the **Audience** page, press **Publish app** so the status reads *In production*. |
+| 5 | **Make the key.** Under **Clients**, create a client, choose **Desktop app**, and download the JSON straight away: Google shows the secret only once, at this moment. |
 
 **Step 4 is the one that matters and the one people balk at.** Google will mention
 that public apps need verification. That applies to apps other people use, and
@@ -79,7 +79,10 @@ fix. There are four:
   .apps.googleusercontent.com): download the file again from the console."**
   Valid JSON, but not a client file. You dropped something else.
 - **"that JSON is missing its client secret: download the file again from the
-  console."** The file is a client, but incomplete. A fresh download fixes it.
+  console."** The file is a client, but incomplete. Google now shows a client's
+  secret only once, when it is made, so a later download from the console
+  comes without it. On the client's page press **Add secret** and download the
+  file at that moment, or create a new Desktop app client.
 
 None of these cost you anything. Fix the file, drop it again.
 
@@ -113,7 +116,7 @@ its scheduled jobs".
 If a step fails, the narration stays on screen, so you can see exactly how far it
 got before it stopped.
 
-![The connection, once it is working](shot:member-connections)
+![The Connections page, with the Google Workspace row under Your connections waiting to be set up](shot:member-connections)
 
 ## After it works
 
@@ -141,15 +144,16 @@ network blip is not treated as death. Concretely:
   death. A network failure, a timeout, or a Google server error is never death;
   the mineral just tries again next window.
 - If the key does die, you get exactly one Telegram message, then silence. Its
-  fix line is the whole procedure: "Two clicks in your Crads-AI app:
-  Connections, then Google, then Sign in."
+  fix line is the whole procedure: "open your Crads-AI app, go to
+  Connections, find Google and press Sign in."
 - Signing in again retires the dead marker on its own. There is nothing to
   clear or reset.
 
 ## If you tick nothing
 
-The sign-in fails, and it tells you that you ticked nothing, which is the fix. A
-key that grants access to nothing is not a connection.
+The sign-in fails and says so: "you left every service unticked on Google's
+screen, so there is nothing this key can reach: sign in again and tick at least
+one". A key that grants access to nothing is not a connection.
 
 ## If Google refuses to show your calendar or mailbox
 
@@ -220,8 +224,8 @@ Workspace administrator at your employer or a client may block it outright
 else's policy can quietly turn off, and it stays with the account it belongs
 to. Ten minutes per account, once, and each key lives and dies on its own.
 
-If the account you are adding is on a Google Workspace domain you administer,
-step 4 has a shortcut: choose **Internal** instead of External and you never
+If the account you are adding is in a Google Workspace organisation, step 3
+has a shortcut: choose **Internal** instead of External and you never
 see the unverified-app screen at all. Everything else is identical.
 
 Each account is watched separately, in the way described above. If one key
@@ -248,9 +252,9 @@ Two known cases:
 
 - **Your mineral's software predates this flow.** The Connections page checks
   what your mineral can do, and if it is behind it says so in words: "This page
-  needs a newer version of your mineral than it is running", with the one-click
-  fix (Update and restart on the Claude Code tab). Nothing of yours changes in
-  the update.
+  needs a newer version of your mineral than it is running". The fix is one
+  click: **Update and restart**, on the **Help** page. Nothing of yours changes
+  in the update.
 - **A dead first-generation row.** Some early minerals still carry Gmail,
   Google Calendar or Google Drive rows from before this flow existed. Those
   endpoints could never complete a sign-in, and the row now says so: "sign-in

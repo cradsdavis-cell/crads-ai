@@ -6,10 +6,10 @@ access: public
 mode: reference
 order: 270
 pins: engine/skills, docs/product/pipeline/recipes.mjs
-reviewed: 2026-09-10
+reviewed: 2026-10-13
 ---
 
-The eleven built-in skills cover the rhythm of a week. They do not cover the
+The built-in skills cover the rhythm of a week. They do not cover the
 work that is particular to you: the note after every site visit, the reply
 you draft ten times a day, the brief before a call. This page is a shelf for
 both halves. Five recipes are already skills on your mineral and only need
@@ -21,7 +21,7 @@ Every card has the same parts: what it does, when, the prompt (or the
 switch), and how you will know it worked. Do not build the whole shelf at
 once; the last section gives an order.
 
-![Ask, skill, recipe or page](diagram:ask-skill-recipe-page)
+![Which to build: ask it once, save a skill, or make a page or card](diagram:ask-skill-recipe-page)
 
 ## Ask, skill, recipe or page
 
@@ -51,14 +51,16 @@ the Terminal) and can deliver to your Telegram bot (**Send me the result**).
 | Inbox triage | `/inbox` | Early morning, once mail is connected. One confirmation before any label is touched. | Forty unread become a short reply-owed list and a long ignore list. |
 | Chase replies owed | `/followup` | Twice a week. It surfaces; it changes nothing. | Two threads you had lost track of appear while there is still time. |
 
-![Skills](shot:member-skills)
+![The Skills page: built-in skills with their schedules and switches](shot:member-skills)
 
 ## Run your week
 
 ![The week's rhythm](diagram:week-rhythm)
 
-Plan on Monday, brief each morning, work, close each day, review on Sunday.
-Four of those beats are built in. The close of the day is the one to build.
+Plan on Monday, triage and brief each morning, work, close each day, review
+on Sunday. Planning, triage, the brief and the review are built in, and
+`/capture` saves what a day decided. The close of the day, what shipped and
+what carries over, is the one to build.
 
 ### /end-day
 
@@ -216,7 +218,7 @@ Body, a numbered procedure:
 2. Pull out every factual claim: numbers, names, dates,
    quotes, "studies show" lines.
 3. Check each against the brain, connected services, and a
-   search service if connected. Mark it confirmed,
+   search service if connected. Label it confirmed,
    unconfirmed or wrong, with where you looked.
 4. List what you could not confirm so I can cut or check it.
 5. Do not change the document. Report only.

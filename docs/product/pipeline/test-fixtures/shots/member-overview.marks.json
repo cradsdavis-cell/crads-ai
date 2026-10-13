@@ -28,7 +28,7 @@
  },
  {
   "n": 4,
-  "say": "What your pebble can do, and what is still switched off. Each row links to the way in.",
+  "say": "What your mineral can do, and what is still switched off. Each row links to the way in.",
   "sel": "[data-card=\"ladder\"]",
   "x": 4.69,
   "y": 25.63,

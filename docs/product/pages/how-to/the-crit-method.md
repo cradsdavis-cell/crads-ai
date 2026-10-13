@@ -15,13 +15,13 @@ Most disappointing answers come from a one-line ask that a person would also
 have struggled with. "Write to the supplier" is not a brief; it is a hope.
 CRIT is a way of briefing that takes about a minute longer than the hope and
 gets you a first draft you can send after two edits. It is Geoff Woods's
-framing, from his book The AI-Driven Leader, and the full credit is in
+framing, from his book *The AI-Driven Leader*, and the full credit is in
 [where these ideas come from](/docs/where-these-ideas-come-from).
 
 The four letters are context, role, interview, task. The order matters less
 than the habit of covering all four.
 
-![Context, role, interview, task, in a loop back to context](diagram:crit-four-steps)
+![Context, role, interview, task, with the interview looping one question at a time until it has enough](diagram:crit-four-steps)
 
 ![How you ask: CRIT in four boxes, then one working day with it, from the morning brief to the end-of-day capture.](film:docs-4-how-you-ask)
 

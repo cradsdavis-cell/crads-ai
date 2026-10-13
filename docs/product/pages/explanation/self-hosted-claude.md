@@ -45,8 +45,8 @@ DigitalOcean account, opened only by your own SSH key. On it:
   while you sleep.
 - **Your run history**: what it did, and when.
 
-Each night the brain is backed up to a private GitHub repository in your own
-account. None of it is copied to Crads-AI, because there is nowhere of ours
+Once you connect GitHub (one of the two finishing steps of setup), the brain
+is backed up each night to a private GitHub repository in your own account. None of it is copied to Crads-AI, because there is nowhere of ours
 for it to go.
 
 ## What goes to Anthropic, every time

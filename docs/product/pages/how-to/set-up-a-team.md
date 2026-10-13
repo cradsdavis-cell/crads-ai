@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 6
 pins: wizard/panel/team-routes.mjs
-reviewed: 2026-10-11
+reviewed: 2026-10-13
 ---
 
 You run this once, as the owner, from the Crads app on your own computer. If
@@ -93,7 +93,9 @@ Proposed changes to policies, prices, processes, client pages and shared skills
 appear on the company agent's **Team** page, under **Waiting for you**, within
 the hour. Read the lines that change and any warnings, add a note if you like,
 and choose **Approve** or **Turn down**. Every assistant on the team has an
-approved change within the hour.
+approved change within the hour. A change to a page that has moved on since it was proposed
+cannot be approved; [the Team page](/docs/team-page) explains why, and
+everything else on that tab.
 
 ## Add people
 

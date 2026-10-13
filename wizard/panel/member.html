@@ -1735,7 +1735,7 @@
         <p class="hint" style="margin:10px 0 0">No account yet? Create one at claude.ai first; the software needs the plan Claude Code itself needs: Claude Pro or above. <a class="openlink" href="https://claude.ai/download" target="_blank" rel="noopener">Get the Claude Code app</a></p>
       </div>
       <p class="hint" data-needs-box-note>Scheduled jobs and Telegram need a server. This folder is only awake while you have it open.</p>
-      <p class="hint" data-needs-box style="color:var(--ink)"><b>This is an extra, not a step.</b> Connecting the app signs in <b>your laptop</b> and reaches into your mineral over SSH. It does not sign the <b>mineral</b> in, so it does not switch on scheduled jobs, and nothing it does makes the Overview checklist tick. That one is the Terminal tab: open it and run <b style="font-family:var(--mono)">claude</b> once.</p>
+      <p class="hint" data-needs-box style="color:var(--ink)"><b>This is an extra, not a step.</b> Connecting the app signs in <b>this computer</b> and reaches into your mineral over SSH. It does not sign the <b>mineral</b> in, so it does not switch on scheduled jobs, and nothing it does makes the Overview checklist tick. That one is the Terminal tab: open it and run <b style="font-family:var(--mono)">claude</b> once.</p>
       <div class="guidecard" data-needs-box>
         <p class="gtitle">Your connection name</p>
         <div class="hostbox"><code id="ohHost">…</code><button class="act" id="ohCopy" style="margin-top:0">Copy</button></div>
@@ -2304,10 +2304,10 @@
         <!-- One-name ruling (2026-08-09, supersedes the 2026-08-04 register):
              the page is titled with THE mineral's one name once the mineral answers;
              the tier word ("pebble" / "rock") demotes to the subtitle line.
-             The static default stays "Your pebble" only until loadSeat lands,
-             and the nav tab keeps the tier word: it names the page, not the mineral. -->
+             The static default "Your mineral" shows only until loadSeat lands,
+             and the nav tab keeps that word: it names the page, not the mineral. -->
         <h2 id="seatTitle">Your mineral</h2>
-        <p>Who owns this mineral, where its backup goes, and anything waiting on your answer.</p>
+        <p>Who owns this mineral, where its backup goes, and every computer that can open it.</p>
       </div>
       <div class="guidecard">
         <div class="devrow"><div><b id="seatBoxName">&hellip;</b>
@@ -2372,10 +2372,6 @@
         <div class="empty" id="pagesEmpty" style="display:none"><b>No pages yet.</b> Your assistant can build you one: run /write-page in Claude Code on your mineral.</div>
         <div id="pagesListSection"></div>
       </div>
-      <div class="guidecard" id="seatWaitsCard" data-needs-box>
-        <div class="gtitle">Waiting on you</div>
-        <div id="seatWaits" class="hint" style="margin:0;color:var(--ink)">Checking&hellip;</div>
-      </div>
       <div class="guidecard">
         <!-- 2026-08-09 audit (R3): Origin folds shut — lineage is worth keeping,
              not worth a permanent card of scroll. Hand-ownership left the page
@@ -2398,7 +2394,7 @@
          answer. The always-on machinery moved to the Health card on Overview. -->
     <section data-sec="skills">
       <div class="pagehead">
-        <h2>Skills<button class="info" type="button" aria-label="What is this?" data-tip="Everything your assistant knows how to do lives on this mineral. Open a skill to run it, schedule it, or read what it does; everything is off until you switch it on. Below that, each community you belong to lists what it offers you; installing never needs a further approval, and every card says where it came from.">?</button></h2>
+        <h2>Skills<button class="info" type="button" aria-label="What is this?" data-tip="Everything your assistant knows how to do lives on this mineral. Open a skill to run it, schedule it, or read what it does; everything is off until you switch it on. Every card says where it came from: built in, a starter, your company, or your own.">?</button></h2>
         <p>What your assistant can do, and when it runs.</p>
       </div>
       <!-- The cadence gate. A schedule is a promise the mineral will run the skill
@@ -2409,7 +2405,7 @@
       <p class="hint" data-needs-box-note>Scheduled jobs and Telegram need a server. Skills still run in Claude Code on this folder whenever you ask.</p>
       <div class="ccbanner" id="cadGate" style="display:none">
         <div class="txt"><b>Your mineral is not signed in to Claude yet.</b>
-          <div class="sub">Scheduled jobs run with nobody at the keyboard, so they need the mineral&rsquo;s <b>own</b> sign-in. Connecting the Claude Code desktop app does not give it one: that signs in your laptop and reaches in over SSH. Open a terminal here and run <b style="font-family:var(--mono)">claude</b> once. Running and scheduling stay locked until it lands.</div>
+          <div class="sub">Scheduled jobs run with nobody at the keyboard, so they need the mineral&rsquo;s <b>own</b> sign-in. Connecting the Claude Code desktop app does not give it one: that signs in this computer and reaches in over SSH. Open a terminal here and run <b style="font-family:var(--mono)">claude</b> once. Running and scheduling stay locked until it lands.</div>
         </div>
         <button class="act primary" id="cadGateBtn">Sign in on your mineral →</button>
       </div>
@@ -2838,8 +2834,8 @@
     + 'so nothing in this app can reach it. It is your own server: try Help \u25b8 Update and restart, '
     + 'or reboot the server from your hosting console. Technical detail:';
   var NOT_LET_IN_MSG = 'Your mineral is up and answering, but it does not know this computer yet, '
-    + 'so it refused the connection. Open this app on a computer that already has access and add '
-    + 'this one from its Map page. Technical detail:';
+    + 'so it refused the connection. Open this app on a computer that already has access, find the '
+    + 'mineral on the start screen and choose Add a device. Technical detail:';
   // Use for any verb failure that should speak to a human. Box-down gets the shared
   // explanation; anything else keeps its own caller-specific wording.
   function verbErr(r, ownWording){
@@ -3243,7 +3239,7 @@
       $('connSub').textContent = '';
       sel.style.display = 'none';
       $('connErrHead').textContent = 'This computer is not linked to a mineral yet';
-      $('connErrBody').textContent = 'Reopen the app and choose Set up my own, or have another of your computers let this one in from its Map page. This page comes alive once your mineral answers.';
+      $('connErrBody').textContent = 'Reopen the app and choose Set up my own. If you already have a mineral, choose I already have one, and let this computer in from one that already opens it (its start screen, Add a device). This page comes alive once your mineral answers.';
       $('connErrDetail').textContent = 'No connection configured on this computer';
       $('connRetry').style.display = 'none';
       $('connError').style.display = 'block';
@@ -3521,16 +3517,16 @@
       : isDown ? 'Your assistant is not running'
       : early ? 'Waiting for your mineral' : 'Still no answer from your mineral';
     $('connErrBody').textContent = denied
-      ? 'Your mineral is up and answering: it just does not know this computer yet. Open this app on a computer that already has access and add this one from its Map page. Nothing new is made.'
+      ? 'Your mineral is up and answering: it just does not know this computer yet. Open this app on a computer that already has access, find the mineral on the start screen and choose Add a device. Nothing new is made.'
       : isDown
-      ? 'The mineral itself is switched on and answering, but the assistant inside it has stopped. It will not come back on its own. It is your own server: reboot it from your hosting console (Hetzner), and if that does not bring it back, the detail below says why.'
+      ? 'The mineral itself is switched on and answering, but the assistant inside it has stopped. It will not come back on its own. It is your own server: reboot it from your hosting console (Hetzner or DigitalOcean), and if that does not bring it back, the detail below says why.'
       : early
       ? 'It may still be getting set up. This page keeps checking on its own; nothing you need to do.'
       : 'Several checks in a row have not got through. That is usually a network hiccup or a mineral mid-restart. Try again, and if it keeps happening, check the server at your hosting provider.';
     // The "Let this computer in" button and its /account/devices entitlement
     // ask died with the account system (face collapse, 2026-09-01). The denied
     // copy above IS the way in now: another of the person's own computers adds
-    // this one from its Map page, over SSH, with no third party to ask.
+    // this one from its start screen (Add a device), over SSH, with no third party to ask.
     $('connErrDetail').textContent = detail || 'No technical output';
     $('connRetry').style.display = '';
     $('connError').style.display = 'block';
@@ -3831,7 +3827,7 @@
     var claude = (d && d.connections) ? connLive(d, CLAUDE_SIGNIN_RE, true) : null;
     var tg = (d && d.connections) ? connLive(d, /telegram/i, true) : null;
     var onboarded = (d && d.onboarding) ? ((d.onboarding || {}).phase === 'done') : null;
-    var claudeWhy = 'Open the Terminal tab and run claude once. The desktop app signs in your laptop, not this mineral';
+    var claudeWhy = 'Open the Terminal tab and run claude once. The desktop app signs in this computer, not this mineral';
     var tw = thinksWith(), claudeName = 'Sign in to Claude on your mineral';
     var claudeAct = { label: 'Open Terminal', to: 'terminal', run: signinOpener() };
     if (tw && tw.harness && tw.harness !== 'claude-code') {
@@ -5023,7 +5019,7 @@
   // box predates its scripts (the app updates itself in minutes; the box only on
   // a restart the member chooses), and the sign-in path leaked the bare marker
   // to Sam. One translation, used by every handler.
-  var MCP_TOO_OLD = 'That needs a newer version of your mineral. Open the Claude Code tab, press Update and restart (about a minute, nothing of yours changes), then try again.';
+  var MCP_TOO_OLD = 'That needs a newer version of your mineral. Open Help, press Update and restart under Software update (about a minute, nothing of yours changes), then try again.';
   // The lowest box contract this page can work against. Raise it in lockstep with
   // CONTRACT in engine/comms/mcp-connect.mjs whenever the page starts depending on
   // a NEW field, so a behind box is told to update instead of failing oddly.
@@ -5081,7 +5077,7 @@
       mcpNoteContract(d);
       if (d && d.error === 'box-too-old') {
         $('mcpRows').innerHTML = '<p class="hint" style="margin:0">This page needs a newer version of your mineral than it is running.'
-          + ' Open the <b>Claude Code</b> tab and press <b>Update and restart</b>, then come back here.'
+          + ' Open <b>Help</b> and press <b>Update and restart</b> under Software update, then come back here.'
           + ' It takes about a minute, and everything of yours stays exactly as it is.</p>';
         notice('mcpNotice', '');
         mcpSigninHide();
@@ -5701,7 +5697,9 @@
   function secRevoke(f){
     var r = f.revoke || {};
     if (r.via === 'connections') return { sec: 'connections', label: 'Connections', key: r.key || '' };
-    if (r.via === 'seat') return { sec: 'seat', label: 'Your mineral', key: '' };
+    // 'seat' (an older engine's Claude sign-in and GitHub rows) gets no button:
+    // Your mineral has no control that revokes either, so the hint sent people
+    // to a page that could not do it (2026-10-13). The row's gloss says how.
     if (r.via === 'telegram') return { sec: 'connections', label: 'Telegram', key: 'telegram' };
     return null;
   }
@@ -5713,10 +5711,10 @@
   // (mirrors engine/vault/discover.mjs KNOWN), sentence-cases the rest, and
   // files every old-shape row under Platform.
   var SEC_LEGACY = {
-    'owner_e':             { label: 'Owner email', what: 'Owner email (for directory registration). Used by the device enrolment job.' },
-    'machine_salt':        { label: 'Machine salt', what: 'Machine salt, seeds this mineral\'s device fingerprints. Used by the device enrolment job.' },
-    'box_reg_host':        { label: 'Registered host name', what: 'Registered host name. The name this mineral is registered under in the directory.' },
-    'box_directory_token': { label: 'Directory token', what: 'Directory token, how this mineral proves itself to the directory. Used by the device enrolment and status jobs.' },
+    'owner_e':             { label: 'Owner fingerprint', what: 'A one-way fingerprint of the owner email, written at set-up for the retired Crads-AI directory. Nothing on this mineral uses it now.' },
+    'machine_salt':        { label: 'Machine salt', what: 'Left over from the retired Crads-AI directory, where it seeded device fingerprints. Nothing on this mineral uses it now.' },
+    'box_reg_host':        { label: 'Mineral name', what: 'The name this mineral was built with. Used to name the folder you open in Claude Code.' },
+    'box_directory_token': { label: 'Directory token', what: 'Left over from the Crads-AI directory, which was retired in September 2026. Nothing on this mineral uses it now.' },
     'telegram_bot_token':  { label: 'Telegram bot token', kind: 'channel', what: 'Lets your mineral talk to you on Telegram. Used by the Telegram bridge and your scheduled jobs.' },
     'telegram_chat_id':    { label: 'Telegram chat', kind: 'channel', what: 'Which Telegram conversation your mineral replies in. Used by the Telegram bridge.' },
     'telegram_revoked':    { label: 'Telegram, retired tokens', kind: 'channel', what: 'A list of Telegram bot tokens you have disconnected, stored as one-way fingerprints. Lets your mineral refuse a token you already retired. Never the tokens themselves.' },
@@ -5724,15 +5722,15 @@
     'code-server-password': { label: 'Browser editor password', what: 'The password for opening your mineral in a browser. Used by the mineral at start-up.' },
     'backup_passphrase':   { label: 'Backup passphrase', kind: 'backup', what: 'Encrypts your nightly backup before it leaves the mineral. Used by the backup job; you need it to restore.' },
     'backup_passphrase.escrowed': { label: 'Backup passphrase, escrow marker', kind: 'backup', what: 'A note that your backup passphrase has been saved to your own computer.' },
-    'catalog_deploy_key':  { label: 'Catalogue key', what: 'Lets your mineral pull shared content it is entitled to. Used by the catalogue sync job.' },
-    'provisioning.env.local': { label: 'Set-up credentials', what: 'Set-up credentials from when this mineral was built. Used when a rock seeds a new organisation.' },
-    'heartbeat_deploy_key': { label: 'Status key', what: 'Lets your mineral send its status update to your rock. Used by the status job.' },
-    'heartbeat_deploy_key.pub': { label: 'Status key, public half', what: 'The shareable half of the status key. Published to your rock when this mineral is claimed.' },
-    'heartbeat_deploy_key.reanchor': { label: 'Status key, pending move', what: 'A new status key waiting to take over when this mineral moves to another rock.' },
-    'org_brain_deploy_key': { label: 'Organisation brain key', what: 'Lets this rock write its organisation brain to its own GitHub repository.' },
-    'org_inbox_deploy_key': { label: 'Organisation inbox key', what: 'Lets your mineral read what your rock shares with it. Used by the organisation sync job.' },
-    'org_inbox_deploy_key.pub': { label: 'Organisation inbox key, public half', what: 'The shareable half of the organisation inbox key.' },
-    'org_pull_token':      { label: 'Organisation pull token', what: 'A short-lived token a rock uses to fetch its organisation from the directory.' },
+    'catalog_deploy_key':  { label: 'Community catalogue key', what: 'Only on minerals a community once ran: let the box pull the skills that community shared. Nothing uses it now.' },
+    'provisioning.env.local': { label: 'Set-up credentials', what: 'Only on servers a community once ran: credentials for building minerals for its members. A mineral of your own never uses it.' },
+    'heartbeat_deploy_key': { label: 'Status key', what: 'Only on minerals a community once ran: let the box send its status to that community. Nothing uses it now.' },
+    'heartbeat_deploy_key.pub': { label: 'Status key, public half', what: 'The shareable half of that old status key. Nothing uses it now.' },
+    'heartbeat_deploy_key.reanchor': { label: 'Status key, pending move', what: 'Only on minerals a community once ran: a status key that was waiting for a move to another community. Nothing uses it now.' },
+    'org_brain_deploy_key': { label: 'Organisation brain key', what: 'Only on servers a community once ran: let the community write its brain to its own GitHub repository.' },
+    'org_inbox_deploy_key': { label: 'Organisation inbox key', what: 'Only on minerals a community once ran: let the box read what that community shared with it.' },
+    'org_inbox_deploy_key.pub': { label: 'Organisation inbox key, public half', what: 'The shareable half of that old organisation inbox key.' },
+    'org_pull_token':      { label: 'Organisation pull token', what: 'Only on servers a community once ran: a short-lived token for fetching the community from the retired directory.' },
   };
   function secHumanName(name){
     var s = String(name || '').replace(/\.(pub|escrowed|reanchor)$/, ', $1').replace(/[-_]+/g, ' ').trim();
@@ -5912,18 +5910,27 @@
           : seatRow('Hosting', 'Your own hosting account',
             'This mineral runs on a server you hold the keys to.'));
       var b = st.backup || {};
+      // The box reports a raw ISO timestamp ("2026-10-10T17:56:32Z"); a person reads
+      // "2 days ago (10 October, 17:56)", local time, like every other date here.
+      function sentWhen(v){
+        if (!v) return 'not recorded yet';
+        var t = Date.parse(v); if (!isFinite(t)) return String(v);
+        var abs; try { abs = new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }); } catch (e) { abs = String(v); }
+        var rel = ago(v);
+        return rel ? rel + ' (' + abs + ')' : abs;
+      }
       // A folder is already on this computer: "download a copy" would be a
       // copy of a copy, so the local face offers GitHub and nothing else.
       if (state.kind === 'local') {
         $('seatBackup').innerHTML = b.connected
           ? '<b>' + seatEsc(b.repo || 'your private repository') + '</b>'
-            + '<div class="hint" style="margin:2px 0 8px">last sent ' + seatEsc(b.last || 'not recorded yet') + ' \u00b7 private, in your own GitHub account, whenever this app opens</div>'
+            + '<div class="hint" style="margin:2px 0 8px">last sent ' + seatEsc(sentWhen(b.last)) + ' \u00b7 private, in your own GitHub account, whenever this app opens</div>'
           : 'Your brain is the folder on this computer and nowhere else.'
             + '<div style="margin-top:8px"><button class="act" id="seatBackupGh">Connect my GitHub</button></div>';
       } else
       $('seatBackup').innerHTML = b.connected
         ? '<b>' + seatEsc(b.repo || 'your private repository') + '</b>'
-          + '<div class="hint" style="margin:2px 0 8px">last sent ' + seatEsc(b.last || 'not recorded yet')
+          + '<div class="hint" style="margin:2px 0 8px">last sent ' + seatEsc(sentWhen(b.last))
             // Say whose account it actually is. This line used to assert "your own
             // GitHub account" for any configured remote, including an org-owned
             // box whose remote is the ROCK's repo.
@@ -5943,8 +5950,8 @@
       // The rock-era waits (transfer invitations, ownership grants, standing
       // org asks) and the promote-to-a-rock flow retired with the face
       // collapse (2026-09-01): nothing central can stage one any more. The
-      // card stays, honestly empty, until a commons-era ask shape exists.
-      $('seatWaits').textContent = 'Nothing needs your answer.';
+      // "Waiting on you" card that stayed for them was fed by nothing and always
+      // said "Nothing needs your answer", so it was removed (2026-10-13).
       var lin = st.lineage;
       // ONE NAME FOR ONE ROCK (finding 118, 2026-08-13). lineage.stamped_by is
       // a slug, and printing it raw put `qa-r2-gmail` under Origin two rows
@@ -5976,10 +5983,8 @@
       if (rr && rr.ok) { setBrainName(name); loadDashboard(true); }
     });
   };
-  // The hand-ownership ASK left this page (2026-08-09 audit, R3): too advanced
-  // a surface to show every member. The /handover-ask route and the accept path
-  // under "Waiting on you" survive untouched, so a transfer a rock stages still
-  // completes here.
+  // The hand-ownership ASK left this page (2026-08-09 audit, R3), and the
+  // accept path with its "Waiting on you" card followed (2026-09-01, 2026-10-13).
 
 
   // "connected now" / "seen HH:MM UTC" / "last seen YYYY-MM-DD": the wording
@@ -6134,6 +6139,8 @@
       var st = r.ok ? teamParse(r) : null;
       teamState = st;
       $('teamNav').style.display = (st && st.team) ? '' : 'none';
+      // The Skills page hides /propose-change off a team; re-render if it drew first.
+      if (state.skillRows && $('skillsGroups').childNodes.length) renderSkills();
       // On a team box "nothing here is visible to anyone else" stops being true:
       // facts are published to the company brain and the company owns the server.
       if (st && st.team) $('footPrivacy').textContent = st.role === 'hub'
@@ -7092,7 +7099,7 @@
     { key: 'capture',  label: 'Capture & review' },
     { key: 'comms',    label: 'Inbox & comms' },
     { key: 'box',      label: 'Your mineral' },
-    { key: 'org',      label: 'Community' },
+    { key: 'org',      label: 'Your team' },
     { key: 'other',    label: 'Other' }
   ];
   // The origin chip (R12): always shown on the installed card. A rock-published
@@ -7101,6 +7108,9 @@
   function srcBadge(s){
     if (s.source === 'engine') return 'built-in';
     if (s.source === 'seed') return 'starter';
+    // Teams (2026-10-10): installed from the company brain by team-skills.mjs and
+    // replaced on every pull, so "yours" would claim an edit that will not stick.
+    if (s.source === 'company') return 'company';
     return 'yours';
   }
   function cadChip(id){
@@ -7239,6 +7249,10 @@
     var gated = mineralSignedIn() === false;
     $('cadGate').style.display = gated ? 'flex' : 'none';
     var st = state.allSkills || {}, skills = state.skillRows || [];
+    // /propose-change ships in the engine, so every mineral has it, but it only
+    // works on a mineral in a team (it stops at once anywhere else). Hidden once
+    // team-status has said this mineral is in no team; shown while unknown.
+    if (teamState && !teamState.team) skills = skills.filter(function(s){ return s.id !== 'propose-change'; });
     // ---- group 1: On this mineral, by category ----
     // #skillsEmpty stays hidden: the empty state renders INSIDE its group.
     $('skillsEmpty').style.display = 'none';
@@ -7544,7 +7558,11 @@
   function machineryRows(){
     if (!state.machineryLoaded) return [];   // nothing fetched yet: say nothing, not a stale trio
     var auOff = state.autoUpdate && state.autoUpdate.enabled === false;
-    var plan = (state.planJson && state.planJson.machinery) || [];
+    // A job whose schedule reads "never" cannot fire on THIS mineral (the team
+    // publish on a mineral that is in no team, the old community-only jobs), so
+    // listing it badged "on" claimed work that will not happen. Hidden here; the
+    // scheduler still lists it for --plan, where "never" is the honest answer.
+    var plan = ((state.planJson && state.planJson.machinery) || []).filter(function(j){ return j.when !== 'never'; });
     if (plan.length){
       // Cadence v2: the scheduler describes its own machinery (--plan-json),
       // resolved jitter included, so these rows show what will actually fire
@@ -7570,9 +7588,9 @@
         // records that it is alive and signed in, and this page reads that
         // stamp to tell fresh from stale. It goes nowhere else.
         if (j.id === 'heartbeat'){ chip = state.heartbeatAt ? 'on' : 'checking\u2026'; ok = !!state.heartbeatAt;
-          sub = 'A local liveness stamp this page reads; it stays on the mineral.';
+          sub = 'Once an hour the mineral notes that it is alive and signed in, and this page reads that note; it stays on the mineral.';
           if (state.heartbeatAt) sub += ' Last: ' + esc(ago(state.heartbeatAt) || state.heartbeatAt) + '.';
-          else sub += ' The first stamp lands within the hour, and this page re-checks about every minute on its own.'; }
+          else sub += ' The first check-in lands within the hour, and this page re-checks about every minute on its own.'; }
         if (j.id === 'backup'){
           // The run ledger finally lets this row answer for itself; a box that
           // has not written a backup entry yet still defers to the Backup card.
@@ -7589,9 +7607,9 @@
           ? 'Switched off, so this mineral only updates when you press Update &amp; restart. Ask your assistant to turn it back on.'
           : 'Restarts the mineral onto the software version the Crads-AI release channel has published (around 4am, local to the mineral). Your brain and files are untouched.',
         chip: auOff ? 'opted out' : 'on', ok: !auOff },
-      { id: 'Heartbeat', sub: 'A local liveness stamp: the mineral records that it is alive and signed in, and this page reads it. It stays on the mineral.'
+      { id: 'Heartbeat', sub: 'Once an hour the mineral notes that it is alive and signed in, and this page reads that note. It stays on the mineral.'
           + (state.heartbeatAt ? ' Last: ' + esc(ago(state.heartbeatAt) || state.heartbeatAt) + '.'
-                               : ' The first stamp lands within the hour, and this page re-checks about every minute on its own.'),
+                               : ' The first check-in lands within the hour, and this page re-checks about every minute on its own.'),
         chip: state.heartbeatAt ? 'on' : 'checking\u2026', ok: !!state.heartbeatAt },
       { id: 'Nightly backup', sub: 'Encrypted snapshot of your settings and credentials; your brain backs up to your own repository. See the Backup card for whether it has actually run.',
         chip: 'see Backup', ok: false }
@@ -7605,11 +7623,11 @@
   var MACHINERY_LABEL = {
     'auto-update': 'Software updates',
     'Nightly software update': 'Software updates',
-    'heartbeat': 'Liveness stamp',
-    'Heartbeat': 'Liveness stamp',
+    'heartbeat': 'Last check-in',
+    'Heartbeat': 'Last check-in',
     'backup': 'Nightly backup',
     'Nightly backup': 'Nightly backup',
-    'org-publish': 'Publishing to members'
+    'org-publish': 'Publishing to your team'
   };
   function machineryLabel(id){
     return MACHINERY_LABEL[id] || cap(String(id == null ? '' : id).replace(/-/g, ' '));

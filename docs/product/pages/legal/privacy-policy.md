@@ -4,8 +4,8 @@ summary: What is stored, where it runs, what leaves your mineral, and why almost
 audience: public
 access: public
 mode: legal
-version: 0.17
-effective: 2026-10-12
+version: 0.18
+effective: 2026-10-13
 order: 10
 ---
 
@@ -14,35 +14,11 @@ order: 10
 Crads AI is operated by Samuel Davis, trading as Crads AI, **ABN 26 929 349
 775**, in Coogee, New South Wales, Australia. Contact: cradsdavis@gmail.com.
 
-This is version 0.17, effective 12 October 2026. The version and date at the
+This is version 0.18, effective 13 October 2026. The version and date at the
 top of this page change whenever the text does, and prior versions stay on
 the record.
 
-*Changed in 0.10: the self-host redesign, which rewrote most of this page by
-deleting its subject matter. Minerals are now created by their owners, on
-their own hosting accounts, with their own keys; Crads AI operates no
-accounts, no registration directory for them, no billing, and no tunnels, and
-provisions nothing. The sections of versions 0.1 to 0.9 covering the
-registration directory and its email hashes, the community status heartbeat
-and its sharing switches, the setup key a community-built mineral was born
-with, EU-only hosting, and the sub-processor table describing our vendors are
-gone because the machinery they disclosed is gone. What survives is the
-support-access disclosure and everything about the machine itself, which was
-always yours. Changed in 0.11: the community model (a shared repository your
-mineral pulled read-only) was removed from the software on 2026-09-09, so the
-one sentence about it is gone; nothing else changed. Changed in 0.13: roadmap
-calls, recorded only with your OK, added under "What we hold about you", and
-the version line above corrected. Changed in 0.14: the crads-ai.com
-website, these docs included, now counts page views with Vercel Web Analytics,
-so the sentence saying the docs site had no analytics is gone and "Visiting
-crads-ai.com" below says exactly what is recorded. Nothing about the app or
-your mineral changed. Changed in 0.15: the website also counts two kinds of
-click (into booking, and into the app download), and the booking confirmation
-page no longer records the payment reference in its address; both are
-described under "Visiting crads-ai.com". Changed in 0.16: the essay
-mailing list, which started on 11 October 2026, added under "What we hold
-about you". Changed in 0.17: where that list is stored, now named (the United
-States) instead of "may be outside Australia".*
+What changed in each version is listed under [Changes](#changes) at the end.
 
 ## The short version
 
@@ -62,12 +38,34 @@ For a person who downloads the software and runs a mineral: **nothing**.
 There is no account to create, no registration, and no telemetry or
 analytics in the app. The few things the app remembers
 (which mineral you opened last, which side-menu groups you folded) live in
-your own computer's storage and are never sent anywhere.
+your own computer's storage and are never sent anywhere. The app also keeps
+the SSH key it made for you, and a connection entry for each mineral, in your
+computer's SSH folder. Your hosting token is never saved; it is held only
+while the server is being built.
 
 If you correspond with us (email, a support engagement, a paid service), we
 hold that correspondence and the ordinary business records of it, together
 with any roadmap call recordings you agreed to and, if you are on it, the
-essay mailing list below: that is the whole list.
+essay mailing list below.
+
+**If you buy a paid service.** Stripe takes the payment; we never see your
+card number. We receive your name, email, what you bought and the payment
+reference. Paying also creates a client account on crads-ai.com holding your
+name, email, Stripe customer reference, what you bought and how many sessions
+you have used, so you can sign in and book the rest. Bookings, paid or free,
+are made through Cal.com, which holds your name, email and booking time.
+Calls run on Google Meet.
+
+**How we handle it.** Our email, calendar and documents are in Google
+Workspace. We use an AI assistant, running on Claude under our own Anthropic
+account on a server we rent in Sydney, to read and draft our email, keep
+notes on the people we work with, and help write roadmap reports. Nothing it
+drafts is sent without a person checking it first.
+
+**If we wrote to you first.** If we emailed you before you had written to us,
+we found your name, business and work email in public sources such as your
+website. We keep them, with a note of what we sent, so we write to you at
+most twice. Ask and we delete them.
 
 **Roadmap calls.** If you book an AI problem-solving roadmap, we ask at the
 start of the call whether we can record it with an AI note-taker. If you say
@@ -106,7 +104,9 @@ you were on and the page the link pointed to. On the confirmation page after a
 booking, the payment reference in the page's address is removed before
 anything is recorded.
 
-It sets no cookies and stores nothing in your browser. Vercel tells one visit
+Web Analytics sets no cookies and stores nothing in your browser. The only
+cookie the site sets is the sign-in cookie for the client account area, and
+only if you sign in. The app download itself is served from GitHub. Vercel tells one visit
 from another with a hash made from the request, which it discards after 24
 hours, and it does not tie a visit to you or to your IP address, or collect
 anything that follows you to other websites. What we see is totals: how many
@@ -122,17 +122,26 @@ DigitalOcean, in whichever of that company's locations you picked in the setup
 wizard. Your contract for that machine is with them, not with us, and we
 cannot see, reach or bill it.
 
-If you are in Australia and picked a European location, your data is stored
+If you are in Australia and picked a location outside Australia, your data is stored
 overseas. We say that plainly because Australian privacy law expects
 disclosure of overseas storage, and because you should know it regardless:
 it is your choice, made in the wizard, changeable by rebuilding elsewhere.
+
+## If your mineral is part of a team
+
+If a business set you up through Crads for Teams, your server sits in their
+hosting account and your repository in their GitHub, and the owner holds a
+key that opens your server. Your personal/ folder and pages marked private
+are never published to the company brain, but whoever administers the
+servers can read them. Crads AI is not in that relationship: the team owner
+decides what happens to that data, and questions about it go to them.
 
 ## What lives on your mineral, and stays there
 
 - **Your brain.** The pages your assistant writes and reads: who you are,
   your goals, your people, your business, your voice.
-- **Your credentials.** Your Claude sign-in, your connected service tokens,
-  your Telegram bot token if you use one.
+- **Your credentials.** Your Claude sign-in, your GitHub sign-in, your
+  connected service tokens, your Telegram bot token if you use one.
 - **Your run history.** What your assistant did and when.
 
 None of this is copied to us. There is no central store of brains, because
@@ -142,19 +151,26 @@ there is no central store: one person, one machine.
 
 Only what you set up, and each goes to an account of your own:
 
-1. **A backup, to a repository you own.** A pebble pushes its brain nightly
+1. **What you say to your assistant, to Claude.** Every conversation and
+   scheduled run sends your request, and the pages and connected data your
+   assistant reads to answer it, to Anthropic under your own Claude account.
+2. **A backup, to a repository you own.** A pebble pushes its brain nightly
    to a private GitHub repository in your own account, as readable files,
    and an encrypted snapshot of its settings and credentials to the same
    repository as ciphertext, AES-256, with a passphrase generated on your
    box. We never hold the passphrase and the repository is not ours. One
    property of git worth stating: the repository keeps history, so earlier
-   snapshots persist in history you own until you prune it.
-2. **Things you asked it to send.** Skill output you tick "Send me the
+   snapshots persist in history you own until you prune it. GitHub stores
+   repositories in the United States.
+3. **Things you asked it to send.** Skill output you tick "Send me the
    result" on is delivered to your own Telegram bot, transiting Telegram's
    servers under your agreement with Telegram. Anything your assistant does
    through a service you connected (a draft in your Gmail, an event in your
    calendar) happens at that service, on your account, because you set it up
    and asked for it.
+4. **Update checks.** Your mineral downloads its nightly update from
+   GitHub's container registry, and the desktop app checks GitHub for a new
+   version every few hours. GitHub sees the address these come from.
 
 ## Services you connect
 
@@ -245,3 +261,33 @@ complete picture first.
 
 Write to cradsdavis@gmail.com. If you are in Australia and unsatisfied, you
 can complain to the Office of the Australian Information Commissioner.
+
+## Changes
+
+*Changed in 0.18: a section for minerals set up through Crads for Teams; "What we hold about you" now covers paid-service client accounts, Stripe, Cal.com, the business's own email and AI assistant, and people we wrote to first, and no longer calls itself the whole list; "What leaves your mineral" now names what you say to Claude and the update checks; the site's sign-in cookie is disclosed; this change list moved to the end of the page.*
+
+*Changed in 0.10: the self-host redesign, which rewrote most of this page by
+deleting its subject matter. Minerals are now created by their owners, on
+their own hosting accounts, with their own keys; Crads AI operates no
+accounts, no registration directory for them, no billing, and no tunnels, and
+provisions nothing. The sections of versions 0.1 to 0.9 covering the
+registration directory and its email hashes, the community status heartbeat
+and its sharing switches, the setup key a community-built mineral was born
+with, EU-only hosting, and the sub-processor table describing our vendors are
+gone because the machinery they disclosed is gone. What survives is the
+support-access disclosure and everything about the machine itself, which was
+always yours. Changed in 0.11: the community model (a shared repository your
+mineral pulled read-only) was removed from the software on 2026-09-09, so the
+one sentence about it is gone; nothing else changed. Changed in 0.13: roadmap
+calls, recorded only with your OK, added under "What we hold about you", and
+the version line above corrected. Changed in 0.14: the crads-ai.com
+website, these docs included, now counts page views with Vercel Web Analytics,
+so the sentence saying the docs site had no analytics is gone and "Visiting
+crads-ai.com" below says exactly what is recorded. Nothing about the app or
+your mineral changed. Changed in 0.15: the website also counts two kinds of
+click (into booking, and into the app download), and the booking confirmation
+page no longer records the payment reference in its address; both are
+described under "Visiting crads-ai.com". Changed in 0.16: the essay
+mailing list, which started on 11 October 2026, added under "What we hold
+about you". Changed in 0.17: where that list is stored, now named (the United
+States) instead of "may be outside Australia".*

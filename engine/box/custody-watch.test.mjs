@@ -41,13 +41,15 @@ test('an ownership flip to org is reported to the member, in words, with a Teleg
   setOwn(d, { owner: 'org', owner_slug: 'acme-collab' });
   const r = run(d, { now: new Date('2026-08-19T06:00:00Z') });
   assert.equal(r.events.length, 1);
-  assert.match(r.events[0], /OWNERSHIP CHANGED: this mineral is now owned by your rock \(acme-collab\)/);
-  assert.match(r.events[0], /If you did not accept a transfer in your app, tell Sam immediately/);
+  assert.match(r.events[0], /OWNERSHIP CHANGED: this mineral is now owned by your community \(acme-collab\)/);
+  assert.match(r.events[0], /If you did not accept a transfer in your app, something is wrong: open Help in your app/);
+  // 2026-10-13: no person's name, no rock or Mountain vocabulary in what a member reads
+  assert.doesNotMatch(r.events[0], /Sam|rock|Mountain/);
   const files = outbox(d);
   assert.equal(files.length, 1);
   const msg = JSON.parse(readFileSync(join(d, '.kernel', 'outbox', files[0]), 'utf8'));
   assert.equal(msg.chat_id, '12345');
-  assert.match(msg.text, /Custody \/ access change/);
+  assert.match(msg.text, /Custody or access change/);
   assert.match(msg.text, /OWNERSHIP CHANGED/);
   const log = logLines(d);
   assert.equal(log.at(-1).owner, 'org');
@@ -78,7 +80,7 @@ test('a transfer invitation arriving, an access grant, an eviction notice, an an
   setOwn(d, { grants: [{ email: 'Mike@Example.com', role: 'admin', status: 'pending' }] });
   let r = run(d);
   assert.equal(r.events.length, 2);
-  assert.ok(r.events.some((e) => /rock has asked to take custody.*invited 2026-08-19.*Nothing happens unless you accept/.test(e)));
+  assert.ok(r.events.some((e) => /community has asked to take custody.*invited 2026-08-19.*Nothing happens unless you accept/.test(e)));
   assert.ok(r.events.some((e) => /Access grant pending: mike@example.com \(admin\)/.test(e)));
   // eviction + anchor flip together (the real evict-apply shape)
   mkdirSync(join(d, 'org-inbox', 'evict'), { recursive: true });
@@ -86,7 +88,7 @@ test('a transfer invitation arriving, an access grant, an eviction notice, an an
   setOwn(d, { anchor: 'crads-ai' });
   r = run(d);
   assert.ok(r.events.some((e) => /acme-collab ended your membership/.test(e)));
-  assert.ok(r.events.some((e) => /no longer anchored to acme-collab; it is anchored to Crads-AI/.test(e)));
+  assert.ok(r.events.some((e) => /no longer linked to acme-collab; it stands on its own again/.test(e)));
 });
 
 test('no Telegram link: the log still records it, no outbox file, no crash', () => {

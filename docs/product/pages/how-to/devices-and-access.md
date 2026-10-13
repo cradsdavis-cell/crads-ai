@@ -8,7 +8,7 @@ access: public
 mode: how-to
 order: 80
 pins: engine/devices/device-sync.mjs, wizard/panel/device-routes.mjs
-reviewed: 2026-09-01
+reviewed: 2026-10-13
 ---
 
 Your identity on your mineral is an SSH key, one per computer, and your
@@ -17,9 +17,9 @@ only door**: a key that is not on it does not work, and removing a key from it
 genuinely shuts that machine out. There is no account behind it, no password
 reset, and no vendor who can let anyone in.
 
-The list lives on [Your pebble](/docs/your-pebble-page), under the backup
-card, and anything that changes it is written to a log you can read and
-pushed to your Telegram.
+The list lives on [Your mineral](/docs/your-pebble-page), under the Backup
+card, as **Every computer that can open this mineral**. Each row shows the
+date that machine was added and when it was last seen.
 
 ## Where keys come from
 
@@ -50,14 +50,15 @@ older computer to refresh them".
 One guard exists for your own protection. **Removing the only working key
 would lock you out of your own mineral permanently** (there is no back door to
 fall back on, by design), so that removal is refused up front: "this is the
-last key that can open this mineral, so removing it would lock everyone out;
-add another computer first, then remove this one".
+last device that can open your box, so revoking it would lock you out. Add
+another computer first, then revoke this one."
 
 The same instinct is built into the machinery one layer down: the code that
 writes the door will not write it empty, whoever asks. So even a bug elsewhere
 cannot brick your mineral through this file.
 
-Every removal is time-stamped and logged, and your Telegram hears about it.
+Every removal is dated on that machine's own record, which stays on your
+mineral: a revoked machine is kept on file as revoked, not erased.
 
 ## If a laptop is stolen
 

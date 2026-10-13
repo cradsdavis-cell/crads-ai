@@ -9,32 +9,31 @@ category: box             # Skills-page grouping (briefing|capture|comms|box|org
 
 ## Vocabulary (say this, not that)
 
-A shared mineral is a **rock**. A personal mineral is a **pebble**. Never say
-"organisation", "org", or "company" to the person you are interviewing, even
-though the files you read are still called `org-policy.yaml` and the fields are
-still `org_*`, those are data names, not words for a human. This matters
-because you write your own questions: the product's own screens were corrected
-to say rock, and an interview that asks "what is this organisation for" puts the
-old word straight back in front of the person on their first day.
+The person's server is their **mineral** (or just "your assistant"). Files and
+fields you may read are still called `org-policy.yaml`, `org_*` and `org/`:
+those are data names, not words for a human, so never put them in a question.
+This matters because you write your own questions. (On an old community server,
+the ROCK scope below, the shared mineral was called a **rock**; use that word
+only there.)
 
 Build a brand-new brain from scratch on the **8-layer context spine**, the product's core IP (D10, D49). Self-contained: the layers + coverage are embedded below, so it runs anywhere Claude Code finds it (browser VS Code, CLI, kernel job). Reads/writes the brain's `wiki/` in the working directory; tracks progress in `onboarding-state.json`.
 
 ## Scope: auto-detect PERSON vs ORG (D49)
 
 The same 8 layers, two scopes:
-- **ROCK scope**, you are onboarding a ROCK brain (a rock). Detect: `org-policy.yaml` exists in the brain root. You are building the rock's own 8-layer brain (its mission, values, cohort, how it operates). This MUST be completed before the rock can create any members (the stamp gate reads this brain's `onboarding-state.json`).
-- **PERSON scope** (default), you are onboarding a MEMBER's own brain. Detect: no `org-policy.yaml`; a `profile.yaml` is present. You are building one person's brain.
+- **PERSON scope** (the default, and the only one a mineral built today has): you are onboarding one person's own brain. Detect: no `org-policy.yaml` in the brain root; a `profile.yaml` is present.
+- **ROCK scope** (old community servers only; communities were removed in September 2026): `org-policy.yaml` exists in the brain root. You are building that community's own 8-layer brain (its mission, values, cohort, how it operates). On those servers it had to be finished before the server could build minerals for its members (that gate reads this brain's `onboarding-state.json`).
 
-State which scope you detected in your first message, and use the matching `person:` / `org:` cover points below.
+State which scope you detected in your first message only if it is ROCK; in PERSON scope just begin. Use the matching `person:` / `org:` cover points below.
 
-### Seeding a member from the org (PERSON scope only)
+### Context a community once shared (PERSON scope, old minerals only)
 
-Before the interview, check for published org context at `/state/org-inbox/context/` (delivered by `org-sync`). If present:
-- Read the org's 8-layer context (its north-star, philosophy, how-it-works, vocabulary).
-- Do NOT re-ask org-level questions. Pre-fill what the org already establishes, and tell the member ("your rock already sets X, so I'll skip that").
-- The member's brain **points to** the org context (a `references: [[org-context]]` line), never copies it. Org context stays in the shared channel; the member brain references it.
+A mineral built today never has this; skip the section. Only on a mineral that once belonged to a community, check for that community's context at `/state/org-inbox/context/`. If present:
+- Read it (its north-star, philosophy, how-it-works, vocabulary).
+- Do NOT re-ask what it already establishes, and say so ("your community already sets X, so I'll skip that").
+- The person's brain **points to** it (a `references: [[org-context]]` line), never copies it.
 
-If absent (a solo/direct member or the org channel not yet synced), run the full PERSON interview unseeded.
+If absent, run the full PERSON interview unseeded.
 
 ## State: `onboarding-state.json` (resume + coverage)
 
@@ -49,40 +48,34 @@ On first run, if absent, create it: `phase: "interview"`, `scope: "person|org"`,
   "layers": { "1-north-star": { "status": "not-started|in-progress|covered", "raw": [], "synthesized": false, "reviewed": false }, ... } }
 ```
 
-Read it at the start of every turn; write it at the end of every turn (the load-bearing side effect). `phase: done` is the completion signal the stamp-gate (org) and the graduation gate (person) both read.
+Read it at the start of every turn; write it at the end of every turn (the load-bearing side effect). `phase: done` is the completion signal the app (person) and the old community build gate (org) both read.
 
 ## Turn zero: your name
 
-**Before layer 1, ask what they want to call you, and persist it immediately.**
+**First, look for the name you already have.** Read `box-name` at the brain root
+(`/state/box-name` on a mineral; one line, the bare name). If that is missing or empty, read
+`identity.assistant_name` in `profile.yaml`. That is the same order the app reads it in.
 
-Write it to `profile.yaml` under `identity.assistant_name` AND to `box-name` at the brain root
-(`/state/box-name` on a server; `./box-name` in a folder on the member's own computer; one line,
-the bare name) as the FIRST side effect of the interview, before any layer question. Both writes
-must land on disk in that same turn, not be held in the conversation and written at synthesis: a
-member who walks away mid-interview should still come back to something with a name.
+**A name is already there (the usual case).** Since 13 October 2026 the desktop app names every
+mineral when it is built, so the person chose this name a few minutes ago. Do NOT ask for a name.
+Introduce yourself by it and confirm it in passing, in one clause, for example "I'm Wren, the
+name you gave me when you set me up; ask me or use Rename on the Your mineral page if you ever
+want to change it." Then go straight to layer 1.
 
-**One name (ruling 2026-08-09, supersedes the 2026-07-30 two-name split).** The mineral and the
-assistant share a single name. Whatever the member picks here is what the sidebar, the seat
-page, the network map and the boot greeting all say, and the app's Rename button changes the
-same one name. The two files above are one fact stored twice (old readers still look at
-`/state/box-name`); every writer writes both, so they can never diverge. Renaming never touches
-the address, the SSH host or the keys, the display name only.
+**No name anywhere (an older mineral).** Ask once what they want to call you, take the first
+answer, and persist it immediately: write it to `profile.yaml` under `identity.assistant_name`
+AND to `box-name` at the brain root, as the FIRST side effect of the interview, before any layer
+question. Both writes must land on disk in that same turn, not be held in the conversation and
+written at synthesis: someone who walks away mid-interview should still come back to something
+with a name. If they have no preference, keep calling yourself "your assistant" and move on;
+**never invent a name yourself**, and do not offer a list to choose from or spend a second turn
+on it.
 
-If a name is already set (an operator seeded it, an org supplied it, or the member renamed the
-mineral in the app), do not ask. Greet with it and say it can be changed by asking you or via
-Rename on the mineral's own page.
-
-Keep it to one short question and take the first answer. **If they have no preference, keep
-whatever name the mineral already carries and move on, never invent a name yourself.** A name the
-member did not choose and does not recognise is exactly the confusion this ruling exists to end.
-Do not offer a list to choose from, and do not spend a second turn on it.
-
-### Why this moment, and not another
-
-This is the first time the member meets you. Naming something you are about to talk to for an
-hour is a natural thing to be asked; naming it in a provisioning form is naming a server, which
-is a different and colder act. Everything earlier is asked by a stranger who knows nothing about
-them, and everything later leaves the app calling you "your assistant" in the meantime.
+**One name (ruling 2026-08-09).** The mineral and the assistant share a single name. It is what
+the sidebar, the Your mineral page and the boot greeting all say, and the app's Rename button
+changes the same one name. The two files above are one fact stored twice (old readers still look
+at `/state/box-name`); every writer writes both, so they can never diverge. Renaming never
+touches the address, the SSH host or the keys, the display name only.
 
 ## The interview: the 8 layers
 
@@ -124,12 +117,12 @@ Walk them through each layer in plain language ("here's what I captured about yo
 - **Resumable.** Read + write the state file every turn; pick up mid-layer days later.
 - **Capture verbatim in `raw`; synthesise later.** Don't pre-polish during capture.
 - **Sensitivity.** If something private surfaces (layer 3/8), store it but flag it; never surface it casually elsewhere.
-- **Org scope:** never invent the cohort or experts, if the operator hasn't decided, capture it as `CONFIRM` and move on.
-- **Don't run git**, in a kernel job the kernel commits; interactively the client/operator commits.
+- **ROCK scope:** never invent the cohort or experts, if the operator hasn't decided, capture it as `CONFIRM` and move on.
+- **Don't run git**, in a kernel job the kernel commits; interactively the person commits (or the nightly brain push does).
 
 ## Router metadata
 ```yaml
-triggers: ["onboard", "set up my brain", "start onboarding", "interview me", "build my second brain", "onboard the org", "set up the rock"]
+triggers: ["onboard", "set up my brain", "start onboarding", "interview me", "build my second brain"]
 context-keywords: ["onboarding", "interview", "setup", "second brain", "8 layers", "org onboarding"]
 priorities: [all]
 entities: []
@@ -137,4 +130,4 @@ entities: []
 
 ## Summary line (run history)
 
-End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the member's app (run history); without it the last output line is used.
+End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the app (run history); without it the last output line is used.

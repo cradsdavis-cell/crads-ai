@@ -106,8 +106,8 @@ export class DigitalOceanClient {
   }
 
   /**
-   * The Basic (shared CPU) droplets only, the `s-*` slugs: the product images
-   * are amd64 and the wizard's three size cards resolve through them. Memory
+   * The Basic (shared CPU) droplets only, the `s-*` slugs: DigitalOcean sells
+   * x86 only, and the wizard's three size cards resolve through them. Memory
    * comes back in megabytes; the page thinks in gigabytes.
    */
   async listServerTypes() {

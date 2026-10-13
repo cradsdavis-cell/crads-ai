@@ -7,7 +7,7 @@ access: public
 mode: tutorial
 order: 30
 pins: engine/cron/cadence-lib.mjs, wizard/panel/member.html
-reviewed: 2026-09-10
+reviewed: 2026-10-13
 ---
 
 [Your first hour](/docs/first-hour) ends with an assistant that is awake and a

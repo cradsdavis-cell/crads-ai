@@ -266,7 +266,9 @@ test('R7: every legacy name has a gloss and a kind; telegram rows revoke on Tele
     assert.equal(r.revoke.via, 'none');
     assert.equal(r.where, `secrets/${n}`);
   }
-  assert.equal(rows.find((x) => x.name === 'heartbeat_deploy_key').what, 'Lets your mineral send its status update to your rock. Used by the status job.');
+  assert.equal(rows.find((x) => x.name === 'heartbeat_deploy_key').what, 'Only on minerals a community once ran: let the box send its status to that community. Nothing uses it now.');
+  // 2026-10-13: no rock, Catalogue or live-directory claims in what a member reads
+  for (const r of rows) assert.doesNotMatch(r.what + r.label, /\brock\b|your rock|Catalogue key|Proves to the Crads-AI directory/, `${r.name}: stale-era gloss`);
   assert.equal(rows.find((x) => x.name === 'backup_passphrase.escrowed').kind, 'backup');
 }));
 
@@ -276,7 +278,10 @@ test('R7: channel and sign-in rows point at where revoke lives', () => {
     const rows = discover(d, {});
     assert.deepEqual(rows.find((r) => r.name === 'telegram_bot_token').revoke, { via: 'telegram' });
     assert.equal(rows.find((r) => r.name === 'telegram_bot_token').kind, 'channel');
-    assert.deepEqual(rows.find((r) => r.name === 'claude-sign-in').revoke, { via: 'seat' });
+    // revoke none since 2026-10-13: Your mineral has no control that revokes it
+    assert.deepEqual(rows.find((r) => r.name === 'claude-sign-in').revoke, { via: 'none' });
+    assert.deepEqual(rows.find((r) => r.name === 'github-access').revoke, { via: 'none' });
+    assert.match(rows.find((r) => r.name === 'github-access').what, /revoke it in your GitHub settings/);
     assert.equal(rows.find((r) => r.name === 'claude-sign-in').kind, 'sign-in');
     assert.equal(rows.find((r) => r.name === 'github-access').kind, 'backup');
     const cold = join(d, 'secrets', 'vault', 'cold-one.json');
@@ -331,7 +336,7 @@ test('a heartbeat_deploy_key.<rock> file is labelled as that rock\'s status key,
     const row = discover(d, {}).find((r) => r.name === 'heartbeat_deploy_key.rock-one');
     assert.ok(row);
     assert.equal(row.label, 'Status key for rock-one');
-    assert.match(row.what, /a rock you joined/);
+    assert.match(row.what, /a community you joined/);
     assert.equal(row.kind, 'platform');
   } finally { rmSync(d, { recursive: true, force: true }); }
 });

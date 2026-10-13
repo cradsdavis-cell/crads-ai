@@ -1,11 +1,11 @@
-// provision-routes.mjs — the door's "Set up my own" flow (self-host pivot,
+// provision-routes.mjs: the door's "Set up my own" flow (self-host pivot,
 // 2026-09-01): the wizard UI over wizard/provision/engine.mjs.
 //
 // Mounted by door-server the same way inventory-routes is. The page collects a
 // name, a provider (Hetzner or DigitalOcean, providers.mjs) and the person's
 // OWN API token for it; this module runs the engine, then
 // finishes what the engine deliberately leaves alone: the SSH identity on THIS
-// machine (Host block + keypair via installMemberAccess — minted BEFORE birth
+// machine (Host block + keypair via installMemberAccess, minted BEFORE birth
 // so the only key on the box is the owner's), the boot wait through the
 // enter-aios chain, and the known-hosts pin after a verified connect.
 //
@@ -22,7 +22,7 @@
 import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { providerOf, publicProviders, DEFAULT_PROVIDER, PROVIDERS } from '../provision/providers.mjs';
+import { providerOf, publicProviders, DEFAULT_PROVIDER, PROVIDERS, defaultLocationFor } from '../provision/providers.mjs';
 import { destroySelfHost } from '../provision/engine.mjs';
 import { buildBox } from './build-box.mjs';
 import { installMemberAccess } from './member-connect.mjs';
@@ -78,8 +78,12 @@ export function provisionRoutes(opts = {}) {
 
   const view = () => {
     if (!run) {
-      // An interrupted earlier run is visible even after a restart: any
-      // provision state file whose flow never reached 'ready' offers resume.
+      // Nothing is running in THIS app session, so the answer is idle, even if
+      // an earlier run was interrupted. That run is not lost: its resume state
+      // stays in <slug>-box.provision.json, and starting a build with the same
+      // name (or Remove the half-made server) picks it up from there. This
+      // comment used to promise the interrupted run showed here after a
+      // restart; it never did.
       return { phase: 'idle' };
     }
     const { token, state, ...rest } = run;
@@ -144,12 +148,16 @@ export function provisionRoutes(opts = {}) {
             .filter(([, ids]) => ids.includes(ty.id))
             .map(([loc]) => loc);
         }
+        // With availability READ, a type sold nowhere is not on offer at all.
+        // Left in with an empty list it read as "unknown, offer everywhere",
+        // which is how cx33 (sold nowhere on 2026-10-13) stayed the default.
+        if (Object.keys(availability).length) types = types.filter((ty) => ty.locations.length);
         // The provider's own shape rides along so the page never hard-codes
         // a currency symbol or a size chain (door.html read SH_CHAINS from
         // its own source until 2026-09-09).
         jsonOut(res, 200, {
           ok: true, provider: P.id, label: P.label, symbol: P.symbol, chains: P.sizeChains,
-          locations, server_types: types, defaults: { location: P.defaults.location, server_type: P.defaults.serverType },
+          locations, server_types: types, defaults: { location: defaultLocationFor(P, types), server_type: P.defaults.serverType },
         });
       });
       return true;

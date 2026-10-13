@@ -7,7 +7,7 @@ access: public
 mode: explanation
 order: 5
 pins: wizard/panel/door.html, wizard/panel/member.html
-reviewed: 2026-09-10
+reviewed: 2026-10-13
 ---
 
 Short answers, in the order people ask them. Every answer links the page that
@@ -27,16 +27,19 @@ the two words you will keep meeting.
 The software is free, and it stays free. What costs money is the machine it
 runs on and the AI inside it, and you pay both providers directly:
 
-- a **cloud server** in your own account at Hetzner (roughly €4 to €30 a
-  month) or DigitalOcean (roughly $24 to $96), depending on the size you pick
-  in the setup wizard, billed to you by them
+- a **cloud server** in your own account at Hetzner (about €6 to €21 a month
+  on the Arm machines the wizard picks first, more where a location only
+  sells Intel or AMD) or DigitalOcean (roughly US$24 to US$96), depending on
+  the size you pick in the setup wizard, billed to you by them. These are indicative: the
+  wizard shows your host's own current list price before anything is created.
 - your own **Claude subscription**, billed to you by Anthropic
-- **nothing to Crads-AI, ever**
+- **nothing to Crads-AI for the software, ever**
 
 Those facts are also the first screen of the wizard, before anything is
-created, so the bill is never a surprise. If someone sets your mineral up for
-you or supports you afterwards, that is a service you agree with them, priced
-by them; it is never a software fee.
+created, so the bill is never a surprise. If you want a person to set it up
+with you or support you afterwards, that is a separate, optional service (Crads
+AI offers one, and so can anyone else who knows the software); it is never a
+software fee.
 
 ## Can you read my stuff?
 
@@ -106,8 +109,8 @@ Less than you would think, which is the honest advantage of this shape.
 Nothing of yours runs through us at runtime: your machine keeps running, your
 backups keep landing in your own repository. What stops is new software and
 us. The
-software is headed to an open-source release precisely so that even that gap
-can be picked up by someone else.
+software is open source, precisely so that even that gap can be picked up by
+someone else.
 [What happens if Crads AI goes away](/docs/continuity) answers this at
 length, starting by conceding it is the right question.
 
@@ -130,7 +133,7 @@ happens to your answers.
 ## Can I rename my assistant?
 
 Yes. One name everywhere: your assistant's name is your mineral's name, and
-**Rename** (beside the name on your pebble's page) changes that one thing.
+**Rename** (beside the name on the Your mineral page) changes that one thing.
 Your connections and your keys stay exactly as they are.
 
 ## The brief got something wrong. Is that it?
@@ -198,7 +201,9 @@ a chat window any more.
 The reason is not that they are bad, it is that they start from nothing every
 time. Your assistant already knows your goals, your people and your inbox, so
 work that used to mean pasting context in now just means asking. Your two
-interfaces from here are the Crads AI app and the Terminal inside it.
+interfaces from here are the Crads AI app, with the Terminal inside it, and,
+if you want a fuller window, the
+[Claude Code app connected to your mineral](/docs/claude-code-on-your-mineral).
 
 Dictation software is the exception worth keeping: it types into any window,
 including this one, so if you already talk rather than type, carry on.
@@ -208,9 +213,9 @@ including this one, so if you already talk rather than type, carry on.
 Use one, and use the same one every time. Your assistant signs in to Claude
 once and every scheduled job afterwards runs on that sign-in, so a second
 account is the most common reason a setup that looked finished stops
-behaving. If you have already signed in with the wrong one, remove the
-connection and set it up again rather than adding a second: see
-[fix a broken connection](/docs/fix-a-broken-connection).
+behaving. If you have already signed in with the wrong one, type `/logout`
+in the Terminal, then `/login`, and sign in with the account you mean to keep.
+Scheduled jobs pick up the new sign-in from their next run.
 
 ## How do I know what a skill actually does?
 
@@ -230,8 +235,8 @@ think harder and use your allowance faster.
 Usage runs in windows rather than as one monthly pot, so the useful habit is to
 check where you are rather than guess: type `/usage` in the Terminal and it
 tells you. If you are running out sooner than you expect, that is usually a
-strong model doing routine work, and moving the routine jobs down a level fixes
-it without you noticing a difference.
+strong model doing routine work, and asking your assistant to move the
+routine jobs down a level fixes it without you noticing a difference.
 
 ## Are "pebble" and "mineral" standard industry words?
 

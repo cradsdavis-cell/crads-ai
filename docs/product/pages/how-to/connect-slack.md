@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 72
 pins: wizard/panel/member.html, engine/comms/mcp-connect.mjs, wizard/panel/mcp-catalogue.mjs
-reviewed: 2026-10-06
+reviewed: 2026-10-13
 ---
 
 Slack connects with **your own app**: a small private app you make inside your
@@ -85,8 +85,9 @@ Three things in it matter:
   reach exactly what your own Slack account can, and no more.
 - **`is_mcp_enabled` is on.** That is the switch Slack checks before it lets
   an assistant in. An app made by hand needs it turned on in the app's
-  settings, on the page Slack calls **Agents & AI Apps** (some of Slack's own
-  pages just say **Agents**).
+  settings, on the page Slack calls **Agents** (some older pages say
+  **Agents & AI Apps**), as the **Slack Model Context Protocol (MCP) Server**
+  switch.
 - **Token rotation is off.** With it on, the token you paste would expire
   twelve hours later. Slack does not let you turn rotation off again once it
   is on, so if you made an app with it on, make a fresh one from the template.
@@ -126,7 +127,7 @@ you can fix the problem and press Connect again.
 | The card says | What happened | What to do |
 |---|---|---|
 | Slack turned that token down | The token is wrong, revoked, or from an app that is not installed | Copy the User OAuth Token again from **OAuth & Permissions** |
-| Slack says your app is not switched on for assistants | The app's MCP switch is off | Turn on Model Context Protocol under **Agents & AI Apps**, or remake the app from the template |
+| Slack says your app is not switched on for assistants | The app's MCP switch is off | Turn on **Slack Model Context Protocol (MCP) Server** under **Agents**, or remake the app from the template |
 | That is the Bot token | You copied `xoxb-` | Copy the `xoxp-` token above it |
 | Your mineral could not reach Slack | A network hiccup | Try again in a minute |
 

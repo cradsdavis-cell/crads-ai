@@ -215,10 +215,21 @@ jobs:
       - name: Brand a copy of node.exe (icon + metadata), then inject the blob
         run: |
           Copy-Item (Get-Command node).Source dist/crads-ai.exe
+          # Strip node.exe's own Authenticode signature FIRST (2026-10-13). Left in,
+          # its security-directory entry survives rcedit, which rewrites .rsrc over
+          # the old signature bytes, so the shipped exe pointed a "certificate
+          # table" into the middle of its resources and signtool refused it with
+          # 0x800700C1 (bad exe format). Build 33 had to be hand-patched on the
+          # laptop before it could be signed. Node's SEA docs give the same order:
+          # remove the signature, then inject, then sign.
+          node -e "const fs=require('fs');const f='dist/crads-ai.exe';const b=fs.readFileSync(f);const o=b.readUInt32LE(0x3c)+24;if(b.readUInt16LE(o)!==0x20b)throw new Error('not a PE32+ exe');const d=o+112+32;const va=b.readUInt32LE(d),sz=b.readUInt32LE(d+4);if(!va&&!sz){console.log('node.exe carries no signature')}else{if(va+sz!==b.length)throw new Error('signature table is not at the end of node.exe ('+va+'+'+sz+' vs '+b.length+')');b.writeUInt32LE(0,d);b.writeUInt32LE(0,d+4);fs.writeFileSync(f,b.subarray(0,va));console.log('stripped the node.exe signature ('+sz+' bytes)')}"
           # rcedit BEFORE postject: resource edits after blob injection can corrupt the SEA
           node -e "require('rcedit')('dist/crads-ai.exe', { icon: 'dist/crads-ai.ico', 'version-string': { ProductName: 'Crads-AI', FileDescription: 'Crads-AI', CompanyName: 'crads-ai.com' } }).then(() => console.log('branded')).catch((e) => { console.error(e); process.exit(1); })"
           postject dist/crads-ai.exe NODE_SEA_BLOB dist/sea-prep.blob `
             --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+          # Signability gate: a published exe must not point at a signature table,
+          # or the laptop signing step (release-tools/sign-and-republish.ps1) fails.
+          node -e "const b=require('fs').readFileSync('dist/crads-ai.exe');const d=b.readUInt32LE(0x3c)+24+112+32;if(b.readUInt32LE(d)||b.readUInt32LE(d+4)){console.error('dist/crads-ai.exe still points at a signature table: Authenticode signing would fail with 0x800700C1');process.exit(1)}console.log('exe carries no stale signature pointer: signable')"
 
       - name: Smoke the exe (boots, serves the embedded door page)
         run: |

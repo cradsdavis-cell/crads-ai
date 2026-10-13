@@ -6,7 +6,7 @@ access: public
 mode: explanation
 order: 50
 pins: docs/box-update-channel.md, engine/cron/scheduler.mjs
-reviewed: 2026-09-01
+reviewed: 2026-10-13
 ---
 
 Software arrives on your mineral by itself. Worth understanding, because it is the
@@ -36,7 +36,7 @@ system pages.
 your connected services, your files. All of it is exactly as you left it.
 
 If you were told an update is out and you do not want to wait for tonight,
-there is a button: **Update and restart**, on the Claude Code tab. Same
+there is a button: **Update and restart**, on the **Help** page. Same
 restart, same minute, same nothing-of-yours-moves. Its one oddity is that the
 connection dropping moments after the restart is scheduled is the success
 path, not a failure: the box has to go down to come back new. Give it a

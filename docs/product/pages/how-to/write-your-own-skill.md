@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 260
 pins: engine/appshell/skills-list.mjs, engine/skills
-reviewed: 2026-09-10
+reviewed: 2026-10-13
 ---
 
 A skill is a saved recipe. You write the steps down once, give them a name,
@@ -15,8 +15,8 @@ and from then on you run the whole thing by typing a slash and the name in the
 [Terminal](/docs/terminal-page). Your assistant follows the same steps every
 time, so you are not re-explaining on Monday what you explained on Friday.
 
-Your mineral ships with eleven of these ([every skill your mineral ships
-with](/docs/skills) is the list). This page is about the twelfth: the one you
+Your mineral ships with a set of these ([every skill your mineral ships
+with](/docs/skills) is the list). This page is about the next one: the one you
 write, for the task only you do.
 
 ![A recipe becomes a skill you run by name](diagram:recipe-to-skill)
@@ -96,14 +96,14 @@ time you open it, in the group its category put it in, wearing a chip that
 says **yours**. Built-in skills say "built-in". The chip is the honest origin
 label: the page reads live from the mineral and shows what is actually there.
 
-![Skills](shot:member-skills)
+![The Skills page: built-in skills and two of your own, each with its schedule and a switch](shot:member-skills)
 
 Open the row and you get the same drawer as any built-in: the description,
 the `/name` it answers to, **Run now**, and **Read the skill**. Run it on a
 real task straight away. Toy examples lie. Point `/site-notes` at a genuine
 appointment and you will know in two minutes whether the steps are right.
 
-![A skill row, opened](shot:member-skills-drawer)
+![A skill row opened: Run now, Read the skill, and its schedule](shot:member-skills-drawer)
 
 ## Schedule it
 
@@ -111,13 +111,14 @@ A skill you have to remember to ask for is a skill you will forget. Anything
 with a natural rhythm (end of day, Monday morning, twice a week) can run on a
 schedule like the built-in ones: flip the switch on its row, pick the days
 and times, and press **Save schedules**. Tick **Send me the result** and the
-output lands in the Telegram bot you made in [connect
-Telegram](/docs/connect-telegram), as well as in your brain.
+output is also sent to the Telegram bot you made in [connect
+Telegram](/docs/connect-telegram).
 
-Two cautions, both stated on the Skills page itself. Schedules need the
-mineral's own Claude sign-in (one `claude` run in the Terminal, once), and a
-schedule is a promise to run with nobody watching, so only schedule a skill
-after it has run well by hand a few times.
+Two cautions. Schedules need the mineral's own Claude sign-in (one `claude`
+run in the Terminal, once); until it has one, the Skills page says so at the
+top and keeps the switches locked. And a schedule is a promise to run with
+nobody watching, so only schedule a skill after it has run well by hand a
+few times.
 
 ## Three golden rules
 

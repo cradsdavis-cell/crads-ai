@@ -7,23 +7,24 @@ access: public
 mode: how-to
 order: 95
 pins: engine/support/support-access.mjs
-reviewed: 2026-09-01
+reviewed: 2026-10-13
 ---
 
 Sometimes something is broken in a way that needs a person on the machine
-itself: paid support, guided setup, a hand you trust. Nobody can do that on
-their own: support access exists only when you grant it, and this page is what
-granting it actually means. The wording below says "Crads AI" because that is
-whose support key the grant admits; the mechanics are identical whoever is
-helping you.
+itself: paid support, or a guided setup. Nobody can do that on their own:
+support access exists only when you grant it, and this page is what granting
+it actually means.
+
+A grant admits one key: the Crads AI support key, held by the people who make
+the software. If someone else is helping you, a grant does not let them in.
 
 ## What a grant is
 
 A recorded, expiring permission. When you grant support access:
 
-- **It expires on a clock the door itself enforces.** You choose the duration
-  when you grant it, anywhere from 1 hour to 72. The line that opens the door
-  carries the mineral door's own expiry stamp, so access ends on time even if
+- **It expires on a clock the door itself enforces.** A grant from the app
+  lasts 24 hours. The line that opens the door carries its own expiry time,
+  which the door checks on every connection, so access ends on time even if
   the software on your mineral never runs another line. Nothing has to wake
   up to close it.
 - **It is recorded on your own mineral**, not in our systems: the grant and
@@ -40,9 +41,9 @@ the honest description of your mineral is: closed to everyone but
 
 ## Where to grant it
 
-The control lives on the Sharing page, in the **Support access** card. When
+The control lives on the **Help** page, in the **Support access** card. When
 nothing is granted the card says exactly that: "No support access granted.
-Your mineral is closed to Crads AI." One button grants the default:
+Your mineral is closed to Crads AI." One button grants it:
 **"Grant support access for 24 hours"**, and the confirmation is a single
 line, "OK: support access granted for 24h (until ...). Revoke any time."
 
@@ -53,6 +54,11 @@ most recent events display underneath, straight from the record.
 A live grant also appears on your [device roster](/docs/devices-and-access),
 as its own row with its own Revoke button. It is a key that can open your
 mineral, and that list claims to be all of them, so it is there.
+
+If you run a team, you can also open one support window across the whole
+team from the start screen, on the company agent only or on every server:
+[set up a team](/docs/set-up-a-team) has the details. Each server still
+records its own grant, exactly as described here.
 
 ## What it opens, honestly
 

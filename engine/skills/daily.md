@@ -1,7 +1,7 @@
 ---
 name: daily
 title: "Daily brief"   # human name shown on the Skills page (2026-08-09 audit R6); the slash id stays as a chip
-description: Morning prioritisation brief. Pulls today's tasks + calendar, classifies events from the client's profile, picks the top 3, surfaces what's at risk.
+description: Morning prioritisation brief. Pulls today's tasks + calendar, classifies events from your profile, picks the top 3, surfaces what's at risk.
 category: briefing        # Skills-page grouping (briefing|capture|comms|box|org|other), wire vocabulary, not copy
 generic: true        # config-driven; no client-specific values in this file
 reads_profile:
@@ -18,7 +18,7 @@ reads:
 
 # Skill: /daily  (generic)
 
-Morning brief. Pull what's on today, decide what matters, start clear. **Everything client-specific comes from `/state/profile.yaml`, this skill hard-codes nothing about any person.** Compare against the original Sam-coupled version to see what was lifted out.
+Morning brief. Pull what's on today, decide what matters, start clear. **Everything client-specific comes from `/state/profile.yaml`, this skill hard-codes nothing about any person.**
 
 ## 1. Pull today's tasks
 If `profile.accounts.tasks.enabled`, query the configured provider (`profile.accounts.tasks.provider`) for tasks due today + overdue. Group by project. Flag overdue, high-priority, and deadline-today.
@@ -75,16 +75,15 @@ Write this brief to `wiki/daily-brief.md` (overwrite, the latest brief, for the 
 ---
 
 ### Genericisation notes (delete once stable)
-Lifted from the Sam-coupled original → now config:
-| Was hard-coded | Now reads from |
+Config this skill reads (nothing about any person is written into this file):
+| Concern | Reads from |
 |---|---|
-| a hard-coded calendar address | `profile.accounts.calendar.calendar_id` |
-| `AEST` | `profile.identity.timezone` |
-| a personal classifier table (named senders + keywords) | `profile.classifications` |
-| `notes/_layers/6-goals.md` | `profile.priorities.source` |
-| PhD-runway / LinkedIn-rot flags | dropped (Sam-specific); generic equivalent = `business.busy_seasons` |
-| Layer-7 marker regen | dropped from generic; a client wiki has no Layer 7 |
+| calendar | `profile.accounts.calendar.calendar_id` |
+| timezone | `profile.identity.timezone` |
+| who and what matters | `profile.classifications` |
+| current priorities | `profile.priorities.source` |
+| seasonal patterns | `profile.business.busy_seasons` |
 
 ## Summary line (run history)
 
-End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the member's app (run history); without it the last output line is used.
+End your final reply with a `## Summary` section containing ONE plain sentence of outcome. It becomes this run's line in the app (run history); without it the last output line is used.

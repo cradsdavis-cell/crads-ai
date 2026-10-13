@@ -40,7 +40,7 @@ test('fresh mineral: sign-in is the pending rung and the locked rows name it', (
     { connections: [], onboarding: { phase: 'discovery' } });
   assert.equal(m.rungs.length, 3, 'three rungs: sign-in, onboard, backup');
   assert.equal(m.rungs[0].done, false, 'claude sign-in pending');
-  assert.match(m.rungs[0].why, /signs in your laptop, not this mineral/, 'the laptop-vs-mineral correction rides the rung');
+  assert.match(m.rungs[0].why, /signs in this computer, not this mineral/, 'the computer-vs-mineral correction rides the rung');
   assert.equal(m.rungs[0].act.to, 'terminal', 'the way in is the Terminal tab, never the desktop-app guide');
   assert.equal(m.rungs[0].act.run, 'claude');
   const sched = m.caps.find((c) => c.name === 'Run scheduled tasks');
