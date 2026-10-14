@@ -7,7 +7,7 @@ access: public
 mode: explanation
 order: 5
 pins: wizard/panel/door.html, wizard/panel/member.html
-reviewed: 2026-10-13
+reviewed: 2026-10-14
 ---
 
 Short answers, in the order people ask them. Every answer links the page that
@@ -88,6 +88,14 @@ data lives is your choice, and if you are in Australia and pick a European
 location, your data is stored overseas: the
 [privacy policy](/docs/privacy-policy) says so plainly, because Australian
 privacy law expects it and you should know regardless.
+
+## Can it run without a server?
+
+Yes, though it isn't the path we recommend. In the app, press More options,
+then On this computer. It makes a brain folder on your computer that Claude
+Code opens. It only works while your computer is on: scheduled jobs, the
+morning brief and Telegram need a server. When you use it, your requests
+still go to Claude, same as on a server.
 
 ## Which servers is my data actually on?
 

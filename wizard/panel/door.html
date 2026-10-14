@@ -181,6 +181,15 @@
      <html>. Hidden by CSS from first paint, so it never flashes. A brain
      folder that already exists is untouched: its row, chip and face all stay. */
   html:not([data-offer-local]) [data-local-create]{display:none !important}
+  /* Back behind "More options" (Sam, 2026-10-14: "I want to definitely
+     prioritise people using their own servers over anything else"). With
+     LOCAL_BEHIND_MORE on, a quiet More options link sits LAST on the takeover
+     and the "New here?" strip; pressing it puts data-offer-local on <html>,
+     which reveals the gated offers above and hides the link itself. */
+  html:not([data-local-more]) [data-more-options],html[data-offer-local] [data-more-options]{display:none !important}
+  .moreopts{display:inline-block;color:var(--soft-2);font-size:12.5px;text-decoration:underline;text-underline-offset:2px;margin:6px 0 0 4px;border-radius:6px;padding:1px 4px}
+  .moreopts:hover{color:var(--ink)}
+  .moreopts:focus-visible{outline:none;box-shadow:var(--focus)}
   .bigcard{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--edge);border-radius:var(--r-card);padding:16px 18px;cursor:pointer;color:var(--ink);font-family:inherit;box-shadow:var(--shadow-1);transition:border-color .12s ease,background .12s ease,box-shadow .12s ease,transform .12s ease}
   .bigcard:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--card));box-shadow:var(--shadow-2);transform:translateY(-2px)}
   .bigcard:active{transform:translateY(0);box-shadow:var(--shadow-1)}
@@ -313,13 +322,6 @@
              the product now, so it leads; the others connect and join. -->
         <button class="bigcard" data-make="selfhost"><b>Set up my own</b>
           <span>Free and self-hosted. Your brain runs on a server in your own hosting account, and you pay the host directly. Nothing is stored with Crads-AI.</span></button>
-        <!-- The no-server door (Sam's ruling 2026-09-11): a brain folder on
-             this computer. Same offer, no metal. Honest about what it is not:
-             nothing runs while the folder is closed. RETIRED from the door
-             2026-10-13 (data-local-create, see OFFER_LOCAL_CREATE): kept in
-             the markup so re-offering it is a one-line change. -->
-        <button class="bigcard" data-make="local" data-local-create><b>On this computer</b>
-          <span>Free, no server, no schedules: a brain folder on this computer, only awake when you are. Claude Code opens the folder; the app reads it. Scheduled jobs and Telegram need a server.</span></button>
         <!-- Crads for teams (2026-10-10): one company brain plus one server per
              person, all in the owner's own accounts. The owner runs this once. -->
         <button class="bigcard" data-make="team"><b>Set up a team</b>
@@ -336,7 +338,17 @@
              open; what was missing is a surface to pick. -->
         <button class="bigcard" data-make="have"><b>I already have one</b>
           <span>Another computer that already opens it can let this one in. Nothing new is made.</span></button>
+        <!-- The no-server door (Sam's ruling 2026-09-11): a brain folder on
+             this computer. Same offer, no metal. Honest about what it is not:
+             nothing runs while the folder is closed. RETIRED from the door
+             2026-10-13 (data-local-create, see OFFER_LOCAL_CREATE): kept in
+             the markup so re-offering it is a one-line change. BACK behind
+             "More options" 2026-10-14 (LOCAL_BEHIND_MORE), last in the
+             stack so the server path always leads. -->
+        <button class="bigcard" data-make="local" data-local-create><b>On this computer</b>
+          <span>Free, no server, no schedules: a brain folder on this computer, only awake when you are. Claude Code opens the folder; the app reads it. Scheduled jobs and Telegram need a server.</span></button>
       </div>
+      <a href="#" class="moreopts" id="moreMake" data-more-options>More options</a>
     </div>
 
 
@@ -703,11 +715,12 @@
          existing users had no path to the self-host wizard at all). The
          invitation link left with the hosted-era cards, same day. -->
     <a href="#" id="newSelfhost">Set up my own <span class="chev">›</span></a>
-    <a href="#" id="newLocal" data-local-create>On this computer <span class="chev">›</span></a>
     <!-- Teams (2026-10-10): the same gap again. An owner who already made a
          mineral for themselves had no way into "Set up a team"; found on the
          first live team build, when the resume landed on the list. -->
     <a href="#" id="newTeam">Set up a team <span class="chev">›</span></a>
+    <a href="#" id="newLocal" data-local-create>On this computer <span class="chev">›</span></a>
+    <a href="#" id="newMore" data-more-options>More options <span class="chev">›</span></a>
   </div>
 
   <div class="foot" id="invFoot">This screen checks each mineral by itself; dots flip live.</div>
@@ -724,7 +737,16 @@
   // whole local face (local-*.mjs, the flow below) stays in place. Re-offering
   // it is this one line.
   var OFFER_LOCAL_CREATE = false;
+  // The second switch (2026-10-14): with the offer off up front, still reach it
+  // behind a "More options" link that comes last. Off = retired outright again.
+  var LOCAL_BEHIND_MORE = true;
   if (OFFER_LOCAL_CREATE) document.documentElement.setAttribute('data-offer-local', '');
+  else if (LOCAL_BEHIND_MORE) document.documentElement.setAttribute('data-local-more', '');
+  function revealMoreOptions(focusId){
+    document.documentElement.setAttribute('data-offer-local', '');
+    var el = document.getElementById(focusId) || document.querySelector(focusId);
+    if (el) el.focus();
+  }
   // `rows` is the merged inventory from /inventory (spec 2026-08-13): one entry
   // per MINERAL, carrying whether this machine can open it, rather than one
   // entry per source list. `account` is the state of the account layer:
@@ -921,7 +943,9 @@
       ev.preventDefault();
       var ask = r.tier === 'local'
         ? 'Forget "' + r.label + '" in this app?\n\nThe folder and everything in it stay where they are; only this app stops listing it. '
-          + (OFFER_LOCAL_CREATE ? 'Add it back any time from On this computer with the same path.' : 'This app no longer adds brain folders, so it will not come back to this list.')
+          + (OFFER_LOCAL_CREATE ? 'Add it back any time from On this computer with the same path.'
+            : LOCAL_BEHIND_MORE ? 'Add it back any time from More options, then On this computer, with the same path.'
+            : 'This app no longer adds brain folders, so it will not come back to this list.')
         : 'Remove "' + r.label + '" from this computer?\n\nThis deletes only this computer\'s key and connection entry for it; no mineral or brain anywhere is touched. If the ' + noun + ' still exists, another of your computers can let it back in.';
       if (!confirm(ask)) return;
       fetch('/forget', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host: r.alias }) })
@@ -1424,6 +1448,8 @@
   document.getElementById('newSelfhost').addEventListener('click', function(e){ e.preventDefault(); startShFlow(); });
   document.getElementById('newLocal').addEventListener('click', function(e){ e.preventDefault(); startLocalFlow(); });
   document.getElementById('newTeam').addEventListener('click', function(e){ e.preventDefault(); startTmFlow(); });
+  document.getElementById('newMore').addEventListener('click', function(e){ e.preventDefault(); revealMoreOptions('newLocal'); });
+  document.getElementById('moreMake').addEventListener('click', function(e){ e.preventDefault(); revealMoreOptions('[data-make="local"]'); });
   document.getElementById('shCostsOk').addEventListener('click', function(){ shShow('shForm'); });
 
   document.getElementById('shCheckBtn').addEventListener('click', function(){

@@ -745,18 +745,25 @@ test('the self-host wizard reads every provider-shaped string from the registry,
 });
 
 // "On this computer" retired as a way to MAKE a mineral (Sam, 2026-10-13: "It
-// should all be in the cloud. Makes things less confusing."). Hidden, not
-// deleted: one switch, and an existing brain folder keeps working. The screen
-// itself is driven in qa-door-local-retired.test.mjs; this pins the markup the
-// screen depends on, so a re-added card or a second switch fails here first.
-test('local mode is retired from the door behind ONE switch, and only its create offers hang on it', () => {
+// should all be in the cloud. Makes things less confusing."), then brought back
+// behind a "More options" link that comes last (Sam, 2026-10-14: "I want to
+// definitely prioritise people using their own servers over anything else").
+// Two switches, and an existing brain folder keeps working whatever they say.
+// The screen itself is driven in qa-door-local-retired.test.mjs; this pins the
+// markup the screen depends on, so a re-added card or a third switch fails here first.
+test('local mode sits behind More options: off up front, one reveal, only its create offers hang on it', () => {
   const sw = DOOR.match(/var OFFER_LOCAL_CREATE = (true|false);/g) || [];
-  assert.equal(sw.length, 1, 'exactly one switch');
+  assert.equal(sw.length, 1, 'exactly one up-front switch');
   assert.equal(sw[0], 'var OFFER_LOCAL_CREATE = false;', 'and it is off');
-  assert.match(DOOR, /if \(OFFER_LOCAL_CREATE\) document\.documentElement\.setAttribute\('data-offer-local', ''\);/,
-    'the switch is what reveals the offers');
+  const more = DOOR.match(/var LOCAL_BEHIND_MORE = (true|false);/g) || [];
+  assert.equal(more.length, 1, 'exactly one More options switch');
+  assert.equal(more[0], 'var LOCAL_BEHIND_MORE = true;', 'and it is on');
+  assert.match(DOOR, /if \(OFFER_LOCAL_CREATE\) document\.documentElement\.setAttribute\('data-offer-local', ''\);\n\s*else if \(LOCAL_BEHIND_MORE\) document\.documentElement\.setAttribute\('data-local-more', ''\);/,
+    'the up-front switch reveals the offers; otherwise the More options switch shows the link');
   assert.match(DOOR, /html:not\(\[data-offer-local\]\) \[data-local-create\]\{display:none !important\}/,
     'hidden by CSS from first paint, so it never flashes');
+  assert.match(DOOR, /html:not\(\[data-local-more\]\) \[data-more-options\],html\[data-offer-local\] \[data-more-options\]\{display:none !important\}/,
+    'the More options link shows only while the offers are hidden behind it');
   // every way to START the local flow is gated: the takeover card and the "New here?" link
   const card = DOOR.match(/<button class="bigcard" data-make="local"[^>]*>/g) || [];
   assert.equal(card.length, 1);
@@ -764,18 +771,29 @@ test('local mode is retired from the door behind ONE switch, and only its create
   assert.match(DOOR, /<a href="#" id="newLocal" data-local-create>/, 'the "New here?" link is gated');
   const starts = DOOR.match(/startLocalFlow\(\);/g) || [];
   assert.equal(starts.length, 2, 'the card and the link are the only two ways in (a third entry point must be gated too)');
+  // the server path leads: the folder card is the LAST card, and the link the last link
+  const cards = [...DOOR.matchAll(/<button class="bigcard" data-make="(\w+)"/g)].map((m) => m[1]);
+  assert.equal(cards[cards.length - 1], 'local', 'the folder card comes after every other door');
+  assert.equal(cards[0], 'selfhost', 'and "Set up my own" stays first');
+  const row = DOOR.slice(DOOR.indexOf('<div class="newrow" id="newRow">'), DOOR.indexOf('<div class="foot" id="invFoot">'));
+  const links = [...row.matchAll(/<a href="#" id="(\w+)"/g)].map((m) => m[1]);
+  assert.deepEqual(links, ['newSelfhost', 'newTeam', 'newLocal', 'newMore'], 'the strip leads with the server path');
+  // the two More options links only reveal; they never start a flow themselves
+  assert.match(DOOR, /getElementById\('newMore'\)\.addEventListener\('click', function\(e\)\{ e\.preventDefault\(\); revealMoreOptions\('newLocal'\); \}\);/);
+  assert.match(DOOR, /getElementById\('moreMake'\)\.addEventListener\('click', function\(e\)\{ e\.preventDefault\(\); revealMoreOptions\('\[data-make="local"\]'\); \}\);/);
   // the code stays: the flow, its route and its screens
   assert.match(DOOR, /function startLocalFlow\(\)\{/);
   assert.match(DOOR, /fetch\('\/local\/create'/);
   assert.match(DOOR, /<div id="localFlow" style="display:none">/);
   // the gate is ONLY on creating. An existing folder's row, chip, href and
-  // probe never consult the switch.
+  // probe never consult either switch.
   const render = DOOR.slice(DOOR.indexOf('function render(){'), DOOR.indexOf('function forgetRow('));
-  assert.doesNotMatch(render, /OFFER_LOCAL_CREATE|data-offer-local/, 'listing and opening a brain folder does not depend on the switch');
+  assert.doesNotMatch(render, /OFFER_LOCAL_CREATE|LOCAL_BEHIND_MORE|data-offer-local|data-local-more/, 'listing and opening a brain folder does not depend on the switches');
   assert.match(render, /if \(r\.tier === 'local'\) \{ location\.href = localRowHref\(r\); return; \}/, 'a folder row still opens on its alias');
   assert.match(render, /function localChip\(\)/, 'and still carries its own chip');
-  // forgetting a folder no longer promises a way back that is hidden
+  // forgetting a folder promises only the way back that exists
   const forget = DOOR.slice(DOOR.indexOf('function forgetRow('), DOOR.indexOf('function forgetRow(') + 2000);
-  assert.match(forget, /OFFER_LOCAL_CREATE \? 'Add it back any time from On this computer/, 'the "add it back" line only shows while the offer exists');
+  assert.match(forget, /OFFER_LOCAL_CREATE \? 'Add it back any time from On this computer/);
+  assert.match(forget, /LOCAL_BEHIND_MORE \? 'Add it back any time from More options, then On this computer, with the same path\.'/);
   assert.match(forget, /This app no longer adds brain folders, so it will not come back to this list\./);
 });
