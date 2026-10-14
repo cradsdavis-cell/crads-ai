@@ -53,7 +53,13 @@ jobs:
           if (-not ($runs | Where-Object { $_.status -eq 'completed' -and $_.conclusion -eq 'success' })) {
             throw "no successful wizard-app run for $($v.sha): the mac zip may not belong to this build yet"
           }
-          $live = (Invoke-WebRequest -UseBasicParsing "https://github.com/$env:REPO/releases/download/wizard-app/version.json").Content | ConvertFrom-Json
+          # GitHub serves release assets as application/octet-stream, so .Content
+          # is a byte[] and piping it straight into ConvertFrom-Json yields
+          # nothing (the first live run, 14 Oct, read an empty build here).
+          $c = (Invoke-WebRequest -UseBasicParsing "https://github.com/$env:REPO/releases/download/wizard-app/version.json").Content
+          if ($c -is [byte[]]) { $c = [Text.Encoding]::UTF8.GetString($c) }
+          $live = $c.TrimStart([char]0xFEFF) | ConvertFrom-Json
+          if (-not $live.sha) { throw 'could not read the live version.json' }
           Write-Host "live:   build $($live.build) sha $($live.sha)"
           if ([int]$v.build -lt [int]$live.build) { throw "staged build $($v.build) is older than live build $($live.build)" }
           "STAGED_SHA=$($v.sha)" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
@@ -110,6 +116,12 @@ jobs:
       - name: Confirm what is live
         run: |
           Start-Sleep -Seconds 10
-          $live = (Invoke-WebRequest -UseBasicParsing "https://github.com/$env:REPO/releases/download/wizard-app/version.json").Content | ConvertFrom-Json
+          # GitHub serves release assets as application/octet-stream, so .Content
+          # is a byte[] and piping it straight into ConvertFrom-Json yields
+          # nothing (the first live run, 14 Oct, read an empty build here).
+          $c = (Invoke-WebRequest -UseBasicParsing "https://github.com/$env:REPO/releases/download/wizard-app/version.json").Content
+          if ($c -is [byte[]]) { $c = [Text.Encoding]::UTF8.GetString($c) }
+          $live = $c.TrimStart([char]0xFEFF) | ConvertFrom-Json
+          if (-not $live.sha) { throw 'could not read the live version.json' }
           if ($live.sha -ne $env:STAGED_SHA) { throw "live version.json says $($live.sha), expected $env:STAGED_SHA" }
           Write-Host "live: build $($live.build) sha $($live.sha)"
