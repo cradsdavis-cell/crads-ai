@@ -113,6 +113,31 @@ jobs:
           gh release upload wizard-app staged/version.json --clobber --repo $env:REPO
           if ($LASTEXITCODE -ne 0) { throw 'version.json upload failed' }
 
+      - name: Keep a permanent copy for the Microsoft Store (signed builds only)
+        # The Store installs from a fixed URL whose file must never change, so
+        # every signed build that goes live is also kept, never overwritten, on
+        # the windows-store release as crads-ai-<version>-build<n>.exe. The
+        # Store listing points at one of these (its installer runs with
+        # --install); Store-installed apps then self-update from wizard-app
+        # like every other install. Unsigned emergency builds never go here.
+        if: ${{ !inputs.allow_unsigned }}
+        run: |
+          $v = Get-Content staged/version.json -Raw | ConvertFrom-Json
+          $name = "crads-ai-$($v.version)-build$($v.build).exe"
+          gh release view windows-store --repo $env:REPO *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create windows-store --repo $env:REPO --target main --prerelease `
+              --title 'Crads-AI for the Microsoft Store (per-build installers)' `
+              --notes 'Fixed, never-overwritten Windows installers for the Microsoft Store listing, one per signed build. To download the app yourself, use https://crads-ai.com/download.'
+            if ($LASTEXITCODE -ne 0) { throw 'could not create the windows-store release' }
+          }
+          $have = gh release view windows-store --repo $env:REPO --json assets --jq '.assets[].name'
+          if ($have -contains $name) { Write-Host "$name is already kept (a re-promotion of the same build); leaving it untouched"; return }
+          Copy-Item staged/publish-crads-ai.exe $name
+          gh release upload windows-store $name --repo $env:REPO
+          if ($LASTEXITCODE -ne 0) { throw "could not upload $name to windows-store" }
+          Write-Host "kept: https://github.com/$env:REPO/releases/download/windows-store/$name"
+
       - name: Confirm what is live
         run: |
           Start-Sleep -Seconds 10
