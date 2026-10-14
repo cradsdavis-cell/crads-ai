@@ -492,15 +492,33 @@ jobs:
           if-no-files-found: error
           retention-days: 5
 
-      - name: Publish / update the rolling prerelease (tag wizard-app)
+      - name: Drop a signed exe left over from an earlier staged build
+        # release-signed.yml also checks the signed exe byte-for-byte against the
+        # staged one, so a stale file could never ship; removing it just keeps
+        # the holding release honest about what still needs signing.
+        if: github.ref == 'refs/heads/hardening-loop' || github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete-asset wizard-app-next crads-ai-signed.exe --yes --repo "$GITHUB_REPOSITORY" || true
+
+      - name: Stage the build on the holding prerelease (tag wizard-app-next)
+        # 2026-10-14 (Sam): every build lands on wizard-app-next, never straight
+        # on wizard-app. Installed apps and the site read wizard-app, and the
+        # Windows exe must be signed on the laptop (Certum SimplySign needs Sam's
+        # phone login), so a build waits here until it is signed and the
+        # release-signed workflow promotes it. Users never get an unsigned exe,
+        # and the whole release (mac too) moves together, because version.json
+        # is shared by both platforms: advancing it beside an old exe would
+        # make Windows apps re-download the same build forever.
         # A manual run on a feature branch (workflow_dispatch --ref) builds and
         # smokes everything but must not replace the rolling release with an
         # unmerged build (2026-10-07, the mac window host was proven this way).
         if: github.ref == 'refs/heads/hardening-loop' || github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: wizard-app
-          name: Crads-AI (Windows + Mac, rolling)
+          tag_name: wizard-app-next
+          name: Crads-AI next build (waiting to be signed; download from wizard-app)
           prerelease: true
           make_latest: false
           # ONE source of truth for the release prose. It was once inline here
@@ -516,7 +534,7 @@ jobs:
             dist/crads-ai.exe
             dist/changelog.json
 
-      - name: Advertise the build (version.json, last)
+      - name: Stage version.json (last, so a half-staged build is never promotable)
         # Runs only when the exe and the changelog are already up (steps stop at
         # the first failure). 2026-10-11: until now changelog.json was uploaded
         # only by a mirror step for the retired crads-ai-app repo, which skipped,
@@ -526,7 +544,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload wizard-app dist/version.json --clobber --repo "$GITHUB_REPOSITORY"
+        run: gh release upload wizard-app-next dist/version.json --clobber --repo "$GITHUB_REPOSITORY"
 
   build-macos-app:
     # Same SEA build as Windows, packaged as a Crads-AI.app bundle and zipped.
@@ -946,7 +964,7 @@ jobs:
           if-no-files-found: error
           retention-days: 5
 
-      - name: Attach to the rolling prerelease
+      - name: Attach to the holding prerelease (wizard-app-next)
         # A manual run on a feature branch (workflow_dispatch --ref) builds and
         # smokes everything but must not replace the rolling release with an
         # unmerged build (2026-10-07, the mac window host was proven this way).
@@ -954,4 +972,4 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload wizard-app dist/crads-ai-mac.zip --clobber --repo "$GITHUB_REPOSITORY"
+        run: gh release upload wizard-app-next dist/crads-ai-mac.zip --clobber --repo "$GITHUB_REPOSITORY"

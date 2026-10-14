@@ -1,0 +1,115 @@
+name: release-signed
+
+# Promote the build waiting on wizard-app-next to the live wizard-app release
+# (2026-10-14, Sam). wizard-app.yml stages every build on wizard-app-next; the
+# Windows exe is then signed on the maintainer's laptop (Certum SimplySign needs
+# a phone login, so it cannot run in CI) and uploaded beside it as
+# crads-ai-signed.exe. This workflow refuses to publish unless that file is
+# validly signed by the project's certificate AND is byte-for-byte the staged
+# build plus its signature, then moves the exe, the mac zip and the changelog
+# to wizard-app and advertises version.json last, as wizard-app.yml used to.
+#
+# allow_unsigned is the emergency path (an urgent fix while signing is
+# unavailable): it ships the staged exe unsigned. Use it knowingly.
+
+on:
+  workflow_dispatch:
+    inputs:
+      allow_unsigned:
+        description: 'Ship the staged exe UNSIGNED (emergency only)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: release-signed
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Fetch the staged build
+        run: |
+          New-Item -ItemType Directory -Force staged | Out-Null
+          gh release download wizard-app-next --dir staged --repo $env:REPO
+          if ($LASTEXITCODE -ne 0) { throw 'could not download wizard-app-next' }
+          Get-ChildItem staged | Format-Table Name, Length -AutoSize | Out-String | Write-Host
+          foreach ($f in 'crads-ai.exe', 'crads-ai-mac.zip', 'changelog.json', 'version.json') {
+            if (-not (Test-Path "staged/$f")) { throw "wizard-app-next is missing $($f) (the build has not finished staging)" }
+          }
+
+      - name: Check the staged build finished green and is not older than live
+        run: |
+          $v = Get-Content staged/version.json -Raw | ConvertFrom-Json
+          Write-Host "staged: build $($v.build) sha $($v.sha)"
+          $runs = gh run list --repo $env:REPO --workflow wizard-app.yml --commit $v.sha --json status,conclusion,databaseId | ConvertFrom-Json
+          if (-not ($runs | Where-Object { $_.status -eq 'completed' -and $_.conclusion -eq 'success' })) {
+            throw "no successful wizard-app run for $($v.sha): the mac zip may not belong to this build yet"
+          }
+          $live = (Invoke-WebRequest -UseBasicParsing "https://github.com/$env:REPO/releases/download/wizard-app/version.json").Content | ConvertFrom-Json
+          Write-Host "live:   build $($live.build) sha $($live.sha)"
+          if ([int]$v.build -lt [int]$live.build) { throw "staged build $($v.build) is older than live build $($live.build)" }
+          "STAGED_SHA=$($v.sha)" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: Check the signed exe (signer, timestamp, same bytes as the staged build)
+        if: ${{ !inputs.allow_unsigned }}
+        run: |
+          if (-not (Test-Path staged/crads-ai-signed.exe)) { throw 'crads-ai-signed.exe is not on wizard-app-next: sign the staged exe first' }
+          $sig = Get-AuthenticodeSignature staged/crads-ai-signed.exe
+          Write-Host "status: $($sig.Status) | signer: $($sig.SignerCertificate.Subject) | timestamp: $($sig.TimeStamperCertificate.Subject)"
+          if ($sig.Status -ne 'Valid') { throw "signature is $($sig.Status), not Valid" }
+          if ($sig.SignerCertificate.Subject -notlike 'CN=Open Source Developer Samuel Caradog Davis,*') { throw 'signed by an unexpected certificate' }
+          if (-not $sig.TimeStamperCertificate) { throw 'signature carries no timestamp' }
+          # The signed file must be the staged build with only signing's own
+          # changes: the PE checksum, the certificate-table entry, and the
+          # signature block appended at the end.
+          Add-Type -TypeDefinition @'
+          public static class Cmp {
+            public static int Other(byte[] a, byte[] b, int s1, int s2, int s3, int s4) {
+              if (b.Length <= a.Length) return -1;
+              int other = 0;
+              for (int i = 0; i < a.Length; i++) { if (a[i] != b[i] && !((i >= s1 && i < s2) || (i >= s3 && i < s4))) other++; }
+              return other;
+            }
+          }
+          '@
+          $a = [IO.File]::ReadAllBytes("$PWD/staged/crads-ai.exe")
+          $b = [IO.File]::ReadAllBytes("$PWD/staged/crads-ai-signed.exe")
+          $opt = [BitConverter]::ToInt32($a, 0x3C) + 24; $sec = $opt + 112 + 32
+          $other = [Cmp]::Other($a, $b, $opt + 64, $opt + 68, $sec, $sec + 8)
+          if ($other -ne 0) { throw "the signed exe is not the staged build ($other unexpected byte differences)" }
+          if ([BitConverter]::ToUInt32($b, $sec) -ne $a.Length) { throw 'signature block does not start at the end of the staged exe' }
+          Write-Host 'signed exe = staged build + signature'
+          Copy-Item staged/crads-ai-signed.exe staged/publish-crads-ai.exe
+
+      - name: Use the unsigned exe (emergency path)
+        if: ${{ inputs.allow_unsigned }}
+        run: |
+          Write-Host '::warning::Promoting an UNSIGNED Windows exe (allow_unsigned was set)'
+          Copy-Item staged/crads-ai.exe staged/publish-crads-ai.exe
+
+      - name: Publish to wizard-app (version.json last)
+        run: |
+          New-Item -ItemType Directory -Force publish | Out-Null
+          Copy-Item staged/publish-crads-ai.exe publish/crads-ai.exe
+          Copy-Item staged/crads-ai-mac.zip, staged/changelog.json publish/
+          gh release upload wizard-app publish/crads-ai.exe publish/crads-ai-mac.zip publish/changelog.json --clobber --repo $env:REPO
+          if ($LASTEXITCODE -ne 0) { throw 'asset upload failed; version.json NOT advanced, live release still advertises the old build' }
+          gh release view wizard-app-next --repo $env:REPO --json body --jq .body | Set-Content -Encoding utf8 notes.md
+          gh release edit wizard-app --notes-file notes.md --repo $env:REPO
+          gh release upload wizard-app staged/version.json --clobber --repo $env:REPO
+          if ($LASTEXITCODE -ne 0) { throw 'version.json upload failed' }
+
+      - name: Confirm what is live
+        run: |
+          Start-Sleep -Seconds 10
+          $live = (Invoke-WebRequest -UseBasicParsing "https://github.com/$env:REPO/releases/download/wizard-app/version.json").Content | ConvertFrom-Json
+          if ($live.sha -ne $env:STAGED_SHA) { throw "live version.json says $($live.sha), expected $env:STAGED_SHA" }
+          Write-Host "live: build $($live.build) sha $($live.sha)"
