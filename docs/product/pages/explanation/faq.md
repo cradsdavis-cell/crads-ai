@@ -95,7 +95,9 @@ Yes, though it isn't the path we recommend. In the app, press More options,
 then On this computer. It makes a brain folder on your computer that Claude
 Code opens. It only works while your computer is on: scheduled jobs, the
 morning brief and Telegram need a server. When you use it, your requests
-still go to Claude, same as on a server.
+still go to Claude, same as on a server. It can also run on Claude's own cloud
+as part of your Claude plan, with jobs at most hourly and your files held by
+Anthropic; that one is set up with you in a guided setup.
 
 ## Which servers is my data actually on?
 
