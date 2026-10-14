@@ -30,6 +30,7 @@ import { setupStepsRoutes } from './setup-steps.mjs';
 import { crossOriginBlocked, refuseCrossOrigin } from './same-origin.mjs';
 import { localRoutes, ownBrainDispatch, precheckDispatch } from './local-routes.mjs';
 import { unregisterLocalBrain, slugFromLocalAlias } from './local-targets.mjs';
+import { moveRoutes } from './move-routes.mjs';
 import { existsSync } from 'node:fs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -124,6 +125,10 @@ export function createDoorServer(opts = {}) {
   // The "On this computer" flow (the no-server face): create + status + the
   // folder twin of /setup-steps. Everything injectable rides opts.local.
   const local = localRoutes(opts.local || {});
+  // Moving between this computer and a server, both ways (2026-10-14), and the
+  // offer to delete the old server after a checked move down. Injectables ride
+  // opts.move; the identities and the forget are this server's own.
+  const move = moveRoutes({ targets: () => bridge.targets(), forget, assets: (opts.local || {}).assets, ...(opts.move || {}) });
   const setupSteps = setupStepsRoutes({
     resolveHost: managedHost,
     probe: (opts.setupSteps || {}).probe,
@@ -282,6 +287,7 @@ export function createDoorServer(opts = {}) {
     if (setupSteps(req, res, path)) return;
     if (ownBrain(req, res, path)) return;
     if (local(req, res, path)) return;
+    if (move(req, res, path)) return;
 
     if (req.method === 'GET' && path.startsWith('/go/')) {
       const name = path.slice(4);

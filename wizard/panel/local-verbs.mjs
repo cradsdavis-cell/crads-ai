@@ -27,6 +27,7 @@ import { listSkills } from '../../engine/appshell/skills-list.mjs';
 import { deletePage } from '../../engine/appshell/page-delete.mjs';
 import { readClaudeCredential } from '../../engine/lib/claude-credential.mjs';
 import { refreshLocalBrain, seedPages, setBrainName } from './local-scaffold.mjs';
+import { PAUSED_MANIFEST } from '../../engine/move-pack.mjs';
 
 export const LOCAL_MARK = '__local__ ';
 
@@ -315,6 +316,10 @@ function consoleState(t) {
     ownership: { owner: 'member', owner_slug: '', managed_by: 'you', tier: 'pebble', machinery_by: 'crads-ai', hosting: 'local' },
     org: { name: '', display: '', admin_email: '' },
     anchored: false, anchor: '', name: nm, backup, custody: [],
+    // a move down's paused record and a move up's marker (2026-10-14): the seat's
+    // "Where it lives" card lists the one and warns about the other
+    paused: (() => { const m = rdJSON(path.join(box, PAUSED_MANIFEST)); return m && Array.isArray(m.items) ? { items: m.items, from: m.from || '', paused_at: m.paused_at || '' } : null; })(),
+    moved: (() => { const m = rdJSON(path.join(box, '.kernel', 'moved.json')); return m && m.to ? { to: String(m.to), at: String(m.at || '') } : null; })(),
     waiting: { transfer_invitation: null, ownership_grant: null, asks: [] },
     lineage: null, local: true, path: box, holder_email: own.holder_email || '',
     generated: new Date().toISOString(),

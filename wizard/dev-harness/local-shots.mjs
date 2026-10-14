@@ -6,9 +6,9 @@
 //
 //   cd wizard/dev-harness && node local-shots.mjs [--out <dir>] [--port 4665]
 //
-// Shots: the door with the create card retired (2026-10-13), the local flow
-// (form + finish checklist, reached by flipping the switch in the page, see
-// offerLocal below), then the member face on the folder: Overview, Brain,
+// Shots: the door's provider row with "On this computer" as its last, plainer
+// card (2026-10-14), the local flow reached from it (form + finish checklist),
+// then the member face on the folder: Overview, Brain,
 // Skills (the schedule strip hidden, the honest note in its place), Help (the
 // folder copy where the connection name used to be). Full-page PNGs + a
 // per-shot console-error report, so a broken page cannot photograph as a good
@@ -36,27 +36,33 @@ await new Promise((res, rej) => {
   harness.on('exit', (c) => rej(new Error(`harness exited early (${c})`)));
 });
 
-// "On this computer" is retired as a way to MAKE a mineral (2026-10-13): the
-// door hides every [data-local-create] unless OFFER_LOCAL_CREATE in door.html
-// puts data-offer-local on <html>. The flow itself is kept, so these shots
-// flip that attribute in the page to photograph it, exactly what turning the
-// switch back on would show.
-const offerLocal = (page) => page.evaluate(() => document.documentElement.setAttribute('data-offer-local', ''));
+// "On this computer" is the LAST card in the provider row of "Set up my own"
+// (Sam, 2026-10-14). This walks a person's way to it.
+const toLocal = async (page) => {
+  await page.click('[data-make="selfhost"]');
+  await page.waitForSelector('#shProviders .provlocal', { state: 'visible', timeout: 8000 });
+  await page.click('#shProviders .provlocal');
+};
 
 const SHOTS = [
-  // a fresh install: the takeover with the local create card hidden
+  // a fresh install: the takeover leads with the server path, no folder door
   { name: 'door-no-local-card', path: '/door?state=empty', waitMs: 2000 },
+  // inside Set up my own: the hosting companies, then the plainer folder card
+  { name: 'door-provider-row', path: '/door?state=empty', waitMs: 1500, after: async (page) => {
+    await page.click('[data-make="selfhost"]');
+    await page.waitForSelector('#shProviders .provlocal', { state: 'visible', timeout: 8000 });
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(400);
+  } },
   // the local flow's one form
   { name: 'door-local-flow', path: '/door?state=empty', waitMs: 1500, after: async (page) => {
-    await offerLocal(page);
-    await page.click('[data-make="local"]');
+    await toLocal(page);
     await page.fill('#loName', 'Idris');
     await page.waitForTimeout(400);
   } },
   // the finish checklist after Make it
   { name: 'door-local-done', path: '/door?state=empty', waitMs: 1500, after: async (page) => {
-    await offerLocal(page);
-    await page.click('[data-make="local"]');
+    await toLocal(page);
     await page.fill('#loName', 'Idris');
     await page.click('#loMakeBtn');
     await page.waitForSelector('#loDone', { state: 'visible', timeout: 5000 });
@@ -69,6 +75,10 @@ const SHOTS = [
   { name: 'member-local-brain', path: '/member?face=local', waitMs: 2500, after: nav('brain', 3000) },
   { name: 'member-local-skills', path: '/member?face=local', waitMs: 2500, after: nav('skills', 2500) },
   { name: 'member-local-seat', path: '/member?face=local', waitMs: 2500, after: nav('seat', 2500) },
+  // 2026-10-14: a folder that came down from a server (schedule, brief and
+  // Telegram paused, Move to a server leads), and one a move up left behind
+  { name: 'member-local-seat-paused', path: '/member?face=local&paused=1', waitMs: 2500, after: nav('seat', 2500) },
+  { name: 'member-local-seat-moved', path: '/member?face=local&moved=1', waitMs: 2500, after: nav('seat', 2500) },
   { name: 'member-local-help', path: '/member?face=local', waitMs: 2500, after: async (page) => { await page.click('#helpLink'); await page.waitForTimeout(1500); } },
   // 2026-09-18: a fresh folder's Overview (step 1 shows its way in, 0 of 8)
   { name: 'member-local-overview-fresh', path: '/member?face=local&state=empty', waitMs: 4000 },

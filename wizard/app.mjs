@@ -43,6 +43,7 @@ import { launchPlan } from './panel/launch-plan.mjs';
 import { listLocalTargets } from './panel/local-targets.mjs';
 import { localBridge, composeBridge } from './panel/local-bridge.mjs';
 import { loadEngineAssets } from './panel/local-scaffold.mjs';
+import { loadToolFiles } from './panel/brain-move.mjs';
 import { pushLocalBrains } from './panel/own-brain-local.mjs';
 import { applyNetDefaults } from './net-defaults.mjs';
 
@@ -418,6 +419,9 @@ async function main() {
     htmlText: asset('door.html', join(HERE, 'panel', 'door.html')),
     provision: { files: selfHostFiles },
     local: { assets: localAssets },
+    // Moving a brain between this computer and a server (2026-10-14): the
+    // engine files copied onto the server for the move ride the SEA assets too.
+    move: { toolFiles: loadToolFiles({ read: (name, fsPath) => asset(name, fsPath) }) },
     vendor,
     updater,
     urls: {

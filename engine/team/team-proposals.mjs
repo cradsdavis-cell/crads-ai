@@ -37,6 +37,7 @@ import path from 'node:path';
 import { isMain } from '../lib/is-main.mjs';
 import { withBrainLock } from './team-lock.mjs';
 import { headerProblems } from './team-skills.mjs';
+import { now as clockNow, dayIn, boxTz } from '../lib/clock.mjs';
 
 // What a proposal may change. Everything the agent regenerates (members/,
 // entities/, digest/, decisions/, .org/) and the proposals area itself are out.
@@ -122,7 +123,7 @@ export function scanProposal(p) {
 
 // ---- staff box: propose -------------------------------------------------------
 
-export function propose(stateDir, { target, content, why = '', date = new Date().toISOString().slice(0, 10), push = true }) {
+export function propose(stateDir, { target, content, why = '', date = dayIn(clockNow(stateDir), boxTz(stateDir)), push = true }) {
   const cfg = readJson(path.join(stateDir, 'org', 'config.json'));
   if (!cfg || !cfg.company) throw new Error('this box is not in a team');
   if (!isAllowedTarget(target)) throw new Error(`cannot propose a change to "${target}": only company/, clients/, processes/ pages and skills/<name>/SKILL.md`);
@@ -218,7 +219,7 @@ export function listProposals(stateDir) {
   return out;
 }
 
-export function decide(stateDir, id, verdict, { note = '', by = 'owner', push = true, date = new Date().toISOString().slice(0, 10) } = {}) {
+export function decide(stateDir, id, verdict, { note = '', by = 'owner', push = true, date = dayIn(clockNow(stateDir), boxTz(stateDir)) } = {}) {
   const cfg = readJson(path.join(stateDir, 'org', 'config.json'));
   if (!cfg || cfg.role !== 'hub') throw new Error('decisions are made on the company agent\'s box');
   if (!ID_RE.test(String(id))) throw new Error('bad proposal id');

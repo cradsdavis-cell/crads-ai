@@ -76,6 +76,11 @@ export async function provisionSelfHost({ token, boxName, ownerPubKey, state, on
     state.serverId = created.id;
     state.serverIp = created.ip;
     state.createActionId = created.actionId;
+    // The machine and where it is (2026-10-14): what lets "Delete the old server"
+    // after a move to this computer name its monthly price from the provider's
+    // own list. A record from before this line simply lacks them.
+    state.serverType = serverType;
+    state.location = location;
   }
 
   if (!state.serverRunning) {
@@ -123,6 +128,6 @@ export async function destroySelfHost({ token, state, client, provider }) {
   const P = providerOf(provider || state.provider || DEFAULT_PROVIDER);
   const hc = client ?? P.makeClient(token);
   await hc.deleteServer(state.serverId);
-  for (const k of ['serverId', 'serverIp', 'createActionId', 'serverRunning']) delete state[k];
+  for (const k of ['serverId', 'serverIp', 'createActionId', 'serverRunning', 'serverType', 'location']) delete state[k];
   return { destroyed: true };
 }

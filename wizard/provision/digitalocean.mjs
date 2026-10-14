@@ -206,6 +206,12 @@ export class DigitalOceanClient {
     return { id: dr.id, name: dr.name, status, ip: publicIp(dr) };
   }
 
+  /** Optional (2026-10-14): which machine, where, so a delete can name its monthly price. */
+  async describeServer(id) {
+    const dr = (await this.request(`/droplets/${id}`)).droplet;
+    return { serverType: dr.size_slug ?? dr.size?.slug ?? null, location: dr.region?.slug ?? null };
+  }
+
   /** destroy-and-retry; a droplet already gone (404) is the outcome wanted. */
   async deleteServer(id) {
     try {

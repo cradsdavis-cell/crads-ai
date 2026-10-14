@@ -744,56 +744,48 @@ test('the self-host wizard reads every provider-shaped string from the registry,
   assert.deepEqual(strings, [], 'no Hetzner-only copy left in the script');
 });
 
-// "On this computer" retired as a way to MAKE a mineral (Sam, 2026-10-13: "It
-// should all be in the cloud. Makes things less confusing."), then brought back
-// behind a "More options" link that comes last (Sam, 2026-10-14: "I want to
-// definitely prioritise people using their own servers over anything else").
-// Two switches, and an existing brain folder keeps working whatever they say.
-// The screen itself is driven in qa-door-local-retired.test.mjs; this pins the
-// markup the screen depends on, so a re-added card or a third switch fails here first.
-test('local mode sits behind More options: off up front, one reveal, only its create offers hang on it', () => {
-  const sw = DOOR.match(/var OFFER_LOCAL_CREATE = (true|false);/g) || [];
-  assert.equal(sw.length, 1, 'exactly one up-front switch');
-  assert.equal(sw[0], 'var OFFER_LOCAL_CREATE = false;', 'and it is off');
-  const more = DOOR.match(/var LOCAL_BEHIND_MORE = (true|false);/g) || [];
-  assert.equal(more.length, 1, 'exactly one More options switch');
-  assert.equal(more[0], 'var LOCAL_BEHIND_MORE = true;', 'and it is on');
-  assert.match(DOOR, /if \(OFFER_LOCAL_CREATE\) document\.documentElement\.setAttribute\('data-offer-local', ''\);\n\s*else if \(LOCAL_BEHIND_MORE\) document\.documentElement\.setAttribute\('data-local-more', ''\);/,
-    'the up-front switch reveals the offers; otherwise the More options switch shows the link');
-  assert.match(DOOR, /html:not\(\[data-offer-local\]\) \[data-local-create\]\{display:none !important\}/,
-    'hidden by CSS from first paint, so it never flashes');
-  assert.match(DOOR, /html:not\(\[data-local-more\]\) \[data-more-options\],html\[data-offer-local\] \[data-more-options\]\{display:none !important\}/,
-    'the More options link shows only while the offers are hidden behind it');
-  // every way to START the local flow is gated: the takeover card and the "New here?" link
-  const card = DOOR.match(/<button class="bigcard" data-make="local"[^>]*>/g) || [];
-  assert.equal(card.length, 1);
-  assert.match(card[0], /data-local-create/, 'the takeover card is gated');
-  assert.match(DOOR, /<a href="#" id="newLocal" data-local-create>/, 'the "New here?" link is gated');
-  const starts = DOOR.match(/startLocalFlow\(\);/g) || [];
-  assert.equal(starts.length, 2, 'the card and the link are the only two ways in (a third entry point must be gated too)');
-  // the server path leads: the folder card is the LAST card, and the link the last link
-  const cards = [...DOOR.matchAll(/<button class="bigcard" data-make="(\w+)"/g)].map((m) => m[1]);
-  assert.equal(cards[cards.length - 1], 'local', 'the folder card comes after every other door');
-  assert.equal(cards[0], 'selfhost', 'and "Set up my own" stays first');
+// "On this computer" retired as a way to MAKE a mineral (2026-10-13), brought
+// back behind More options (2026-10-14 morning), then made the LAST card in the
+// wizard's provider row (Sam, 2026-10-14: deliberately the less attractive
+// offer, with its downsides on the card, no extra confirm). The More options
+// link and both switches are gone: local was the only thing behind it. The
+// screen itself is driven in qa-door-local-card.test.mjs; this pins the markup.
+test('local mode is the last provider card: plainer, honest, one way in, and no More options left', () => {
+  assert.doesNotMatch(DOOR, /var OFFER_LOCAL_CREATE|var LOCAL_BEHIND_MORE|revealMoreOptions|data-more-options|data-local-create|id="moreMake"|id="newMore"|id="newLocal"/,
+    'the switches, the More options link and the old doors are gone');
+  assert.equal((DOOR.match(/data-make="local"/g) || []).length, 0, 'no takeover card of its own');
+  // the card: rendered AFTER every provider, plainer class, the ruling's words, hidden while moving up
+  const r = DOOR.slice(DOOR.indexOf('function shRenderProviders(){'), DOOR.indexOf('function shRenderProviders(){') + 1400);
+  assert.match(r, /\}\)\.join\(''\)\s*\/\/[\s\S]*?\+ \(moveUp \? '' : '<button type="button" class="bigcard provcard provlocal" data-provider-local>'/, 'appended after the providers, never during a move to a server');
+  assert.match(r, /Free\. No schedule, no phone, stops when your laptop sleeps\. Move to a server any time\./);
+  assert.match(DOOR, /\.provcard\.provlocal\{[^}]*border-style:dashed[^}]*box-shadow:none/, 'plainer: dashed, no shadow');
+  assert.match(DOOR, /\.provcard\.provlocal:hover\{transform:none;box-shadow:none/, 'and no lift on hover');
+  // one way in, straight to the folder form (no confirm step)
+  assert.match(DOOR, /if \(e\.target\.closest\('\[data-provider-local\]'\)\) \{ exitShFlow\(\); startLocalFlow\(true\); return; \}/);
+  assert.equal((DOOR.match(/startLocalFlow\(/g) || []).length, 2, 'the definition and the provider card are the only mentions');
+  // the server path leads the strip
   const row = DOOR.slice(DOOR.indexOf('<div class="newrow" id="newRow">'), DOOR.indexOf('<div class="foot" id="invFoot">'));
-  const links = [...row.matchAll(/<a href="#" id="(\w+)"/g)].map((m) => m[1]);
-  assert.deepEqual(links, ['newSelfhost', 'newTeam', 'newLocal', 'newMore'], 'the strip leads with the server path');
-  // the two More options links only reveal; they never start a flow themselves
-  assert.match(DOOR, /getElementById\('newMore'\)\.addEventListener\('click', function\(e\)\{ e\.preventDefault\(\); revealMoreOptions\('newLocal'\); \}\);/);
-  assert.match(DOOR, /getElementById\('moreMake'\)\.addEventListener\('click', function\(e\)\{ e\.preventDefault\(\); revealMoreOptions\('\[data-make="local"\]'\); \}\);/);
-  // the code stays: the flow, its route and its screens
-  assert.match(DOOR, /function startLocalFlow\(\)\{/);
-  assert.match(DOOR, /fetch\('\/local\/create'/);
-  assert.match(DOOR, /<div id="localFlow" style="display:none">/);
-  // the gate is ONLY on creating. An existing folder's row, chip, href and
-  // probe never consult either switch.
+  assert.deepEqual([...row.matchAll(/<a href="#" id="(\w+)"/g)].map((m) => m[1]), ['newSelfhost', 'newTeam']);
+  // an existing folder still lists and opens on its alias
   const render = DOOR.slice(DOOR.indexOf('function render(){'), DOOR.indexOf('function forgetRow('));
-  assert.doesNotMatch(render, /OFFER_LOCAL_CREATE|LOCAL_BEHIND_MORE|data-offer-local|data-local-more/, 'listing and opening a brain folder does not depend on the switches');
-  assert.match(render, /if \(r\.tier === 'local'\) \{ location\.href = localRowHref\(r\); return; \}/, 'a folder row still opens on its alias');
-  assert.match(render, /function localChip\(\)/, 'and still carries its own chip');
-  // forgetting a folder promises only the way back that exists
+  assert.match(render, /if \(r\.tier === 'local'\) \{ location\.href = localRowHref\(r\); return; \}/);
+  // forgetting a folder names the way back that exists now
   const forget = DOOR.slice(DOOR.indexOf('function forgetRow('), DOOR.indexOf('function forgetRow(') + 2000);
-  assert.match(forget, /OFFER_LOCAL_CREATE \? 'Add it back any time from On this computer/);
-  assert.match(forget, /LOCAL_BEHIND_MORE \? 'Add it back any time from More options, then On this computer, with the same path\.'/);
-  assert.match(forget, /This app no longer adds brain folders, so it will not come back to this list\./);
+  assert.match(forget, /Add it back any time from Set up my own, then On this computer, with the same path\./);
+});
+
+// The two moves (2026-10-14): deep links from Your mineral, a move up rides the
+// unchanged wizard and runs only into a server built FOR it, a move down never
+// offers a delete without the server's own name and cost in the confirm.
+test('the moves: deep links, a move up only into its own new server, a delete only with a named, costed confirm', () => {
+  assert.match(DOOR, /location\.hash\.match\(\/\^#move-\(up\|down\)=/);
+  assert.match(DOOR, /else if \(s\.phase === 'ready' && \(!moveUp \|\| moveUp\.started\)\) \{ shReady\(s\); \}/, 'a server already ready for something else is never a move\u2019s destination');
+  assert.match(DOOR, /if \(moveUp && moveUp\.started && !moveUp\.done\) \{ mvUpStart\(s\); return; \}/, 'the brain moves before the finish checklist');
+  assert.match(DOOR, /fetch\('\/move\/up\/start'/);
+  assert.match(DOOR, /fetch\('\/move\/down\/start'/);
+  // the delete: a quote first, a tick naming server + cost, the server's name sent as the confirm
+  assert.match(DOOR, /'Yes, delete ' \+ x\.d\.server \+ ' at ' \+ x\.d\.provider[\s\S]{0,80}'\, which costs ' \+ x\.d\.cost_words/);
+  assert.match(DOOR, /<button class="act danger" id="mdDelBtn" disabled>/, 'disabled until the tick');
+  assert.match(DOOR, /body: JSON\.stringify\(\{ alias: mdPlan\.from, token: [^}]*confirm: mdQuote\.server \}\)/);
+  assert.match(DOOR, /id="mdKeepBtn">Keep it for now</);
 });

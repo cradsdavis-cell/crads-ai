@@ -206,7 +206,10 @@ jobs:
               "engine/skills/plan-week.md": "engine/skills/plan-week.md",
               "engine/skills/propose-change.md": "engine/skills/propose-change.md",
               "engine/skills/weekly.md": "engine/skills/weekly.md",
-              "engine/skills/write-page.md": "engine/skills/write-page.md"
+              "engine/skills/write-page.md": "engine/skills/write-page.md",
+              "engine/restore.mjs": "engine/restore.mjs",
+              "engine/lib/snapshot-cipher.mjs": "engine/lib/snapshot-cipher.mjs",
+              "engine/move-pack.mjs": "engine/move-pack.mjs"
             }
           }
           '@ | Set-Content -Encoding utf8 sea-config.json
@@ -633,7 +636,10 @@ jobs:
               "engine/skills/plan-week.md": "engine/skills/plan-week.md",
               "engine/skills/propose-change.md": "engine/skills/propose-change.md",
               "engine/skills/weekly.md": "engine/skills/weekly.md",
-              "engine/skills/write-page.md": "engine/skills/write-page.md"
+              "engine/skills/write-page.md": "engine/skills/write-page.md",
+              "engine/restore.mjs": "engine/restore.mjs",
+              "engine/lib/snapshot-cipher.mjs": "engine/lib/snapshot-cipher.mjs",
+              "engine/move-pack.mjs": "engine/move-pack.mjs"
             }
           }
           EOF

@@ -18,6 +18,7 @@ import path from 'node:path';
 import { isMain } from '../lib/is-main.mjs';
 import { PROVENANCE_RE } from '../lib/org-publish.mjs';
 import { queueImported } from './team-proposals.mjs';
+import { now as clockNow, dayIn, boxTz } from '../lib/clock.mjs';
 import { withBrainLock } from './team-lock.mjs';
 
 const STALE_MS = 36 * 60 * 60 * 1000;   // flag a person silent for more than 36h
@@ -157,7 +158,7 @@ export function quoteHeadings(text) {
     .replace(/<(\/?)(h[1-6])\b/gi, '&lt;$1$2');
 }
 
-export function synthesize(cloneDir, { now = new Date(), importReport = [] } = {}) {
+export function synthesize(cloneDir, { now = new Date(), tz = 'UTC', importReport = [] } = {}) {
   const membersDir = path.join(cloneDir, 'members');
   const members = existsSync(membersDir)
     ? readdirSync(membersDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort()
@@ -204,7 +205,7 @@ export function synthesize(cloneDir, { now = new Date(), importReport = [] } = {
   writeFileSync(path.join(cloneDir, 'decisions', 'log.md'),
     `# Company decisions (merged, attributed)\n\n${[...new Set(lines)].join('\n')}\n`);
 
-  const date = now.toISOString().slice(0, 10);
+  const date = dayIn(now, tz);
   const stale = []; const stamps = {};
   const digest = [`# Company digest, ${date}`, ''];
   for (const slug of members) {
@@ -253,27 +254,42 @@ export function synthesize(cloneDir, { now = new Date(), importReport = [] } = {
 // digest/week-YYYY-Www.md, rewritten on every hub run, so it is always the week so
 // far and the last run of a week leaves the full week behind. Deterministic, like
 // everything else the hub writes. Monday is the first day (ISO weeks).
-export function isoWeek(d) {
-  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+// Days are calendar days in the hub box's timezone (tz), the same zone a member's
+// publish uses for its "## YYYY-MM-DD" heading. In UTC, a Sydney update published
+// after 13:00 UTC carries tomorrow's date and fell outside the week (2026-10-14).
+const calendarDay = (d, tz) => new Date(`${dayIn(d, tz)}T00:00:00Z`);
+export function isoWeek(d, tz = 'UTC') {
+  const t = calendarDay(d, tz);
   const day = t.getUTCDay() || 7;
   t.setUTCDate(t.getUTCDate() + 4 - day);
   const y = t.getUTCFullYear();
   const w = Math.ceil(((t - Date.UTC(y, 0, 1)) / 86400000 + 1) / 7);
   return `${y}-W${String(w).padStart(2, '0')}`;
 }
-export function weekStart(d) {
-  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+export function weekStart(d, tz = 'UTC') {
+  const t = calendarDay(d, tz);
   t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() || 7) - 1));
   return t.toISOString().slice(0, 10);
 }
+// The instant a calendar day starts in tz, for git's --since (DST-safe: the
+// offset is re-read at the first guess, which settles it for any real zone).
+export function dayStartIn(day, tz = 'UTC') {
+  const wall = Date.parse(`${day}T00:00:00Z`);
+  const offset = (t) => {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      .formatToParts(new Date(t)).map((x) => [x.type, x.value]));
+    return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - t;
+  };
+  return new Date(wall - offset(wall - offset(wall))).toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
 
-export function weekReport(cloneDir, { now = new Date(), decisionsAdded = [], stale = [] } = {}) {
-  const from = weekStart(now);
-  const to = now.toISOString().slice(0, 10);
+export function weekReport(cloneDir, { now = new Date(), tz = 'UTC', decisionsAdded = [], stale = [] } = {}) {
+  const from = weekStart(now, tz);
+  const to = dayIn(now, tz);
   const inWeek = (d) => d >= from && d <= to;
   const membersDir = path.join(cloneDir, 'members');
   const members = existsSync(membersDir) ? readdirSync(membersDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort() : [];
-  const out = [`# The week so far, ${isoWeek(now)} (${from} to ${to})`, '',
+  const out = [`# The week so far, ${isoWeek(now, tz)} (${from} to ${to})`, '',
     '_Written by the company agent every hour. Facts only; every line traces to a page in this brain._', '', '## Who published', ''];
   for (const slug of members) {
     let days = [];
@@ -307,30 +323,32 @@ export function weekReport(cloneDir, { now = new Date(), decisionsAdded = [], st
   out.push('## More than one source', '', shared.length ? shared.join('\n') : '- nothing yet', '');
   out.push('## Who is quiet', '', stale.length ? stale.map((x) => `- ${x}`).join('\n') : '- everyone published in the last 36 hours', '');
   mkdirSync(path.join(cloneDir, 'digest'), { recursive: true });
-  const file = path.join(cloneDir, 'digest', `week-${isoWeek(now)}.md`);
+  const file = path.join(cloneDir, 'digest', `week-${isoWeek(now, tz)}.md`);
   writeFileSync(file, out.join('\n'));
   return file;
 }
 
-export function runHub(stateDir, { now = new Date(), pull = true, push = true } = {}) {
+// now and tz come from the box (clock.mjs: AIOS_FAKE_NOW or state/clock.json,
+// else the real time; profile.yaml for the zone), so a test pins both.
+export function runHub(stateDir, { now = clockNow(stateDir), tz = boxTz(stateDir), pull = true, push = true } = {}) {
   let cfg;
   try { cfg = JSON.parse(readFileSync(path.join(stateDir, 'org', 'config.json'), 'utf8')); }
   catch { return { ok: true, output: 'team not configured: no-op' }; }
   if (cfg.role !== 'hub') return { ok: true, output: 'not the hub box: no-op' };
   const company = path.join(stateDir, 'org', 'brain');
-  return withBrainLock(company, () => runHubLocked(stateDir, cfg, company, { now, pull, push }));
+  return withBrainLock(company, () => runHubLocked(stateDir, cfg, company, { now, tz, pull, push }));
 }
 
-function runHubLocked(stateDir, cfg, company, { now, pull, push }) {
+function runHubLocked(stateDir, cfg, company, { now, tz, pull, push }) {
   // --autostash: the shared-inbox skill writes digest/inbox-*.md into this clone
   // between merges, and a plain --rebase refuses to run over it.
   if (pull) { try { gitIn(company, 'pull', '-q', '--rebase', '--autostash'); } catch { /* merge from the local copy */ } }
   const importReport = importMembers(company, cfg.members || [], { membersRoot: path.join(stateDir, 'org', 'members'), pull });
   const queued = queueImported(company);   // staff proposals join the owner's queue (stage 2)
-  const r = synthesize(company, { now, importReport });
+  const r = synthesize(company, { now, tz, importReport });
   let decisionsAdded = [];
   try {
-    decisionsAdded = gitIn(company, 'log', `--since=${weekStart(now)}T00:00:00Z`, '-p', '--format=', '--', 'decisions/log.md')
+    decisionsAdded = gitIn(company, 'log', `--since=${dayStartIn(weekStart(now, tz), tz)}`, '-p', '--format=', '--', 'decisions/log.md')
       .split('\n').filter((l) => l.startsWith('+-')).map((l) => l.slice(1));
   } catch { /* first run, or no history yet */ }
   // this run's own decisions/log.md is not committed yet: count today's new lines too
@@ -338,11 +356,11 @@ function runHubLocked(stateDir, cfg, company, { now, pull, push }) {
     const diff = gitIn(company, 'diff', '--', 'decisions/log.md').split('\n').filter((l) => l.startsWith('+-')).map((l) => l.slice(1));
     decisionsAdded = [...new Set(decisionsAdded.concat(diff))];
   } catch {}
-  weekReport(company, { now, decisionsAdded, stale: r.stale });
+  weekReport(company, { now, tz, decisionsAdded, stale: r.stale });
   gitIn(company, 'add', '-A');
   const st = gitIn(company, 'status', '--porcelain');
   if (!st.trim()) return { ok: true, output: 'hub: no changes', report: importReport, queued, ...r };
-  gitIn(company, 'commit', '-q', '-m', `hub: ${now.toISOString().slice(0, 10)} (${r.members.length} people, ${r.entities} entities${r.stale.length ? `, quiet: ${r.stale.join(',')}` : ''})`);
+  gitIn(company, 'commit', '-q', '-m', `hub: ${dayIn(now, tz)} (${r.members.length} people, ${r.entities} entities${r.stale.length ? `, quiet: ${r.stale.join(',')}` : ''})`);
   let pushed = false;
   if (push) { try { gitIn(company, 'push', '-q', 'origin', 'HEAD'); pushed = true; } catch { pushed = false; } }
   return { ok: true, output: `hub: merged ${r.members.length} people, ${r.entities} entities${queued.length ? `, ${queued.length} proposal(s) queued` : ''}, ${pushed ? 'pushed' : 'committed (push queued)'}`, report: importReport, queued, ...r };

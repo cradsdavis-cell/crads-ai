@@ -7,8 +7,8 @@ audience: public
 access: public
 mode: how-to
 order: 50
-pins: engine/backup.mjs, engine/restore.mjs, engine/policy.json, docs/mineral-restore-runbook.md, wizard/panel/door.html, wizard/panel/own-brain.mjs
-reviewed: 2026-10-13
+pins: engine/backup.mjs, engine/restore.mjs, engine/policy.json, docs/mineral-restore-runbook.md, wizard/panel/door.html, wizard/panel/own-brain.mjs, wizard/panel/brain-move.mjs, engine/move-pack.mjs
+reviewed: 2026-10-14
 ---
 
 Two different things get backed up, by two different mechanisms, and the second
@@ -134,10 +134,11 @@ with one command, and it takes three things from you: your GitHub account,
 your backup passphrase, and the name of your old brain repository (you can see
 it on github.com; it ends in `-brain`).
 
-Before you start, an honest note: this has been tested end to end on test
-copies, not yet on a real second server. If anything below does not match what
-you see, stop and ask for help rather than improvising. Nothing in these steps
-changes your old repository: it is only ever read.
+Before you start: this procedure was rehearsed on real servers in October 2026,
+from a mineral that was switched off to a brand-new one, and everything on the
+list below came back. If anything below does not match what you see, stop and
+ask for help rather than improvising. Nothing in these steps changes your old
+repository: it is only ever read.
 
 1. **Make a new mineral with a new name.** In the app, under your minerals,
    choose **Set up my own** and build it exactly as you did the first time.
@@ -163,7 +164,7 @@ changes your old repository: it is only ever read.
    ```
    It asks for your passphrase. Nothing shows as you paste it; press Enter. If
    it says the passphrase does not open the snapshot, check you copied all of
-   it. If it says the command is not found, your new mineral is on older
+   it. If it says it cannot find `restore.mjs`, your new mineral is on older
    software: in the app, **Help ▸ Update and restart**, then try again.
 6. **Restore.** The same line without `--dry-run`:
    ```
@@ -175,6 +176,11 @@ changes your old repository: it is only ever read.
    brain is sent to your new repository straight away.
    If you disconnected Telegram after your last backup, add
    `--without-telegram` to the end of that line.
+   It takes under a minute. Running it a second time is safe: if it stops
+   partway with a message that mentions `EACCES` or `EEXIST`, your new mineral
+   is on older software: **Help ▸ Update and restart**, then run the same line
+   again. If it stops a second time, ask for help; nothing is lost, and your
+   old repository is untouched.
 7. **Restart it.** In the app, **Help ▸ Update and restart**, so everything
    starts on the restored settings.
 8. **Redo what does not travel.** Expect to sign in to Claude again: open the
@@ -194,6 +200,74 @@ old repository: it is your history.
 brain still comes back: add `--no-snapshot` to the restore line, and redo
 every sign-in and connection by hand. This is why the step above, the one only
 you can do, matters more than the backup itself.
+
+## Moving between your computer and a server
+
+Your assistant can live on a server in your own hosting account, or in a folder
+on your own computer, and you can move it either way from the app. A move is
+not a restore: nothing has died, and no passphrase is needed. The app copies
+your brain over its own connection to the server and checks the copy before it
+calls the move done.
+
+**What comes with it:** your pages and profile, your own skills, your
+connections and their sign-ins, and your stored secrets.
+
+**What never comes with it:** your Claude sign-in. On a computer, Claude Code
+uses that computer's own Claude login, and the app never touches it. On a
+server, the server has its own.
+
+### From your computer to a server
+
+1. In the app, open **Your mineral**. Under **Where it lives**, press
+   **Move to a server**.
+2. The usual setup runs: pick a hosting company, paste its API token, pick a
+   size, build. The name is filled in from your folder.
+3. Once the server is up, your brain moves onto it and is checked file by file.
+   If you had moved to this computer from a server before, your schedule, your
+   morning brief and Telegram come back on exactly as they were.
+4. Sign in to Claude on the server, once: the finish screen's **Connect Claude**
+   step opens the terminal and the sign-in starts by itself.
+
+You do not need GitHub for this. If the copy keeps getting cut off and your
+folder is connected to GitHub, the app sends your brain through your own
+repository instead, and says so.
+
+Your folder is not deleted or changed. The app marks it as the copy this brain
+left behind, because changes made there from now on do not reach the server.
+
+### From a server to your computer
+
+1. In the app, open **Your mineral**. Under **Where it lives**, press
+   **Move to this computer**.
+2. Pick where the folder goes (the app suggests one) and press
+   **Move it to this computer**. An empty folder, or one that does not exist
+   yet; a folder with other files in it is refused.
+3. The app checks the copy against the server: the same commit, the same number
+   of files, and the folder opens as your brain. Only then does it call the move
+   done.
+
+Scheduled jobs, the morning brief and Telegram need a server, so they are
+**paused and kept**: stored in the folder, switched off, and listed on
+Your mineral as "Paused: needs a server". Moving to a server again turns them
+back on as they were.
+
+Connections the app signed in for you on the server are signed in again by
+Claude Code on your computer: open the folder in Claude Code and type `/mcp`.
+Connections made with your own API key keep working as they are. A few
+connections only run on a server; the app names them.
+
+**The old server keeps running**, and keeps costing you and sending your
+morning brief, until you delete it. Once the copy on your computer has been
+checked, the app offers to delete it for you: paste your hosting API token,
+and it shows the server's name and what it costs each month. Nothing is
+deleted until you tick the box that names it and press **Delete**. If you
+would rather wait, press **Keep it for now** and delete it later in your
+hosting company's console. If the server was built on a different computer,
+the app cannot delete it for you; delete it in the console.
+
+If a move stops partway, nothing you had is lost: your folder is untouched,
+the server keeps everything it had, and the move is safe to run again. Press
+the button again (keep the app open and the computer awake while it runs).
 
 ## What is not backed up
 

@@ -1161,6 +1161,13 @@ export function runVerb(surface, verb, args, state, opts) {
         org: { name: '', display: '', admin_email: '' }, anchored: false, anchor: '', name: 'Sam',
         backup: state === 'empty' ? { connected: false, last: '' } : { connected: true, repo: 'github.com/sam/sam-brain', last: iso(2 * H) },
         custody: [], waiting: { transfer_invitation: null, ownership_grant: null, asks: [] }, lineage: null, local: true, path: LOCAL_PATH, generated: iso(0),
+        // the move's two records (2026-10-14), as local-verbs.mjs consoleState reads them
+        paused: opts && opts.paused ? { from: 'sam-box', paused_at: iso(H), items: [
+          { id: 'morning-brief', words: 'Morning brief', detail: 'daily at 07:00, sent to Telegram' },
+          { id: 'schedule', words: 'Scheduled jobs', detail: '/weekly sun at 17:00; /capture daily at 18:00' },
+          { id: 'telegram', words: 'Telegram', detail: 'your bot and its chat, kept as they were' },
+        ] } : null,
+        moved: opts && opts.moved ? { to: 'sam-box', at: iso(3 * H) } : null,
       })]);
     }
     if (verb === 'open-folder') return ok(['sam']);

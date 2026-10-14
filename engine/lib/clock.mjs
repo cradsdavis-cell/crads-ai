@@ -33,10 +33,21 @@ export const isVirtual = (stateDir) => clockSource(stateDir).src !== 'real';
 // Client-LOCAL calendar date (YYYY-MM-DD) for the given IANA tz — spec §0.5 requires
 // all windows in client-tz calendar terms, so the brief stamps the LOCAL date.
 export function localDate(stateDir, tz) {
-  const d = now(stateDir);
+  return dayIn(now(stateDir), tz);
+}
+// The calendar date (YYYY-MM-DD) an instant falls on in an IANA tz (UTC when none).
+export function dayIn(d, tz) {
   if (!tz) return d.toISOString().slice(0, 10);
   // en-CA gives YYYY-MM-DD; timeZone does the tz-aware calendar conversion.
   return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}
+// The box's timezone: identity.timezone in <stateDir>/profile.yaml, else UTC. A
+// name Intl does not know also gives UTC, so a typo never stops a scheduled job.
+export function boxTz(stateDir) {
+  let tz = '';
+  try { tz = (readFileSync(path.join(stateDir, 'profile.yaml'), 'utf8').match(/timezone:\s*"?([^"\n]+)"?/) || [])[1]?.trim() || ''; } catch {}
+  if (!tz) return 'UTC';
+  try { new Intl.DateTimeFormat('en-CA', { timeZone: tz }); return tz; } catch { return 'UTC'; }
 }
 // Client-local "HH:MM" too (used by future cadence-trigger evaluation).
 export function localTime(stateDir, tz) {

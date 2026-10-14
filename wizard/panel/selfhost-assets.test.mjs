@@ -48,3 +48,14 @@ test('app.mjs hands the sources to the provision routes', () => {
     assert.ok(app.includes(`asset('${name}'`), `${name} is loaded through the SEA asset helper`);
   }
 });
+
+// Moving a brain between this computer and a server (2026-10-14): the files the
+// app copies onto the server are SEA assets too, and the door mount gets them.
+test('the move tool rides the SEA assets on both platforms, and app.mjs hands it to the door', async () => {
+  const { MOVE_TOOL_FILES } = await import('./brain-move.mjs');
+  for (const key of MOVE_TOOL_FILES) {
+    const hits = wf.split(`"${key}": "${key}"`).length - 1;
+    assert.equal(hits, 2, `${key} must appear in BOTH sea-config blocks (windows + mac); found ${hits}`);
+  }
+  assert.match(app, /move: \{ toolFiles: loadToolFiles\(\{ read: \(name, fsPath\) => asset\(name, fsPath\) \}\) \}/);
+});

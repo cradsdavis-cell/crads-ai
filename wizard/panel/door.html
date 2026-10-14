@@ -174,22 +174,10 @@
      recency. */
   p.hint{color:var(--soft-2);font-size:13.5px;line-height:1.6;margin:0 0 18px}
   .cards3{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
-  /* "On this computer" is retired as a way to MAKE a mineral (Sam, 2026-10-13:
-     "It should all be in the cloud. Makes things less confusing."). Every offer
-     to create one carries data-local-create and stays hidden unless the switch
-     OFFER_LOCAL_CREATE (top of the script below) puts data-offer-local on
-     <html>. Hidden by CSS from first paint, so it never flashes. A brain
-     folder that already exists is untouched: its row, chip and face all stay. */
-  html:not([data-offer-local]) [data-local-create]{display:none !important}
-  /* Back behind "More options" (Sam, 2026-10-14: "I want to definitely
-     prioritise people using their own servers over anything else"). With
-     LOCAL_BEHIND_MORE on, a quiet More options link sits LAST on the takeover
-     and the "New here?" strip; pressing it puts data-offer-local on <html>,
-     which reveals the gated offers above and hides the link itself. */
-  html:not([data-local-more]) [data-more-options],html[data-offer-local] [data-more-options]{display:none !important}
-  .moreopts{display:inline-block;color:var(--soft-2);font-size:12.5px;text-decoration:underline;text-underline-offset:2px;margin:6px 0 0 4px;border-radius:6px;padding:1px 4px}
-  .moreopts:hover{color:var(--ink)}
-  .moreopts:focus-visible{outline:none;box-shadow:var(--focus)}
+  /* "On this computer" (Sam, 2026-10-14) is not a door of its own any more: it
+     is the LAST card in the wizard's provider row (see .provlocal), so the
+     server always leads. The retired gates (OFFER_LOCAL_CREATE, then
+     LOCAL_BEHIND_MORE and its More options link) went with it. */
   .bigcard{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--edge);border-radius:var(--r-card);padding:16px 18px;cursor:pointer;color:var(--ink);font-family:inherit;box-shadow:var(--shadow-1);transition:border-color .12s ease,background .12s ease,box-shadow .12s ease,transform .12s ease}
   .bigcard:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--card));box-shadow:var(--shadow-2);transform:translateY(-2px)}
   .bigcard:active{transform:translateY(0);box-shadow:var(--shadow-1)}
@@ -227,6 +215,22 @@
   #shProviders{margin:6px 0 14px}
   .provcard{padding:12px 14px}
   .provcard.sel{border-color:var(--accent);box-shadow:var(--focus)}
+  /* "On this computer", last in the row (Sam, 2026-10-14): free, and on purpose
+     the less attractive offer. Plainer than the provider cards: a dashed edge on
+     the muted fill, no shadow, no lift, no accent hover, and its downsides
+     printed on the card. */
+  .provcard.provlocal{background:var(--card-2);border-style:dashed;border-color:var(--line-2);box-shadow:none;margin-top:4px}
+  .provcard.provlocal:hover{transform:none;box-shadow:none;border-color:var(--faint);background:var(--card-2)}
+  .provcard.provlocal b{font-weight:550;color:var(--soft-2)}
+  /* the move screens (2026-10-14) */
+  .mvsteps{margin:10px 0 0;font-size:13px;line-height:1.7;color:var(--soft-2)}
+  .mvsteps .now{color:var(--ink)}
+  .mvlist{margin:.4em 0 .6em;padding:0 0 0 1.3em}
+  .mvlist li{margin:0 0 .3em}
+  .confirmline{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;margin:12px 0 0;font-weight:500}
+  .confirmline input{width:auto;margin-top:3px}
+  button.act.danger{border-color:var(--bad);color:var(--bad)}
+  button.act.danger:disabled{border-color:var(--line-2);color:var(--soft-2);cursor:not-allowed}
   .sizecard:disabled{opacity:.45;cursor:default}
   /* the finish checklist (wizard steps 5-6, 2026-09-02): "alive" is the
      headline, not the end. Each remaining step is a row with an honest state
@@ -338,17 +342,10 @@
              open; what was missing is a surface to pick. -->
         <button class="bigcard" data-make="have"><b>I already have one</b>
           <span>Another computer that already opens it can let this one in. Nothing new is made.</span></button>
-        <!-- The no-server door (Sam's ruling 2026-09-11): a brain folder on
-             this computer. Same offer, no metal. Honest about what it is not:
-             nothing runs while the folder is closed. RETIRED from the door
-             2026-10-13 (data-local-create, see OFFER_LOCAL_CREATE): kept in
-             the markup so re-offering it is a one-line change. BACK behind
-             "More options" 2026-10-14 (LOCAL_BEHIND_MORE), last in the
-             stack so the server path always leads. -->
-        <button class="bigcard" data-make="local" data-local-create><b>On this computer</b>
-          <span>Free, no server, no schedules: a brain folder on this computer, only awake when you are. Claude Code opens the folder; the app reads it. Scheduled jobs and Telegram need a server.</span></button>
+        <!-- The no-server option (a brain folder on this computer) is the LAST
+             card inside "Set up my own", after every hosting company (Sam,
+             2026-10-14). It has no door of its own here. -->
       </div>
-      <a href="#" class="moreopts" id="moreMake" data-more-options>More options</a>
     </div>
 
 
@@ -364,7 +361,11 @@
          follows the pick; nothing is hard-coded here. -->
     <div id="shFlow" style="display:none">
       <a href="#" class="back" id="shBack">&#8249; back</a>
-      <h2>Set up my own</h2>
+      <h2 id="shTitle">Set up my own</h2>
+      <!-- "Move to a server" (2026-10-14): the same wizard, opened from a brain
+           folder's Your mineral page. Once the new server is ready, the folder's
+           brain moves onto it before the finish checklist shows. -->
+      <p class="hint" id="shMoveIntro" style="display:none"></p>
 
       <div id="shCosts">
         <p class="hint">Where should it live? Two hosting companies are supported; the server is built in your own account at whichever you pick.</p>
@@ -430,6 +431,13 @@
         <button class="act primary" id="shBuildBtn" style="display:none;margin-top:14px">Build it</button>
       </div>
 
+      <div id="shMove" style="display:none">
+        <p class="hint" id="mvUpPhase" style="color:var(--ink)">Moving your brain onto the new server&#8230;</p>
+        <div class="mvsteps" id="mvUpSteps"></div>
+        <div class="msg" id="mvUpMsg"></div>
+        <button class="act primary" id="mvUpRetry" style="display:none">Try the move again</button>
+      </div>
+
       <div id="shBuild" style="display:none">
         <p class="hint" id="shPhase">Building&#8230;</p>
         <div id="shSteps" class="hint"></div>
@@ -443,6 +451,7 @@
            Backup card; the Terminal tab), so skipping is always safe. -->
       <div id="shDone" style="display:none">
         <p><b>Your mineral is alive.</b> It runs on your server, holds only your key, and answers to nobody else.</p>
+        <p class="hint" id="shMovedLine" style="display:none;color:var(--ink)"></p>
         <p class="hint">Two finishing steps make it fully yours. Both can wait, and both are always available later in the app.</p>
 
         <div class="steprow">
@@ -593,7 +602,7 @@
       <a href="#" class="back" id="loBack">&#8249; back</a>
       <h2>On this computer</h2>
       <div id="loForm">
-        <p class="hint">Your brain becomes a folder on this computer. Claude Code opens the folder and every skill is there; this app reads the same folder. It is free and needs no server. It is also only awake when you are: <b>scheduled jobs and Telegram need a server</b>, and can be added later by moving the folder to one. Connections (Gmail, Notion and the rest) work here, through Claude Code.</p>
+        <p class="hint">Your brain becomes a folder on this computer. Claude Code opens the folder and every skill is there; this app reads the same folder. It is free and needs no server. It is also only awake when you are: <b>no schedule, no phone, and it stops when your laptop sleeps</b>. Connections (Gmail, Notion and the rest) work here, through Claude Code. When you want the rest, <b>Move to a server</b> on Your mineral takes the folder there.</p>
         <label for="loName">Name your assistant</label>
         <input id="loName" placeholder="e.g. Idris" autocomplete="off" spellcheck="false" maxlength="60">
         <label for="loPath">Where the folder goes</label>
@@ -631,6 +640,69 @@
         </div>
       </div>
       <div class="msg" id="loMsg"></div>
+    </div>
+
+    <!-- "Move to this computer" (2026-10-14): a server's brain into a folder
+         here. Opened from the server's Your mineral page (#move-down=<alias>).
+         The server is not changed; deleting it is offered only once the copy
+         here is checked, with its name and monthly cost in the confirm. -->
+    <div id="mdFlow" style="display:none">
+      <a href="#" class="back" id="mdBack">&#8249; back</a>
+      <h2>Move to this computer</h2>
+      <div id="mdForm">
+        <p class="hint" style="color:var(--ink)">Your brain comes from the server into a folder on this computer. Claude Code on this computer opens it from then on.</p>
+        <ul class="hint mvlist">
+          <li><b>Comes with it:</b> your pages, your own skills, your connections and their sign-ins, and your stored secrets.</li>
+          <li><b>Paused and kept:</b> scheduled jobs, Telegram and the morning brief need a server. They are kept in the folder, switched off, and come back as they were if you move to a server again.</li>
+          <li><b>Stays behind:</b> the server&#8217;s Claude sign-in. Claude Code on this computer uses your own login here.</li>
+          <li><b>Not changed:</b> the server. It keeps running until you choose to delete it, which is offered once the copy here is checked.</li>
+        </ul>
+        <label for="mdPath">Where the folder goes</label>
+        <input id="mdPath" autocomplete="off" spellcheck="false">
+        <p class="hint">An empty folder, or one that does not exist yet. The app checks the copy against the server before it calls the move done.</p>
+        <button class="act primary" id="mdGoBtn">Move it to this computer</button>
+      </div>
+      <div id="mdRun" style="display:none">
+        <p class="hint" id="mdPhase" style="color:var(--ink)">Moving your brain to this computer&#8230;</p>
+        <div class="mvsteps" id="mdSteps"></div>
+      </div>
+      <div id="mdDone" style="display:none">
+        <p><b>Your brain is on this computer.</b> <span class="mono" id="mdPathStr"></span></p>
+        <p class="hint" id="mdChecked"></p>
+        <div class="steprow">
+          <b>Open it</b>
+          <p class="hint">The app shows the folder from now on; Claude Code opens it as your assistant.</p>
+          <button class="act primary" id="mdOpenBtn">Open it</button>
+        </div>
+        <div class="steprow" id="mdPausedRow" style="display:none">
+          <span class="stepchip">Paused</span>
+          <b>Paused: needs a server</b>
+          <ul class="hint mvlist" id="mdPausedList"></ul>
+          <p class="hint">Kept in the folder, switched off. <b>Move to a server</b> on Your mineral turns them back on as they were.</p>
+        </div>
+        <div class="steprow" id="mdConnRow" style="display:none">
+          <b>Sign in to your connections once</b>
+          <p class="hint" id="mdConnLine"></p>
+        </div>
+        <div class="steprow" id="mdDelRow">
+          <b>The old server</b>
+          <p class="hint" id="mdDelHint"></p>
+          <div id="mdDelAsk">
+            <label for="mdToken" id="mdTokenLabel">Your hosting API token</label>
+            <input id="mdToken" type="password" autocomplete="off" spellcheck="false" placeholder="paste the token here">
+            <p class="hint">Needed again because it is never stored. It goes to your hosting company and nowhere else.</p>
+            <button class="act" id="mdQuoteBtn">Show what deleting it means</button>
+          </div>
+          <div id="mdDelConfirm" style="display:none">
+            <label class="confirmline"><input type="checkbox" id="mdDelTick"> <span id="mdDelWords"></span></label>
+            <button class="act danger" id="mdDelBtn" disabled>Delete the server</button>
+          </div>
+          <button class="act" id="mdKeepBtn">Keep it for now</button>
+          <div class="msg" id="mdDelMsg"></div>
+        </div>
+      </div>
+      <div class="msg" id="mdMsg"></div>
+      <button class="act" id="mdRetry" style="display:none">Try again</button>
     </div>
 
     <div id="haveFlow" style="display:none">
@@ -719,8 +791,6 @@
          mineral for themselves had no way into "Set up a team"; found on the
          first live team build, when the resume landed on the list. -->
     <a href="#" id="newTeam">Set up a team <span class="chev">›</span></a>
-    <a href="#" id="newLocal" data-local-create>On this computer <span class="chev">›</span></a>
-    <a href="#" id="newMore" data-more-options>More options <span class="chev">›</span></a>
   </div>
 
   <div class="foot" id="invFoot">This screen checks each mineral by itself; dots flip live.</div>
@@ -729,24 +799,16 @@
 <script>
 (function(){
   'use strict';
-  // THE SWITCH: whether the door offers "On this computer" as a way to make a
-  // new mineral. Off since 2026-10-13 (Sam: "It should all be in the cloud.
-  // Makes things less confusing."). Off hides the card and the "New here?" link
-  // (the CSS gate on [data-local-create]) and nothing else: brain folders this
-  // computer already has still list, open and run exactly as before, and the
-  // whole local face (local-*.mjs, the flow below) stays in place. Re-offering
-  // it is this one line.
-  var OFFER_LOCAL_CREATE = false;
-  // The second switch (2026-10-14): with the offer off up front, still reach it
-  // behind a "More options" link that comes last. Off = retired outright again.
-  var LOCAL_BEHIND_MORE = true;
-  if (OFFER_LOCAL_CREATE) document.documentElement.setAttribute('data-offer-local', '');
-  else if (LOCAL_BEHIND_MORE) document.documentElement.setAttribute('data-local-more', '');
-  function revealMoreOptions(focusId){
-    document.documentElement.setAttribute('data-offer-local', '');
-    var el = document.getElementById(focusId) || document.querySelector(focusId);
-    if (el) el.focus();
-  }
+  // "On this computer" (Sam, 2026-10-14): the LAST card in the provider row of
+  // "Set up my own" (shRenderProviders), never a door of its own. The two
+  // switches that hid and then half-hid it (OFFER_LOCAL_CREATE, 2026-10-13;
+  // LOCAL_BEHIND_MORE, earlier the same day) are gone with the More options
+  // link: local was the only thing behind it.
+  //
+  // A move in progress (2026-10-14). moveUp: a brain folder going to a server
+  // through this wizard ({from, slug, name, path, started, done}); null for an
+  // ordinary build.
+  var moveUp = null;
   // `rows` is the merged inventory from /inventory (spec 2026-08-13): one entry
   // per MINERAL, carrying whether this machine can open it, rather than one
   // entry per source list. `account` is the state of the account layer:
@@ -943,9 +1005,7 @@
       ev.preventDefault();
       var ask = r.tier === 'local'
         ? 'Forget "' + r.label + '" in this app?\n\nThe folder and everything in it stay where they are; only this app stops listing it. '
-          + (OFFER_LOCAL_CREATE ? 'Add it back any time from On this computer with the same path.'
-            : LOCAL_BEHIND_MORE ? 'Add it back any time from More options, then On this computer, with the same path.'
-            : 'This app no longer adds brain folders, so it will not come back to this list.')
+          + 'Add it back any time from Set up my own, then On this computer, with the same path.'
         : 'Remove "' + r.label + '" from this computer?\n\nThis deletes only this computer\'s key and connection entry for it; no mineral or brain anywhere is touched. If the ' + noun + ' still exists, another of your computers can let it back in.';
       if (!confirm(ask)) return;
       fetch('/forget', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host: r.alias }) })
@@ -997,7 +1057,6 @@
     if (!card) return;
     var make = card.getAttribute('data-make');
     if (make === 'selfhost') { startShFlow(); }
-    else if (make === 'local') { startLocalFlow(); }
     else if (make === 'have') { startHaveFlow(''); }
     else if (make === 'team') { startTmFlow(); }
   });
@@ -1018,7 +1077,12 @@
     box.innerHTML = shProviders.map(function(p){
       return '<button type="button" class="bigcard provcard' + (shProvider && p.id === shProvider.id ? ' sel' : '') + '" data-provider="' + esc(p.id) + '">'
         + '<b>' + esc(p.label) + '</b><span>' + esc(p.blurb) + '</span></button>';
-    }).join('');
+    }).join('')
+      // LAST, and plainer on purpose (Sam, 2026-10-14): free, with its
+      // downsides on the card. Pressing it goes straight to the folder form; no
+      // confirm step. Not offered while a folder is moving TO a server.
+      + (moveUp ? '' : '<button type="button" class="bigcard provcard provlocal" data-provider-local>'
+        + '<b>On this computer</b><span>Free. No schedule, no phone, stops when your laptop sleeps. Move to a server any time.</span></button>');
     if (!shProvider) return;
     document.getElementById('shCostServer').textContent = shProvider.costsCopy;
     document.getElementById('shCostNeed').textContent = 'You need a ' + shProvider.label + ' account and an API token; the next screen walks you through getting one. The token stays on this computer.';
@@ -1036,18 +1100,24 @@
     shRenderProviders();
   }
   document.getElementById('shProviders').addEventListener('click', function(e){
+    if (e.target.closest('[data-provider-local]')) { exitShFlow(); startLocalFlow(true); return; }
     var card = e.target.closest('[data-provider]');
     if (card) shPickProvider(card.getAttribute('data-provider'));
   });
+  function shWhereWords(){
+    return 'Where should it live? ' + shProviders.length + ' hosting companies are supported; the server is built in your own account at whichever you pick.'
+      + (moveUp ? '' : ' Or, last in the list, on this computer with no server.');
+  }
   function shLoadProviders(){
-    if (shProviders.length) { shRenderProviders(); return; }
+    if (shProviders.length) { document.getElementById('shWhereHint').textContent = shWhereWords(); shRenderProviders(); return; }
     fetch('/provision/providers').then(function(r){ return r.json(); }).then(function(d){
       shProviders = (d && d.providers) || [];
+      document.getElementById('shWhereHint').textContent = shWhereWords();
       shPickProvider(shProvider ? shProvider.id : (shProviders[0] && shProviders[0].id));
     }).catch(function(){ /* the cards stay empty; the default provider still works */ });
   }
   function shShow(stage){
-    ['shCosts','shForm','shBuild','shDone'].forEach(function(id){
+    ['shCosts','shForm','shBuild','shMove','shDone'].forEach(function(id){
       document.getElementById(id).style.display = (id === stage) ? 'block' : 'none';
     });
   }
@@ -1064,13 +1134,28 @@
     document.getElementById('pebbleIntro').style.display = 'none';
     document.getElementById('haveFlow').style.display = 'none';
     document.getElementById('localFlow').style.display = 'none';
+    document.getElementById('mdFlow').style.display = 'none';
     document.getElementById('devApproveFlow').style.display = 'none';
     document.getElementById('shFlow').style.display = 'block';
+    document.getElementById('shTitle').textContent = moveUp ? 'Move to a server' : 'Set up my own';
+    var intro = document.getElementById('shMoveIntro');
+    intro.style.display = moveUp ? '' : 'none';
+    if (moveUp) {
+      intro.innerHTML = 'Your brain moves from the folder <span class="mono">' + esc(moveUp.path || '') + '</span> to a new server in your own hosting account. '
+        + 'First the server is built, exactly as for a new mineral; then the brain, your connections and their sign-ins go onto it, and anything paused comes back on. '
+        + 'The folder is not deleted or changed. You sign in to Claude on the server once at the end, because the sign-in on this computer is this computer&#8217;s own.';
+      var nm = document.getElementById('shName');
+      if (!nm.value) nm.value = moveUp.slug || '';
+    }
     shErr('');
     shLoadProviders();
     fetch('/provision/status').then(function(r){ return r.json(); }).then(function(s){
+      if (moveUp && !moveUp.started && s.alias) {
+        try { var k = JSON.parse(sessionStorage.getItem('crads.move-up') || 'null'); if (k && k.from === moveUp.from && k.alias === s.alias) moveUp.started = true; } catch (e) { /* no record */ }
+      }
       if (s.phase === 'provisioning' || s.phase === 'booting') { shShow('shBuild'); shAttach(); }
-      else if (s.phase === 'ready') { shReady(s); }
+      // a server built for something else is never a move's destination
+      else if (s.phase === 'ready' && (!moveUp || moveUp.started)) { shReady(s); }
       else shShow('shCosts');
     }).catch(function(){ shShow('shCosts'); });
   }
@@ -1078,8 +1163,12 @@
     if (shPoll) { clearInterval(shPoll); shPoll = null; }
     if (shStepsTimer) { clearInterval(shStepsTimer); shStepsTimer = null; }
     if (shGhPoll) { clearInterval(shGhPoll); shGhPoll = null; }
+    if (mvPoll) { clearInterval(mvPoll); mvPoll = null; }
     document.getElementById('shFlow').style.display = 'none';
     document.getElementById('pebbleIntro').style.display = '';
+    // a move resumes from its own button (the session record above), never by
+    // turning the next "Set up my own" into a move
+    moveUp = null;
     exitPebbleFlow();
   }
   document.getElementById('shBack').addEventListener('click', function(e){ e.preventDefault(); exitShFlow(); });
@@ -1111,7 +1200,7 @@
     pebbleFlowActive = true;
     document.getElementById('creatorHome').style.display = 'block';
     document.getElementById('inv').style.display = 'none';
-    ['pebbleIntro','shFlow','haveFlow','localFlow','devApproveFlow'].forEach(function(id){ document.getElementById(id).style.display = 'none'; });
+    ['pebbleIntro','shFlow','haveFlow','localFlow','mdFlow','devApproveFlow'].forEach(function(id){ document.getElementById(id).style.display = 'none'; });
     document.getElementById('tmFlow').style.display = 'block';
     tmErr('');
     fetch('/provision/providers').then(function(r){ return r.json(); }).then(function(d){
@@ -1327,7 +1416,10 @@
   function loShow(stage){
     ['loForm','loBusy','loDone'].forEach(function(id){ document.getElementById(id).style.display = (id === stage) ? 'block' : 'none'; });
   }
-  function startLocalFlow(){
+  // From the provider row (2026-10-14): back returns to the row, not the start.
+  var loFromProviders = false;
+  function startLocalFlow(fromProviders){
+    loFromProviders = !!fromProviders;
     pebbleFlowActive = true;
     document.getElementById('creatorHome').style.display = 'block';
     document.getElementById('inv').style.display = 'none';
@@ -1344,11 +1436,17 @@
     if (loStepsTimer) { clearInterval(loStepsTimer); loStepsTimer = null; }
     if (loGhPoll) { clearInterval(loGhPoll); loGhPoll = null; }
     document.getElementById('localFlow').style.display = 'none';
+    document.getElementById('mdFlow').style.display = 'none';
     document.getElementById('pebbleIntro').style.display = '';
     exitPebbleFlow();
     load();
   }
-  document.getElementById('loBack').addEventListener('click', function(e){ e.preventDefault(); exitLocalFlow(); });
+  document.getElementById('loBack').addEventListener('click', function(e){
+    e.preventDefault();
+    var back = loFromProviders && document.getElementById('loDone').style.display !== 'block';
+    exitLocalFlow();
+    if (back) startShFlow();
+  });
   document.getElementById('loName').addEventListener('input', function(){
     var slug = this.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'brain';
     document.getElementById('loPathHint').innerHTML = 'Empty means the default: <span class="mono">~/Crads-AI/' + esc(slug) + '</span>. An empty folder works, and so does a folder that is already a brain (it is adopted, nothing in it is changed).';
@@ -1446,10 +1544,7 @@
   // The "New here?" strip's own door into the wizard: startShFlow already
   // forces the takeover open over an inventory that has rows.
   document.getElementById('newSelfhost').addEventListener('click', function(e){ e.preventDefault(); startShFlow(); });
-  document.getElementById('newLocal').addEventListener('click', function(e){ e.preventDefault(); startLocalFlow(); });
   document.getElementById('newTeam').addEventListener('click', function(e){ e.preventDefault(); startTmFlow(); });
-  document.getElementById('newMore').addEventListener('click', function(e){ e.preventDefault(); revealMoreOptions('newLocal'); });
-  document.getElementById('moreMake').addEventListener('click', function(e){ e.preventDefault(); revealMoreOptions('[data-make="local"]'); });
   document.getElementById('shCostsOk').addEventListener('click', function(){ shShow('shForm'); });
 
   document.getElementById('shCheckBtn').addEventListener('click', function(){
@@ -1488,6 +1583,11 @@
       server_type: (resolved && resolved.name) || '',
     };
     if (!body.name) { shShow('shForm'); shErr('Give it a name first.'); document.getElementById('shRetryRow').style.display='none'; return; }
+    if (moveUp) {
+      moveUp.started = true;
+      // survives a reload or a back-out mid-build: the same button resumes it
+      try { sessionStorage.setItem('crads.move-up', JSON.stringify({ from: moveUp.from, alias: body.name + '-box' })); } catch (e) { /* private mode */ }
+    }
     fetch('/provision/start', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) })
       .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
       .then(function(x){
@@ -1559,9 +1659,14 @@
   document.getElementById('shRetryBtn').addEventListener('click', shStart);
 
   function shReady(s){
-    shShow('shDone'); shErr('');
     if (shPoll) { clearInterval(shPoll); shPoll = null; }
+    // A folder moving to this server goes onto it BEFORE the finish checklist.
+    if (moveUp && moveUp.started && !moveUp.done) { mvUpStart(s); return; }
+    shShow('shDone'); shErr('');
     shBox = { alias: s.alias || '', slug: s.slug || '' };
+    var ml = document.getElementById('shMovedLine');
+    ml.style.display = moveUp && moveUp.done ? '' : 'none';
+    if (moveUp && moveUp.done) { ml.innerHTML = moveUp.doneWords; document.getElementById('shMoveIntro').style.display = 'none'; }
     var open = document.getElementById('shOpenBtn');
     open.onclick = function(){ location.href = '/go/member?host=' + encodeURIComponent(shBox.alias) + '&box=' + encodeURIComponent(shBox.slug); };
     // The two finishing steps' state, read from the box itself and kept live:
@@ -1738,6 +1843,177 @@
       .catch(function(){ shErr('The app did not answer.'); });
   });
 
+  // ---- "Move to a server" (2026-10-14) ----------------------------------------
+  // The server is built by the wizard above, unchanged; then the folder's brain
+  // moves onto it (move-routes.mjs, brain-move.mjs). The steps are the server's
+  // own words, polled; a failure leaves the folder exactly as it was.
+  var mvPoll = null;
+  function mvSteps(el, steps, live){
+    el.innerHTML = (steps || []).map(function(t, i){
+      var last = i === steps.length - 1;
+      return '<div' + (last && live ? ' class="now"' : '') + '>' + (last && live ? '&#8230; ' : '&#10003; ') + esc(t) + '</div>';
+    }).join('');
+  }
+  function mvWatch(onDone, onFail, render){
+    if (mvPoll) clearInterval(mvPoll);
+    var tick = function(){
+      fetch('/move/status').then(function(r){ return r.json(); }).then(function(st){
+        render(st);
+        if (st.phase === 'done') { clearInterval(mvPoll); mvPoll = null; onDone(st); }
+        else if (st.phase === 'failed') { clearInterval(mvPoll); mvPoll = null; onFail(st); }
+      }).catch(function(){ /* keep polling */ });
+    };
+    tick();
+    mvPoll = setInterval(tick, 1200);
+  }
+  function mvUpStart(s){
+    shShow('shMove'); shErr('');
+    var msg = document.getElementById('mvUpMsg');
+    msg.className = 'msg'; msg.textContent = '';
+    document.getElementById('mvUpRetry').style.display = 'none';
+    document.getElementById('mvUpPhase').textContent = 'Moving your brain onto the new server. Keep the app open and this computer awake; it usually takes a minute or two.';
+    fetch('/move/up/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ from: moveUp.from, to: s.alias }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        if (!x.ok) { mvUpFail(x.d.error || 'The move could not start.', s); return; }
+        mvWatch(function(st){
+          var r = st.result || {};
+          moveUp.done = true;
+          try { sessionStorage.removeItem('crads.move-up'); } catch (e) { /* private mode */ }
+          moveUp.doneWords = '<b>Your brain moved here.</b> ' + esc(String(r.files || 0)) + ' files, checked on the server (commit <span class="mono">' + esc(String(r.commit || '').slice(0, 7)) + '</span>)'
+            + (r.restored && r.restored.length ? '. Your schedule, morning brief and Telegram are back on as they were.' : '.')
+            + (r.via === 'github' ? ' It went through your GitHub, because the direct copy kept failing.' : '')
+            + ' The folder on this computer is still there, untouched; the app now marks it as the copy this brain left behind.';
+          shReady(s);
+        }, function(st){ mvUpFail(st.error || 'The move stopped.', s); }, function(st){
+          mvSteps(document.getElementById('mvUpSteps'), st.steps, st.phase === 'running');
+        });
+      })
+      .catch(function(){ mvUpFail('The app did not answer. Quit it and open it again, then press Move to a server again: the server is built, and the move picks up from there.', s); });
+  }
+  function mvUpFail(text, s){
+    var msg = document.getElementById('mvUpMsg');
+    msg.className = 'msg on'; msg.textContent = text;
+    document.getElementById('mvUpPhase').textContent = 'The move did not finish. Your folder is exactly as it was.';
+    var b = document.getElementById('mvUpRetry');
+    b.style.display = '';
+    b.onclick = function(){ mvUpStart(s); };
+  }
+
+  // ---- "Move to this computer" (2026-10-14) ----------------------------------
+  var mdPlan = null; var mdResult = null; var mdQuote = null;
+  function mdShow(stage){ ['mdForm', 'mdRun', 'mdDone'].forEach(function(id){ document.getElementById(id).style.display = id === stage ? 'block' : 'none'; }); }
+  function mdErr(text, retry){
+    var m = document.getElementById('mdMsg');
+    m.className = text ? 'msg on' : 'msg'; m.textContent = text || '';
+    document.getElementById('mdRetry').style.display = text && retry ? '' : 'none';
+  }
+  function startMoveDown(alias){
+    pebbleFlowActive = true;
+    document.getElementById('creatorHome').style.display = 'block';
+    document.getElementById('inv').style.display = 'none';
+    ['pebbleIntro', 'shFlow', 'haveFlow', 'localFlow', 'tmFlow', 'devApproveFlow'].forEach(function(id){ document.getElementById(id).style.display = 'none'; });
+    document.getElementById('mdFlow').style.display = 'block';
+    mdErr(''); mdShow('mdForm');
+    fetch('/move/plan?from=' + encodeURIComponent(alias)).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); }).then(function(x){
+      if (!x.ok || x.d.direction !== 'down') { mdErr((x.d && x.d.error) || 'That is not a server this computer can open.'); document.getElementById('mdGoBtn').disabled = true; return; }
+      mdPlan = x.d;
+      var p = document.getElementById('mdPath');
+      if (!p.value) p.value = x.d.default_path || '';
+    }).catch(function(){ mdErr('The app did not answer. Quit it and open it again.'); });
+  }
+  function exitMoveDown(){
+    if (mvPoll) { clearInterval(mvPoll); mvPoll = null; }
+    document.getElementById('mdFlow').style.display = 'none';
+    document.getElementById('pebbleIntro').style.display = '';
+    exitPebbleFlow();
+    load();
+  }
+  document.getElementById('mdBack').addEventListener('click', function(e){ e.preventDefault(); exitMoveDown(); });
+  function mdGo(){
+    if (!mdPlan) return;
+    mdErr(''); mdShow('mdRun');
+    document.getElementById('mdSteps').innerHTML = '';
+    fetch('/move/down/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ from: mdPlan.from, path: document.getElementById('mdPath').value.trim() }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        if (!x.ok) { mdShow('mdForm'); mdErr(x.d.error || 'The move could not start.'); return; }
+        mvWatch(function(st){ mdDone(st.result || {}); }, function(st){
+          mdShow('mdForm');
+          mdErr((st.error || 'The move stopped.') + ' The server has not been changed.', true);
+        }, function(st){ mvSteps(document.getElementById('mdSteps'), st.steps, st.phase === 'running'); });
+      })
+      .catch(function(){ mdShow('mdForm'); mdErr('The app did not answer. Quit it and open it again, then try again.', true); });
+  }
+  document.getElementById('mdGoBtn').addEventListener('click', mdGo);
+  document.getElementById('mdRetry').addEventListener('click', mdGo);
+  function mdDone(r){
+    mdResult = r; mdShow('mdDone'); mdErr('');
+    document.getElementById('mdPathStr').textContent = r.path || '';
+    document.getElementById('mdChecked').textContent = 'Checked against the server: the same commit (' + String(r.commit || '').slice(0, 7) + ') and the same ' + (r.files || 0) + ' files, and the folder opens as your brain.';
+    document.getElementById('mdOpenBtn').onclick = function(){
+      rememberUse(r.alias);
+      location.href = '/go/member?host=' + encodeURIComponent(r.alias) + '&box=' + encodeURIComponent(r.slug) + '#host=' + encodeURIComponent(r.alias);
+    };
+    var paused = r.paused || [];
+    document.getElementById('mdPausedRow').style.display = paused.length ? '' : 'none';
+    document.getElementById('mdPausedList').innerHTML = paused.map(function(i){ return '<li><b>' + esc(i.words) + '</b>: ' + esc(i.detail) + '</li>'; }).join('');
+    var c = r.connections || {};
+    var signIn = c.signIn || [];
+    document.getElementById('mdConnRow').style.display = signIn.length ? '' : 'none';
+    document.getElementById('mdConnLine').innerHTML = 'On a server the app signs your connections in; here Claude Code does. Open the folder in Claude Code and type <span class="mono">/mcp</span> to sign in to: ' + esc(signIn.join(', ')) + '. Your files, settings and API keys came across as they were.';
+    var server = 'aios-' + String(mdPlan.slug || '');
+    document.getElementById('mdDelHint').textContent = r.deletable
+      ? 'The server ' + server + (mdPlan.provider ? ' at ' + mdPlan.provider : '') + ' is still running, and still costs you money each month. It also keeps sending your morning brief until it is gone. If you are happy with the copy here, the app can delete it for you. Nothing is deleted unless you confirm it below.'
+      : 'This computer did not build that server, so it cannot delete it for you. Once you are happy with the copy here, delete it in your hosting company’s console; until then it keeps running and keeps costing.';
+    document.getElementById('mdDelAsk').style.display = r.deletable ? '' : 'none';
+    document.getElementById('mdTokenLabel').textContent = 'Your ' + (mdPlan.provider || 'hosting') + ' API token';
+    document.getElementById('mdDelConfirm').style.display = 'none';
+    document.getElementById('mdKeepBtn').style.display = r.deletable ? '' : 'none';
+  }
+  function mdDelErr(text){ var m = document.getElementById('mdDelMsg'); m.className = text ? 'msg on' : 'msg'; m.textContent = text || ''; }
+  document.getElementById('mdQuoteBtn').addEventListener('click', function(){
+    mdDelErr('');
+    var btn = this; btn.disabled = true; btn.textContent = 'Checking…';
+    fetch('/move/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ alias: mdPlan.from, token: document.getElementById('mdToken').value.trim() }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        btn.disabled = false; btn.textContent = 'Show what deleting it means';
+        if (!x.ok) { mdDelErr(x.d.error || 'Could not check the server.'); return; }
+        mdQuote = x.d;
+        document.getElementById('mdDelWords').textContent = 'Yes, delete ' + x.d.server + ' at ' + x.d.provider + (x.d.ip ? ' (' + x.d.ip + ')' : '') + ', which costs ' + x.d.cost_words + '. The copy on this computer is the one I keep. This cannot be undone.';
+        document.getElementById('mdDelTick').checked = false;
+        document.getElementById('mdDelBtn').disabled = true;
+        document.getElementById('mdDelBtn').textContent = 'Delete ' + x.d.server;
+        document.getElementById('mdDelConfirm').style.display = '';
+      })
+      .catch(function(){ btn.disabled = false; btn.textContent = 'Show what deleting it means'; mdDelErr('The app did not answer.'); });
+  });
+  document.getElementById('mdDelTick').addEventListener('change', function(){ document.getElementById('mdDelBtn').disabled = !this.checked; });
+  document.getElementById('mdDelBtn').addEventListener('click', function(){
+    if (!mdQuote || !document.getElementById('mdDelTick').checked) return;
+    mdDelErr('');
+    var btn = this; btn.disabled = true; btn.textContent = 'Deleting…';
+    fetch('/move/delete', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ alias: mdPlan.from, token: document.getElementById('mdToken').value.trim(), confirm: mdQuote.server }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        if (!x.ok) { btn.disabled = false; btn.textContent = 'Delete ' + mdQuote.server; mdDelErr(x.d.error || 'It was not deleted.'); return; }
+        document.getElementById('mdDelAsk').style.display = 'none';
+        document.getElementById('mdDelConfirm').style.display = 'none';
+        document.getElementById('mdKeepBtn').style.display = 'none';
+        document.getElementById('mdToken').value = '';
+        document.getElementById('mdDelHint').textContent = 'Deleted: ' + x.d.server + ' is gone from ' + mdQuote.provider + ', and this computer has forgotten it. Your brain is the folder on this computer now.';
+      })
+      .catch(function(){ btn.disabled = false; btn.textContent = 'Delete ' + mdQuote.server; mdDelErr('The app did not answer, so it may or may not have gone. Check your hosting console before trying again.'); });
+  });
+  document.getElementById('mdKeepBtn').addEventListener('click', function(){
+    document.getElementById('mdDelAsk').style.display = 'none';
+    document.getElementById('mdDelConfirm').style.display = 'none';
+    this.style.display = 'none';
+    document.getElementById('mdToken').value = '';
+    document.getElementById('mdDelHint').textContent = 'Kept. The server keeps running, costing and sending your morning brief until you delete it' + (mdQuote && mdQuote.console ? ' at ' + mdQuote.console : ' in your hosting console') + '. The copy on this computer does not change it.';
+  });
+
   // The existing-holder flow (QA findings 143 + 149, 2026-08-16). One job: get
   // this machine signed in, then hand the screen back to the inventory, which
   // already knows how to list a mineral held elsewhere and offer to connect to
@@ -1757,6 +2033,7 @@
     document.getElementById('pebbleIntro').style.display = 'none';
     document.getElementById('shFlow').style.display = 'none';
     document.getElementById('localFlow').style.display = 'none';
+    document.getElementById('mdFlow').style.display = 'none';
     document.getElementById('devApproveFlow').style.display = 'none';
     document.getElementById('haveFlow').style.display = 'block';
     var msg = document.getElementById('haveMsg'); msg.className = 'msg'; msg.innerHTML = '';
@@ -1867,6 +2144,22 @@
     });
   })();
 
+  // The two move buttons on Your mineral (2026-10-14) land here:
+  // #move-up=<slug>-local (a folder to a server) and #move-down=<slug>-box.
+  (function(){
+    var m = location.hash.match(/^#move-(up|down)=([a-z0-9][a-z0-9-]{0,70})$/);
+    if (!m) return;
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* file:// */ }
+    firstLoad.then(function(){
+      if (m[1] === 'down') { startMoveDown(m[2]); return; }
+      fetch('/move/plan?from=' + encodeURIComponent(m[2])).then(function(r){ return r.json(); }).then(function(p){
+        if (p.direction !== 'up') return;
+        moveUp = { from: p.from, slug: p.slug, name: p.name, path: p.path, started: false, done: false };
+        startShFlow();
+      }).catch(function(){ /* the start screen stays */ });
+    });
+  })();
+
   // RULING 3's action. Asks the mineral to admit this machine, through the same
   // module and the same decider the panel uses (device-enrol.mjs); the mineral
   // decides on its own schedule and this relays its words, never its own.
@@ -1944,6 +2237,7 @@
     document.getElementById('pebbleIntro').style.display = 'none';
     document.getElementById('shFlow').style.display = 'none';
     document.getElementById('localFlow').style.display = 'none';
+    document.getElementById('mdFlow').style.display = 'none';
     document.getElementById('haveFlow').style.display = 'none';
     document.getElementById('devApproveFlow').style.display = 'block';
     document.getElementById('devApproveKey').value = '';

@@ -91,13 +91,22 @@ privacy law expects it and you should know regardless.
 
 ## Can it run without a server?
 
-Yes, though it isn't the path we recommend. In the app, press More options,
-then On this computer. It makes a brain folder on your computer that Claude
-Code opens. It only works while your computer is on: scheduled jobs, the
-morning brief and Telegram need a server. When you use it, your requests
-still go to Claude, same as on a server. It can also run on Claude's own cloud
-as part of your Claude plan, with jobs at most hourly and your files held by
-Anthropic; that one is set up with you in a guided setup.
+Yes, though it isn't the path we recommend. In the app, choose Set up my own;
+the last option, after the hosting companies, is On this computer. It is free
+and makes a brain folder on your computer that Claude Code opens. The catch:
+no schedule, no phone, and it stops when your laptop sleeps. Scheduled jobs,
+the morning brief and Telegram need a server. When you use it, your requests
+still go to Claude, same as on a server.
+
+You can change your mind either way. **Move to a server** on Your mineral
+builds a server and takes the folder's brain, connections and sign-ins onto it;
+**Move to this computer** does the reverse, and pauses the schedule and Telegram
+in the folder until you move back. See
+[moving between your computer and a server](/docs/back-up-and-restore#moving-between-your-computer-and-a-server).
+
+It can also run on Claude's own cloud as part of your Claude plan, with jobs at
+most hourly and your files held by Anthropic; that one is set up with you in a
+guided setup.
 
 ## Which servers is my data actually on?
 

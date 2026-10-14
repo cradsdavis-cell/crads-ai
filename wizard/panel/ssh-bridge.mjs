@@ -465,12 +465,15 @@ function streamSshDiscrete(host, command, opts = {}) {
 // "download a copy" path, which exists so a member with no GitHub account can still
 // get their data out. Still queued through the same concurrency slots, because
 // saturating a box's MaxStartups is what caused the hangs the watchdog exists for.
+// opts.stdinPipe (2026-10-14, moving a brain between a computer and a server):
+// the same raw pebble with a WRITABLE stdin, so a file can be streamed up
+// without line-wiring or a watchdog cutting it off. The caller ends stdin.
 export function rawSsh(host, command, opts = {}) {
   const cfg = opts.configPath || sshConfigPath();
   return new Promise((resolve) => {
     acquireSlot(() => {
       const pebble = spawn(opts.sshExe || 'ssh', [...sshArgs(cfg), host, command],
-        { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+        { stdio: [opts.stdinPipe ? 'pipe' : 'ignore', 'pipe', 'pipe'], windowsHide: true });
       let released = false;
       const release = () => { if (!released) { released = true; releaseSlot(); } };
       pebble.on('close', release);

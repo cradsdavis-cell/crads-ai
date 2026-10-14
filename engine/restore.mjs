@@ -26,6 +26,15 @@
 //   --without-telegram  leave the old Telegram bot token and chat id behind
 //   --no-push           do not send the restored brain to GitHub straight away
 //   --dry-run           decrypt and check everything, change nothing
+//   --pack <file>       a MOVE pack (engine/move-pack.mjs) in place of the
+//                       encrypted snapshot: what the app carries beside the brain
+//                       when a member moves between their computer and a server
+//                       (2026-10-14). Plain JSON, no passphrase; every entry goes
+//                       through the same checks and the same copy as a snapshot.
+//   --name <name>       keep THIS assistant name instead of the mineral's own (a
+//                       move keeps the assistant it is moving)
+//   --label <words>     how the restore commits name where the brain came from
+//                       (default: the --from value)
 //
 // The passphrase is read from AIOS_BACKUP_PASSPHRASE if set, otherwise asked for
 // with nothing echoed. It is never put on a command line.
@@ -50,7 +59,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import {
   readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, statSync, lstatSync,
-  readdirSync, readlinkSync, cpSync, copyFileSync, chmodSync,
+  readdirSync, readlinkSync, symlinkSync, copyFileSync, chmodSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -59,6 +68,7 @@ import { parseArgs } from 'node:util';
 import { PASS_ENV, decryptArgs } from './lib/snapshot-cipher.mjs';
 import { brainIgnores, brainRequired } from './lib/brain-ignore.mjs';
 import { isMain } from './lib/is-main.mjs';
+import { readPack, writePack } from './move-pack.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const SNAPSHOT_PATH = 'backups/state-snapshot.tar.gz.enc';
@@ -160,6 +170,53 @@ export function openSnapshot(encBytes, passphrase, staging, stateDir) {
   return { dir: out, tops };
 }
 
+/**
+ * A move pack (engine/move-pack.mjs) instead of an encrypted snapshot: same
+ * staging, same entry checks, same result shape, so applySnapshot cannot tell
+ * them apart. readPack already refuses absolute, climbing and never-list paths;
+ * checkEntries refuses the door and the backups on top, as for a snapshot.
+ */
+export function openPack(text, staging) {
+  let pack;
+  try { pack = readPack(text); } catch (e) { refuse(e.message); }
+  const tops = checkEntries(pack.files.map((f) => f.path));
+  const out = path.join(staging, 'unpacked');
+  mkdirSync(out, { mode: 0o700 });
+  writePack(out, pack);
+  return { dir: out, tops };
+}
+
+/**
+ * Copy one snapshot entry over the state directory: directories merge (anything the
+ * new mineral has that the old one never had stays), everything else is replaced,
+ * the old mineral's version winning. Hand-written rather than fs.cpSync, which the
+ * first live drill (2026-10-14) showed cannot do this on a real mineral, twice:
+ *   - it cannot overwrite a file its owner cannot write, and git keeps pack files
+ *     read-only (0444). Every mineral is born with the same Claude Code plugin
+ *     marketplaces (git clones under .claude-auth/plugins/), so the restore died
+ *     with EACCES at the first .git/objects/pack file;
+ *   - with force it still refuses a link that already exists (EEXIST, node 24), and
+ *     every mineral is born with the same opencode node_modules/.bin links.
+ * Both left the mineral half restored: brain merged, secrets/ and the passphrase
+ * never written. Replacing a file here unlinks it first, which needs only the
+ * directory to be writable, never the file.
+ */
+export function mergeInto(src, dst) {
+  const s = lstatSync(src);
+  let d = null; try { d = lstatSync(dst); } catch { d = null; }
+  if (s.isDirectory()) {
+    if (d && !d.isDirectory()) { rmSync(dst, { recursive: true, force: true }); d = null; }
+    if (!d) mkdirSync(dst, { mode: 0o700 });
+    else if ((d.mode & 0o700) !== 0o700) chmodSync(dst, (d.mode | 0o700) & 0o7777);
+    for (const name of readdirSync(src)) mergeInto(path.join(src, name), path.join(dst, name));
+    chmodSync(dst, s.mode & 0o7777);
+    return;
+  }
+  if (d) rmSync(dst, { recursive: !!d.isDirectory(), force: true });
+  if (s.isSymbolicLink()) symlinkSync(readlinkSync(src), dst);
+  else { copyFileSync(src, dst); chmodSync(dst, s.mode & 0o7777); }
+}
+
 /** Copy the unpacked snapshot over the state directory. Returns what it restored. */
 export function applySnapshot(unpacked, stateDir, { withoutTelegram = false } = {}) {
   const skipped = [];
@@ -173,13 +230,9 @@ export function applySnapshot(unpacked, stateDir, { withoutTelegram = false } = 
     if (NEVER_FROM_SNAPSHOT.has(top)) continue;   // checkEntries already refused these; belt and braces
     const src = path.join(unpacked, top);
     const dst = path.join(stateDir, top);
-    if (lstatSync(src).isDirectory()) {
-      // Merge, the old mineral's files winning: anything this new mineral made for
-      // itself that the old one never had (its own fresh secrets) stays.
-      cpSync(src, dst, { recursive: true, force: true, verbatimSymlinks: true });
-    } else {
-      copyFileSync(src, dst);
-    }
+    // Merge, the old mineral's files winning: anything this new mineral made for
+    // itself that the old one never had (its own fresh secrets) stays.
+    mergeInto(src, dst);
     restored.push(top);
     // Permission fix: nobody but the mineral's own account reads any of it. Owner
     // bits are kept as they were (Claude Code plugins carry executable hooks).
@@ -203,6 +256,13 @@ export function restoredCommit(stateDir, target, label) {
   // The folder the Claude Code app opens is a link named after the mineral.
   const linkName = head ? (gitOk(stateDir, ['show', `${head}:open-folder`]) || '').trim() : '';
   if (/^[a-z0-9][a-z0-9-]{0,39}$/.test(linkName)) keep.push(linkName);
+  // The OLD mineral's folder link (`<oldname> -> .`) is not brain either. Left in,
+  // the restored mineral carried two links to itself (live drill, 2026-10-14), and
+  // anything that follows links walks /state two ways at every level.
+  const oldLink = (gitOk(stateDir, ['show', `${target}:open-folder`]) || '').trim();
+  const oldIsLink = /^[a-z0-9][a-z0-9-]{0,39}$/.test(oldLink) && oldLink !== linkName
+    && /^120000 /.test(gitOk(stateDir, ['ls-tree', target, '--', oldLink]) || '');
+  const drop = oldIsLink ? [oldLink] : [];
   const idx = path.join(mkdtempSync(path.join(tmpdir(), 'aios-restore-idx-')), 'index');
   const env = { GIT_INDEX_FILE: idx };
   try {
@@ -213,7 +273,7 @@ export function restoredCommit(stateDir, target, label) {
       if (ours.length) git(stateDir, ['update-index', '-z', '--index-info'], { env, input: ours });
     }
     const never = brainIgnores().map((p) => p.replace(/\/$/, ''));
-    git(stateDir, ['rm', '-r', '-q', '-f', '--cached', '--ignore-unmatch', '--', ...never], { env });
+    git(stateDir, ['rm', '-r', '-q', '-f', '--cached', '--ignore-unmatch', '--', ...never, ...drop], { env });
     const tree = git(stateDir, ['write-tree'], { env }).trim();
     const parents = head ? ['-p', head, '-p', target] : ['-p', target];
     return git(stateDir, ['commit-tree', tree, ...parents, '-m', label], { env: who }).trim();
@@ -263,14 +323,18 @@ export async function main(argv = process.argv.slice(2), log = console.log) {
       from: { type: 'string' }, ref: { type: 'string' }, snapshot: { type: 'string' },
       list: { type: 'boolean' }, 'no-snapshot': { type: 'boolean' }, 'without-telegram': { type: 'boolean' },
       'no-push': { type: 'boolean' }, 'dry-run': { type: 'boolean' },
+      pack: { type: 'string' }, name: { type: 'string' }, label: { type: 'string' },
     },
   });
   const stateDir = path.resolve(positionals[0] || process.env.STATE_DIR || '/state');
   if (!existsSync(path.join(stateDir, 'profile.yaml'))) refuse(`${stateDir} does not look like a mineral (no profile.yaml)`);
   if (existsSync(path.join(stateDir, 'brain', '.git'))) refuse('this restores a personal mineral; this one keeps its brain in /state/brain');
-  if (!o.from && !o.snapshot) refuse('say what to restore from: --from <owner>/<old-repo>, or --snapshot <file>');
+  if (!o.from && !o.snapshot && !o.pack) refuse('say what to restore from: --from <owner>/<old-repo>, or --snapshot <file>');
   if (o.from && o.snapshot) refuse('use --from or --snapshot, not both');
+  if (o.pack && o.snapshot) refuse('use --pack or --snapshot, not both');
+  if (o.pack && !existsSync(o.pack)) refuse(`no such file: ${o.pack}`);
   const dry = !!o['dry-run'];
+  const label = String(o.label || o.from || '').replace(/[\x00-\x1f\x7f]/g, '').slice(0, 120);
 
   // ---- 1. find the old brain and its snapshot (reads only) ----
   let target = null; let source = null; let encBytes = null;
@@ -299,11 +363,11 @@ export async function main(argv = process.argv.slice(2), log = console.log) {
       if (!r || gitOk(stateDir, ['merge-base', '--is-ancestor', r, tip]) === null) refuse(`${o.ref} is not a commit in ${o.from} (see --list)`);
       target = r;
     }
-    if (!o['no-snapshot']) {
+    if (!o['no-snapshot'] && !o.pack) {
       encBytes = gitOk(stateDir, ['show', `${target}:${SNAPSHOT_PATH}`], { buffer: true });
       if (!encBytes || !encBytes.length) refuse(`there is no snapshot in ${o.from} at that point. Its mineral never sent one, so only the brain can come back: run again with --no-snapshot.`);
     }
-  } else {
+  } else if (o.snapshot) {
     if (!existsSync(o.snapshot)) refuse(`no such file: ${o.snapshot}`);
     encBytes = readFileSync(o.snapshot);
   }
@@ -316,12 +380,15 @@ export async function main(argv = process.argv.slice(2), log = console.log) {
       pass = await readPassphrase();
       if (!pass) refuse('no passphrase given');
       snap = openSnapshot(encBytes, pass, staging, stateDir);
+    } else if (o.pack) {
+      snap = openPack(readFileSync(o.pack), staging);
     }
     const when = target ? git(stateDir, ['show', '-s', '--format=%cs (%h)', target]).trim() : null;
     if (dry) {
       log('Dry run: nothing on this mineral has changed.');
-      if (target) log(`  Brain: would come back from ${o.from} as of ${when}, keeping this mineral's name, devices and door.`);
-      if (snap) log(`  Snapshot: opens with that passphrase. It holds: ${snap.tops.join(', ')}.`);
+      if (target) log(`  Brain: would come back from ${label} as of ${when}, keeping this mineral's ${o.name ? '' : 'name, '}devices and door.`);
+      if (snap && o.pack) log(`  Pack: passes every check. It holds: ${snap.tops.join(', ')}.`);
+      else if (snap) log(`  Snapshot: opens with that passphrase. It holds: ${snap.tops.join(', ')}.`);
       if (snap && o['without-telegram']) log('  The old Telegram link would be left behind.');
       return 0;
     }
@@ -334,11 +401,11 @@ export async function main(argv = process.argv.slice(2), log = console.log) {
       });
       if (missing.length) refuse(`this mineral's .gitignore is missing protective entries (${missing.join(' ')}). Press "Connect my GitHub" on Your mineral again to repair it, then run this again.`);
       commitPending(stateDir, 'restore: this mineral as it was before the restore');
-      const c = restoredCommit(stateDir, target, `restore: brain from ${o.from} as of ${when}`);
+      const c = restoredCommit(stateDir, target, `restore: brain from ${label} as of ${when}`);
       const head = gitOk(stateDir, ['rev-parse', '--verify', '-q', 'HEAD']);
       if (head) git(stateDir, ['merge', '--ff-only', '-q', c]);
       else git(stateDir, ['reset', '-q', '--hard', c]);
-      log(`Brain restored from ${o.from} as of ${when}.`);
+      log(`Brain restored from ${label} as of ${when}.`);
     }
 
     // ---- 4. the snapshot ----
@@ -346,24 +413,29 @@ export async function main(argv = process.argv.slice(2), log = console.log) {
       const { restored, skipped } = applySnapshot(snap.dir, stateDir, { withoutTelegram: !!o['without-telegram'] });
       // The passphrase that just opened this snapshot is the one the member holds.
       // A first-night snapshot predates the passphrase file, so it may not carry it.
-      const pf = path.join(stateDir, 'secrets', 'backup_passphrase');
-      mkdirSync(path.dirname(pf), { recursive: true, mode: 0o700 });
-      const had = existsSync(pf) ? readFileSync(pf, 'utf8').trim() : '';
-      if (had !== pass) writeFileSync(pf, pass + '\n', { mode: 0o600 });
-      // They typed it from wherever they keep it, so it is demonstrably off the box.
-      writeFileSync(path.join(stateDir, 'secrets', 'backup_passphrase.escrowed'), '', { mode: 0o600 });
+      // A move pack has no passphrase: whatever the pack carried in secrets/ stands.
+      if (pass) {
+        const pf = path.join(stateDir, 'secrets', 'backup_passphrase');
+        mkdirSync(path.dirname(pf), { recursive: true, mode: 0o700 });
+        const had = existsSync(pf) ? readFileSync(pf, 'utf8').trim() : '';
+        if (had !== pass) writeFileSync(pf, pass + '\n', { mode: 0o600 });
+        // They typed it from wherever they keep it, so it is demonstrably off the box.
+        writeFileSync(path.join(stateDir, 'secrets', 'backup_passphrase.escrowed'), '', { mode: 0o600 });
+      }
       log(`Settings and sign-ins restored: ${restored.join(', ')}.`);
       if (skipped.length) log('The old Telegram link was left behind, as asked.');
     }
 
-    // ---- 5. keep THIS mineral's name (the snapshot carried the old profile.yaml) ----
+    // ---- 5. keep THIS mineral's name (the snapshot carried the old profile.yaml),
+    //         or, for a move, the name of the assistant that moved (--name) ----
     const bn = path.join(stateDir, 'box-name');
-    const name = existsSync(bn) ? readFileSync(bn, 'utf8').trim() : '';
+    const asked = String(o.name || '').replace(/"/g, '').replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 60);
+    const name = asked || (existsSync(bn) ? readFileSync(bn, 'utf8').trim() : '');
     if (name) {
       const ns = path.join(HERE, 'box', 'name-set.mjs');
       if (existsSync(ns)) spawnSync('node', [ns, stateDir, name], { encoding: 'utf8' });
     }
-    if (existsSync(path.join(stateDir, '.git'))) commitPending(stateDir, 'restore: keep this mineral\'s name');
+    if (existsSync(path.join(stateDir, '.git'))) commitPending(stateDir, asked ? 'restore: keep the assistant\'s name' : 'restore: keep this mineral\'s name');
 
     // ---- 6. send it off the box now rather than at 03:50 ----
     if (target && !o['no-push']) {

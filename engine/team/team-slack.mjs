@@ -30,6 +30,7 @@ import { isMain } from '../lib/is-main.mjs';
 import { putHot, getHot, removeSecret } from '../vault/vault.mjs';
 import { isAllowedTarget, queue, newId } from './team-proposals.mjs';
 import { withBrainLock } from './team-lock.mjs';
+import { now as clockNow, dayIn, boxTz } from '../lib/clock.mjs';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 
@@ -169,7 +170,7 @@ const BLOCK_RE = /PROPOSE-CHANGE target=(\S+) why=([^\n]*)\n([\s\S]*?)\nEND-PROP
 // asker: { id: Slack user id, name: display name }. The proposal is attributed to
 // the user ID (a display name is something anyone can set to "Sam"); the name
 // rides in the why, for the owner to read.
-export function handleProposals(stateDir, text, { asker, date = new Date().toISOString().slice(0, 10), queueImpl = queue } = {}) {
+export function handleProposals(stateDir, text, { asker, date = dayIn(clockNow(stateDir), boxTz(stateDir)), queueImpl = queue } = {}) {
   const who = typeof asker === 'object' && asker ? asker : { id: 'UNKNOWN', name: String(asker || '') };
   const uid = /^[A-Z0-9]{2,24}$/.test(String(who.id)) ? who.id : 'UNKNOWN';
   const name = String(who.name || '').replace(/[\r\n"]/g, ' ').slice(0, 60);

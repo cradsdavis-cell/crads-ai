@@ -322,6 +322,43 @@ const server = createServer(async (req, res) => {
     sendJson(res, { ok: true, alias: FX.LOCAL_HOST, slug, name: String(form.name).trim(), path: form.path || ('/home/mel/Crads-AI/' + slug), existed: false, created: ['wiki/', 'profile.yaml', '.claude/skills/'], git: 'initialised' });
     return;
   }
+  // Moving between this computer and a server (2026-10-14): a start arms a run
+  // that walks its steps across status polls and lands on a checked result.
+  // Nothing moves anywhere: the real flow is driven against real git and real
+  // restore.mjs in brain-move.test.mjs, and in a browser by qa-door-local-card.
+  if (path.startsWith('/move/')) {
+    const H = globalThis.__move || (globalThis.__move = { run: null });
+    const UP = ['Checking the folder', 'Packing your brain (58 files)', 'Checking the server answers', 'Copying your brain to the server', 'Checking the move before changing anything', 'Moving your brain in', 'Checking every file arrived'];
+    const DOWN = ['Checking the folder', 'Checking the server answers', 'Packing your brain on the server', 'Copying your brain to this computer', 'Putting your brain in the folder', 'Checking the copy against the server', 'Setting the folder up for this computer'];
+    if (req.method === 'GET' && path === '/move/status') {
+      const r = H.run;
+      if (!r) { sendJson(res, { phase: 'idle' }); return; }
+      const steps = r.direction === 'up' ? UP : DOWN;
+      const n = Math.min(steps.length, 1 + Math.floor((Date.now() - r.at) / 500));
+      const done = n >= steps.length && Date.now() - r.at > steps.length * 500;
+      sendJson(res, { direction: r.direction, from: r.from, to: r.to, phase: done ? 'done' : 'running', steps: steps.slice(0, n), error: null,
+        result: !done ? null : r.direction === 'up'
+          ? { ok: true, direction: 'up', to: r.to, commit: 'c0ffee1c0ffee1c0ffee1c0ffee1c0ffee1c0ffe', files: 58, via: 'ssh', restored: ['cockpit/cadence.json', 'secrets/telegram_bot_token'], verified: true }
+          : { ok: true, direction: 'down', from: r.from, path: r.to, alias: FX.LOCAL_HOST, slug: 'sam', name: 'Sam', commit: '71aeccf71aeccf71aeccf71aeccf71aeccf71aec', files: 61, verified: true, deletable: true,
+            paused: [{ id: 'morning-brief', words: 'Morning brief', detail: 'daily at 07:00, sent to Telegram' }, { id: 'telegram', words: 'Telegram', detail: 'your bot and its chat, kept as they were' }],
+            connections: { carried: ['notion'], signIn: ['notion'], needsServer: [] } } });
+      return;
+    }
+    if (req.method === 'GET' && path === '/move/plan') {
+      const from = url.searchParams.get('from') || '';
+      sendJson(res, /-local$/.test(from) ? { direction: 'up', from, slug: 'sam', name: 'Sam', path: FX.LOCAL_PATH }
+        : { direction: 'down', from, slug: from.replace(/-box$/, ''), name: from.replace(/-box$/, ''), default_path: '/home/sam/Crads-AI/' + from.replace(/-box$/, ''), provider: 'Hetzner', built_here: true });
+      return;
+    }
+    const body = await readBody(req);
+    if (path === '/move/up/start' || path === '/move/down/start') {
+      H.run = { direction: path.includes('/up/') ? 'up' : 'down', from: body.from, to: body.to || body.path || '/home/sam/Crads-AI/sam', at: Date.now() };
+      sendJson(res, { ok: true }); return;
+    }
+    if (path === '/move/quote') { sendJson(res, body.token ? { ok: true, server: 'aios-' + String(body.alias || '').replace(/-box$/, ''), provider: 'Hetzner', console: 'console.hetzner.com', ip: '203.0.113.9', monthly: 5.99, symbol: '\u20ac', cost_words: '\u20ac5.99 a month' } : { error: 'paste your Hetzner API token: it is never stored, so it is needed again here' }, body.token ? 200 : 400); return; }
+    if (path === '/move/delete') { sendJson(res, { ok: true, destroyed: true, server: body.confirm, forgot: true }); return; }
+    sendJson(res, { error: 'unknown' }, 404); return;
+  }
   if (req.method === 'GET' && path === '/local/status') { sendJson(res, { brains: face === 'local' ? [{ alias: FX.LOCAL_HOST, slug: 'sam', name: 'Sam', path: FX.LOCAL_PATH, state: 'brain' }] : [] }); return; }
   if (req.method === 'GET' && path === '/local/setup-steps') {
     sendJson(res, { reachable: true, github: pageParam(req, 'setup') === 'done' ? { connected: true, repo: 'github.com/sam/sam-brain' } : { connected: false, repo: '' }, claude: null, path: FX.LOCAL_PATH });
@@ -339,7 +376,11 @@ const server = createServer(async (req, res) => {
     const nocli = /[?&]nocli=1/.test(String(req.headers.referer || ''));
     // ?team=hub|member on the PAGE url: the mineral is in a team (Crads for teams, 2026-10-10)
     const team = (String(req.headers.referer || '').match(/[?&]team=(hub|member)/) || [])[1] || '';
-    const result = FX.runVerb(surface, String(form.verb || ''), form.args, state, { signedOut, face, thinks, nocli, team });
+    // ?paused=1 / ?moved=1 on the PAGE url (2026-10-14): a folder that came down
+    // from a server (schedule and Telegram paused), or one a move up left behind
+    const paused = /[?&]paused=1/.test(String(req.headers.referer || ''));
+    const moved = /[?&]moved=1/.test(String(req.headers.referer || ''));
+    const result = FX.runVerb(surface, String(form.verb || ''), form.args, state, { signedOut, face, thinks, nocli, team, paused, moved });
     streamRun(res, result);
     return;
   }

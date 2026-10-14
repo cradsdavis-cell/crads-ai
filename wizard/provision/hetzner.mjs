@@ -222,6 +222,12 @@ export class HetznerClient {
     return { id: d.server.id, name: d.server.name, status: d.server.status, ip: d.server.public_net?.ipv4?.ip ?? null };
   }
 
+  /** Optional (2026-10-14): which machine, where, so a delete can name its monthly price. */
+  async describeServer(id) {
+    const d = await this.request(`/servers/${id}`);
+    return { serverType: d.server.server_type?.name ?? null, location: d.server.datacenter?.location?.name ?? null };
+  }
+
   /** The retry-from-a-half-created-state path. Only ever the user's own metal. */
   async deleteServer(id) {
     await this.request(`/servers/${id}`, { method: 'DELETE' });

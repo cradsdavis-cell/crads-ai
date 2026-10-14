@@ -12,7 +12,7 @@
 // repo-relative paths (LOCAL_ASSET_FILES below; .github/workflows/wizard-app.yml
 // carries the map). loadEngineAssets() reads whichever exists into one bag
 // and everything below takes the bag, never a path.
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -173,6 +173,7 @@ export function dirState(p) {
   return 'occupied';
 }
 
+const realOf = (p) => { try { return realpathSync(p); } catch { return path.resolve(p); } };
 const git = (box, args) => spawnSync('git', args, { cwd: box, encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] });
 
 /**
@@ -208,7 +209,10 @@ export async function scaffoldLocalBrain(box, { name = '', assets, git: wantGit 
   if (wantGit) {
     const top = git(box, ['rev-parse', '--show-toplevel']);
     if (top.error) gitState = 'unavailable';
-    else if (top.status === 0 && path.resolve(top.stdout.trim()) === path.resolve(box)) gitState = 'kept';
+    // real paths: git resolves symlinks, so a folder reached through a link
+    // was re-initialised and committed again as "init: brain scaffold" (live
+    // drill, 2026-10-14)
+    else if (top.status === 0 && realOf(top.stdout.trim()) === realOf(box)) gitState = 'kept';
     else {
       const init = git(box, ['init', '-q']);
       if (init.status !== 0) gitState = 'unavailable';

@@ -130,9 +130,8 @@ three clicks. It is honest and it works; it is not one click.
   a member-authored page is never touched (tombstones honoured).
 - GitHub backup pushes when the app opens (`pushLocalBrains`, best-effort)
   and on connect; there is no nightly job because there is no night here.
-- Moving a folder to a server later is not built: the folder is a plain git
-  repo, so the honest path today is "back it up to GitHub, then clone it on
-  the box", by hand.
+- Moving a folder to a server later was not built in v1 (it is since
+  2026-10-14: see "A provider card, and moving both ways" below).
 - The dev harness fakes the scaffold (`/local/create` answers a ready folder,
   nothing is made on disk), so the harness shots prove the pages, not the
   filesystem; the filesystem is proven by `local-scaffold.test.mjs` and
@@ -224,8 +223,46 @@ Scope: hide, keep the code, and an existing local brain keeps working.
   in the tree; the dev harness photographs them by setting the attribute in the
   page (`local-shots.mjs`, `offerLocal`).
 - **Pinned by** `door.test.mjs` (one switch, off, gating only the create
-  offers) and `qa-door-local-retired.test.mjs` (a real browser: a new install
+  offers) and `qa-door-local-retired.test.mjs` (since renamed
+  `qa-door-local-card.test.mjs`; a real browser: a new install
   sees selfhost, team and "I already have one" only; an existing folder lists
   and opens on its alias).
 - **The cost, named:** a person who forgets a folder can no longer re-add it
   from the door. The forget dialog says so.
+
+## A provider card, and moving both ways (2026-10-14)
+
+Sam's rulings the same day (second-brain decisions/log, "LOCAL MODE becomes a
+PROVIDER CARD"), superseding both the retirement above and the More options
+placement that briefly followed it. Design and failure table:
+`docs/superpowers/specs/2026-10-14-local-server-switch-design.md`.
+
+- **Where it is offered.** "On this computer" is the LAST card in the provider
+  row of "Set up my own", after every hosting company, plainer on purpose
+  (dashed edge on the muted fill, no shadow or lift) with its downsides on the
+  card: "Free. No schedule, no phone, stops when your laptop sleeps. Move to a
+  server any time." Pressing it goes straight to the folder form. The takeover
+  card, the "New here?" link, the More options link and both switches
+  (`OFFER_LOCAL_CREATE`, `LOCAL_BEHIND_MORE`) are gone.
+- **Moving.** Your mineral carries a "Where it lives" card on both faces:
+  **Move to a server** on a folder (the wizard, then `moveUp` in
+  `wizard/panel/brain-move.mjs`) and **Move to this computer** on a server
+  (`moveDown`). Both run from the door (`#move-up=` / `#move-down=`, routes in
+  `move-routes.mjs`). The brain travels as a git bundle over the app's SSH
+  connection, everything git must not carry as a move pack
+  (`engine/move-pack.mjs`), and the server side is `engine/restore.mjs`
+  (`--pack`, `--name`, `--label`), copied onto the server in the restore
+  runbook's layout.
+- **What a folder holds after a move down.** The server's connections, their
+  sign-ins and its stored secrets at their usual paths (all gitignored), the
+  remote connections rewritten into `.mcp.json` for Claude Code, and
+  `.kernel/paused/`: the schedule, the Telegram pair and offset, the crontab,
+  the server's own `.mcp.json`, and `paused.json`, which the seat lists as
+  "Paused: needs a server". A move up puts every one of them back.
+- **What a folder holds after a move up.** Itself, unchanged, plus
+  `.kernel/moved.json`; the seat says it is the copy the brain left behind.
+- **Never moved.** The Claude sign-in, either way.
+- **Pinned by** `brain-move.test.mjs` (real git, real restore.mjs, a temp
+  directory standing in for `/state`), `move-routes.test.mjs` (the delete
+  gates), `restore.test.mjs` (`--pack`), `door.test.mjs` and
+  `qa-door-local-card.test.mjs` (both moves driven in a browser).

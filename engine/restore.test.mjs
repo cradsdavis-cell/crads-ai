@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync, execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, readFileSync, existsSync, statSync, symlinkSync, copyFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, statSync, lstatSync, symlinkSync, copyFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpDir } from '../tests/tmp-dir.mjs';
@@ -46,7 +46,7 @@ function seedBox(dir, { name, key, user, extra = () => {} }) {
 }
 
 // The old mineral, as it stood the night before it died, pushed to its repo.
-function oldMineral(root) {
+function oldMineral(root, more = () => {}) {
   const dir = join(root, 'old');
   const repo = bare(root, 'old-brain.git');
   seedBox(dir, { name: 'oldname', key: OLD_KEY, user: 'Ana', extra: (d) => {
@@ -63,6 +63,7 @@ function oldMineral(root) {
     writeFileSync(join(d, '.kernel', 'mcp-oauth.json'), '{"notion":{"refresh":"old"}}\n');
     mkdirSync(join(d, '.kernel', 'google-creds'), { recursive: true });
     writeFileSync(join(d, '.kernel', 'google-creds', 'ana@example.com.json'), '{"refresh_token":"old"}\n');
+    more(d);
   } });
   g(dir, 'remote', 'add', 'origin', repo);
   g(dir, 'add', '-A'); g(dir, 'commit', '-q', '-m', 'old life');
@@ -78,7 +79,7 @@ function oldMineral(root) {
 }
 
 // The new mineral, straight out of the wizard with "Connect my GitHub" done.
-function newMineral(root) {
+function newMineral(root, more = () => {}) {
   const dir = join(root, 'new');
   const repo = bare(root, 'new-brain.git');
   seedBox(dir, { name: 'newname', key: NEW_KEY, user: '', extra: (d) => {
@@ -86,6 +87,7 @@ function newMineral(root) {
     mkdirSync(join(d, 'secrets'), { recursive: true });
     writeFileSync(join(d, 'secrets', 'backup_passphrase'), 'f'.repeat(64) + '\n', { mode: 0o600 });
     writeFileSync(join(d, 'secrets', 'code-server-password'), 'new-pw\n', { mode: 0o600 });
+    more(d);
   } });
   g(dir, 'remote', 'add', 'origin', repo);
   g(dir, 'add', '-A'); g(dir, 'commit', '-q', '-m', 'own-brain: snapshot');
@@ -116,6 +118,9 @@ test('the old brain and its settings come back onto a new mineral, and the door 
   assert.equal(read(nu.dir, 'box-name').trim(), 'newname');
   assert.equal(read(nu.dir, 'open-folder').trim(), 'newname');
   assert.ok(existsSync(join(nu.dir, 'newname')), 'the named folder link the app opens is gone');
+  // the OLD mineral's folder link does not come back as a second link to itself
+  assert.throws(() => lstatSync(join(nu.dir, 'oldname')), /ENOENT/);
+  assert.equal(g(nu.dir, 'ls-files', 'oldname'), '');
   const profile = read(nu.dir, 'profile.yaml');
   assert.match(profile, /assistant_name: "newname"/);
   assert.match(profile, /user_short: "Ana"/, 'the old profile did not come back');
@@ -156,6 +161,38 @@ test('a restored mineral backs itself up again with the passphrase the member al
   // and that new snapshot opens with the same passphrase
   const check = restore(nu.dir, ['--snapshot', join(nu.dir, 'backups', 'state-snapshot.tar.gz.enc'), '--dry-run'], old.pass);
   assert.equal(check.status, 0, check.stderr);
+});
+
+// Live drill, 2026-10-14: every mineral is born with the same Claude Code plugin
+// marketplaces (git clones), and git keeps pack files read-only. cpSync cannot
+// overwrite a 0444 file, so the first real restore died with EACCES half applied:
+// brain merged, secrets/ and the passphrase never written.
+test('read-only files the new mineral already has (git pack files) are replaced, not a crash', () => {
+  const root = tmpDir('restore-');
+  const PACK = ['.claude-auth', 'plugins', 'marketplaces', 'm', '.git', 'objects', 'pack'];
+  const plant = (body) => (d) => {
+    mkdirSync(join(d, ...PACK), { recursive: true });
+    writeFileSync(join(d, ...PACK, 'pack-1.pack'), body, { mode: 0o444 });
+    // and the same relative links (opencode's node_modules/.bin) on both sides
+    mkdirSync(join(d, '.opencode-auth', 'nm', '.bin'), { recursive: true });
+    mkdirSync(join(d, '.opencode-auth', 'nm', 'w'), { recursive: true });
+    writeFileSync(join(d, '.opencode-auth', 'nm', 'w', 'b.js'), body);
+    symlinkSync('../w/b.js', join(d, '.opencode-auth', 'nm', '.bin', 'b'));
+  };
+  const old = oldMineral(root, plant('OLD-PACK\n'));
+  const nu = newMineral(root, plant('NEW-PACK\n'));
+  const r = restore(nu.dir, ['--from', old.repo], old.pass);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(read(nu.dir, ...PACK, 'pack-1.pack').trim(), 'OLD-PACK');
+  assert.equal(read(nu.dir, '.opencode-auth', 'nm', '.bin', 'b').trim(), 'OLD-PACK');
+  assert.ok(lstatSync(join(nu.dir, '.opencode-auth', 'nm', '.bin', 'b')).isSymbolicLink());
+  // and everything after it in the snapshot arrived too
+  assert.equal(read(nu.dir, 'secrets', 'telegram_bot_token').trim(), 'OLD-BOT-TOKEN');
+  assert.equal(read(nu.dir, 'secrets', 'backup_passphrase').trim(), old.pass);
+  assert.equal(statSync(join(nu.dir, ...PACK, 'pack-1.pack')).mode & 0o077, 0);
+  // a second run over the restored (now 0400) files works as well
+  const again = restore(nu.dir, ['--from', old.repo, '--no-push'], old.pass);
+  assert.equal(again.status, 0, again.stderr + again.stdout);
 });
 
 test('a wrong passphrase stops the restore before anything changes', () => {
@@ -267,4 +304,42 @@ test('backup.mjs and restore.mjs share one cipher definition', () => {
     assert.match(src, /lib\/snapshot-cipher\.mjs/, `${f} no longer uses the shared cipher`);
     assert.doesNotMatch(src, /'-iter'/, `${f} spells its own cipher flags again`);
   }
+});
+
+// ---- the move pack (2026-10-14): what a move carries beside the brain goes
+// through the same checks as a snapshot, and a move keeps its own name.
+import { packPaths } from './move-pack.mjs';
+
+test('--pack: a move pack restores like a snapshot, needs no passphrase, and --name keeps the moving assistant', () => {
+  const root = tmpDir('restore-pack-');
+  const nu = newMineral(root);
+  const src = join(root, 'src');
+  mkdirSync(join(src, 'secrets'), { recursive: true });
+  writeFileSync(join(src, 'secrets', 'telegram_bot_token'), 'MOVED\n');
+  writeFileSync(join(src, '.mcp.json'), '{"mcpServers":{}}\n');
+  const pack = join(root, 'pack.json');
+  writeFileSync(pack, JSON.stringify(packPaths(src, ['secrets', '.mcp.json'])));
+  const dry = restore(nu.dir, ['--pack', pack, '--dry-run']);
+  assert.equal(dry.status, 0, dry.stderr);
+  assert.match(dry.stdout, /Pack: passes every check/);
+  assert.ok(!existsSync(join(nu.dir, 'secrets', 'telegram_bot_token')), 'a dry run changes nothing');
+  const r = restore(nu.dir, ['--pack', pack, '--name', 'Moved One']);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(read(nu.dir, 'secrets', 'telegram_bot_token'), 'MOVED\n');
+  assert.equal(read(nu.dir, 'box-name').trim(), 'Moved One');
+  assert.equal(read(nu.dir, 'secrets', 'backup_passphrase').trim(), 'f'.repeat(64), 'no passphrase was written: a pack has none');
+  assert.ok(!existsSync(join(nu.dir, 'secrets', 'backup_passphrase.escrowed')));
+});
+
+test('--pack: a pack that reaches for the door or out of the mineral is refused before anything changes', () => {
+  const root = tmpDir('restore-pack-bad-');
+  const nu = newMineral(root);
+  for (const evil of ['devices/this-computer.yaml', '../outside', '.claude-auth/.credentials.json']) {
+    const pack = join(root, 'evil.json');
+    writeFileSync(pack, JSON.stringify({ kind: 'crads-move-pack', version: 1, files: [{ path: evil, mode: 384, b64: Buffer.from('x').toString('base64') }] }));
+    const r = restore(nu.dir, ['--pack', pack]);
+    assert.equal(r.status, 2, `${evil}: ${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /must not|never overwrite/);
+  }
+  assert.match(read(nu.dir, 'devices', 'this-computer.yaml'), /NEWKEY/);
 });

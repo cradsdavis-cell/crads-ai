@@ -2321,6 +2321,22 @@
         </div>
         <div id="seatDials"></div>
       </div>
+      <!-- Where it lives, and moving it (Sam's rulings, 2026-10-14). Both faces:
+           a folder offers "Move to a server", a server offers "Move to this
+           computer". Either button opens the door's own flow (#move-up= /
+           #move-down=), which does the work and checks it. On a folder, what a
+           move down paused is listed here as "Paused: needs a server". -->
+      <div class="guidecard" id="seatMoveCard" style="display:none">
+        <div class="gtitle">Where it lives</div>
+        <div class="notice" id="seatMoved" style="display:none;margin:0 0 10px"></div>
+        <div id="seatMoveWords" class="hint" style="margin:0 0 10px;color:var(--ink)"></div>
+        <div id="seatPaused" style="display:none">
+          <p class="hint" style="margin:0 0 4px;color:var(--ink)"><b>Paused: needs a server</b></p>
+          <ul class="hint" id="seatPausedList" style="margin:0 0 6px 1.2em;padding:0"></ul>
+          <p class="hint" style="margin:0 0 10px">Kept in this folder, switched off. Moving to a server turns them back on as they were.</p>
+        </div>
+        <button class="act" id="seatMoveBtn"></button>
+      </div>
       <div class="guidecard" id="seatBackupCard">
         <div class="gtitle">Backup</div>
         <div id="seatBackup" class="hint" style="margin:0;color:var(--ink)">Checking&hellip;</div>
@@ -5878,6 +5894,31 @@
       }
     }).catch(function(){ /* transient: the next tick tries again */ });
   }
+  // Where it lives (2026-10-14): the move button for this face, and on a folder
+  // what is paused and whether this folder is the copy a move up left behind.
+  function seatMoveRender(st){
+    var card = $('seatMoveCard');
+    if (!card) return;
+    // Not on a rock, and not on a team's server: the company owns it, and the
+    // team machinery (company brain, merges) only runs on a server.
+    if (!picker.base || (state.kind !== 'local' && ((st.ownership || {}).tier === 'rock' || (teamState && teamState.team)))) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    var local = state.kind === 'local';
+    var btn = $('seatMoveBtn');
+    var moved = local && st.moved && st.moved.to ? st.moved : null;
+    var when = ''; if (moved) { try { when = new Date(moved.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }); } catch (e) { when = ''; } }
+    notice('seatMoved', moved ? 'This brain moved to a server (' + String(moved.to).replace(/-box$/, '') + ')' + (when ? ' on ' + when : '') + '. This folder is the copy it left behind: changes made here do not reach the server.' : '');
+    $('seatMoveWords').textContent = local
+      ? 'A folder on this computer: free, but no schedule, no phone, and it stops when your laptop sleeps. Moving builds a new server in your own hosting account and takes the brain, your connections and their sign-ins with it. This folder stays as it is.'
+      : 'A server in your own hosting account, so it keeps working while your computer is off: schedules, Telegram and the morning brief. Moving it to this computer makes it free and pauses those. The server is not deleted unless you confirm it, once the copy here is checked.';
+    var p = (local && st.paused && st.paused.items) || [];
+    $('seatPaused').style.display = p.length ? '' : 'none';
+    $('seatPausedList').innerHTML = p.map(function(i){ return '<li><b>' + seatEsc(i.words) + '</b>: ' + seatEsc(i.detail) + '</li>'; }).join('');
+    btn.style.display = moved ? 'none' : '';
+    btn.textContent = local ? 'Move to a server' : 'Move to this computer';
+    btn.className = 'act' + (local && p.length ? ' primary' : '');
+    btn.onclick = function(){ location.href = picker.base + '/#move-' + (local ? 'up' : 'down') + '=' + encodeURIComponent(state.host); };
+  }
   function seatRow(label, val, sub){
     return '<div class="devrow"><div><b>' + seatEsc(label) + '</b>'
       + '<div class="hint" style="margin:2px 0 0">' + seatEsc(sub) + '</div></div>'
@@ -5909,6 +5950,7 @@
           ? seatRow('Hosting', 'This computer', 'The folder ' + (state.localPath || st.path || '') + '. Only awake while you have it open; nothing runs on a schedule.')
           : seatRow('Hosting', 'Your own hosting account',
             'This mineral runs on a server you hold the keys to.'));
+      seatMoveRender(st);
       var b = st.backup || {};
       // The box reports a raw ISO timestamp ("2026-10-10T17:56:32Z"); a person reads
       // "2 days ago (10 October, 17:56)", local time, like every other date here.
@@ -6139,6 +6181,8 @@
       var st = r.ok ? teamParse(r) : null;
       teamState = st;
       $('teamNav').style.display = (st && st.team) ? '' : 'none';
+      // the seat may have drawn first: a team server never offers a move (2026-10-14)
+      if (st && st.team && $('seatMoveCard')) $('seatMoveCard').style.display = 'none';
       // The Skills page hides /propose-change off a team; re-render if it drew first.
       if (state.skillRows && $('skillsGroups').childNodes.length) renderSkills();
       // On a team box "nothing here is visible to anyone else" stops being true:

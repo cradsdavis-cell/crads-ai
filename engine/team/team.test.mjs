@@ -12,6 +12,7 @@ import { ensureKeys, validateConfig, enrol, CLAUDE_MARK_START } from './team-enr
 import { runHub, inspectMemberTree } from './team-hub.mjs';
 import { syncCompanySkills } from './team-skills.mjs';
 import { publish } from '../lib/org-publish.mjs';
+import { setClock } from '../lib/clock.mjs';
 
 const ENV = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
 const g = (...a) => execFileSync('git', a, { env: ENV, encoding: 'utf8', stdio: 'pipe' });
@@ -66,6 +67,8 @@ function team() {
     projects: { 'globex.md': '# Globex\nThey are moving to a competitor.\n' }, log: '- 2026-10-09 Globex call\n' });
   const hub = path.join(root, 'box-hub');
   mkdirSync(hub, { recursive: true });
+  // the schema default every box ships with (config/profile.schema.yaml)
+  writeFileSync(path.join(hub, 'profile.yaml'), 'identity:\n  timezone: "Australia/Sydney"\n');
   enrol(hub, {
     slug: 'hub', company, role: 'hub',
     brain: { remote: brain, key: KEY },
@@ -338,7 +341,7 @@ test('a Slack answer is a read-only turn in the company brain, and a change requ
 });
 
 // ---- stage 3: the week so far -------------------------------------------------
-import { isoWeek, weekStart } from './team-hub.mjs';
+import { isoWeek, weekStart, weekReport, dayStartIn } from './team-hub.mjs';
 
 test('ISO weeks start on Monday', () => {
   assert.equal(isoWeek(new Date('2026-10-11T12:00:00Z')), '2026-W41');   // a Sunday
@@ -347,8 +350,45 @@ test('ISO weeks start on Monday', () => {
   assert.equal(isoWeek(new Date('2027-01-01T00:00:00Z')), '2026-W53');
 });
 
+test('weeks and days follow the box timezone: Monday 00:30 in Sydney is still Sunday in UTC', () => {
+  const mon = new Date('2026-10-18T13:30:00Z');   // Mon 19 Oct, 00:30 AEDT
+  assert.equal(weekStart(mon), '2026-10-12');
+  assert.equal(weekStart(mon, 'Australia/Sydney'), '2026-10-19');
+  assert.equal(isoWeek(mon), '2026-W42');
+  assert.equal(isoWeek(mon, 'Australia/Sydney'), '2026-W43');
+  assert.equal(dayStartIn('2026-10-12', 'UTC'), '2026-10-12T00:00:00Z');
+  assert.equal(dayStartIn('2026-10-12', 'Australia/Sydney'), '2026-10-11T13:00:00Z');   // AEDT, +11
+  assert.equal(dayStartIn('2026-10-04', 'Australia/Sydney'), '2026-10-03T14:00:00Z');   // DST starts 02:00 that day, so midnight is still +10
+});
+
+test('the week page counts a member\'s days in the hub\'s timezone, across the Sydney day boundary', () => {
+  const clone = tmpDir('teamweek-');
+  mkdirSync(path.join(clone, 'members', 'jess'), { recursive: true });
+  writeFileSync(path.join(clone, 'members', 'jess', 'updates.md'),
+    '# Updates from jess\n\n## 2026-10-19\n- Monday\n\n## 2026-10-18\n- Sunday\n\n## 2026-10-15\n- Thursday\n\n## 2026-10-11\n- last week\n');
+  // Thu 15 Oct 00:35 AEDT (14 Oct 13:35 UTC): the moment the old UTC window first dropped her update
+  const thu = new Date('2026-10-14T13:35:00Z');
+  let text = readFileSync(weekReport(clone, { now: thu, tz: 'Australia/Sydney' }), 'utf8');
+  assert.match(text, /^# The week so far, 2026-W42 \(2026-10-12 to 2026-10-15\)/);
+  assert.match(text, /- jess: 1 day\(s\) \(2026-10-15\)/);
+  // Mon 19 Oct 00:30 AEDT: a new week has started in Sydney, with Monday in it and Sunday not
+  const mon = new Date('2026-10-18T13:30:00Z');
+  const file = weekReport(clone, { now: mon, tz: 'Australia/Sydney' });
+  assert.equal(path.basename(file), 'week-2026-W43.md');
+  text = readFileSync(file, 'utf8');
+  assert.match(text, /\(2026-10-19 to 2026-10-19\)/);
+  assert.match(text, /- jess: 1 day\(s\) \(2026-10-19\)/);
+  // the same instant on a UTC box is still Sunday, in the week before
+  text = readFileSync(weekReport(clone, { now: mon, tz: 'UTC' }), 'utf8');
+  assert.match(text, /^# The week so far, 2026-W42 \(2026-10-12 to 2026-10-18\)/);
+  assert.match(text, /- jess: 2 day\(s\) \(2026-10-15, 2026-10-18\)/);
+});
+
 test('the week so far: who published, rule changes decided, what is waiting, shared ground', async () => {
   const { jess, tom, hub, brain } = team();
+  // Every box on one pinned clock, at the hour that used to fail: Thu 15 Oct
+  // 00:35 in Sydney, still the 14th in UTC. Nothing below reads the wall clock.
+  for (const box of [jess, tom, hub]) setClock(box, '2026-10-14T13:35:00Z');
   await publish(jess, { dryRun: true });
   await publish(tom, { dryRun: true });
   const a = propose(jess, { target: 'company/policies.md', content: '# Policies\nRefunds within 30 days.\n' });
@@ -359,8 +399,10 @@ test('the week so far: who published, rule changes decided, what is waiting, sha
   const wk = ls(brain).split('\n').find((f) => /^digest\/week-\d{4}-W\d{2}\.md$/.test(f));
   assert.ok(wk, 'a week page exists');
   const text = show(brain, wk);
-  assert.match(text, /## Who published\n\n- jess: 1 day\(s\)/);
-  assert.match(text, /- approved: company\/policies\.md \(proposed by jess/);
+  assert.equal(wk, 'digest/week-2026-W42.md');
+  assert.match(text, /^# The week so far, 2026-W42 \(2026-10-12 to 2026-10-15\)/);
+  assert.match(text, /## Who published\n\n- jess: 1 day\(s\) \(2026-10-15\)\n- tom: 1 day\(s\) \(2026-10-15\)/);
+  assert.match(text, /- approved: company\/policies\.md \(proposed by jess, 2026-10-15\)/);
   assert.match(text, /Waiting for the owner: company\/prices\.md \(from tom\)/);
   assert.match(text, /- globex: jess, tom/);
   assert.ok(!text.includes('—'));
