@@ -85,6 +85,24 @@ test('a run: only the chosen server in the sandbox, the guard wired, no files or
   assert.equal((readFileSync(file, 'utf8').match(/^## /gm) || []).length, 1);
 });
 
+test('the file and the run heading are the hub\'s own day and time: 07:50 in Sydney is the 12th, not the 11th', async () => {
+  const s = hub();
+  writeFileSync(path.join(s, 'profile.yaml'), 'identity:\n  timezone: "Australia/Sydney"\n');
+  setConfig(s, { enabled: true, server: 'google-hello' });
+  let prompt = '';
+  const runTurn = async (o) => { prompt = o.prompt; return { text: JSON.stringify({ time: '07:12', from: 'Priya', client: 'globex', want: 'asks for the renewal quote', urgency: 'week' }) }; };
+  // Mon 12 Oct 07:50 AEDT is Sun 11 Oct 20:50 UTC
+  const r = await run(s, { runTurn, now: new Date('2026-10-11T20:50:00Z') });
+  assert.equal(r.ok, true);
+  const digest = path.join(s, 'org', 'brain', 'digest');
+  assert.ok(!existsSync(path.join(digest, 'inbox-2026-10-11.md')), 'nothing in yesterday\'s file');
+  const text = readFileSync(path.join(digest, 'inbox-2026-10-12.md'), 'utf8');
+  assert.match(text, /^# Shared inbox, 2026-10-12\n/);
+  assert.match(text, /\n## 07:50 Australia\/Sydney\n\n- 07:12 · Priya/);
+  assert.match(text, /source: hub\/inbox · 2026-10-12\n/);
+  assert.match(prompt, /"time" is when it arrived, in Australia\/Sydney/);
+});
+
 test('off by default, never on a staff box, and refuses a harness whose guard it cannot wire', async () => {
   const s = hub();
   assert.match((await run(s, { runTurn: async () => ({ text: '' }) })).output, /shared inbox is off/);

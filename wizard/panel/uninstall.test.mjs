@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { wantsUninstall, uninstallEntryRegText, registerUninstall, uninstall, folderRemovalScript, UNINSTALL_KEY, PROTOCOL_KEY } from './uninstall.mjs';
+import { wantsUninstall, wantsInstall, uninstallEntryRegText, registerUninstall, uninstall, folderRemovalScript, UNINSTALL_KEY, PROTOCOL_KEY } from './uninstall.mjs';
 
 const facts = { target: 'C:\\Users\\a\\AppData\\Local\\Programs\\Crads-AI\\Crads-AI.exe', dir: 'C:\\Users\\a\\AppData\\Local\\Programs\\Crads-AI', ico: 'C:\\Users\\a\\AppData\\Local\\Programs\\Crads-AI\\crads-ai.ico', version: 'abcdef12', sizeBytes: 89 * 1024 * 1024, installDate: '20260914' };
 
@@ -90,4 +90,24 @@ test('app.mjs wires the flag before the single-instance dance and registers the 
   const dance = app.indexOf('no live instance; relaunching self detached');
   assert.ok(flag > -1 && dance > -1 && flag < dance, '--uninstall must be handled before the app relaunches itself');
   assert.ok(app.includes('registerUninstall('), 'selfInstall registers the Add/Remove entry');
+});
+
+test('wantsInstall: only the exact --install flag, any case', () => {
+  assert.equal(wantsInstall(['C:\\x.exe', '--install']), true);
+  assert.equal(wantsInstall(['C:\\x.exe', '--INSTALL']), true);
+  assert.equal(wantsInstall(['C:\\x.exe', '--uninstall']), false);
+  assert.equal(wantsInstall(['C:\\x.exe', 'crads-ai://box/a']), false);
+  assert.equal(wantsInstall(undefined), false);
+});
+
+test('app.mjs: --install (the Microsoft Store silent install) installs, waits, exits, opens nothing', () => {
+  const app = readFileSync(new URL('../app.mjs', import.meta.url), 'utf8');
+  const flag = app.indexOf('wantsInstall(process.argv)');
+  const dance = app.indexOf('no live instance; relaunching self detached');
+  assert.ok(flag > -1 && dance > -1 && flag < dance, '--install must be handled before the app relaunches itself');
+  assert.match(app, /if \(wantsInstall\(process\.argv\)\) process\.exit\(await runSilentInstall\(sea\)\);/, '--install exits with the install result');
+  const fn = app.slice(app.indexOf('async function runSilentInstall'), app.indexOf('// First-run self-install'));
+  assert.match(fn, /await selfInstall\(sea, \{ force: true, desktop: false \}\)/, 'waits for the whole install, ignores AIOS_NO_INSTALL, no desktop shortcut');
+  assert.ok(!/openAppWindow|startServers|listen\(/.test(fn), 'the silent install never opens a window or starts servers');
+  assert.match(app, /refresh\(wantDesktop \? \[startMenu, desktop\] : \[startMenu\]\)/, 'the desktop shortcut is skippable');
 });

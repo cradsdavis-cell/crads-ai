@@ -23,6 +23,10 @@ const run = (cmd, args) => new Promise((res, rej) => execFile(cmd, args, (e, so)
 export function wantsUninstall(argv) {
   return (argv || []).some((a) => String(a || '').toLowerCase() === '--uninstall');
 }
+// `--install`: the silent install the Microsoft Store runs (app.mjs runSilentInstall).
+export function wantsInstall(argv) {
+  return (argv || []).some((a) => String(a || '').toLowerCase() === '--install');
+}
 
 // The Add/Remove entry as ONE .reg file, imported in a single `reg import` call. Twelve
 // separate `reg add` calls looked simpler, but the entry then exists half-written for a

@@ -35,7 +35,7 @@ import { probePromotedHosts } from './panel/face-probe.mjs';
 import { getBuildInfo, checkForUpdate, cleanupOld, applyUpdate } from './panel/updater.mjs';
 import { createDoorServer } from './panel/door-server.mjs';
 import { extractBox, registerProtocolHandler } from './panel/protocol.mjs';
-import { wantsUninstall, uninstall, registerUninstall } from './panel/uninstall.mjs';
+import { wantsUninstall, wantsInstall, uninstall, registerUninstall } from './panel/uninstall.mjs';
 import { pushOwnedBrains } from './panel/brain-push.mjs';
 import { runSsh } from './panel/ssh-bridge.mjs';
 import { launchTarget, readLastUsed, lastUsedPath } from './panel/last-used.mjs';
@@ -95,14 +95,40 @@ async function runUninstall() {
     : `${APP_NAME} uninstall finished with problems: ${r.failed.join(', ')}. Delete ${dir} by hand if it is still there.`);
 }
 
+// `Crads-AI.exe --install`: the silent installer the Microsoft Store runs
+// (2026-10-14). The Store wants a complete installer that needs no clicks and
+// EXITS, while a normal first run installs and then becomes the app. So: the
+// same selfInstall, awaited to the end (Add/Remove entry included), the
+// crads-ai:// handler, then exit 0 if the program is in place. No window, no
+// servers, and no desktop shortcut (an unasked-for desktop icon is the kind of
+// change Store review flags; the Start menu entry is how Store apps are found).
+// Handled before the single-instance dance, like --uninstall.
+async function runSilentInstall(sea) {
+  if (!sea || process.platform !== 'win32') {
+    console.log(`${APP_NAME} --install only applies to the packaged Windows app.`);
+    return 1;
+  }
+  const target = join(process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local'), 'Programs', APP_NAME, `${APP_NAME}.exe`);
+  await selfInstall(sea, { force: true, desktop: false });
+  await registerProtocolHandler().then((r) => dbg(`protocol handler: ${r.done ? 'registered' : r.reason}`)).catch(() => {});
+  const ok = existsSync(target);
+  dbg(`silent install: ${ok ? 'installed' : 'FAILED'} (${target})`);
+  console.log(ok ? `${APP_NAME} installed: ${target}` : `${APP_NAME} install failed: ${target} is missing`);
+  return ok ? 0 : 1;
+}
+
 // First-run self-install (packaged app only). Windows: copy the exe to
 // %LOCALAPPDATA%\Programs\Crads-AI\ + Start-menu/desktop shortcuts. macOS: copy
 // the whole .app bundle into ~/Applications (no admin prompt, Launchpad picks it
 // up) unless it's already running from /Applications or ~/Applications. Best-effort
 // (an app that fails to install still runs fine from anywhere); skipped via
 // AIOS_NO_INSTALL=1 (CI).
-function selfInstall(sea) {
-  if (!sea || process.env.AIOS_NO_INSTALL === '1') return;
+// Returns the Add/Remove entry's promise on Windows (undefined elsewhere) so
+// --install can wait for the whole install; the normal launch ignores it.
+// force: install even under AIOS_NO_INSTALL (--install is an explicit request).
+// desktop: false skips the desktop shortcut (the silent Store install).
+function selfInstall(sea, { force = false, desktop: wantDesktop = true } = {}) {
+  if (!sea || (process.env.AIOS_NO_INSTALL === '1' && !force)) return;
   if (process.platform === 'darwin') {
     try {
       const bundle = macBundleRoot();
@@ -178,8 +204,7 @@ function selfInstall(sea) {
         if (stale.length) refresh(stale);
         nudgeIconCache();
       } else if (state === 'updated') nudgeIconCache();        // same path, new pixels: cache is the only stale layer
-      registerEntry();                                         // migration: installs that predate the Add/Remove entry
-      return;
+      return registerEntry();                                  // migration: installs that predate the Add/Remove entry
     }
     mkdirSync(dir, { recursive: true });
     try { copyFileSync(process.execPath, target); } catch { /* installed copy is running; keep it */ }
@@ -187,9 +212,10 @@ function selfInstall(sea) {
     writeIco();
     writeHost();
     sweepHosts();
-    registerEntry();                                           // fast reg adds first; the shortcut PowerShell below can take seconds
-    refresh([startMenu, desktop]);
-    console.log(`installed: ${target} (Start menu + desktop shortcuts created; uninstall from Windows Settings > Apps, or run "${target}" --uninstall)`);
+    const entry = registerEntry();                             // fast reg adds first; the shortcut PowerShell below can take seconds
+    refresh(wantDesktop ? [startMenu, desktop] : [startMenu]);
+    console.log(`installed: ${target} (Start menu${wantDesktop ? ' + desktop shortcuts' : ' shortcut'} created; uninstall from Windows Settings > Apps, or run "${target}" --uninstall)`);
+    return entry;
   } catch { /* best-effort by design */ }
 }
 
@@ -218,6 +244,7 @@ async function main() {
   try { const m = await import('node:sea'); if (m.isSea()) sea = m; } catch { /* dev: no SEA module */ }
   if (sea) setHostTag(sea);
   if (wantsUninstall(process.argv)) { await runUninstall(); process.exit(0); }
+  if (wantsInstall(process.argv)) process.exit(await runSilentInstall(sea));
   dbg(`main() start: platform=${process.platform} sea=${!!sea} execPath=${process.execPath} NO_LAUNCH=${process.env.AIOS_NO_LAUNCH || ''} RELAUNCHED=${process.env.AIOS_RELAUNCHED || ''} netAttemptMs=${attemptMs}`);
   // One shape on Windows and macOS (see wizard/panel/launch-plan.mjs): a click
   // while a copy answers reopens its window and exits; otherwise the launched

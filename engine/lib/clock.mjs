@@ -51,7 +51,10 @@ export function boxTz(stateDir) {
 }
 // Client-local "HH:MM" too (used by future cadence-trigger evaluation).
 export function localTime(stateDir, tz) {
-  const d = now(stateDir);
+  return timeIn(now(stateDir), tz);
+}
+// The wall-clock "HH:MM" of an instant in an IANA tz (UTC when none).
+export function timeIn(d, tz) {
   return new Intl.DateTimeFormat('en-GB', { timeZone: tz || 'UTC', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
 }
 

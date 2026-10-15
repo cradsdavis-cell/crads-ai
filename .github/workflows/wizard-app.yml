@@ -481,6 +481,43 @@ jobs:
           if (Test-Path $dir) { Get-ChildItem $dir | Write-Host; throw "the program folder survived --uninstall: $dir" }
           Write-Host 'smoke OK: Add/Remove entry present after install, gone after --uninstall, folder removed'
 
+      # The Microsoft Store installer contract (2026-10-14): the Store runs the
+      # exe with --install and needs it to install with no clicks and EXIT (a
+      # normal first run installs and then stays running as the app). Runs on
+      # the clean machine the uninstall smoke just left behind.
+      - name: Smoke the silent Store install (--install installs, exits, opens nothing)
+        run: |
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Crads-AI'
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\Crads-AI\Crads-AI.exe'
+          $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Crads-AI.lnk'
+          $desk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Crads-AI.lnk'
+          $startupLog = Join-Path $env:LOCALAPPDATA 'Crads-AI\startup.log'
+          if (Test-Path $key) { throw 'precondition: the Add/Remove entry is still there from an earlier step' }
+          $env:AIOS_NO_LAUNCH = $null
+          $env:AIOS_NO_INSTALL = $null
+          $p = Start-Process -FilePath .\dist\crads-ai.exe -ArgumentList '--install' -PassThru -NoNewWindow `
+            -RedirectStandardOutput dist\smoke-silent-out.log -RedirectStandardError dist\smoke-silent-err.log
+          if (-not $p.WaitForExit(120000)) {
+            Stop-Process -Id $p.Id -Force
+            if (Test-Path $startupLog) { Get-Content $startupLog -Raw | Write-Host }
+            throw '--install did not exit within 120 s (the Store would time the installer out)'
+          }
+          Get-Content dist\smoke-silent-out.log -Raw | Write-Host
+          if ($p.ExitCode -ne 0) {
+            Get-Content dist\smoke-silent-err.log -Raw | Write-Host
+            throw "--install exited $($p.ExitCode), not 0"
+          }
+          if (-not (Test-Path $exe)) { throw "--install did not copy the exe to $exe" }
+          $entry = Get-ItemProperty $key -ErrorAction SilentlyContinue
+          if (-not $entry.UninstallString) { throw '--install exited before the Add/Remove entry was complete' }
+          if (Test-Path $desk) { throw '--install created a desktop shortcut (the Store install must not)' }
+          if (-not (Test-Path $lnk)) { Write-Host "::warning::--install did not create the Start-menu shortcut (best-effort, as in the first-run smoke)" }
+          Start-Sleep -Seconds 3
+          $left = Get-Process | Where-Object { $_.Path -and ($_.Path -like "$env:LOCALAPPDATA\Programs\Crads-AI\*" -or $_.Path -like "$PWD\dist\crads-ai*") }
+          if ($left) { $left | Format-Table Id, Path -AutoSize | Out-String | Write-Host; throw '--install left a Crads-AI process running (it must open nothing)' }
+          & $exe --uninstall | Out-Null
+          Write-Host 'smoke OK: --install installed silently, wrote the Add/Remove entry, no desktop shortcut, exited 0, nothing left running'
+
       # A debugging convenience, deliberately NON-BLOCKING (2026-07-30): when the
       # account's artifact storage filled up, this step failed and SKIPPED both the
       # release publish and the public mirror, so finished builds could not ship.
