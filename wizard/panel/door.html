@@ -1197,7 +1197,12 @@
     if (card) shPickProvider(card.getAttribute('data-provider'));
   });
   function shWhereWords(){
-    return 'Where should it live? ' + shProviders.length + ' hosting companies are supported; the server is built in your own account at whichever you pick.'
+    // "A server you already have" is not a hosting company: count only the
+    // ones the app builds at, and name the own-server card on its own.
+    var hosts = shProviders.filter(function(p){ return !p.ownServer; }).length;
+    var own = shProviders.some(function(p){ return p.ownServer; });
+    return 'Where should it live? The app can build a server in your own account at ' + hosts + ' hosting companies'
+      + (own ? ', or set up a server you already have' : '') + '.'
       + (moveUp ? '' : ' Or, last in the list, on this computer with no server.');
   }
   function shLoadProviders(){

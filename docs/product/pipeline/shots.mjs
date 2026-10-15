@@ -100,10 +100,12 @@ add('door-empty', 'door', 'empty', { note: 'a machine with no minerals yet: the 
 // photographed without a server ever being made. The first-hour tutorial
 // walks these in order. Selectors are door.html's own ids.
 const SH_OPEN = { click: '[data-make="selfhost"]' };
-add('door-costs', 'door', 'empty', { acts: [SH_OPEN],
+// full: true since 2026-10-15: a third card (A server you already have) pushed
+// the button below the fold.
+add('door-costs', 'door', 'empty', { acts: [SH_OPEN], full: true,
   note: 'wizard step 1: the bill in full before anything is created; the first screen behind Set up my own',
   marks: [
-    { sel: '#shProviders', say: 'Pick where it lives: Hetzner (cheapest) or DigitalOcean (has a Sydney location). The server is built in your own account there.' },
+    { sel: '#shProviders', say: 'Pick where it lives: Hetzner (cheapest), DigitalOcean (has a Sydney location), or a server you already have (AWS, Google Cloud, Azure, or your own machine). The server is in your own account or your own hands.' },
     { sel: '#shCosts ul', say: 'The whole bill: the server, billed by the host you picked; your Claude subscription, billed by Anthropic; nothing to Crads-AI.' },
     { sel: '#shCostsOk', say: 'Carry on. No cost appears on any later screen.' },
   ] });
