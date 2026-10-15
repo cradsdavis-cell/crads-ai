@@ -140,13 +140,25 @@ jobs:
 
       - name: Confirm what is live
         run: |
-          Start-Sleep -Seconds 10
           # GitHub serves release assets as application/octet-stream, so .Content
           # is a byte[] and piping it straight into ConvertFrom-Json yields
           # nothing (the first live run, 14 Oct, read an empty build here).
-          $c = (Invoke-WebRequest -UseBasicParsing "https://github.com/$env:REPO/releases/download/wizard-app/version.json").Content
-          if ($c -is [byte[]]) { $c = [Text.Encoding]::UTF8.GetString($c) }
-          $live = $c.TrimStart([char]0xFEFF) | ConvertFrom-Json
-          if (-not $live.sha) { throw 'could not read the live version.json' }
-          if ($live.sha -ne $env:STAGED_SHA) { throw "live version.json says $($live.sha), expected $env:STAGED_SHA" }
+          # The download URL is cached for a while after an upload: build 40's
+          # promote (15 Oct, run 38673802794) published correctly, then this step
+          # read the PREVIOUS build's version.json 10 s later and failed. So ask
+          # again for up to two minutes, with a cache-busting query, and fail only
+          # if the new build never shows.
+          $live = $null
+          for ($i = 1; $i -le 12; $i++) {
+            Start-Sleep -Seconds 10
+            try {
+              $c = (Invoke-WebRequest -UseBasicParsing -Headers @{ 'Cache-Control' = 'no-cache' } "https://github.com/$env:REPO/releases/download/wizard-app/version.json?t=$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())").Content
+              if ($c -is [byte[]]) { $c = [Text.Encoding]::UTF8.GetString($c) }
+              $live = $c.TrimStart([char]0xFEFF) | ConvertFrom-Json
+            } catch { Write-Host "try $i : could not read the live version.json ($($_.Exception.Message))"; continue }
+            if ($live.sha -eq $env:STAGED_SHA) { break }
+            Write-Host "try $i : live version.json still says $($live.sha); asking again"
+          }
+          if (-not $live -or -not $live.sha) { throw 'could not read the live version.json' }
+          if ($live.sha -ne $env:STAGED_SHA) { throw "live version.json says $($live.sha), expected $env:STAGED_SHA (after 2 minutes)" }
           Write-Host "live: build $($live.build) sha $($live.sha)"
