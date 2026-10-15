@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 5
 pins: wizard/panel/door.html, wizard/provision/engine.mjs, wizard/provision/hetzner.mjs, wizard/provision/providers.mjs
-reviewed: 2026-10-13
+reviewed: 2026-10-15
 ---
 
 Crads-AI is self-hosted: your assistant runs on a server in your own hosting
@@ -31,8 +31,8 @@ and nothing is charged until a server actually exists.
 
 What it costs depends on the size and the location. The wizard picks
 Hetzner's Arm machines first, because they are the cheapest it sells with
-enough memory: about €6 a month for Small, €10.50 for Standard and €21 for
-Roomy (Hetzner's list prices on 13 October 2026). Arm is sold in Germany and
+enough memory: about €6 a month for Standard, €10.50 for Roomy and €21 for
+Extra roomy (Hetzner's list prices on 13 October 2026). Arm is sold in Germany and
 Finland only. Where a location does not sell Arm, the wizard falls back to an
 Intel or AMD machine with the same memory, which costs more: roughly €19 to
 €70 a month in Germany and Finland, and more again in Singapore and the US. The

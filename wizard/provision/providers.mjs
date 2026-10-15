@@ -22,8 +22,23 @@
 // Prices are whatever the provider's own price list says, in the provider's
 // own currency; `symbol` is how the page writes it. Nothing here is a price
 // Crads-AI charges: there is nothing to charge.
+//
+// Optional entry fields (2026-10-14, the third provider):
+//   credentialFields  [{ key, label, secret, placeholder, help, optional }] for a
+//                     provider that signs in with more than one value (Scaleway). The door
+//                     shows one box per value and sends them as ONE JSON string
+//                     in the usual `token` slot, so routes, the engine and the
+//                     team flow carry it unchanged; the client parses it. Still
+//                     in memory only, never written down.
+//   tokenSteps        plain-text steps for the door's "how to get one" fold
+//   tokenNote         the line under them (where the token goes, how to revoke)
+//   preview           true until the provider has passed a live build on a real
+//                     account (wizard/provision/live-cert.mjs). A preview
+//                     provider is buildable by id but is not listed to members
+//                     unless CRADS_PROVIDER_PREVIEW=1 is set (operator testing).
 import { HetznerClient } from './hetzner.mjs';
 import { DigitalOceanClient } from './digitalocean.mjs';
+import { ScalewayClient } from './scaleway.mjs';
 
 export const PROVIDERS = {
   hetzner: {
@@ -35,7 +50,7 @@ export const PROVIDERS = {
     tokenLabel: 'Your Hetzner API token',
     tokenHelpDocSlug: 'get-a-hetzner-api-token',
     costsCopy: 'a Hetzner cloud server, about €6 to €21 a month for the sizes we recommend (more in a location that only sells the dearer Intel and AMD machines), billed to you by Hetzner in euros',
-    blurb: 'German hosting, cheapest by some way. Locations in Germany, Finland, the US and Singapore.',
+    blurb: 'German hosting, cheapest by some way. Builds in Helsinki by default, on one of Europe\u2019s cleanest grids. Also Germany, the US and Singapore.',
     // Arm first (Sam's ruling, 2026-10-13): the product images are multi-arch
     // (linux/amd64 + linux/arm64 under one :v2 index), and Hetzner's Arm
     // machines (cax) are the cheapest 8 GB it sells. hel1 sells all three Arm
@@ -43,17 +58,19 @@ export const PROVIDERS = {
     // of `locationPreference` that sells the default machine on the day (see
     // defaultLocationFor), so a location running dry moves the default rather
     // than failing the build.
-    defaults: { location: 'hel1', serverType: 'cax21' },
+    defaults: { location: 'hel1', serverType: 'cax11' },
     locationPreference: ['hel1', 'fsn1', 'nbg1'],
     // Preference chains: the first type in the chain the chosen location
     // SELLS wins. Each chain holds one memory size (4 / 8 / 16 GB): Arm (cax,
     // EU only), then Intel shared (cx, EU, the cheapest x86 when it is in
     // stock), then AMD shared (cpx), which is all the US and Singapore sell.
     // A smaller machine is never substituted for a sold-out one.
+    // Sizes moved down one step (Sam, 2026-10-15): Standard 4 GB, Roomy
+    // 8 GB, Extra roomy (`large`) 16 GB; see the size cards in door.html.
     sizeChains: {
-      small: ['cax11', 'cx23', 'cpx21', 'cpx22'],
-      standard: ['cax21', 'cx33', 'cpx31', 'cpx32'],
-      roomy: ['cax31', 'cx43', 'cpx41', 'cpx42'],
+      standard: ['cax11', 'cx23', 'cpx21', 'cpx22'],
+      roomy: ['cax21', 'cx33', 'cpx31', 'cpx32'],
+      large: ['cax31', 'cx43', 'cpx41', 'cpx42'],
     },
     makeClient: (token, opts) => new HetznerClient(token, opts),
   },
@@ -68,18 +85,61 @@ export const PROVIDERS = {
     costsCopy: 'a DigitalOcean droplet, roughly $24 to $96 a month depending on the size you pick, billed to you by DigitalOcean in US dollars',
     blurb: 'Dearer than Hetzner at the same size, but it has a Sydney location, and locations across the US, Europe and Asia.',
     // Sydney first: the one location Hetzner cannot offer an Australian.
-    defaults: { location: 'syd1', serverType: 's-4vcpu-8gb' },
+    defaults: { location: 'syd1', serverType: 's-2vcpu-4gb' },
     // Same machine SPECS as the Hetzner chains (4 / 8 / 16 GB), so "Small",
     // "Standard" and "Roomy" mean the same thing on either provider. The
     // memory-matched fallback exists for a region that sells the amd variant
     // only; a smaller machine is never substituted, because an assistant that
     // runs out of memory is worse than a dearer one.
     sizeChains: {
-      small: ['s-2vcpu-4gb', 's-2vcpu-4gb-amd'],
-      standard: ['s-4vcpu-8gb', 's-4vcpu-8gb-amd'],
-      roomy: ['s-8vcpu-16gb', 's-8vcpu-16gb-amd'],
+      standard: ['s-2vcpu-4gb', 's-2vcpu-4gb-amd'],
+      roomy: ['s-4vcpu-8gb', 's-4vcpu-8gb-amd'],
+      large: ['s-8vcpu-16gb', 's-8vcpu-16gb-amd'],
     },
     makeClient: (token, opts) => new DigitalOceanClient(token, opts),
+  },
+  scaleway: {
+    id: 'scaleway',
+    label: 'Scaleway (low-carbon)',
+    currency: 'EUR',
+    symbol: '€',
+    console: 'console.scaleway.com',
+    tokenLabel: 'Your Scaleway secret key and Project ID',
+    tokenHelpDocSlug: 'get-a-scaleway-api-key',
+    costsCopy: 'a Scaleway server in Paris, about €24 to €58 a month for the sizes we recommend (including its 80 GB disk; the public IPv4 address is billed on top), billed to you by Scaleway in euros',
+    blurb: 'French hosting on a low-carbon grid (about 44 gCO2e per kWh, more than ten times cleaner than New South Wales). One location: Paris.',
+    // PARKED 2026-10-15 (Sam): stays preview, NOT to be listed. Live: a new
+    // Scaleway account gets 0/0 quota for every server type in Paris even
+    // after phone and ID verification; opening Paris needs a support request,
+    // so a member would face four hurdles before a first build. The eco line
+    // moved to Hetzner Helsinki (Finland's grid about 57 gCO2e/kWh in 2025)
+    // instead. Kept, not deleted, in case Scaleway's new-account rules loosen.
+    // Sam's ruling (2026-10-14): the eco option. LOCKED to fr-par-2 (DC5):
+    // the claim is the French grid plus DC5's published PUE and Scaleway's
+    // per-customer footprint report; Amsterdam (about 253 g) or Warsaw (about
+    // 615 g) would undo it, so scaleway.mjs refuses every other zone. Chains
+    // match on memory: the cheapest 8 GB machine is the 2 vCPU Arm BASIC2.
+    preview: true,
+    defaults: { location: 'fr-par-2', serverType: 'BASIC2-A2C-4G' },
+    locationPreference: ['fr-par-2'],
+    sizeChains: {
+      standard: ['BASIC2-A2C-4G', 'PLAY2-NANO'],
+      roomy: ['BASIC2-A2C-8G', 'BASIC2-A4C-8G', 'PLAY2-MICRO'],
+      large: ['BASIC2-A4C-16G', 'PRO2-XS'],
+    },
+    credentialFields: [
+      { key: 'secretKey', label: 'Secret key', secret: true, placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', help: 'The long key with dashes, shown once when you generate the API key. Not the access key that starts with SCW.' },
+      { key: 'projectId', label: 'Project ID', secret: false, placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', help: 'In the Scaleway console: Project settings, then copy the Project ID.' },
+    ],
+    tokenSteps: [
+      'Make a Scaleway account at console.scaleway.com if you do not have one, and add a payment method.',
+      'Verify your phone number (the banner at the top of the console) and your ID (Organization, then Quotas, then "Verify ID"). Scaleway will not build servers in Paris for a new account until both are done, and the ID check can take a little while.',
+      'Pick a Project in the top bar (Default Project is fine), open Project settings and copy the Project ID into the box below. A separate Project for your assistant keeps its server apart from anything else you run there.',
+      'Open IAM from the organisation menu (top right), then API keys, then "Generate API key". The simplest bearer is yourself; give it no expiry or a date you will remember, and answer No to the Object Storage question.',
+      'Copy the Secret key straight away (shown once) into the box below. Ignore the access key that starts with SCW.',
+    ],
+    tokenNote: 'These stay on this computer and are sent only to Scaleway\u2019s own API. The secret key is the key to your account, so treat it like a password; you can delete it any time from the same page.',
+    makeClient: (token, opts) => new ScalewayClient(token, opts),
   },
 };
 
@@ -119,7 +179,10 @@ export function providerOf(id) {
 }
 
 // The registry as a page can receive it: no functions, fresh objects. Order is
-// the order the door shows the cards in.
-export function publicProviders() {
-  return Object.values(PROVIDERS).map(({ makeClient, ...rest }) => structuredClone(rest));
+// the order the door shows the cards in. Preview providers (not yet proven on
+// real metal) are left out unless the operator opts in.
+export function publicProviders({ includePreview = process.env.CRADS_PROVIDER_PREVIEW === '1' } = {}) {
+  return Object.values(PROVIDERS)
+    .filter((p) => includePreview || !p.preview)
+    .map(({ makeClient, ...rest }) => structuredClone(rest));
 }

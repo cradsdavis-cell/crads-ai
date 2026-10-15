@@ -7,7 +7,7 @@ access: public
 mode: explanation
 order: 5
 pins: wizard/panel/door.html, wizard/panel/member.html
-reviewed: 2026-10-14
+reviewed: 2026-10-15
 ---
 
 Short answers, in the order people ask them. Every answer links the page that
@@ -121,6 +121,17 @@ backup in your own repository.
 gets an answer back from, on your own Claude account. They do the thinking.
 They are not where your world is kept: what goes over is the part of the
 question your assistant needs answered, not your filing cabinet.
+
+## Is it low-carbon?
+
+Built in Helsinki, the wizard's default, your server runs on Finland's grid:
+about 57 grams of CO2e per kilowatt-hour in 2025, roughly a ninth of
+Australia's average. Hetzner also holds hydropower certificates for its
+Finnish data centre. Two limits, plainly. If Helsinki is out of stock the
+wizard builds in Germany instead, where the grid is dirtier (Hetzner says it
+buys renewable electricity there). And the thinking happens at Anthropic, not
+on your server, so this makes the server cleaner, not the whole assistant.
+Pick DigitalOcean for Sydney and your server runs on the Australian grid.
 
 ## What happens if Crads AI disappears?
 

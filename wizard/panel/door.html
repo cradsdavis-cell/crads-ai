@@ -368,7 +368,7 @@
       <p class="hint" id="shMoveIntro" style="display:none"></p>
 
       <div id="shCosts">
-        <p class="hint">Where should it live? Two hosting companies are supported; the server is built in your own account at whichever you pick.</p>
+        <p class="hint" id="shWhereHint">Where should it live? The server is built in your own account at whichever hosting company you pick.</p>
         <div class="cards3" id="shProviders"></div>
         <p class="hint">The real costs, before anything is made. The software is free and open source. What costs money is the machine it runs on and the AI inside it, and you pay both providers directly:</p>
         <ul class="hint" style="margin:.4em 0 .8em 1.2em">
@@ -384,7 +384,7 @@
         <label for="shName">Name your mineral</label>
         <input id="shName" placeholder="e.g. your first name" autocomplete="off" spellcheck="false">
         <label for="shToken" id="shTokenLabel">Your Hetzner API token</label>
-        <details class="tokhelp" id="shTokenHelp" open>
+        <details class="tokhelp" id="shTokenHelp" data-tokhelp="hetzner" open>
           <summary>How to get one (about five minutes)</summary>
           <ol class="hint">
             <li><b>Make a Hetzner account</b> at <span class="mono">console.hetzner.com</span> if you do not have one. Sign up with your email, confirm it, and add a payment method. Hetzner sometimes asks new accounts to verify identity; if it does, that step is theirs and can take a little while.</li>
@@ -395,7 +395,7 @@
           </ol>
           <p class="hint">The token stays on this computer and is sent only to Hetzner&#8217;s own API. It is the key to your hosting project, so treat it like a password; you can revoke it any time from the same screen.</p>
         </details>
-        <details class="tokhelp" id="shTokenHelpDo" open style="display:none">
+        <details class="tokhelp" id="shTokenHelpDo" data-tokhelp="digitalocean" open style="display:none">
           <summary>How to get one (about five minutes)</summary>
           <ol class="hint">
             <li><b>Make a DigitalOcean account</b> at <span class="mono">cloud.digitalocean.com</span> if you do not have one. Sign up with your email, confirm it, and add a payment method. New accounts are sometimes asked to verify identity; that step is theirs and can take a little while.</li>
@@ -405,7 +405,19 @@
           </ol>
           <p class="hint">The token stays on this computer and is sent only to DigitalOcean&#8217;s own API. It is the key to your account, so treat it like a password; you can revoke it any time from the same screen.</p>
         </details>
+        <!-- Providers after the first two (2026-10-14) carry their own steps in
+             the registry (tokenSteps / tokenNote), so adding one is a registry
+             entry, not another hand-written fold here. -->
+        <details class="tokhelp" id="shTokenHelpReg" open style="display:none">
+          <summary>How to get one (about five minutes)</summary>
+          <ol class="hint" id="shTokenSteps"></ol>
+          <p class="hint" id="shTokenNote"></p>
+        </details>
         <input id="shToken" type="password" autocomplete="off" spellcheck="false" placeholder="paste the token here">
+        <!-- A provider that signs in with more than one value (credentialFields
+             in the registry) gets one box per value here instead of shToken;
+             they travel to the local server as one JSON string, never stored. -->
+        <div id="shCreds"></div>
         <div id="shOpts" style="display:none">
           <label for="shLoc">Where in the world</label>
           <select id="shLoc"></select>
@@ -416,14 +428,19 @@
                the chosen location sells), and the fine print names it with the
                real monthly price from the provider's own list. -->
           <div id="shSizes">
-            <button type="button" class="sizecard" data-size="small"><b>Small</b>
-              <span>About the cheapest that runs well. Fine for getting started and light daily use.</span>
-              <span class="fine" data-fine></span></button>
+            <!-- Sizes moved down one step (Sam, 2026-10-15): a mineral was
+                 measured at about 2 to 2.5 GB on a normal day and about
+                 3.5 GB at a heavy peak (one Claude Code session about 336 MB,
+                 each connector about 52 MB, measured on the operator box), so
+                 4 GB is the recommendation and 8 GB the step up. -->
             <button type="button" class="sizecard" data-size="standard"><b>Standard</b> <span class="reco">recommended</span>
-              <span>What we test on. Comfortable for one person&#8217;s assistant, day in and day out.</span>
+              <span>Comfortable for one person&#8217;s assistant, day in and day out.</span>
               <span class="fine" data-fine></span></button>
             <button type="button" class="sizecard" data-size="roomy"><b>Roomy</b>
-              <span>Headroom for heavy use: big imports, lots of documents, never having to think about it.</span>
+              <span>Headroom for heavy use: big imports, lots of documents, several things running at once.</span>
+              <span class="fine" data-fine></span></button>
+            <button type="button" class="sizecard" data-size="large"><b>Extra roomy</b>
+              <span>For a team&#8217;s company assistant, or very heavy use.</span>
               <span class="fine" data-fine></span></button>
           </div>
         </div>
@@ -565,6 +582,7 @@
         <select id="tmProvider"></select>
         <label for="tmToken">API token for that hosting account</label>
         <input id="tmToken" type="password" autocomplete="off" spellcheck="false" placeholder="paste the token here">
+        <div id="tmCreds"></div>
         <p class="hint">The same token as &#8220;Set up my own&#8221; uses (read and write). It stays on this computer and is never stored.</p>
         <div id="tmOpts" style="display:none">
           <label for="tmLoc">Where in the world</label>
@@ -1087,8 +1105,45 @@
     document.getElementById('shCostServer').textContent = shProvider.costsCopy;
     document.getElementById('shCostNeed').textContent = 'You need a ' + shProvider.label + ' account and an API token; the next screen walks you through getting one. The token stays on this computer.';
     document.getElementById('shTokenLabel').textContent = shProvider.tokenLabel;
-    document.getElementById('shTokenHelp').style.display = shProvider.id === 'hetzner' ? '' : 'none';
-    document.getElementById('shTokenHelpDo').style.display = shProvider.id === 'digitalocean' ? '' : 'none';
+    var handFold = false;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-tokhelp]'), function(el){
+      var mine = el.getAttribute('data-tokhelp') === shProvider.id;
+      if (mine) handFold = true;
+      el.style.display = mine ? '' : 'none';
+    });
+    var steps = shProvider.tokenSteps || [];
+    document.getElementById('shTokenHelpReg').style.display = (!handFold && steps.length) ? '' : 'none';
+    document.getElementById('shTokenSteps').innerHTML = steps.map(function(t){ return '<li>' + esc(t) + '</li>'; }).join('');
+    document.getElementById('shTokenNote').textContent = shProvider.tokenNote || '';
+    credRender('sh', shProvider);
+  }
+  // One token box, or one box per value for a provider that signs in with
+  // several (credentialFields). credValue() is the single place either is read.
+  function credRender(prefix, p){
+    var fields = (p && p.credentialFields) || [];
+    document.getElementById(prefix + 'Token').style.display = fields.length ? 'none' : '';
+    document.getElementById(prefix + 'Creds').innerHTML = fields.map(function(f){
+      var id = prefix + 'Cred-' + f.key;
+      return '<label for="' + esc(id) + '">' + esc(f.label) + '</label>'
+        + '<input id="' + esc(id) + '" data-cred="' + esc(f.key) + '" type="' + (f.secret ? 'password' : 'text') + '" autocomplete="off" spellcheck="false" placeholder="' + esc(f.placeholder || '') + '">'
+        + (f.help ? '<p class="hint">' + esc(f.help) + '</p>' : '');
+    }).join('');
+  }
+  function credValue(prefix, p){
+    var fields = (p && p.credentialFields) || [];
+    if (!fields.length) return document.getElementById(prefix + 'Token').value.trim();
+    var out = {}, missing = false;
+    fields.forEach(function(f){
+      var el = document.getElementById(prefix + 'Cred-' + f.key);
+      var v = el ? el.value.trim() : '';
+      if (v) out[f.key] = v; else if (!f.optional) missing = true;
+    });
+    return missing ? '' : JSON.stringify(out);
+  }
+  function credMissingText(p){
+    return (p && p.credentialFields && p.credentialFields.length)
+      ? 'Fill in each ' + String(p.label).replace(/\s*\(.*\)$/, '') + ' value above first.'
+      : 'Paste your ' + ((p && p.label) || 'hosting') + ' API token first.';
   }
   function shPickProvider(id){
     shProvider = shProviders.filter(function(p){ return p.id === id; })[0] || shProviders[0] || null;
@@ -1205,12 +1260,19 @@
     tmErr('');
     fetch('/provision/providers').then(function(r){ return r.json(); }).then(function(d){
       var sel = document.getElementById('tmProvider');
-      sel.innerHTML = ((d && d.providers) || []).map(function(p){ return '<option value="' + esc(p.id) + '">' + esc(p.label) + '</option>'; }).join('');
+      tmProviders = (d && d.providers) || [];
+      sel.innerHTML = tmProviders.map(function(p){ return '<option value="' + esc(p.id) + '">' + esc(p.label) + '</option>'; }).join('');
+      credRender('tm', tmPickedProvider());
     }).catch(function(){});
     fetch('/team/status').then(function(r){ return r.json(); }).then(function(s){
       if (s.phase && s.phase !== 'idle' && s.phase !== 'failed' && s.phase !== 'ready') { tmShow('tmBuild'); tmAttach(); }
       else tmLoadTeams();   // finished runs are not replayed: the manage screen lists the team as it is now
     }).catch(function(){ tmLoadTeams(); });
+  }
+  var tmProviders = [];
+  function tmPickedProvider(){
+    var id = document.getElementById('tmProvider').value;
+    return tmProviders.filter(function(p){ return p.id === id; })[0] || null;
   }
   // Stage 3: teams this computer set up get a manage screen first.
   var tmTeamsList = [];
@@ -1296,6 +1358,7 @@
   document.getElementById('tmBack').addEventListener('click', function(e){ e.preventDefault(); exitTmFlow(); });
   document.getElementById('tmIntroOk').addEventListener('click', function(){ tmShow('tmForm'); });
   document.getElementById('tmProvider').addEventListener('change', function(){
+    credRender('tm', tmPickedProvider());
     document.getElementById('tmOpts').style.display = 'none';
     document.getElementById('tmBuildBtn').style.display = 'none';
     document.getElementById('tmCheckBtn').style.display = '';
@@ -1312,8 +1375,8 @@
   document.getElementById('tmLoc').addEventListener('change', function(){ tmSizeFor(this.value); });
   document.getElementById('tmCheckBtn').addEventListener('click', function(){
     tmErr('');
-    var token = document.getElementById('tmToken').value.trim();
-    if (!token) { tmErr('Paste the hosting API token first.'); return; }
+    var token = credValue('tm', tmPickedProvider());
+    if (!token) { tmErr(credMissingText(tmPickedProvider())); return; }
     var btn = this; btn.disabled = true; btn.textContent = 'Checking…';
     fetch('/provision/validate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ token: token, provider: document.getElementById('tmProvider').value }) })
       .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
@@ -1339,7 +1402,7 @@
     var body = {
       company: document.getElementById('tmCompany').value.trim().toLowerCase(),
       people: tmPeople(),
-      token: document.getElementById('tmToken').value.trim(),
+      token: credValue('tm', tmPickedProvider()),
       provider: document.getElementById('tmProvider').value,
       location: loc, server_type: (size && size.name) || '',
     };
@@ -1549,8 +1612,8 @@
 
   document.getElementById('shCheckBtn').addEventListener('click', function(){
     shErr('');
-    var token = document.getElementById('shToken').value.trim();
-    if (!token) { shErr('Paste your ' + shProviderLabel() + ' API token first.'); document.getElementById('shRetryRow').style.display='none'; return; }
+    var token = credValue('sh', shProvider);
+    if (!token) { shErr(credMissingText(shProvider)); document.getElementById('shRetryRow').style.display='none'; return; }
     var btn = document.getElementById('shCheckBtn');
     btn.disabled = true; btn.textContent = 'Checking…';
     fetch('/provision/validate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ token: token, provider: shProvider ? shProvider.id : undefined }) })
@@ -1576,7 +1639,7 @@
     var locVal = document.getElementById('shLoc').value || '';
     var resolved = shResolveSize(shSizeChoice, locVal);
     var body = {
-      token: document.getElementById('shToken').value.trim(),
+      token: credValue('sh', shProvider),
       name: document.getElementById('shName').value.trim().toLowerCase(),
       provider: shProvider ? shProvider.id : undefined,
       location: locVal,
@@ -1831,7 +1894,7 @@
   }
   document.getElementById('shDestroyBtn').addEventListener('click', function(){
     shErr('');
-    var body = { token: document.getElementById('shToken').value.trim(), name: document.getElementById('shName').value.trim().toLowerCase(), provider: shProvider ? shProvider.id : undefined };
+    var body = { token: credValue('sh', shProvider), name: document.getElementById('shName').value.trim().toLowerCase(), provider: shProvider ? shProvider.id : undefined };
     fetch('/provision/destroy', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) })
       .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
       .then(function(x){

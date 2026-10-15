@@ -150,3 +150,45 @@ test('a 401 comes back as a legible token message', async () => {
     /Hetzner rejected the token/,
   );
 });
+
+// Providers three and four (2026-10-14): a stand-in client for engine paths
+// that no real provider's fake reaches easily.
+function stubClient({ pending = null, deleteAnswer } = {}) {
+  const calls = [];
+  return {
+    calls,
+    validateToken: async () => ({ ok: true }),
+    ensureSshKey: async () => 'k1',
+    listServerTypes: async () => [],
+    listAvailability: async () => ({}),
+    createServer: async () => { calls.push('create'); return { id: 'srv-1', ip: null, actionId: null }; },
+    waitAction: async () => null,
+    getServer: async () => (pending ? { id: 'srv-1', status: 'starting', pending, ip: null } : { id: 'srv-1', status: 'running', ip: '203.0.113.5' }),
+    deleteServer: async () => deleteAnswer,
+  };
+}
+
+test('a create that fails after the server exists is remembered, so removing the half-made server can find it', async () => {
+  const c = stubClient();
+  c.createServer = async () => { const e = new Error('cloud-init upload failed'); e.serverId = 'srv-half'; throw e; };
+  const state = {};
+  await assert.rejects(provisionSelfHost({ token: '{}', boxName: 'demo', ownerPubKey: PUB, state, provider: 'scaleway',
+    overrides: { client: c, serverType: 'BASIC2-A2C-8G', location: 'fr-par-2', image: 'ghcr.io/x/crads-pebble:v2', sleep: async () => {} } }), /cloud-init upload failed/);
+  assert.equal(state.serverId, 'srv-half');
+});
+
+// 2026-10-15: 4 GB is the recommended size, so every mineral boots with a 2 GB
+// swap file; a memory spike slows the box for a moment instead of killing a
+// process. The step comes before Docker, skips a host that already has swap,
+// and can never fail the boot.
+test('every rendered mineral gets a guarded 2 GB swap file before Docker installs', () => {
+  const y = renderSelfHostCloudInit({ boxName: 'swap', ownerPubKey: PUB, image: 'ghcr.io/x/crads-pebble:v2' });
+  const swap = y.indexOf('fallocate -l 2G /swapfile');
+  assert.ok(swap > 0, 'the swap step is in the rendered cloud-init');
+  assert.ok(swap < y.indexOf('download.docker.com'), 'before the Docker install, so the image pull has it');
+  const block = y.slice(y.lastIndexOf('- |', swap), y.indexOf('fi || true', swap) + 'fi || true'.length);
+  assert.match(block, /swapon --show/, 'skips a host that already has swap');
+  assert.match(block, /fi \|\| true$/, 'never fails the boot');
+  assert.match(block, /else\s+rm -f \/swapfile/, 'a failed attempt leaves no half-made file and no fstab line');
+  assert.ok(block.indexOf('/etc/fstab') > block.indexOf('swapon /swapfile;'), 'fstab is written only after swapon succeeds');
+});

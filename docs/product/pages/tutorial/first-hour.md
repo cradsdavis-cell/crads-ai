@@ -7,7 +7,7 @@ access: public
 mode: tutorial
 order: 10
 pins: wizard/panel/door.html, wizard/panel/provision-routes.mjs, wizard/panel/setup-steps.mjs, wizard/panel/member.html
-reviewed: 2026-10-13
+reviewed: 2026-10-15
 ---
 
 This walks the whole way in, from nothing at all to an assistant that answers
@@ -104,10 +104,11 @@ live.
 underneath and the host's real monthly price for it in your chosen location.
 The three mean the same thing at either company (4, 8 and 16 GB of memory):
 
-- **Small**: about the cheapest that runs well. Fine for getting started.
-- **Standard** (recommended): what we test on. Comfortable for one person's
-  assistant, day in and day out.
-- **Roomy**: headroom for heavy use and never having to think about it.
+- **Standard** (recommended): comfortable for one person's assistant, day in
+  and day out.
+- **Roomy**: headroom for heavy use: big imports, lots of documents, several
+  things running at once.
+- **Extra roomy**: for a team's company assistant, or very heavy use.
 
 At Hetzner the wizard starts on an Arm machine, in a location that sells it
 on the day (Helsinki, when this page was written). Somewhere that does not sell Arm, or

@@ -210,6 +210,21 @@ write_files:
       WantedBy=multi-user.target
 
 runcmd:
+  # Swap (2026-10-15): 4 GB is the recommended size, and a mineral measures
+  # about 2 to 2.5 GB on a normal day and 3.5 GB at a heavy peak. A 2 GB swap
+  # file turns a spike past memory into a brief slowdown instead of a killed
+  # process. Skipped when the host already has swap; never fails the boot.
+  - |
+    if [ -z "$(swapon --show --noheadings 2>/dev/null)" ] && [ ! -e /swapfile ]; then
+      if { fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048; } \
+          && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile; then
+        grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+        echo 'vm.swappiness=10' > /etc/sysctl.d/60-aios-swap.conf
+        sysctl -q -p /etc/sysctl.d/60-aios-swap.conf
+      else
+        rm -f /swapfile
+      fi
+    fi || true
   # --- Docker Engine (official apt repo, deb822, arch-aware → arm64 on CAX) ---
   - install -m 0755 -d /etc/apt/keyrings
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc

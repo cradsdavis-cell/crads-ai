@@ -66,13 +66,23 @@ export async function provisionSelfHost({ token, boxName, ownerPubKey, state, on
     if (!serverType || !location) ({ serverType, location } = await pickMachine(hc, P, { serverType, location }));
     onStep('create-server', `${serverType} @ ${location}`);
     const userData = renderSelfHostCloudInit({ boxName, ownerPubKey, image, files: overrides.files });
-    const created = await hc.createServer({
-      name: `aios-${boxName}`,
-      serverType,
-      location,
-      sshKeyIds: [state.sshKeyId],
-      userData,
-    });
+    let created;
+    try {
+      created = await hc.createServer({
+        name: `aios-${boxName}`,
+        serverType,
+        location,
+        sshKeyIds: [state.sshKeyId],
+        userData,
+      });
+    } catch (e) {
+      // A provider whose create is several calls (Scaleway: create, then
+      // cloud-init, then power on) can fail AFTER the server exists. It says
+      // which server on the error; remembering it is what lets "Remove the
+      // half-made server" find it, and stops a retry building a second one.
+      if (e && e.serverId) state.serverId = e.serverId;
+      throw e;
+    }
     state.serverId = created.id;
     state.serverIp = created.ip;
     state.createActionId = created.actionId;
@@ -94,7 +104,7 @@ export async function provisionSelfHost({ token, boxName, ownerPubKey, state, on
       state.serverIp = s.ip ?? state.serverIp;
       if (s.status === 'running') { state.serverRunning = true; break; }
       if (['off', 'deleting', 'unknown'].includes(s.status) || Date.now() > deadline) {
-        throw new Error(`The server is '${s.status}', not running.`);
+        throw new Error(`The server is '${s.status}', not running.${s.note ? ` ${s.note}.` : ''}`);
       }
       await (overrides.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))))(3000);
     }

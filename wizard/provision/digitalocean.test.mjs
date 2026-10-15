@@ -150,7 +150,7 @@ test('full run through the engine on DigitalOcean: validate -> key -> create -> 
   });
   assert.equal(r.ip, '203.0.113.42', 'the public v4 address, read once the droplet is active');
   assert.equal(r.serverId, 5001);
-  assert.equal(steps[2], 'create-server (s-4vcpu-8gb @ syd1)', 'DigitalOcean defaults, not Hetzner ones');
+  assert.equal(steps[2], 'create-server (s-2vcpu-4gb @ syd1)', 'DigitalOcean defaults (Standard is 4 GB since 2026-10-15), not Hetzner ones');
   assert.equal(state.provider, 'digitalocean');
   assert.ok(!JSON.stringify(state).includes('tok-secret'));
   assert.ok(log.includes('POST /droplets'));

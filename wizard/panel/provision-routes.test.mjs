@@ -67,7 +67,7 @@ test('validate: a good token answers catalogues + defaults', async (t) => {
   const r = await h.call('POST', '/provision/validate', { token: 't' });
   assert.equal(r.status, 200);
   assert.equal(r.body.ok, true);
-  assert.equal(r.body.defaults.server_type, 'cax21', 'Arm is the Standard default (2026-10-13)');
+  assert.equal(r.body.defaults.server_type, 'cax11', 'the 4 GB Arm machine is the Standard default (2026-10-15)');
   assert.equal(r.body.defaults.location, 'hel1', 'the default location is one that SELLS the default machine');
   assert.equal(r.body.locations[0].city, 'Nuremberg');
   // per-location availability rides each type, so the page can refuse to offer
@@ -89,7 +89,7 @@ test('validate: an unreadable availability offers every type everywhere, never a
   t.after(h.close);
   const r = await h.call('POST', '/provision/validate', { token: 't' });
   assert.equal(r.status, 200);
-  assert.equal(r.body.server_types.length, 4, 'nothing dropped when availability is unknown');
+  assert.equal(r.body.server_types.length, (await fakeClient([]).listServerTypes()).length, 'nothing dropped when availability is unknown');
   for (const ty of r.body.server_types) assert.deepEqual(ty.locations, []);
   assert.equal(r.body.defaults.location, PROVIDERS.hetzner.defaults.location);
 });
@@ -100,12 +100,12 @@ test('start with no machine named builds what the location sells, not a stale de
   assert.equal(r.status, 200);
   await untilPhase(h.call, 'ready');
   const create = h.calls.find((c) => c[0] === 'create');
-  assert.deepEqual(create.slice(3), ['cpx32', 'nbg1'], 'nbg1 sells no Arm Standard machine, so the x86 one in the chain');
+  assert.deepEqual(create.slice(3), ['cpx22', 'nbg1'], 'nbg1 sells no Arm Standard machine, so the x86 one in the chain');
   const r2 = await h.call('POST', '/provision/start', { token: 't', name: 'pick2' });
   assert.equal(r2.status, 200);
   await untilPhase(h.call, 'ready');
   const create2 = h.calls.filter((c) => c[0] === 'create')[1];
-  assert.deepEqual(create2.slice(3), ['cax21', 'hel1']);
+  assert.deepEqual(create2.slice(3), ['cax11', 'hel1']);
 });
 
 test('validate: a rejected token is a 401, not a build', async (t) => {
@@ -216,7 +216,10 @@ test('GET /provision/providers lists the registry without functions, Hetzner fir
   const h = harness(); t.after(h.close);
   const r = await h.call('GET', '/provision/providers');
   assert.equal(r.status, 200);
-  assert.deepEqual(r.body.providers.map((p) => p.id), Object.keys(PROVIDERS));
+  // Providers not yet proven on real metal (preview, 2026-10-14) are left off
+  // the list members see; every other registered provider is on it, in order.
+  assert.deepEqual(r.body.providers.map((p) => p.id), Object.keys(PROVIDERS).filter((id) => !PROVIDERS[id].preview));
+  assert.ok(!r.body.providers.some((p) => p.preview), 'no preview provider reaches a member');
   for (const p of r.body.providers) {
     for (const k of ['id', 'label', 'symbol', 'costsCopy', 'tokenLabel', 'tokenHelpDocSlug', 'defaults', 'sizeChains']) assert.ok(k in p, `${p.id} lacks ${k}`);
     assert.ok(!('makeClient' in p), 'no function crosses the wire');

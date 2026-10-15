@@ -28,15 +28,18 @@ export function fakeClient(calls, provider = 'hetzner') {
       { name: 'nbg1', city: 'Nuremberg', country: 'DE' },
       { name: 'hel1', city: 'Helsinki', country: 'FI' },
     ],
-    // The 2026-10-13 shape in miniature: the Arm Standard machine is sold in
-    // hel1 and not nbg1, cx33 is sold nowhere, and cpx11 only in hel1.
+    // The 2026-10-13 shape in miniature: the Arm machines are sold in hel1
+    // and not nbg1, cx33 is sold nowhere, and cpx11 only in hel1. Standard is
+    // the 4 GB chain since 2026-10-15 (cax11, else cpx22), Roomy the 8 GB.
     listServerTypes: async () => [
       { id: 1, name: 'cx33', cores: 4, memoryGb: 8, diskGb: 80, arch: 'x86' },
       { id: 2, name: 'cpx11', cores: 2, memoryGb: 2, diskGb: 40, arch: 'x86' },
+      { id: 92, name: 'cax11', cores: 2, memoryGb: 4, diskGb: 40, arch: 'arm' },
       { id: 93, name: 'cax21', cores: 4, memoryGb: 8, diskGb: 80, arch: 'arm' },
+      { id: 116, name: 'cpx22', cores: 2, memoryGb: 4, diskGb: 80, arch: 'x86' },
       { id: 117, name: 'cpx32', cores: 4, memoryGb: 8, diskGb: 160, arch: 'x86' },
     ],
-    listAvailability: async () => ({ nbg1: [117], hel1: [2, 93, 117] }),
+    listAvailability: async () => ({ nbg1: [116, 117], hel1: [2, 92, 93, 116, 117] }),
     ensureSshKey: async () => 7,
     createServer: async (o) => { calls.push(['create', o.name, provider, o.serverType, o.location]); return { id: 42, ip: '203.0.113.9', actionId: 9 }; },
     waitAction: async () => ({ status: 'success' }),
@@ -91,6 +94,19 @@ export const DO_SERVER_TYPES = [
   { id: 's-8vcpu-16gb', name: 's-8vcpu-16gb', cores: 8, memoryGb: 16, diskGb: 320, arch: 'x86', locations: DO_ALL, prices: priced(DO_ALL, 96) },
 ];
 
+// The third provider (2026-10-14), as its own list read that day: Scaleway in
+// euros with the 80 GB disk included, Paris only.
+const WORLDS = {
+  scaleway: {
+    locations: [{ name: 'fr-par-2', city: 'Paris', country: 'FR' }],
+    types: [
+      { id: 'BASIC2-A2C-4G', name: 'BASIC2-A2C-4G', cores: 2, memoryGb: 4, diskGb: 80, arch: 'arm', locations: ['fr-par-2'], prices: { 'fr-par-2': 24.38 } },
+      { id: 'BASIC2-A2C-8G', name: 'BASIC2-A2C-8G', cores: 2, memoryGb: 8, diskGb: 80, arch: 'arm', locations: ['fr-par-2'], prices: { 'fr-par-2': 32.78 } },
+      { id: 'BASIC2-A4C-16G', name: 'BASIC2-A4C-16G', cores: 4, memoryGb: 16, diskGb: 80, arch: 'arm', locations: ['fr-par-2'], prices: { 'fr-par-2': 57.89 } },
+    ],
+  },
+};
+
 // What POST /provision/validate answers for a good token, shaped exactly as
 // provision-routes.mjs shapes it (the provider's symbol, chains and defaults
 // ride along). Fresh objects every call: the page mutates nothing, but a
@@ -98,11 +114,12 @@ export const DO_SERVER_TYPES = [
 export function catalogue(provider = 'hetzner') {
   const P = PROVIDERS[provider] || PROVIDERS.hetzner;
   const dO = P.id === 'digitalocean';
-  const types = (dO ? DO_SERVER_TYPES : SERVER_TYPES).map((t) => ({ ...t, locations: [...t.locations], prices: { ...t.prices } }));
+  const world = WORLDS[P.id] || (dO ? { locations: DO_LOCATIONS, types: DO_SERVER_TYPES } : { locations: LOCATIONS, types: SERVER_TYPES });
+  const types = world.types.map((t) => ({ ...t, locations: [...t.locations], prices: { ...t.prices } }));
   return {
     ok: true,
     provider: P.id, label: P.label, symbol: P.symbol, chains: structuredClone(P.sizeChains),
-    locations: (dO ? DO_LOCATIONS : LOCATIONS).map((l) => ({ ...l })),
+    locations: world.locations.map((l) => ({ ...l })),
     server_types: types,
     defaults: { location: defaultLocationFor(P, types), server_type: P.defaults.serverType },
   };
