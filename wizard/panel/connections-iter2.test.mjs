@@ -160,7 +160,9 @@ test('Telegram: a compact card until linked, the steps behind the one primary bu
   assert.doesNotMatch(tg, /flat steps, never behind a toggle/, 'the flat two-step hero is gone');
   assert.match(tg, /\$\('tgToggle'\)\.setAttribute\('aria-expanded'/, 'the disclosure state is announced');
   assert.match(html, /\$\('tgToggle'\)\.onclick = function\(\)\{[\s\S]*?tgOpened = true;[\s\S]*?aria-expanded/, 'the toggle keeps the same handler, now also marking the auto-open as spent');
-  assert.ok(sec.includes('<span class="why">Message your assistant from your phone</span>'), 'one line');
+  // Repositioned 2026-10-14: conversation moved to the Claude app (Remote
+  // Control); Telegram is how scheduled output reaches the phone.
+  assert.ok(sec.includes('<span class="why">Your morning brief and scheduled results, on your phone</span>'), 'one line');
   assert.ok(sec.includes('id="tgToggle" aria-controls="tgDetail" aria-expanded="false">Set up Telegram</button>'), 'the primary');
   assert.match(html, /#tgRow\.tghero #tgToggle\{[^}]*background:var\(--accent\);color:var\(--on-accent\)/, 'terracotta = action, the one primary on the card');
   assert.match(html, /#tgRow\.tghero\{display:block;background:var\(--card\);border:1px solid var\(--line\)/, 'a plain card, not an accent-tinted hero');

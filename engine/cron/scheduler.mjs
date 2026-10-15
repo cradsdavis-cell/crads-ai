@@ -719,14 +719,14 @@ if (!bootHeartbeatCovered && !existsSync(FIRST_HEARTBEAT_MARK)) {
 }
 
 // ---- comms supervisor ----
-// box-up starts the Telegram bridge + kernel daemon once at container start, but nothing restarts
-// them if they crash (systemd Restart=always restarts the CONTAINER, not an inner process). start-comms.sh
-// is idempotent — its `alive` pidfile check relaunches ONLY what's dead — so re-running it on an interval
-// resurrects a dead bridge/daemon without a container restart. Gated on the client having connected
-// Telegram (start-comms self-gates too; skip the spawn otherwise). The first run is deferred one interval
-// so box-up's own start-comms settles first, avoiding a double-launch race at boot.
+// box-up starts Remote Control and (with Telegram) the bridge + kernel daemon once at container start,
+// but nothing restarts them if they crash (systemd Restart=always restarts the CONTAINER, not an inner
+// process). start-comms.sh is idempotent — its pidfile checks relaunch ONLY what's dead — so re-running
+// it on an interval resurrects a dead process without a container restart. It runs on EVERY mineral
+// since 2026-10-14: Remote Control is on by default and does not need Telegram (start-comms self-gates
+// each part). The first run is deferred one interval so box-up's own start-comms settles first,
+// avoiding a double-launch race at boot.
 function superviseComms() {
-  if (!chatId) return;
   execFile('bash', [START_COMMS, stateDir], { cwd: ENGINE_DIR }, (e) => e && console.error(`[${new Date().toISOString()}] start-comms failed: ${e.message}`));
 }
-if (chatId) setInterval(superviseComms, 120_000);   // every 2 min; resurrects a crashed bridge/daemon
+setInterval(superviseComms, 120_000);   // every 2 min; resurrects a crashed Remote Control / bridge / daemon

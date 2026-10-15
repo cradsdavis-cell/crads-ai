@@ -1838,12 +1838,36 @@
            under the button. Once linked, tgRender docks the same #tgRow node
            into the list below as its first row, so every listener and id
            survives the move. -->
+      <!-- Remote Control (2026-10-14): the assistant from the Claude app on the
+           member's phone. ON BY DEFAULT (Sam's ruling), for new and existing
+           minerals; this row is the off switch and the honest status. Hidden on
+           a local folder (a server keeps it awake). Spec:
+           docs/superpowers/specs/2026-10-14-remote-control-design.md -->
+      <div id="rcRow" data-needs-box>
+        <ul class="connlist" style="margin-top:4px"><li class="marked">
+          <span class="mark" data-mark="claude" data-mark-label="Claude app" aria-hidden="true"></span>
+          <span class="nm">Claude app on your phone</span>
+          <span class="why">Talk to your assistant from anywhere</span>
+          <span style="display:flex;gap:4px"><button class="connfix" type="button" id="rcToggle" aria-controls="rcDetail" aria-expanded="false">Details</button></span>
+          <span class="chip" id="rcChip">checking…</span>
+        </li></ul>
+        <div id="rcDetail" style="display:none">
+          <div class="guidecard" style="margin-top:10px">
+            <p class="hint" id="rcState" style="margin:0">Checking…</p>
+            <p class="hint" style="margin:8px 0 0">Open the <b>Claude</b> app on your phone, go to the <b>Code</b> tab and pick <b id="rcName">your assistant</b>. Sign in to the app with the same Claude account as this mineral. It works in a browser too, at <a href="https://claude.ai/code" target="_blank" rel="noopener">claude.ai/code</a>.</p>
+            <p class="hint" style="margin:8px 0 0">While a phone or browser session is connected, Anthropic keeps that conversation under your Claude account, like your other Claude chats. The work itself runs on your mineral.</p>
+            <p class="hint" style="margin:8px 0 0">Anyone signed in to your Claude account can reach your assistant this way, so keep that sign-in safe. Claude's <b>Require trusted devices</b> setting adds a passkey or fingerprint check for each new device.</p>
+            <div style="margin-top:12px"><button class="act" id="rcSwitch">Switch off</button></div>
+            <div class="notice" id="rcNotice" style="display:none"></div>
+          </div>
+        </div>
+      </div>
       <div id="tgHeroMount">
         <div id="tgRow">
           <ul class="connlist" style="margin-top:4px"><li class="marked">
             <span class="mark" data-mark="telegram" data-mark-label="Telegram" aria-hidden="true"></span>
             <span class="nm">Telegram</span>
-            <span class="why">Message your assistant from your phone</span>
+            <span class="why">Your morning brief and scheduled results, on your phone</span>
             <span style="display:flex;gap:4px"><button class="connfix" type="button" id="tgToggle" aria-controls="tgDetail" aria-expanded="false">Set up Telegram</button></span>
             <span class="chip" id="tgChip">checking…</span>
           </li></ul>
@@ -3077,7 +3101,7 @@
     // mid-setup stops the 3s poll, and only tgStatus/tgRender can re-arm it.
     if (name === 'connections' && state.kind === 'local') { loadLocalMcp(); tgStop(); }
     else if (name === 'connections') {
-      if (Date.now() - connWarmAt > 60000) { connWarmAt = Date.now(); loadMcp(); tgStatus(); }
+      if (Date.now() - connWarmAt > 60000) { connWarmAt = Date.now(); loadMcp(); tgStatus(); rcStatus(); }
       else if (!tgTimer && tgLastS && tgLastS.token && !tgLastS.chat) tgStatus();
     } else tgStop();
     if (name === 'terminal' && state.kind === 'local') renderLocalTerminal();
@@ -3844,6 +3868,10 @@
     var tg = (d && d.connections) ? connLive(d, /telegram/i, true) : null;
     var onboarded = (d && d.onboarding) ? ((d.onboarding || {}).phase === 'done') : null;
     var claudeWhy = 'Open the Terminal tab and run claude once. The desktop app signs in this computer, not this mineral';
+    // Remote Control is ON BY DEFAULT (2026-10-14), so the sign-in step is where a
+    // member first hears that signing in also opens the Claude app on their phone,
+    // and where to switch it off. Claude Code minerals only (replaced below otherwise).
+    claudeWhy += '. Once it is signed in, you can also reach your assistant from the Claude app on your phone (switch that off in Connections)';
     var tw = thinksWith(), claudeName = 'Sign in to Claude on your mineral';
     var claudeAct = { label: 'Open Terminal', to: 'terminal', run: signinOpener() };
     if (tw && tw.harness && tw.harness !== 'claude-code') {
@@ -3926,8 +3954,8 @@
           connLive(d || {}, /mail|calendar|workspace|microsoft|outlook/i, false)
             ? null : { label: 'Connect', to: 'connections' }),
         row(true, 'Message it on Telegram', tg === true ? 'Connected' : 'Ready',
-          tg === true ? 'Your assistant is on your phone'
-                      : 'Message your assistant from your phone',
+          tg === true ? 'Your scheduled results reach your phone'
+                      : 'Your morning brief and scheduled results, on your phone',
           '', tg === true ? null : { label: 'Set it up', to: 'connections' }),
       ],
     };
@@ -4325,6 +4353,53 @@
     d.style.display = d.style.display === 'none' ? '' : 'none';
     tgOpened = true;
     $('tgToggle').setAttribute('aria-expanded', d.style.display === 'none' ? 'false' : 'true');
+  };
+  // ---- Remote Control: the Claude app on the phone (2026-10-14) -------------
+  // On by default; this card is the off switch. The words come from the box's
+  // own status verb (engine/comms/remote-control.mjs), never guessed here.
+  var rcLastS = null;
+  var RC_WORDS = {
+    connected:   ['on', 'ok', 'On. Open the Claude app and pick your assistant.'],
+    starting:    ['starting', 'configured', 'Starting up. It is usually ready within a minute.'],
+    down:        ['restarting', 'configured', 'Not running right now. Your mineral restarts it within two minutes.'],
+    off:         ['off', 'off', 'Switched off. Your assistant cannot be reached from the Claude app.'],
+    signed_out:  ['sign in to Claude', 'attn', 'Your mineral is not signed in to Claude, so the app cannot reach it. Sign in from the Terminal tab (run claude).'],
+    error:       ['needs a look', 'bad', 'It could not start.'],
+    unsupported: ['not available', 'off', 'This works only when your assistant thinks with Claude.'],
+  };
+  function rcRender(s){
+    rcLastS = s;
+    var w = RC_WORDS[s.state] || ['unknown', '', 'Could not read its state.'];
+    $('rcChip').textContent = w[0];
+    $('rcChip').className = 'chip ' + w[1];
+    $('rcState').textContent = w[2] + (s.state === 'error' && s.detail ? ' ' + s.detail : '');
+    if (s.name) $('rcName').textContent = s.name;
+    $('rcSwitch').textContent = s.enabled === false ? 'Switch on' : 'Switch off';
+    $('rcSwitch').style.display = s.state === 'unsupported' ? 'none' : '';
+  }
+  function rcStatus(){
+    return run('remote-control-status', {}).then(function(r){
+      var s = jsonOut(r) || { state: 'unknown' };
+      rcRender(s);
+      return s;
+    });
+  }
+  $('rcToggle').onclick = function(){
+    var d = $('rcDetail');
+    d.style.display = d.style.display === 'none' ? '' : 'none';
+    $('rcToggle').setAttribute('aria-expanded', d.style.display === 'none' ? 'false' : 'true');
+  };
+  $('rcSwitch').onclick = function(){
+    var turningOff = !(rcLastS && rcLastS.enabled === false);
+    $('rcSwitch').disabled = true;
+    notice('rcNotice', turningOff ? 'Switching off…' : 'Switching on…');
+    run(turningOff ? 'remote-control-off' : 'remote-control-on', {}).then(function(r){
+      $('rcSwitch').disabled = false;
+      var s = jsonOut(r);
+      if (!s || s.ok === false) { notice('rcNotice', (s && s.error) || 'That did not work:\n' + outText(r)); return; }
+      notice('rcNotice', '');
+      rcStatus();
+    });
   };
   // ---- Connections (MCP) --------------------------------------------------
   // Five states now, because collapsing them is the defect this page exists to

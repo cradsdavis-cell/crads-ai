@@ -178,6 +178,19 @@ add('connections-directory', '/member', { waitMs: 2500, after: async (page) => {
   const yoursNames = await page.$$eval('#mcpRows .nm', (els) => els.map((e) => e.textContent));
   if (!yoursNames.includes('Canva')) throw new Error('Canva (connected in the fixture) is missing from Your connections');
 } });
+// Remote Control (2026-10-14): the Phone card, on by default, driven through its
+// off switch and back. Asserts what the member reads, from the real DOM.
+add('connections-phone', '/member', { waitMs: 2500, after: async (page) => {
+  await nav('connections', 1500)(page);
+  await page.waitForFunction(() => document.getElementById('rcChip').textContent === 'on', null, { timeout: 5000 });
+  await page.click('#rcToggle');
+  if (await page.$eval('#rcName', (e) => e.textContent) !== 'Aster') throw new Error('the card does not name the assistant');
+  await page.click('#rcSwitch');
+  await page.waitForFunction(() => document.getElementById('rcChip').textContent === 'off', null, { timeout: 5000 });
+  if (await page.$eval('#rcSwitch', (e) => e.textContent) !== 'Switch on') throw new Error('switched off, but the button does not offer to switch back on');
+  await page.click('#rcSwitch');
+  await page.waitForFunction(() => document.getElementById('rcChip').textContent === 'on', null, { timeout: 5000 });
+} });
 add('connections-search', '/member', { waitMs: 2500, after: async (page) => {
   await nav('connections', 1500)(page);
   await page.fill('#mcpDirSearch', 'crm');

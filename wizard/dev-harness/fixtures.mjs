@@ -873,6 +873,9 @@ function ok(lines, code) { return { code: code || 0, lines }; }
 
 // Telegram link state for the fixture box (see the telegram-* cases below).
 let TG_STATE = { ok: true, token: false, chat: false, username: null };
+// Remote Control (2026-10-14): on by default, so the fixture box starts connected.
+const RC_ON = { ok: true, state: 'connected', enabled: true, name: 'Aster' };
+let RC_STATE = { ...RC_ON };
 // MCP connection fixture, 2026-08-09 shape: featured DCR servers + honest Google
 // rows + connect-anything. notion starts working, linear needs-auth, so the page
 // renders one of each state without any clicking.
@@ -1116,6 +1119,7 @@ export function resetFlows() {
   ORG_GH_ARMED = false;
   TG_STATE = { ok: true, token: false, chat: false, username: null };
   TG_POLLS = 0;
+  RC_STATE = { ...RC_ON };
   gwReset();
   provReset();
 }
@@ -1605,6 +1609,14 @@ export function runVerb(surface, verb, args, state, opts) {
       TG_STATE = { ok: true, token: false, chat: false, username: null };
       TG_POLLS = 0;
       return ok([JSON.stringify({ ok: true })]);
+    case 'remote-control-status':
+      return ok([JSON.stringify(RC_STATE)]);
+    case 'remote-control-off':
+      RC_STATE = { ok: true, state: 'off', enabled: false, name: 'Aster' };
+      return ok([JSON.stringify({ ok: true, state: 'off', stopped: true })]);
+    case 'remote-control-on':
+      RC_STATE = { ...RC_ON };
+      return ok([JSON.stringify({ ok: true, enabled: true })]);
 
     // R18 (verify pass 2026-08-23): the box's /state/open-folder name; the page
     // falls back to the word "state" when the verb is missing (old image).

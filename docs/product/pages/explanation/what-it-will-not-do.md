@@ -128,7 +128,9 @@ just the words. Telling it "never send email" in a prompt is a wish. Not
 connecting the thing that can send is a wall. The engine builds that wall in
 one place: a message you send your assistant from Telegram cannot reach any
 connected service at all. Everywhere else, you decide what to connect and
-when.
+when, and that includes the Claude app on your phone: a session there is your
+full assistant, with the same connections and limits as at your desk, because
+it is you, signed in to your own Claude account.
 
 The rule of thumb I use: a skill earns a schedule after it has run well by
 hand three times, and a connection earns a wider grant after I have read its

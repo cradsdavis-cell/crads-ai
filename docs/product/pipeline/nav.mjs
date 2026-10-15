@@ -30,7 +30,7 @@ export const JOURNEY = [
     blurb: 'From nothing to an assistant that is awake, knows you, and reaches your phone.',
     // first-hour leads: its step 3 links the two token pages, so the reader
     // meets them in the order the walkthrough sends them there.
-    slugs: ['first-hour', 'get-a-hetzner-api-token', 'get-a-digitalocean-api-token', 'the-interview', 'your-first-week', 'connect-google', 'connect-telegram',
+    slugs: ['first-hour', 'get-a-hetzner-api-token', 'get-a-digitalocean-api-token', 'the-interview', 'your-first-week', 'use-it-from-your-phone', 'connect-google', 'connect-telegram',
       'connect-slack', 'connect-wordpress', 'connect-mailchimp', 'connect-shopify-and-xero'],
   },
   {
@@ -98,8 +98,8 @@ export const DOORS = [
   },
   {
     id: 'reach', title: 'I want it in my inbox and my pocket', glyph: 'envelope',
-    lead: 'Mail and calendar with your own key, a private Telegram bot, and every other plug.',
-    slugs: ['connect-google', 'connect-telegram', 'connect-slack', 'connect-wordpress', 'connect-mailchimp', 'connect-shopify-and-xero', 'connections-page'],
+    lead: 'Your assistant in the Claude app on your phone, mail and calendar with your own key, a private Telegram bot, and every other plug.',
+    slugs: ['use-it-from-your-phone', 'connect-google', 'connect-telegram', 'connect-slack', 'connect-wordpress', 'connect-mailchimp', 'connect-shopify-and-xero', 'connections-page'],
   },
   {
     id: 'safe', title: 'I want it safe and mine', glyph: 'shield',

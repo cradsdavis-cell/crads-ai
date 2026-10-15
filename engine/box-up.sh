@@ -310,6 +310,8 @@ SCHEDPID=$!
 
 cleanup(){ commit_brain; kill "$SVPID" ${CSPID:+"$CSPID"} ${SCHEDPID:+"$SCHEDPID"} 2>/dev/null || true
   for pf in "$BOX"/.kernel/kernel.pid "$BOX"/.kernel/telegram.pid; do [ -f "$pf" ] && kill "$(cat "$pf" 2>/dev/null)" 2>/dev/null; rm -f "$pf"; done
+  # Remote Control leads its own process group (setsid in start-comms): stop it AND its phone sessions.
+  [ -f "$BOX/.kernel/remote-control.pid" ] && { RCP="$(cat "$BOX/.kernel/remote-control.pid" 2>/dev/null)"; kill -- "-$RCP" 2>/dev/null || kill "$RCP" 2>/dev/null; rm -f "$BOX/.kernel/remote-control.pid"; }
   rm -f "$BOX/.kernel/human-lock" 2>/dev/null || true; }
 trap cleanup EXIT
 # No cadence → hold the human-lock for the session. Safe alongside the always-on scheduler: the

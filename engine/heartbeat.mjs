@@ -14,6 +14,7 @@ import { readClaudeCredential } from './lib/claude-credential.mjs';
 import { readAssistantState } from './lib/assistant-state.mjs';
 import { resolveBrainRoot } from './lib/brain-root.mjs';
 import { readSkillOrigins, writeStateMd } from './box/state-md.mjs';
+import { status as remoteControlStatus } from './comms/remote-control.mjs';
 
 const stateDir = path.resolve(process.argv[2] || process.env.STATE_DIR || '/state');
 const rdj = (p) => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; } };
@@ -190,6 +191,9 @@ const full = {
   skill_ok_runs: skillOkRuns,
   run_ledger: tailForHeartbeat(ledgerRuns, { shareEngagement: true }),
   catalog_requests: catalogRequests, skills_from_rocks: skillsFromRocks,
+  // Remote Control (the Claude app on the phone), LOCAL ONLY like the rest of this
+  // object: the state word, never the name or a session. Not on the pushed `hb`.
+  remote_control: (() => { try { return remoteControlStatus(stateDir).state; } catch { return null; } })(),
 };
 // The FILTERED heartbeat — floor + only the member-permitted categories. THIS is
 // what the transport ships up to the rock.

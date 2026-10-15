@@ -11,8 +11,12 @@ reviewed: 2026-10-13
 ---
 
 Telegram is how your assistant reaches you when you are not at the app: the
-morning brief on your phone, a question answered from the beach, and the place
-scheduled output lands when a recipe says `deliver: true`.
+morning brief on your phone, and the place scheduled output lands when a recipe
+says `deliver: true`. You can message it here too, for quick questions.
+
+To **talk** to your assistant from your phone, with everything it can do at your
+desk, use the Claude app instead: see [use it from your phone](/docs/use-it-from-your-phone).
+That needs no setup. Telegram is for what your assistant brings to you.
 
 It is one of the first things [your first hour](/docs/first-hour) suggests
 switching on, and it is the one people are most surprised by, because you make **your own private bot** rather than

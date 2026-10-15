@@ -4,8 +4,8 @@ summary: What is stored, where it runs, what leaves your mineral, and why almost
 audience: public
 access: public
 mode: legal
-version: 0.18
-effective: 2026-10-13
+version: 0.19
+effective: 2026-10-14
 order: 10
 ---
 
@@ -154,7 +154,16 @@ Only what you set up, and each goes to an account of your own:
 1. **What you say to your assistant, to Claude.** Every conversation and
    scheduled run sends your request, and the pages and connected data your
    assistant reads to answer it, to Anthropic under your own Claude account.
-2. **A backup, to a repository you own.** A pebble pushes its brain nightly
+2. **Phone sessions, to Claude.** On a server, Remote Control is on unless you
+   switch it off. It keeps an outbound connection to Anthropic so the Claude
+   app on your phone, or claude.ai/code, can work with your assistant. While
+   one of those sessions is connected, Anthropic stores its transcript (your
+   messages, the assistant's replies and what it did) under your own Claude
+   account, as with your other Claude conversations. The work itself runs on
+   your mineral, and your files and connections stay there. Switch it off on
+   the phone row in Connections; [use it from your
+   phone](/docs/use-it-from-your-phone) has the detail.
+3. **A backup, to a repository you own.** A pebble pushes its brain nightly
    to a private GitHub repository in your own account, as readable files,
    and an encrypted snapshot of its settings and credentials to the same
    repository as ciphertext, AES-256, with a passphrase generated on your
@@ -162,13 +171,13 @@ Only what you set up, and each goes to an account of your own:
    property of git worth stating: the repository keeps history, so earlier
    snapshots persist in history you own until you prune it. GitHub stores
    repositories in the United States.
-3. **Things you asked it to send.** Skill output you tick "Send me the
+4. **Things you asked it to send.** Skill output you tick "Send me the
    result" on is delivered to your own Telegram bot, transiting Telegram's
    servers under your agreement with Telegram. Anything your assistant does
    through a service you connected (a draft in your Gmail, an event in your
    calendar) happens at that service, on your account, because you set it up
    and asked for it.
-4. **Update checks.** Your mineral downloads its nightly update from
+5. **Update checks.** Your mineral downloads its nightly update from
    GitHub's container registry, and the desktop app checks GitHub for a new
    version every few hours. GitHub sees the address these come from.
 
@@ -190,12 +199,21 @@ those relationships.
 
 ## When anyone can reach your mineral
 
-Two ways, both bounded, and only one involves a person.
+Three ways, all bounded.
 
 **Software updates.** A pebble restarts nightly onto the latest published
 software. That updates the machinery, not your files, and you can switch it
 off. An update is a restart onto a published image; it is not a door, and
 nothing about it can read your machine.
+
+**Anyone signed in to your Claude account.** With Remote Control on, a phone
+or browser signed in to your Claude account can start a session on your
+mineral with the same reach as you at the desktop: your brain, your skills,
+your connected services. So your Claude sign-in now guards your mineral as
+well as your chats. Keep the email or Google account you sign in to Claude
+with secure, and consider Claude's "Require trusted devices" setting (in
+beta), which asks each new device to confirm with a passkey or your
+fingerprint or face. Switch Remote Control off and this way in closes.
 
 **Support access, only if you grant it.** If something is broken and you want
 help on the machine itself, you grant access explicitly. The grant **expires
@@ -205,7 +223,8 @@ mineral where you can read it. What is not captured is a per-command
 transcript of the session itself; that is a real limit and we would rather
 name it than imply a log that does not exist. Nobody can add themselves to
 your mineral without you granting it, and there is no standing key: a mineral
-made by the wizard is born holding only your own.
+made by the wizard is born holding only your own. Remote Control is not a key: it is your
+Claude account.
 
 ## What a support session can see
 
@@ -263,6 +282,8 @@ Write to cradsdavis@gmail.com. If you are in Australia and unsatisfied, you
 can complain to the Office of the Australian Information Commissioner.
 
 ## Changes
+
+*Changed in 0.19: Remote Control (your assistant from the Claude app on your phone) is on by default on server minerals; "What leaves your mineral" says what it sends to Anthropic, and "When anyone can reach your mineral" says who it lets in.*
 
 *Changed in 0.18: a section for minerals set up through Crads for Teams; "What we hold about you" now covers paid-service client accounts, Stripe, Cal.com, the business's own email and AI assistant, and people we wrote to first, and no longer calls itself the whole list; "What leaves your mineral" now names what you say to Claude and the update checks; the site's sign-in cookie is disclosed; this change list moved to the end of the page.*
 

@@ -1305,6 +1305,24 @@ export const MEMBER_VERBS = {
     build: () => ({ command: 'node /app/engine/comms/telegram-link.mjs /state forget' }),
   },
 
+  // ---- Remote Control: the Claude app on the phone (2026-10-14) ------------
+  // On by default (Sam's ruling); the member's only control is the off switch,
+  // which is the marker secrets/remote_control_disabled. Switching back on
+  // removes it and runs start-comms at once, rather than waiting up to two
+  // minutes for the scheduler's next pass. Spec:
+  // docs/superpowers/specs/2026-10-14-remote-control-design.md
+  'remote-control-status': {
+    build: () => ({ command: 'node /app/engine/comms/remote-control.mjs /state status' }),
+  },
+  'remote-control-off': {
+    mutating: true,
+    build: () => ({ command: 'node /app/engine/comms/remote-control.mjs /state off' }),
+  },
+  'remote-control-on': {
+    mutating: true,
+    build: () => ({ command: 'node /app/engine/comms/remote-control.mjs /state on && (bash /app/engine/start-comms.sh /state >/dev/null 2>&1 || true)' }),
+  },
+
   // ---- MCP connections, visible and changeable (2026-08-05) ----------------
   // Connecting Gmail in the Claude Code app connects it to the member's CLAUDE
   // ACCOUNT, which reaches interactive sessions only, so their scheduled jobs

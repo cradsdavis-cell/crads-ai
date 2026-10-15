@@ -86,8 +86,9 @@ test('Telegram is a Connections row, not a page (merged 2026-08-09, R4)', () => 
   // and the poll starts with the page that shows it, stops with it. Since the
   // 2026-08-09 lag audit the open is warmth-guarded (60s) with a mid-setup
   // re-arm; the leave still unconditionally stops the poll.
-  assert.match(html, /if \(Date\.now\(\) - connWarmAt > 60000\) \{ connWarmAt = Date\.now\(\); loadMcp\(\); tgStatus\(\); \}/,
-    'opening Connections loads Telegram state (warmth-guarded)');
+  // Remote Control's status loads on the same warm open (2026-10-14).
+  assert.match(html, /if \(Date\.now\(\) - connWarmAt > 60000\) \{ connWarmAt = Date\.now\(\); loadMcp\(\); tgStatus\(\); rcStatus\(\); \}/,
+    'opening Connections loads Telegram and Remote Control state (warmth-guarded)');
   assert.match(html, /else if \(!tgTimer && tgLastS && tgLastS\.token && !tgLastS\.chat\) tgStatus\(\);/,
     'warm re-entry re-arms a dark mid-setup poll');
   assert.match(html, /\} else tgStop\(\);/, 'leaving Connections stops the poll');

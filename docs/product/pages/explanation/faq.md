@@ -189,6 +189,16 @@ result rather than trust it.
 [Fix a broken connection](/docs/fix-a-broken-connection) covers the states a
 connection can be in.
 
+## Can I use it from my phone?
+
+Yes, and it is on already. Open the **Claude** app on your phone, signed in to
+the same Claude account as your mineral, go to the **Code** tab and pick your
+assistant. It is the whole assistant, with your brain, skills and connections,
+and the work runs on your mineral while your laptop is shut. Telegram stays
+useful for the morning brief and other results it sends you. [Use it from your
+phone](/docs/use-it-from-your-phone) has the steps, what Anthropic keeps, and
+how to switch it off.
+
 ## How do I use it from a second computer?
 
 A computer that already opens your mineral lets the new one in, directly,

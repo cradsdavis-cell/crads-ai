@@ -6,8 +6,8 @@ access: public
 mode: reference
 surface: connections
 order: 108
-pins: engine/comms/mcp-connect.mjs, wizard/panel/mcp-catalogue.mjs, wizard/panel/google-connect-routes.mjs
-reviewed: 2026-10-13
+pins: engine/comms/mcp-connect.mjs, wizard/panel/mcp-catalogue.mjs, wizard/panel/google-connect-routes.mjs, engine/comms/remote-control.mjs
+reviewed: 2026-10-14
 ---
 
 *What your assistant can reach.*
@@ -18,11 +18,24 @@ current answer rather than a remembered one.
 
 ![Connections](shot:member-connections)
 
-## Telegram comes first
+## The Claude app on your phone, first
 
-Until Telegram is linked, it leads the page as its own card with one button,
+The top row is **Claude app on your phone**: your assistant from the Claude
+app's Code tab, on by default. Its chip says where it stands: "on",
+"starting", "restarting" (your mineral brings it back within about two
+minutes), "off", "sign in to Claude" (your mineral's own Claude sign-in has
+lapsed) or "needs a look" (it could not start, and Details says why).
+**Details** opens how to find it on your phone, what Anthropic keeps while a
+session is connected, and the one control: **Switch off**, or **Switch on**
+once it is off. The walkthrough is [use it from your
+phone](/docs/use-it-from-your-phone).
+
+## Then Telegram
+
+Telegram is where scheduled results reach your phone. Until it is linked, it
+sits under the phone row as its own card with one button,
 "Set up Telegram". Once linked, the same card docks as the first row of the
-connections list. The chip on it tells you where you are: "not connected",
+connections list below. The chip on it tells you where you are: "not connected",
 then "one step left" once your bot token is saved, then "linked". The button
 changes with it: "Set up Telegram", then "Finish setup", then "Details", which
 opens the card that holds the Disconnect.
