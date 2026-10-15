@@ -409,7 +409,7 @@
              the registry (tokenSteps / tokenNote), so adding one is a registry
              entry, not another hand-written fold here. -->
         <details class="tokhelp" id="shTokenHelpReg" open style="display:none">
-          <summary>How to get one (about five minutes)</summary>
+          <summary id="shTokenHelpRegSummary">How to get one (about five minutes)</summary>
           <ol class="hint" id="shTokenSteps"></ol>
           <p class="hint" id="shTokenNote"></p>
         </details>
@@ -418,10 +418,20 @@
              in the registry) gets one box per value here instead of shToken;
              they travel to the local server as one JSON string, never stored. -->
         <div id="shCreds"></div>
+        <!-- "A server you already have" (providers.mjs ownServer, 2026-10-15):
+             the person puts THIS mineral's key on their server before the
+             check, so the key is shown here, minted by /provision/own-key. -->
+        <div id="shOwnKeyRow" style="display:none;margin:10px 0">
+          <button type="button" class="act" id="shOwnKeyBtn">Show my key</button>
+          <textarea id="shOwnKey" readonly rows="3" spellcheck="false" style="display:none;width:100%;margin-top:8px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;padding:8px;border:1px solid var(--edge);border-radius:8px;background:var(--card);color:var(--ink)"></textarea>
+          <button type="button" class="act" id="shOwnKeyCopy" style="display:none;margin-top:6px">Copy the key</button>
+          <p class="hint" id="shOwnKeyHint" style="display:none">This mineral&#8217;s own key. The private half never leaves this computer; this public half is safe to paste into your server or your cloud&#8217;s SSH key box.</p>
+        </div>
         <div id="shOpts" style="display:none">
-          <label for="shLoc">Where in the world</label>
+          <p class="hint" id="shOwnFacts" style="display:none"></p>
+          <label for="shLoc" id="shLocLabel">Where in the world</label>
           <select id="shLoc"></select>
-          <label>How big a machine</label>
+          <label id="shSizesLabel">How big a machine</label>
           <!-- Sam's ruling (2026-09-01): a handful of options with words, not
                25 SKU strings. Each card resolves to a real machine type behind
                the scenes (the provider's preference chain, filtered by what
@@ -1103,7 +1113,11 @@
         + '<b>On this computer</b><span>Free. No schedule, no phone, stops when your laptop sleeps. Move to a server any time.</span></button>');
     if (!shProvider) return;
     document.getElementById('shCostServer').textContent = shProvider.costsCopy;
-    document.getElementById('shCostNeed').textContent = 'You need a ' + shProvider.label + ' account and an API token; the next screen walks you through getting one. The token stays on this computer.';
+    document.getElementById('shCostNeed').textContent = shProvider.ownServer
+      ? 'You need an Ubuntu 24.04 server with 4 GB of memory or more that this computer can reach over SSH; the next screen shows the key to put on it. No cloud password or key is asked for.'
+      : 'You need a ' + shProvider.label + ' account and an API token; the next screen walks you through getting one. The token stays on this computer.';
+    document.getElementById('shOwnKeyRow').style.display = shProvider.ownServer ? '' : 'none';
+    document.getElementById('shCheckBtn').textContent = shCheckLabel();
     document.getElementById('shTokenLabel').textContent = shProvider.tokenLabel;
     var handFold = false;
     Array.prototype.forEach.call(document.querySelectorAll('[data-tokhelp]'), function(el){
@@ -1115,6 +1129,7 @@
     document.getElementById('shTokenHelpReg').style.display = (!handFold && steps.length) ? '' : 'none';
     document.getElementById('shTokenSteps').innerHTML = steps.map(function(t){ return '<li>' + esc(t) + '</li>'; }).join('');
     document.getElementById('shTokenNote').textContent = shProvider.tokenNote || '';
+    document.getElementById('shTokenHelpRegSummary').textContent = shProvider.ownServer ? 'How to get your server ready' : 'How to get one (about five minutes)';
     credRender('sh', shProvider);
   }
   // One token box, or one box per value for a provider that signs in with
@@ -1140,6 +1155,28 @@
     });
     return missing ? '' : JSON.stringify(out);
   }
+  function shCheckLabel(){ return (shProvider && shProvider.ownServer) ? 'Check the server' : 'Check the token'; }
+  document.getElementById('shOwnKeyBtn').addEventListener('click', function(){
+    shErr('');
+    var name = document.getElementById('shName').value.trim().toLowerCase();
+    if (!name) { shErr('Name your mineral first: the key belongs to it.'); document.getElementById('shRetryRow').style.display='none'; return; }
+    fetch('/provision/own-key', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ name: name }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(x){
+        if (!x.ok || !x.d.ok) { shErr((x.d && x.d.error) || 'Could not make the key.'); document.getElementById('shRetryRow').style.display='none'; return; }
+        var ta = document.getElementById('shOwnKey');
+        ta.value = x.d.publicKey; ta.style.display = '';
+        document.getElementById('shOwnKeyCopy').style.display = '';
+        document.getElementById('shOwnKeyHint').style.display = '';
+      })
+      .catch(function(){ shErr('The app did not answer.'); document.getElementById('shRetryRow').style.display='none'; });
+  });
+  document.getElementById('shOwnKeyCopy').addEventListener('click', function(){
+    var ta = document.getElementById('shOwnKey'); ta.select();
+    try { navigator.clipboard.writeText(ta.value).then(function(){}, function(){ document.execCommand('copy'); }); } catch (e) { document.execCommand('copy'); }
+    this.textContent = 'Copied';
+    var b = this; setTimeout(function(){ b.textContent = 'Copy the key'; }, 1500);
+  });
   function credMissingText(p){
     return (p && p.credentialFields && p.credentialFields.length)
       ? 'Fill in each ' + String(p.label).replace(/\s*\(.*\)$/, '') + ' value above first.'
@@ -1260,7 +1297,7 @@
     tmErr('');
     fetch('/provision/providers').then(function(r){ return r.json(); }).then(function(d){
       var sel = document.getElementById('tmProvider');
-      tmProviders = (d && d.providers) || [];
+      tmProviders = ((d && d.providers) || []).filter(function(p){ return !p.ownServer; });
       sel.innerHTML = tmProviders.map(function(p){ return '<option value="' + esc(p.id) + '">' + esc(p.label) + '</option>'; }).join('');
       credRender('tm', tmPickedProvider());
     }).catch(function(){});
@@ -1616,10 +1653,13 @@
     if (!token) { shErr(credMissingText(shProvider)); document.getElementById('shRetryRow').style.display='none'; return; }
     var btn = document.getElementById('shCheckBtn');
     btn.disabled = true; btn.textContent = 'Checking…';
-    fetch('/provision/validate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ token: token, provider: shProvider ? shProvider.id : undefined }) })
+    var own = !!(shProvider && shProvider.ownServer);
+    fetch('/provision/validate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ token: token, provider: shProvider ? shProvider.id : undefined, name: document.getElementById('shName').value.trim().toLowerCase() }) })
       .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
       .then(function(x){
-        btn.disabled = false; btn.textContent = 'Check the token';
+        btn.disabled = false; btn.textContent = shCheckLabel();
+        // An own server says exactly what is wrong with it (own-server.mjs).
+        if (own && (!x.ok || !x.d.ok)) { shErr('Your server is not ready: ' + ((x.d && (x.d.reason || x.d.error)) || 'it did not answer') + '.'); document.getElementById('shRetryRow').style.display='none'; return; }
         if (!x.ok || !x.d.ok) { shErr(shProviderLabel() + ' did not accept that token. Check it against the steps above: it must be an API token (not a password), with write access, from the account the server should live in. Tokens show once; generating a fresh one is quicker than hunting the old.'); document.getElementById('shRetryRow').style.display='none'; return; }
         var loc = document.getElementById('shLoc');
         shCat = x.d;
@@ -1627,11 +1667,18 @@
           return '<option value="' + esc(l.name) + '"' + (l.name === x.d.defaults.location ? ' selected' : '') + '>' + esc(l.country ? l.city + ', ' + l.country : l.city) + '</option>';
         }).join('');
         shRenderTypes(loc.value || x.d.defaults.location);
+        // An own server has no locations or sizes to choose: it is one
+        // machine, so the page says what it found instead.
+        ['shLocLabel', 'shLoc', 'shSizesLabel', 'shSizes'].forEach(function(id){ document.getElementById(id).style.display = own ? 'none' : ''; });
+        var facts = document.getElementById('shOwnFacts');
+        var t0 = (x.d.server_types || [])[0];
+        facts.style.display = own ? '' : 'none';
+        facts.textContent = own && t0 ? 'Your server answered: ' + t0.cores + ' cpu, ' + t0.memoryGb + ' GB memory, ' + t0.diskGb + ' GB free disk, ' + (t0.arch === 'arm' ? 'Arm' : 'Intel/AMD') + '. Building sets it up for your assistant and turns on its firewall (SSH in, nothing else).' : '';
         document.getElementById('shOpts').style.display = loc.options.length ? 'block' : 'none';
         btn.style.display = 'none';
         document.getElementById('shBuildBtn').style.display = 'inline-block';
       })
-      .catch(function(){ btn.disabled = false; btn.textContent = 'Check the token'; shErr('Could not reach ' + shProviderLabel() + ' from here. Check the connection and try again.'); document.getElementById('shRetryRow').style.display='none'; });
+      .catch(function(){ btn.disabled = false; btn.textContent = shCheckLabel(); shErr('Could not reach ' + shProviderLabel() + ' from here. Check the connection and try again.'); document.getElementById('shRetryRow').style.display='none'; });
   });
 
   function shStart(){

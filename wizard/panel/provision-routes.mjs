@@ -19,6 +19,13 @@
 //   POST /provision/start     {token, name, provider?, location?, server_type?} -> {ok, alias}
 //   GET  /provision/status                               -> the run, minus the token
 //   POST /provision/destroy   {token?, name?, provider?} -> destroy-and-retry
+//   POST /provision/own-key   {name}                     -> {ok, publicKey} (2026-10-15)
+//
+// "A server you already have" (providers.mjs `ownServer`): the person makes the
+// server and puts THIS mineral's key on it, so the key must exist before the
+// build does. /provision/own-key mints it (installMemberAccess is idempotent:
+// the build reuses the same key). The details carry no secret; the mineral's
+// name rides into them here so the client can find its key.
 import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -40,7 +47,14 @@ export function provisionRoutes(opts = {}) {
   const sshDir = opts.sshDir || join(homedir(), '.ssh');
   // (token, providerId) -> a client honouring the nine-method contract. Tests
   // inject a fake; production asks the registry.
-  const makeClient = opts.makeClient || ((token, provider) => providerOf(provider).makeClient(token));
+  const makeClient = opts.makeClient || ((token, provider) => providerOf(provider).makeClient(token, { sshDir }));
+  // An own server's details name the mineral, so its client finds the key on
+  // this computer. Every other provider's token passes through untouched.
+  const withSlug = (token, providerId, slug) => {
+    if (!providerOf(providerId).ownServer) return token;
+    let t; try { t = JSON.parse(token); } catch { return token; }
+    return JSON.stringify({ ...(t && typeof t === 'object' ? t : {}), slug: String(slug || '').toLowerCase() });
+  };
   const providerIdOf = (form) => {
     const id = String((form && form.provider) || DEFAULT_PROVIDER);
     return Object.prototype.hasOwnProperty.call(PROVIDERS, id) ? id : null;
@@ -130,7 +144,7 @@ export function provisionRoutes(opts = {}) {
         const providerId = providerIdOf(form);
         if (!providerId) { jsonOut(res, 400, { error: 'unknown provider' }); return; }
         const P = providerOf(providerId);
-        const client = makeClient(String(form.token || ''), providerId);
+        const client = makeClient(withSlug(String(form.token || ''), providerId, form.name), providerId);
         const v = await client.validateToken();
         if (!v.ok) { jsonOut(res, 401, { ok: false, reason: v.reason }); return; }
         // Both catalogues ride the validate answer so the form can offer real
@@ -182,7 +196,7 @@ export function provisionRoutes(opts = {}) {
           steps: [],
           ip: null,
           error: null,
-          token: String(form.token),
+          token: withSlug(String(form.token), providerId, slug),
           state: loadState(slug),   // resume semantics: a half-made run picks up where it stopped
           location: String(form.location || '') || null,
           serverType: String(form.server_type || '') || null,
@@ -198,18 +212,36 @@ export function provisionRoutes(opts = {}) {
         let form; try { form = JSON.parse(body || '{}'); } catch { form = {}; }
         const active = run && run.phase !== 'ready';
         const slug = active ? run.slug : String(form.name || '').toLowerCase();
-        const token = (active && run.token) || String(form.token || '');
+        let token = (active && run.token) || String(form.token || '');
         if (!slug || !SLUG_RE.test(slug)) { jsonOut(res, 400, { error: 'nothing to destroy' }); return; }
         if (!token) { jsonOut(res, 400, { error: 'the hosting token is needed again to destroy (it is never stored)' }); return; }
         const state = (active && run.state) || loadState(slug);
         // The provider the run was started on wins over anything the form
         // says: a delete sent to the wrong provider is a server left running.
         const providerId = (active && run.provider) || state.provider || providerIdOf(form) || DEFAULT_PROVIDER;
+        token = withSlug(token, providerId, slug);
         try {
           const r = await destroySelfHost({ token, state, provider: providerId, client: makeClient(token, providerId) });
           try { unlinkSync(statePath(slug)); } catch { /* already gone */ }
           if (active) run = null;
           jsonOut(res, 200, { ok: true, destroyed: r.destroyed });
+        } catch (e) {
+          jsonOut(res, 500, { error: String((e && e.message) || e) });
+        }
+      });
+      return true;
+    }
+
+    if (req.method === 'POST' && path === '/provision/own-key') {
+      readBody(req, res, (body) => {
+        let form; try { form = JSON.parse(body || '{}'); } catch { jsonOut(res, 400, { error: 'bad json' }); return; }
+        const slug = String(form.name || '').toLowerCase();
+        if (!SLUG_RE.test(slug)) { jsonOut(res, 400, { error: 'name the mineral first (2 to 32 lowercase letters, digits or hyphens)' }); return; }
+        try {
+          // Host 0.0.0.0 until the build knows the address, exactly as a
+          // cloud build mints the key before the server exists.
+          const a = install({ slug, host: '0.0.0.0', user: 'member' }, sshDir);
+          jsonOut(res, 200, { ok: true, publicKey: String(a.publicKey).trim().split('\n')[0] });
         } catch (e) {
           jsonOut(res, 500, { error: String((e && e.message) || e) });
         }

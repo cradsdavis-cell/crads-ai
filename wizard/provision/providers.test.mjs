@@ -6,6 +6,7 @@ import { PROVIDERS, providerOf, publicProviders, DEFAULT_PROVIDER, resolveSize, 
 import { HetznerClient } from './hetzner.mjs';
 import { DigitalOceanClient } from './digitalocean.mjs';
 import { ScalewayClient } from './scaleway.mjs';
+import { OwnServerClient } from './own-server.mjs';
 
 const CONTRACT = ['validateToken', 'listLocations', 'listServerTypes', 'listAvailability', 'ensureSshKey', 'createServer', 'waitAction', 'getServer', 'deleteServer', 'deleteSshKey'];
 
@@ -14,7 +15,9 @@ test('every provider carries the fields the door and the docs read', () => {
     assert.equal(p.id, id);
     for (const k of ['label', 'currency', 'symbol', 'console', 'tokenLabel', 'tokenHelpDocSlug', 'costsCopy', 'blurb']) {
       assert.equal(typeof p[k], 'string', `${id}.${k}`);
-      assert.ok(p[k].length, `${id}.${k} is empty`);
+      // A server the person already has has no prices and no console of ours to name.
+      const mayBeEmpty = p.ownServer && ['currency', 'symbol', 'console'].includes(k);
+      if (!mayBeEmpty) assert.ok(p[k].length, `${id}.${k} is empty`);
       assert.ok(!p[k].includes('\u2014'), `${id}.${k} carries an em dash`);
     }
     assert.ok(p.defaults.location && p.defaults.serverType, `${id} defaults`);
@@ -45,7 +48,7 @@ test('providerOf: default, named, unknown', () => {
 test('publicProviders carries no functions and no shared objects', () => {
   const a = publicProviders();
   const b = publicProviders();
-  assert.deepEqual(a.map((p) => p.id), ['hetzner', 'digitalocean'], 'Hetzner leads');
+  assert.deepEqual(a.map((p) => p.id), ['hetzner', 'digitalocean', 'own'], 'Hetzner leads; a server you already have comes after the two cloud companies');
   for (const p of a) assert.ok(!('makeClient' in p));
   a[0].sizeChains.standard.push('x');
   assert.notDeepEqual(a[0].sizeChains.standard, b[0].sizeChains.standard, 'fresh objects every call');
@@ -120,8 +123,9 @@ test('defaultLocationFor: the default location sells the default machine, or the
 test('every provider builds a client that honours the contract', () => {
   const tokens = {
     scaleway: JSON.stringify({ secretKey: '11111111-2222-3333-4444-555555555555', projectId: '11111111-2222-3333-4444-666666666666' }),
+    own: JSON.stringify({ host: '203.0.113.10', user: 'ubuntu', slug: 'mel' }),
   };
-  const classes = { scaleway: ScalewayClient };
+  const classes = { scaleway: ScalewayClient, own: OwnServerClient };
   for (const [id, Cls] of Object.entries(classes)) {
     const c = PROVIDERS[id].makeClient(tokens[id]);
     assert.ok(c instanceof Cls, id);
@@ -133,8 +137,8 @@ test('providers not yet proven on real metal stay off the members\' list unless 
   const preview = Object.values(PROVIDERS).filter((p) => p.preview).map((p) => p.id);
   assert.deepEqual(preview.sort(), ['scaleway']);
   for (const gone of ['contabo', 'binarylane']) assert.ok(!(gone in PROVIDERS), `${gone} stays out`);
-  assert.deepEqual(publicProviders({ includePreview: false }).map((p) => p.id), ['hetzner', 'digitalocean']);
-  assert.deepEqual(publicProviders({ includePreview: true }).map((p) => p.id), ['hetzner', 'digitalocean', 'scaleway']);
+  assert.deepEqual(publicProviders({ includePreview: false }).map((p) => p.id), ['hetzner', 'digitalocean', 'own']);
+  assert.deepEqual(publicProviders({ includePreview: true }).map((p) => p.id), ['hetzner', 'digitalocean', 'own', 'scaleway']);
   for (const id of preview) assert.equal(providerOf(id).id, id, `${id} is still buildable by id`);
 });
 

@@ -278,7 +278,7 @@ test('setup-steps answers not-yet by default and done with ?setup=done', async (
 
 test('provision/providers lists the registry; validate answers each provider in its own currency', async () => {
   const reg = await (await fetch(base + '/provision/providers')).json();
-  assert.deepEqual(reg.providers.map((p) => p.id), ['hetzner', 'digitalocean']);
+  assert.deepEqual(reg.providers.map((p) => p.id), ['hetzner', 'digitalocean', 'own']);
   const dO = await (await postJson('/provision/validate', { token: 'fixture-token', provider: 'digitalocean' })).json();
   assert.equal(dO.symbol, '$');
   assert.equal(dO.defaults.location, 'syd1', 'Sydney by default on DigitalOcean');

@@ -53,7 +53,11 @@ test('door build steps read as plain words, never raw step ids', () => {
   assert.equal(stepWords('wait-running'), 'Waiting for the server to switch on');
   assert.equal(stepWords('done', '203.0.113.9'), 'Server switched on, at 203.0.113.9');
   assert.equal(stepWords('something-new', 'x'), 'something-new (x)', 'an unknown step still shows, as itself');
-  assert.match(buildBox, /run\.steps\.push\(stepWords\(step, detail\)\)/);
+  // A server the person made is checked and set up, not created (2026-10-15).
+  assert.equal(stepWords('validate-token', '', true), 'Checking your server');
+  assert.match(stepWords('create-server', 'own @ own', true), /^Setting up your server/);
+  assert.equal(stepWords('done', '203.0.113.9', true), 'Your server is ready, at 203.0.113.9');
+  assert.match(buildBox, /run\.steps\.push\(stepWords\(step, detail(, [^;]*)?\)\)/);
 });
 
 test('a failed build names the buttons that are really there, in a sentence', () => {

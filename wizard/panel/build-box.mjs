@@ -11,12 +11,25 @@
 // ('provisioning' -> 'booting' -> 'ready') and throws on failure; the caller
 // persists run.state through deps.saveState.
 import { provisionSelfHost } from '../provision/engine.mjs';
+import { PROVIDERS } from '../provision/providers.mjs';
 
 // The engine names its steps with ids ('validate-token', 'create-server' with
 // "cx33 @ nbg1" as detail); the door printed those raw, under a tick each, to a
 // person who has never seen either. Plain words here, the ids stay the engine's
 // (its tests and resume state speak them). An unknown id still shows, as itself.
-export function stepWords(step, detail) {
+export function stepWords(step, detail, own = false) {
+  // A server the person made themselves (providers.mjs ownServer) is checked
+  // and set up, not created; its steps say so.
+  if (own) {
+    switch (step) {
+      case 'validate-token': return 'Checking your server';
+      case 'ensure-ssh-key': return 'Using this computer\u2019s key, already on your server';
+      case 'create-server': return 'Setting up your server: Docker and your assistant (a few minutes)';
+      case 'wait-running': return 'Finishing setup';
+      case 'done': return detail ? `Your server is ready, at ${detail}` : 'Your server is ready';
+      default: break;
+    }
+  }
   switch (step) {
     case 'validate-token': return 'Checking your hosting token';
     case 'ensure-ssh-key': return 'Adding this computer\u2019s key to your hosting account';
@@ -40,7 +53,7 @@ export async function buildBox(run, deps) {
   const ownerPubKey = String(pre.publicKey).trim().split('\n')[0];
   const r = await provisionSelfHost({
     token: run.token, boxName: run.slug, ownerPubKey, state: run.state, provider: run.provider,
-    onStep: (step, detail) => { run.steps.push(stepWords(step, detail)); },
+    onStep: (step, detail) => { run.steps.push(stepWords(step, detail, !!(PROVIDERS[run.provider] && PROVIDERS[run.provider].ownServer))); },
     overrides: {
       client: makeClient(run.token, run.provider),
       ...(files ? { files } : {}),

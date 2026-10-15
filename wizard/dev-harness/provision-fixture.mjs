@@ -97,6 +97,11 @@ export const DO_SERVER_TYPES = [
 // The third provider (2026-10-14), as its own list read that day: Scaleway in
 // euros with the 80 GB disk included, Paris only.
 const WORLDS = {
+  // "A server you already have": one machine, described by what it reported.
+  own: {
+    locations: [{ name: 'own', city: '203.0.113.10', country: '' }],
+    types: [{ id: 'own', name: 'own', cores: 2, memoryGb: 4, diskGb: 35, arch: 'arm', locations: ['own'], prices: {} }],
+  },
   scaleway: {
     locations: [{ name: 'fr-par-2', city: 'Paris', country: 'FR' }],
     types: [

@@ -28,7 +28,10 @@ token for it. Hetzner is the cheaper; DigitalOcean has a Sydney location. The wi
 explains the token as you go, and
 [get a Hetzner API token](/docs/get-a-hetzner-api-token) or
 [get a DigitalOcean API token](/docs/get-a-digitalocean-api-token) is the
-same walkthrough as its own page if you would rather do it first.
+same walkthrough as its own page if you would rather do it first. Already have
+an Ubuntu server, at AWS, Google Cloud, Azure or anywhere else, or a machine of
+your own? [Use a server you already have](/docs/use-a-server-you-already-have)
+instead, and no hosting token is needed at all.
 
 Worth knowing before you start: the machine you are about to create is yours
 in the plainest sense. It is built in your own hosting account, billed to you

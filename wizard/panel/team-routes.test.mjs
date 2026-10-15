@@ -401,3 +401,12 @@ test('review 2: names the agent uses for itself are reserved; a resumed start ke
   await h.call('POST', '/team/start', START);
   await until(h.call, 'ready');
 });
+
+// A team is a server per person plus one for the company, made by the app; a
+// server someone made by hand is one machine (2026-10-15).
+test('a team cannot be built on "a server you already have"', async (t) => {
+  const h = harness(); t.after(h.close);
+  const r = await h.call('POST', '/team/start', { ...START, provider: 'own', token: JSON.stringify({ host: '203.0.113.10', user: 'ubuntu' }) });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /one assistant/);
+});

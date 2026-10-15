@@ -789,3 +789,12 @@ test('the moves: deep links, a move up only into its own new server, a delete on
   assert.match(DOOR, /body: JSON\.stringify\(\{ alias: mdPlan\.from, token: [^}]*confirm: mdQuote\.server \}\)/);
   assert.match(DOOR, /id="mdKeepBtn">Keep it for now</);
 });
+
+// 2026-10-15: one stray quote in the door's script killed the whole page (every
+// button dead) while every string-matching test above stayed green; the drive
+// in a real browser caught it. Each inline script must at least parse.
+test('every inline script on the door parses', () => {
+  const scripts = [...DOOR.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  assert.ok(scripts.length >= 1);
+  for (const [i, js] of scripts.entries()) assert.doesNotThrow(() => new Function(js), `inline script ${i} has a syntax error`);
+});

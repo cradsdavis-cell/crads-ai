@@ -46,6 +46,8 @@ export async function provisionSelfHost({ token, boxName, ownerPubKey, state, on
   if (!state.tokenValidated) {
     onStep('validate-token');
     const v = await hc.validateToken();
+    // A server the person made (ownServer) answers in its own plain words.
+    if (!v.ok && P.ownServer) throw new Error(v.reason);
     if (!v.ok) throw new Error(v.reason === 'unauthorized'
       ? `${P.label} rejected the token. Check it is a read-write API token for the right account.`
       : `Could not reach ${P.label}: ${v.reason}`);

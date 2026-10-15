@@ -284,6 +284,7 @@ const server = createServer(async (req, res) => {
   if (req.method === 'GET' && path === '/team/status') { sendJson(res, { phase: 'idle' }); return; }
   if (req.method === 'GET' && path === '/team/teams') { sendJson(res, { teams: [] }); return; }
   if (req.method === 'GET' && path === '/provision/providers') { sendJson(res, { providers: FX.provisionProviders() }); return; }
+  if (req.method === 'POST' && path === '/provision/own-key') { sendJson(res, { ok: true, publicKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFixtureKeyForTheShotsOnlyNotARealKeyXXXXXX mel-box' }); return; }
   if (req.method === 'POST' && path === '/provision/validate') { const a = FX.provisionValidate(await readBody(req)); sendJson(res, a.body, a.status); return; }
   if (req.method === 'POST' && path === '/provision/start') { const a = FX.provisionStart(await readBody(req)); sendJson(res, a.body, a.status); return; }
   if (req.method === 'POST' && path === '/provision/destroy') { const a = FX.provisionDestroy(await readBody(req)); sendJson(res, a.body, a.status); return; }
@@ -347,12 +348,12 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && path === '/move/plan') {
       const from = url.searchParams.get('from') || '';
       sendJson(res, /-local$/.test(from) ? { direction: 'up', from, slug: 'sam', name: 'Sam', path: FX.LOCAL_PATH }
-        : { direction: 'down', from, slug: from.replace(/-box$/, ''), name: from.replace(/-box$/, ''), default_path: '/home/sam/Crads-AI/' + from.replace(/-box$/, ''), provider: 'Hetzner', built_here: true });
+        : { direction: 'down', from, slug: from.replace(/-box$/, ''), name: from.replace(/-box$/, ''), default_path: '/home/mel/Crads-AI/' + from.replace(/-box$/, ''), provider: 'Hetzner', built_here: true });
       return;
     }
     const body = await readBody(req);
     if (path === '/move/up/start' || path === '/move/down/start') {
-      H.run = { direction: path.includes('/up/') ? 'up' : 'down', from: body.from, to: body.to || body.path || '/home/sam/Crads-AI/sam', at: Date.now() };
+      H.run = { direction: path.includes('/up/') ? 'up' : 'down', from: body.from, to: body.to || body.path || '/home/mel/Crads-AI/sam', at: Date.now() };
       sendJson(res, { ok: true }); return;
     }
     if (path === '/move/quote') { sendJson(res, body.token ? { ok: true, server: 'aios-' + String(body.alias || '').replace(/-box$/, ''), provider: 'Hetzner', console: 'console.hetzner.com', ip: '203.0.113.9', monthly: 5.99, symbol: '\u20ac', cost_words: '\u20ac5.99 a month' } : { error: 'paste your Hetzner API token: it is never stored, so it is needed again here' }, body.token ? 200 : 400); return; }

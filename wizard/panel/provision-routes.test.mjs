@@ -264,3 +264,35 @@ test('start refuses an unknown provider and names the right provider in the toke
   assert.equal(r.status, 400);
   assert.match(r.body.error, /DigitalOcean API token/);
 });
+
+// "A server you already have" (2026-10-15): the key is shown before the server
+// exists, the mineral's name rides into the details so the client finds that
+// key, and nothing else about the token changes for the cloud providers.
+test('own server: /provision/own-key mints the mineral\'s key before anything exists; a bad name is refused', async (t) => {
+  const h = harness(); t.after(h.close);
+  const r = await h.call('POST', '/provision/own-key', { name: 'mel' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.publicKey, PUB, 'the public half, one line');
+  assert.deepEqual(h.installs.at(-1), { slug: 'mel', host: '0.0.0.0', user: 'member' }, 'minted exactly as a cloud build mints it');
+  assert.equal((await h.call('POST', '/provision/own-key', { name: 'Bad Name' })).status, 400);
+});
+
+test('own server: validate and start hand the client the details plus the mineral\'s name; cloud tokens pass through untouched', async (t) => {
+  const seen = [];
+  const h = harness({ makeClient: (token, provider) => { seen.push([provider, token]); return fakeClient([], provider); } });
+  t.after(h.close);
+  await h.call('POST', '/provision/validate', { provider: 'own', name: 'mel', token: JSON.stringify({ host: '203.0.113.10', user: 'ubuntu' }) });
+  assert.deepEqual(JSON.parse(seen.at(-1)[1]), { host: '203.0.113.10', user: 'ubuntu', slug: 'mel' });
+  await h.call('POST', '/provision/validate', { provider: 'hetzner', name: 'mel', token: 'hz-token' });
+  assert.equal(seen.at(-1)[1], 'hz-token', 'a cloud token is never rewritten');
+  const s = await h.call('POST', '/provision/start', { provider: 'own', name: 'pal', token: JSON.stringify({ host: '203.0.113.11', user: 'ubuntu' }) });
+  assert.equal(s.status, 200);
+  await untilPhase(h.call, 'ready');
+  assert.ok(seen.some(([p, tok]) => p === 'own' && JSON.parse(tok).slug === 'pal'), 'the build\'s client gets the name too');
+});
+
+test('own server is on the members\' list, after the two cloud companies', async (t) => {
+  const h = harness(); t.after(h.close);
+  const r = await h.call('GET', '/provision/providers');
+  assert.deepEqual(r.body.providers.map((p) => p.id).slice(0, 3), ['hetzner', 'digitalocean', 'own']);
+});

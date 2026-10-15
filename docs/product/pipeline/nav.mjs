@@ -30,7 +30,7 @@ export const JOURNEY = [
     blurb: 'From nothing to an assistant that is awake, knows you, and reaches your phone.',
     // first-hour leads: its step 3 links the two token pages, so the reader
     // meets them in the order the walkthrough sends them there.
-    slugs: ['first-hour', 'get-a-hetzner-api-token', 'get-a-digitalocean-api-token', 'the-interview', 'your-first-week', 'use-it-from-your-phone', 'connect-google', 'connect-telegram',
+    slugs: ['first-hour', 'get-a-hetzner-api-token', 'get-a-digitalocean-api-token', 'use-a-server-you-already-have', 'the-interview', 'your-first-week', 'use-it-from-your-phone', 'connect-google', 'connect-telegram',
       'connect-slack', 'connect-wordpress', 'connect-mailchimp', 'connect-shopify-and-xero'],
   },
   {
@@ -89,7 +89,7 @@ export const DOORS = [
   {
     id: 'build', title: 'I want to set one up', glyph: 'server',
     lead: 'A token from Hetzner or DigitalOcean, fifteen minutes of building, and an interview that makes it yours.',
-    slugs: ['get-a-hetzner-api-token', 'get-a-digitalocean-api-token', 'first-hour', 'the-interview'],
+    slugs: ['get-a-hetzner-api-token', 'get-a-digitalocean-api-token', 'use-a-server-you-already-have', 'first-hour', 'the-interview'],
   },
   {
     id: 'work', title: 'I want real work out of it', glyph: 'bolt',

@@ -32,6 +32,10 @@
 //                     in memory only, never written down.
 //   tokenSteps        plain-text steps for the door's "how to get one" fold
 //   tokenNote         the line under them (where the token goes, how to revoke)
+//   ownServer         true for "a server you already have": no cloud account, no
+//                     prices, no sizes; the door shows this mineral's key to put
+//                     on the server instead, and provision-routes adds the
+//                     mineral's name to the details so the client finds its key.
 //   preview           true until the provider has passed a live build on a real
 //                     account (wizard/provision/live-cert.mjs). A preview
 //                     provider is buildable by id but is not listed to members
@@ -39,6 +43,7 @@
 import { HetznerClient } from './hetzner.mjs';
 import { DigitalOceanClient } from './digitalocean.mjs';
 import { ScalewayClient } from './scaleway.mjs';
+import { OwnServerClient } from './own-server.mjs';
 
 export const PROVIDERS = {
   hetzner: {
@@ -97,6 +102,40 @@ export const PROVIDERS = {
       large: ['s-8vcpu-16gb', 's-8vcpu-16gb-amd'],
     },
     makeClient: (token, opts) => new DigitalOceanClient(token, opts),
+  },
+  own: {
+    id: 'own',
+    label: 'A server you already have',
+    currency: '',
+    symbol: '',
+    console: '',
+    tokenLabel: 'Your server',
+    tokenHelpDocSlug: 'use-a-server-you-already-have',
+    costsCopy: 'a Linux server you already have: rented anywhere (AWS, Google Cloud, Azure, any host) or a machine you own at home or in the office. You pay whoever runs it, or just the electricity',
+    blurb: 'AWS, Google Cloud, Azure, or a machine you own. Ubuntu 24.04, 4 GB of memory or more, used for this alone.',
+    // Sam's ruling (2026-10-15): "cover all the bases". One path for a server
+    // made outside the app, rented or owned; see own-server.mjs. It takes over
+    // the machine's firewall (SSH in on 22, nothing else), hence "for this
+    // alone".
+    // Proven end to end on 2026-10-15 on a stand-in Ubuntu 24.04 server
+    // (check, setup through its own cloud-init, the member login answering
+    // through the full chain, pin, registered; a second run is safe), so it
+    // is listed. Not yet run on a real AWS, Google or Azure machine.
+    ownServer: true,
+    defaults: { location: 'own', serverType: 'own' },
+    sizeChains: { standard: ['own'], roomy: ['own'], large: ['own'] },
+    credentialFields: [
+      { key: 'host', label: 'Server address', secret: false, placeholder: '203.0.113.10 or myserver.example.com', help: 'Its public IP address or hostname. A machine at home: its address on your network, or its Tailscale name.' },
+      { key: 'user', label: 'Login name', secret: false, placeholder: 'ubuntu', help: 'A login with passwordless sudo: ubuntu on AWS; on Google Cloud, the last word of the key you added; on Azure, the user name you chose (azureuser unless you changed it); on your own machine, your own login.' },
+    ],
+    tokenSteps: [
+      'Make (or pick) a server running Ubuntu 24.04 with at least 4 GB of memory, used for this alone: setup turns on a firewall that lets in SSH and nothing else.',
+      'Press "Show my key" and add that key to the server for a login with passwordless sudo. In AWS, Google Cloud and Azure there is an SSH key box when you create the server; on your own machine, add it to that login\u2019s ~/.ssh/authorized_keys.',
+      'Make sure the server accepts SSH on port 22 from this computer. Cloud servers: allow SSH in the server\u2019s firewall settings. At home: be on the same network, or use Tailscale.',
+      'Type the server\u2019s address and the login name below, then press Check the server.',
+    ],
+    tokenNote: 'Nothing secret is asked for: no cloud password or key reaches this app. The app connects with this mineral\u2019s own key, which never leaves this computer.',
+    makeClient: (token, opts) => new OwnServerClient(token, opts),
   },
   scaleway: {
     id: 'scaleway',

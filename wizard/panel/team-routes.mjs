@@ -464,6 +464,9 @@ export function teamRoutes(opts = {}) {
         const company = String(form.company || '').toLowerCase();
         const providerId = String(form.provider || DEFAULT_PROVIDER);
         if (!Object.prototype.hasOwnProperty.call(PROVIDERS, providerId)) { jsonOut(res, 400, { error: 'unknown provider' }); return; }
+        // A team is a server per person plus one for the company, which the app
+        // makes; a server someone made by hand is one machine, not a team.
+        if (providerOf(providerId).ownServer) { jsonOut(res, 400, { error: 'a team needs a hosting company the app can create servers at; a server you already have holds one assistant' }); return; }
         if (!String(form.token || '')) { jsonOut(res, 400, { error: `a ${providerOf(providerId).label} API token is required` }); return; }
         let plan;
         try { plan = planTeam(company, Array.isArray(form.people) ? form.people : []); }
