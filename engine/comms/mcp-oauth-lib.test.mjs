@@ -36,7 +36,9 @@ test('discovery follows protected-resource → authorization-server', async () =
   const m = await discover(f, 'https://mcp.example.com/mcp');
   assert.equal(m.token_endpoint, AS.token_endpoint);
   assert.equal(m._as, 'https://auth.example.com');
-  assert.match(seen[0], /oauth-protected-resource$/);
+  // RFC 9728: the path doc first (absent here), then the origin doc
+  assert.equal(seen[0], 'https://mcp.example.com/.well-known/oauth-protected-resource/mcp');
+  assert.equal(seen[1], 'https://mcp.example.com/.well-known/oauth-protected-resource');
 });
 
 test('a server with no protected-resource doc falls back to its own origin', async () => {
@@ -118,4 +120,32 @@ test('state comparison is constant-time and rejects every near miss', () => {
   assert.equal(stateMatches('', ''), false, 'empty must never match: it is the CSRF guard');
   assert.equal(stateMatches(s, ''), false);
   assert.equal(stateMatches(s, undefined), false);
+});
+
+// Asana, 2026-10-17: the origin doc names the retiring v1 auth server; the
+// path doc for /v2/mcp names app.asana.com. The path doc must win.
+test('discovery reads the path-specific protected-resource doc before the origin one', async () => {
+  const seen = [];
+  const f = async (u) => {
+    seen.push(u);
+    if (u === 'https://mcp.asana.com/.well-known/oauth-protected-resource/v2/mcp') return res(200, { authorization_servers: ['https://app.asana.com'] });
+    if (u === 'https://mcp.asana.com/.well-known/oauth-protected-resource') return res(200, { authorization_servers: ['https://mcp.asana.com'] });
+    if (u === 'https://app.asana.com/.well-known/oauth-authorization-server') return res(200, { authorization_endpoint: 'https://app.asana.com/-/oauth_authorize', token_endpoint: 'https://app.asana.com/-/oauth_token' });
+    if (u === 'https://mcp.asana.com/.well-known/oauth-authorization-server') return res(200, AS);
+    return res(404, {});
+  };
+  const m = await discover(f, 'https://mcp.asana.com/v2/mcp');
+  assert.equal(m.token_endpoint, 'https://app.asana.com/-/oauth_token');
+  assert.equal(m._as, 'https://app.asana.com');
+  assert.equal(seen[0], 'https://mcp.asana.com/.well-known/oauth-protected-resource/v2/mcp');
+});
+
+test('discovery falls back to the origin doc when the path doc is absent', async () => {
+  const f = async (u) => {
+    if (u === 'https://mcp.example.com/.well-known/oauth-protected-resource') return res(200, { authorization_servers: ['https://auth.example.com'] });
+    if (u === 'https://auth.example.com/.well-known/oauth-authorization-server') return res(200, AS);
+    return res(404, {});
+  };
+  const m = await discover(f, 'https://mcp.example.com/mcp');
+  assert.equal(m._as, 'https://auth.example.com');
 });

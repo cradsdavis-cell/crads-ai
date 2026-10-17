@@ -22,6 +22,8 @@ function fakeProvider(state) {
     state.hits = (state.hits || 0) + 1;
     res.setHeader('content-type', 'application/json');
     if (state.fail) { res.statusCode = 401; return res.end('{}'); }
+    let body = ''; req.on('data', (c) => { body += c; });
+    req.on('end', () => { state.last = new URLSearchParams(body); });
     res.end(JSON.stringify({ access_token: 'AT-' + state.hits, expires_in: 3600, ...(state.tokenType ? { token_type: state.tokenType } : {}) }));
   });
   return new Promise((r) => srv.listen(0, '127.0.0.1', () => r({
@@ -138,5 +140,31 @@ test('a record whose connection has moved to another address is stale: never ren
     const live = JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers.zapier;
     assert.equal(live.url, 'https://mcp.zapier.com/api/v1/connect', 'the working address survives');
     assert.equal(live.headers.Authorization, 'Bearer PASTED', 'and so does its token');
+  } finally { p.stop(); }
+});
+
+// Asana v2 (2026-10-17): the token is minted for resource /v2, not for the
+// server URL /v2/mcp, and the member's own app has a client secret. A renewal
+// must ask for the same resource with the same secret, and keep both.
+test('a member-app connection renews with its own client secret and its stored resource', async () => {
+  const st = {}; const p = await fakeProvider(st);
+  try {
+    const d = box({ asana: { ...due(p.url), client_secret: 'SECRET', resource: 'https://mcp.example.com/v2' } });
+    const r = await run(d);
+    assert.deepEqual(r.refreshed, ['asana']);
+    assert.equal(st.last.get('client_secret'), 'SECRET');
+    assert.equal(st.last.get('resource'), 'https://mcp.example.com/v2');
+    const store = JSON.parse(readFileSync(path.join(d, '.kernel', 'mcp-oauth.json'), 'utf8'));
+    assert.equal(store.asana.resource, 'https://mcp.example.com/v2', 'the resource survives the renewal');
+    assert.equal(store.asana.client_secret, 'SECRET');
+  } finally { p.stop(); }
+});
+
+test('a connection with no stored resource still renews against its server URL, as before', async () => {
+  const st = {}; const p = await fakeProvider(st);
+  try {
+    const d = box({ canva: due(p.url) });
+    await run(d);
+    assert.equal(st.last.get('resource'), 'https://mcp.example.com/mcp');
   } finally { p.stop(); }
 });

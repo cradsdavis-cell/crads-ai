@@ -72,13 +72,25 @@ test('every box FEATURED entry appears in the catalogue', () => {
 // guided token entry must be a token connection, since the wizard saves it
 // through add-custom with a credential.
 test('guided entries name a wizard the page has, and their kinds agree', () => {
-  const WIZARDS = ['slack', 'wordpress', 'mailchimp', 'account'];
+  const WIZARDS = ['slack', 'wordpress', 'mailchimp', 'account', 'asana'];
   const guided = CATALOGUE.filter((e) => e.guided);
   assert.ok(guided.length >= 4, 'slack, wordpress, shopify and xero at least');
   for (const e of guided) {
     assert.ok(WIZARDS.includes(e.guided), `${e.key}: guided '${e.guided}' has no wizard on the page`);
     if (e.guided === 'account') assert.equal(e.auth, 'account', `${e.key}: an account guide connects nothing to the box`);
+    // Asana (2026-10-17) is the one guided OAuth card: the member's own app,
+    // then an ordinary sign-in with it
+    else if (e.guided === 'asana') assert.equal(e.auth, 'oauth', `${e.key}: the Asana card signs in, it saves no token`);
     else assert.equal(e.auth, 'token', `${e.key}: a guided wizard saves a credential, so it is a token connection`);
   }
   for (const e of CATALOGUE.filter((x) => x.auth === 'account')) assert.equal(e.guided, 'account', `${e.key}: an account entry needs the account guide`);
+});
+
+// Asana v2 (2026-10-17): v1 /sse is retiring and never renews inside an open
+// chat; v2's metadata lives at the PATH, and its tokens are minted for /v2.
+test('Asana points at the v2 HTTP server with the resource Asana mints tokens for', () => {
+  const a = CATALOGUE.find((e) => e.key === 'asana');
+  assert.equal(a.url, 'https://mcp.asana.com/v2/mcp');
+  assert.equal(a.resource, 'https://mcp.asana.com/v2');
+  assert.equal(a.guided, 'asana');
 });

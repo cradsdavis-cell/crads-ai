@@ -71,7 +71,7 @@ gets probed.
 | Service | What you get | Sign-in | In the box |
 |---|---|---|---|
 | **Notion** | read and update your pages and databases | One click | Featured |
-| **Asana** | tasks and projects | One click | From the list |
+| **Asana** | tasks and projects | [Guided](/docs/connect-asana) | Guided setup |
 | **Todoist** | tasks and projects | One click | From the list |
 | **ClickUp** | tasks, docs and goals | One click | From the list |
 | **Readwise** | highlights and reading list | One click | From the list |

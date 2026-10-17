@@ -53,7 +53,12 @@ export const CATALOGUE = [
   { key: 'paypal',    label: 'PayPal',       category: 'Payments', url: 'https://mcp.paypal.com/mcp',          blurb: 'orders, payments and disputes', auth: 'oauth' },
   { key: 'square',    label: 'Square',       category: 'Payments', url: 'https://mcp.squareup.com/sse',        blurb: 'payments and point of sale', auth: 'oauth' },
   { key: 'figma',     label: 'Figma',        category: 'Design',   url: 'https://mcp.figma.com/mcp',           blurb: 'read your design files', auth: 'oauth' },
-  { key: 'asana',     label: 'Asana',        category: 'Docs',     url: 'https://mcp.asana.com/sse',           blurb: 'tasks and projects', auth: 'oauth' },
+  // Asana v2 (2026-10-17): the v1 /sse server is retiring ("05/11/2026") and,
+  // being SSE, never let an open chat pick up a renewed token. v2 is HTTP but
+  // has no self-registration, so the member makes their own Asana app: a
+  // guided card, then the ordinary sign-in with that app's id + secret.
+  // `resource` is what Asana mints v2 tokens for (not the server URL).
+  { key: 'asana',     label: 'Asana',        category: 'Docs',     url: 'https://mcp.asana.com/v2/mcp',        blurb: 'tasks and projects', auth: 'oauth', guided: 'asana', resource: 'https://mcp.asana.com/v2' },
   { key: 'atlassian', label: 'Atlassian',    category: 'Dev',      url: 'https://mcp.atlassian.com/v1/sse',    blurb: 'Jira issues and Confluence pages', auth: 'oauth' },
   { key: 'intercom',  label: 'Intercom',     category: 'Comms',    url: 'https://mcp.intercom.com/mcp',        blurb: 'conversations and customers', auth: 'oauth' },
   { key: 'webflow',   label: 'Webflow',      category: 'Web',      url: 'https://mcp.webflow.com/sse',         blurb: 'sites, collections and content', auth: 'oauth' },

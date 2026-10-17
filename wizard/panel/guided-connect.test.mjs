@@ -184,7 +184,7 @@ test('driven: all four guided cards, a wrong credential refused and nothing kept
 
 test('Mailchimp saves through its own verb and waits for a contract-5 box', () => {
   assert.match(guided, /guidedConnect\('mailchimp', \{ name: 'mailchimp', key_b64: b64utf8\(k\) \}, \$\('mcSave'\), 'mcp-add-mailchimp'\)/);
-  assert.match(guided, /var GUIDED_CONTRACT = \{ slack: 4, wordpress: 4, mailchimp: 5 \};/);
+  assert.match(guided, /var GUIDED_CONTRACT = \{ slack: 4, wordpress: 4, mailchimp: 5, asana: 7 \};/);
   assert.match(html, /id="mcWizard"[\s\S]*?<b>cannot send or schedule a campaign<\/b>/, 'the card says what it will not do, before the member pastes anything');
 });
 
@@ -218,4 +218,19 @@ test('connect something else carries an optional header, refused without a key o
   assert.match(html, /if \(header && !token\)/);
   assert.match(html, /if \(header && mcpContract < 6\) \{ notice\('mcpCustNotice', MCP_TOO_OLD\); return; \}/);
   assert.match(html, /if \(header\) def\.header = header;/);
+});
+
+// Asana (2026-10-17): the member's own app. The card shows the FIXED callback
+// the app must list (asked of the app's server, never a second hard-coded
+// copy), sends the id + secret + Asana's resource to the ordinary sign-in,
+// and waits for a contract-7 box. The old /sse row offers the move.
+test('Asana: own-app card, fixed callback from the server, sign-in carries id + secret + resource', () => {
+  assert.match(html, /id="asWizard"[\s\S]*?Asana MCP[\s\S]*?Specific workspaces/, 'the card walks the app type and the workspace step');
+  assert.match(guided, /fetch\('\/mcp-oauth\/redirect'\)/);
+  assert.ok(!/localhost:38427/.test(html), 'the page never hard-codes the callback');
+  const save = guided.slice(guided.indexOf("$('asSave').onclick"));
+  assert.match(save, /run\('mcp-add-custom'/);
+  assert.match(save, /client_id: id, client_secret: secret, resource:/);
+  assert.match(save, /mcpContract < GUIDED_CONTRACT\.asana/);
+  assert.match(html, /data-mcp-asana>Move to the new Asana/);
 });

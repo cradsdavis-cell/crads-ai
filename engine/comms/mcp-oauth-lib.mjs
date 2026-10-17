@@ -38,16 +38,27 @@ export const newState = () => b64url(randomBytes(16));
 // then publishes its own endpoints. Both hops are tried in the order the specs
 // give, and a server that skips the protected-resource doc (common) falls back to
 // its own origin, which is what the live servers actually do.
+//
+// The protected-resource doc is looked up for the server's PATH first (RFC 9728
+// section 3.1: /.well-known/oauth-protected-resource/<path>), then for the
+// origin. Asana is why (2026-10-17): its origin doc names its retiring v1 auth
+// server (mcp.asana.com), while /v2/mcp's own doc names app.asana.com, the one
+// that actually issues v2 tokens. Origin-only lookup signed v2 in against v1.
 export async function discover(fetchFn, serverUrl) {
-  const origin = new URL(serverUrl).origin;
+  const u = new URL(serverUrl);
+  const origin = u.origin;
+  const tail = u.pathname.replace(/\/+$/, '');
+  const prDocs = (tail && tail !== '/' ? [`${origin}/.well-known/oauth-protected-resource${tail}`] : [])
+    .concat(`${origin}/.well-known/oauth-protected-resource`);
   let asBase = origin;
-  try {
-    const pr = await fetchFn(`${origin}/.well-known/oauth-protected-resource`);
-    if (pr.ok) {
+  for (const doc of prDocs) {
+    try {
+      const pr = await fetchFn(doc);
+      if (!pr.ok) continue;
       const j = await pr.json();
-      if (Array.isArray(j.authorization_servers) && j.authorization_servers[0]) asBase = j.authorization_servers[0];
-    }
-  } catch { /* absent is normal; fall back to the origin */ }
+      if (Array.isArray(j.authorization_servers) && j.authorization_servers[0]) { asBase = j.authorization_servers[0]; break; }
+    } catch { /* absent is normal; try the next, then fall back to the origin */ }
+  }
 
   for (const path of ['/.well-known/oauth-authorization-server', '/.well-known/openid-configuration']) {
     try {

@@ -83,6 +83,9 @@ if (cmd === 'set') {
     token_endpoint: req.token_endpoint || store[name]?.token_endpoint || null,
     client_id: req.client_id || store[name]?.client_id || null,
     client_secret: req.client_secret || store[name]?.client_secret || null,
+    // the RFC 8707 resource the token was minted for, when it is not the server
+    // URL (Asana v2: server /v2/mcp, resource /v2). Renewal asks for the same.
+    resource: req.resource || store[name]?.resource || null,
     // keep an existing refresh token when a refresh response omits one (many do)
     refresh_token: req.refresh_token || store[name]?.refresh_token || null,
     expires_at: req.expires_at ?? null,

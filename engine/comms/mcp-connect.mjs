@@ -84,7 +84,12 @@ const key = String(process.argv[4] || '');
 //       further TOKEN connection to an address already connected, under its
 //       own name, because each token is a different account). The page gates
 //       its header field and its "Add another Slack workspace" on 6.
-const CONTRACT = 6;
+//   7 = a member's own OAuth app (2026-10-17, Asana v2): the sign-in store
+//       keeps the RFC 8707 `resource` a token was minted for when it is not
+//       the server URL, and the renewal job asks for the same resource with
+//       the member app's client secret. The page gates ONLY its Asana wizard
+//       on 7; a 6-box is told to update.
+const CONTRACT = 7;
 
 const MCP_F = path.join(stateDir, '.mcp.json');
 const OAUTH_F = path.join(stateDir, '.kernel', 'mcp-oauth.json');   // read-only here; mcp-token.mjs is the writer

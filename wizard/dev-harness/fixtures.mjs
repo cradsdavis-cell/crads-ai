@@ -897,7 +897,7 @@ const MCP_ON = {
   canva: { authorised: true, auth: 'oauth', renews: true },
 };
 const MCP_CHAT = { stripe: true };   // a connection made inside Claude Code (chats-only)
-const MCP_CONTRACT = 6;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
+const MCP_CONTRACT = 7;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
                           // (2 = the byo google row, 2026-08-17; 3 = several
                           // google rows, one per account, 2026-09-14. Bumped
                           // in lockstep with the engine. rekey_due_at left the
@@ -1016,6 +1016,9 @@ function mcpRows() {
   }
   // label capitalised like the real producer (connectionLabel, audit R1): the
   // shot rig must not show a raw key the product itself would never render
+  // Asana the OLD way (v1 /sse, retiring): the row offers "Move to the new
+  // Asana", which opens the own-app card (2026-10-17).
+  rows.push({ key: 'asana', label: 'Asana', blurb: 'tasks and projects', url: 'https://mcp.asana.com/sse', auth: 'oauth', state: 'on', status: 'working, including in scheduled jobs', configured: true, authorised: true, renews: true, mine: true });
   rows.push({ key: 'stripe', label: 'Stripe', blurb: 'connected in Claude Code', auth: 'oauth', state: MCP_CHAT.stripe ? 'chat-only' : undefined, adoptable: true, mine: false, configured: true, authorised: true, renews: true, status: 'in your chats only, not in scheduled jobs' });
   if (!MCP_CHAT.stripe) rows.pop();
   // contract 2 (2026-08-17): the three "unavailable" Google rows are gone from

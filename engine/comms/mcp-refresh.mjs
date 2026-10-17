@@ -51,13 +51,13 @@ for (const [name, v] of Object.entries(store)) {
       ? { token_endpoint: v.token_endpoint }
       : await discover(fetch, v.url);
     const json = await refresh(fetch, meta, {
-      refreshToken: v.refresh_token, clientId: v.client_id, clientSecret: v.client_secret, resource: v.url,
+      refreshToken: v.refresh_token, clientId: v.client_id, clientSecret: v.client_secret, resource: v.resource || v.url,
     });
     const rec = tokenRecord(json, Date.now());
     // Hand it to the ONE writer, so the header + the store can never disagree
     // about what this connection currently is.
     const payload = Buffer.from(JSON.stringify({
-      name, url: v.url, token_endpoint: meta.token_endpoint, client_id: v.client_id, client_secret: v.client_secret,
+      name, url: v.url, token_endpoint: meta.token_endpoint, client_id: v.client_id, client_secret: v.client_secret, resource: v.resource || undefined,
       access_token: rec.access_token, refresh_token: rec.refresh_token, token_type: rec.token_type, expires_at: rec.expires_at,
     }), 'utf8').toString('base64');
     execFileSync('node', [TOKEN_TOOL, stateDir, 'set'], { input: payload, encoding: 'utf8' });

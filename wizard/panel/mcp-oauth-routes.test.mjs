@@ -130,3 +130,72 @@ test('the verifier never leaves the app, and no response carries a token', async
   assert.ok(flow.verifier, 'held in memory for the exchange');
   assert.ok(!JSON.stringify(r.body).includes(flow.verifier), 'and never in a response body');
 });
+
+// ---- a member's own client (2026-10-17, Asana v2: no DCR) -------------------
+import { MEMBER_REDIRECT, MEMBER_REDIRECT_PORT } from './mcp-oauth-routes.mjs';
+import http from 'node:http';
+
+const OWN = { host: 'mel-box', name: 'asana', url: 'https://mcp.asana.com/v2/mcp', client_id: '1211234567890123', client_secret: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4', resource: 'https://mcp.asana.com/v2' };
+
+test('own client: no registration, the FIXED redirect, Asana\'s resource, no scope', async () => {
+  const p = provider();
+  const state = {};
+  const handle = createMcpOAuthRoutes({ state, fetchFn: p.fetchFn, sendToBox: async () => {}, listen: false });
+  const r = await new Promise((resolve) => {
+    const req = { method: 'POST', url: '/mcp-oauth/start', on(ev, cb) { if (ev === 'data') cb(Buffer.from(JSON.stringify(OWN))); if (ev === 'end') cb(); }, destroy() {} };
+    const res = { writeHead(c) { this.c = c; return this; }, end(b) { resolve(JSON.parse(b)); } };
+    handle(req, res, '/mcp-oauth/start');
+  });
+  assert.equal(r.ok, true);
+  assert.equal(p.calls.registered, null, 'a member-made app is never registered again');
+  const u = new URL(r.url);
+  assert.equal(u.searchParams.get('redirect_uri'), MEMBER_REDIRECT);
+  assert.equal(u.searchParams.get('client_id'), OWN.client_id);
+  assert.equal(u.searchParams.get('resource'), 'https://mcp.asana.com/v2');
+  assert.equal(u.searchParams.get('scope'), null, 'Asana answers "Invalid scope(s)" to any scope on an MCP app');
+  assert.ok(!r.url.includes(OWN.client_secret), 'the secret never goes in the browser URL');
+});
+
+test('own client: half a credential, junk, or a foreign resource is refused', async () => {
+  const h = harness({ routeOpts: { listen: false } });
+  for (const bad of [{ ...OWN, client_secret: '' }, { ...OWN, client_id: '' }, { ...OWN, client_id: 'a b"c' },
+    { ...OWN, resource: 'https://evil.example/v2' }, { ...OWN, resource: 'http://mcp.asana.com/v2' }]) {
+    const r = await h.call('/mcp-oauth/start', 'POST', bad);
+    assert.equal(r.body.ok, false, JSON.stringify(bad));
+  }
+});
+
+test('/mcp-oauth/redirect names the address the wizard tells the member to paste', async () => {
+  const h = harness();
+  const r = await h.call('/mcp-oauth/redirect');
+  assert.equal(r.body.uri, MEMBER_REDIRECT);
+  assert.equal(MEMBER_REDIRECT, `http://localhost:${MEMBER_REDIRECT_PORT}/mcp-callback`);
+});
+
+test('own client, end to end through the real fixed-port listener: secret + resource reach the token call and the box', async () => {
+  const p = provider();
+  const sent = [];
+  const state = {};
+  const handle = createMcpOAuthRoutes({ state, fetchFn: p.fetchFn, sendToBox: async (host, payload) => { sent.push({ host, payload }); } });
+  const r = await new Promise((resolve) => {
+    const req = { method: 'POST', url: '/mcp-oauth/start', on(ev, cb) { if (ev === 'data') cb(Buffer.from(JSON.stringify(OWN))); if (ev === 'end') cb(); }, destroy() {} };
+    const res = { writeHead(c) { this.c = c; return this; }, end(b) { resolve(JSON.parse(b)); } };
+    handle(req, res, '/mcp-oauth/start');
+  });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  const st = new URL(r.url).searchParams.get('state');
+  const body = await new Promise((resolve, reject) => {
+    http.get(`http://127.0.0.1:${MEMBER_REDIRECT_PORT}/mcp-callback?code=CODE&state=${encodeURIComponent(st)}`, (res) => {
+      let b = ''; res.on('data', (d) => { b += d; }); res.on('end', () => resolve(b));
+    }).on('error', reject);
+  });
+  assert.match(body, /Connected/);
+  assert.equal(p.calls.exchanged.get('client_secret'), OWN.client_secret);
+  assert.equal(p.calls.exchanged.get('resource'), 'https://mcp.asana.com/v2');
+  assert.equal(p.calls.exchanged.get('redirect_uri'), MEMBER_REDIRECT);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].payload.client_secret, OWN.client_secret, 'the box needs it to renew');
+  assert.equal(sent[0].payload.resource, 'https://mcp.asana.com/v2', 'and the resource to renew against');
+  assert.equal(sent[0].payload.url, 'https://mcp.asana.com/v2/mcp');
+  for (const s of state.memberServers) s.close();
+});

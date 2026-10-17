@@ -4,8 +4,8 @@ summary: What is stored, where it runs, what leaves your mineral, and why almost
 audience: public
 access: public
 mode: legal
-version: 0.19
-effective: 2026-10-14
+version: 0.20
+effective: 2026-10-16
 order: 10
 ---
 
@@ -14,7 +14,7 @@ order: 10
 Crads AI is operated by Samuel Davis, trading as Crads AI, **ABN 26 929 349
 775**, in Coogee, New South Wales, Australia. Contact: cradsdavis@gmail.com.
 
-This is version 0.18, effective 13 October 2026. The version and date at the
+This is version 0.20, effective 16 October 2026. The version and date at the
 top of this page change whenever the text does, and prior versions stay on
 the record.
 
@@ -55,6 +55,16 @@ name, email, Stripe customer reference, what you bought and how many sessions
 you have used, so you can sign in and book the rest. Bookings, paid or free,
 are made through Cal.com, which holds your name, email and booking time.
 Calls run on Google Meet.
+
+**If a partner sent you.** Some people we work with have a referral link
+(crads-ai.com/r/ and their name), and we pay them A$100 if someone they sent
+buys a Guided Setup. If you arrived through one, or name someone in the
+"Who sent you?" box at checkout, we keep that partner's name with your
+booking: on the Stripe payment, on the Cal.com booking, and against your email
+on crads-ai.com for 90 days. If you buy a Guided Setup, we keep a record of
+the referral (your name, email and booking reference, and the partner's name)
+so we can pay them. We tell the partner your name, so they know what they
+are being paid for, and nothing else.
 
 **How we handle it.** Our email, calendar and documents are in Google
 Workspace. We use an AI assistant, running on Claude under our own Anthropic
@@ -104,9 +114,11 @@ you were on and the page the link pointed to. On the confirmation page after a
 booking, the payment reference in the page's address is removed before
 anything is recorded.
 
-Web Analytics sets no cookies and stores nothing in your browser. The only
-cookie the site sets is the sign-in cookie for the client account area, and
-only if you sign in. The app download itself is served from GitHub. Vercel tells one visit
+Web Analytics sets no cookies and stores nothing in your browser. The site sets
+two cookies: the sign-in cookie for the client account area, only if you sign
+in, and a referral cookie, crads_ref, only if you arrive through a partner's
+referral link. The referral cookie holds the partner's name and the date you
+arrived, nothing about you, and lasts 90 days. The app download itself is served from GitHub. Vercel tells one visit
 from another with a hash made from the request, which it discards after 24
 hours, and it does not tie a visit to you or to your IP address, or collect
 anything that follows you to other websites. What we see is totals: how many
@@ -282,6 +294,8 @@ Write to cradsdavis@gmail.com. If you are in Australia and unsatisfied, you
 can complain to the Office of the Australian Information Commissioner.
 
 ## Changes
+
+*Changed in 0.20: partner referrals. "What we hold about you" says what we keep when a partner sent you, and "Visiting crads-ai.com" discloses the referral cookie. The version line under "Who this is" now matches the top of the page.*
 
 *Changed in 0.19: Remote Control (your assistant from the Claude app on your phone) is on by default on server minerals; "What leaves your mineral" says what it sends to Anthropic, and "When anyone can reach your mineral" says who it lets in.*
 

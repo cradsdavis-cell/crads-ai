@@ -2188,6 +2188,62 @@
         <div class="notice" id="mcNotice" style="display:none"></div>
       </div>
 
+      <!-- Asana (contract 7, 2026-10-17): Asana's v2 server has no self-
+           registration, so the member makes their own Asana app (type MCP
+           app), lists our fixed callback on it, and pastes its client ID and
+           secret here. Then the ordinary sign-in runs with that app, and the
+           box renews the token itself. -->
+      <div class="guidecard" id="asWizard" style="margin-top:14px;display:none" data-guided="asana">
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <p class="gtitle" style="margin:0">Asana, with your own app</p>
+          <button class="connfix" type="button" data-guided-close style="margin-left:auto">Close</button>
+        </div>
+        <p class="hint" style="margin:6px 0 10px">Asana only lets an assistant sign in through an app that you make in your own Asana account. It takes about five minutes, once. The app's details stay on your mineral, and your assistant then stays signed in by itself, in chats and in scheduled jobs.</p>
+        <p class="hint" id="asOld" style="margin:0 0 12px;display:none">You have Asana connected the old way, which Asana is switching off. Setting it up here replaces it: your assistant keeps the same Asana tools.</p>
+        <div class="fsteps" data-ladder style="margin:0 0 12px">
+          <span class="fstep" data-step="1">Make an app</span>
+          <span class="fstep" data-step="2">Set it up</span>
+          <span class="fstep" data-step="3">Sign in</span>
+        </div>
+        <details class="secfold" data-fold="1">
+          <summary>Step 1: Make an app<span class="sum2">In Asana's developer console</span></summary>
+          <div class="fbody">
+            <p class="hint" style="margin:6px 0 10px">The button opens Asana's developer console (sign in if it asks). Click <b>New app</b>, name it <b>Crads assistant</b>, choose <b>Asana MCP</b> as the app type, tick <b>I agree to the Asana API Terms</b>, and click <b>Create</b>.</p>
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <a class="openlink" href="https://app.asana.com/0/my-apps" target="_blank" rel="noopener">Open Asana's developer console</a>
+              <label class="check" style="margin:0"><input type="checkbox" data-tick="1"><span>Done, the app is made</span></label>
+            </div>
+          </div>
+        </details>
+        <details class="secfold" data-fold="2" style="margin-top:10px">
+          <summary>Step 2: Add the sign-in address and your workspace<span class="sum2">Two settings on the app</span></summary>
+          <div class="fbody">
+            <p class="hint" style="margin:6px 0 8px">In your new app, click <b>OAuth</b> in the left menu, then <b>Add redirect URL</b>. Paste this exactly, click <b>Add</b>, then <b>Save changes</b>:</p>
+            <div class="hostbox" style="margin:0 0 8px">
+              <input id="asRedirect" type="text" readonly spellcheck="false" style="flex:1;min-width:0;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <button class="connfix" type="button" id="asCopy">Copy</button>
+            </div>
+            <p class="hint" style="margin:0 0 10px">Then click <b>Manage distribution</b>, leave <b>Specific workspaces</b> chosen, click <b>Add workspace</b>, pick your workspace and click <b>Add</b>. Without a workspace, Asana refuses the sign-in.</p>
+            <label class="check" style="margin:0"><input type="checkbox" data-tick="2"><span>Done, both are saved</span></label>
+          </div>
+        </details>
+        <details class="secfold" data-fold="3" style="margin-top:10px">
+          <summary>Step 3: Paste the app's details and sign in<span class="sum2">From the app's Basic information page</span></summary>
+          <div class="fbody">
+            <p class="hint" style="margin:6px 0 10px">Click <b>Basic information</b> in the app's menu. Copy the <b>Client ID</b> and the <b>Client secret</b> (each has a Copy button) into the boxes below, then press Sign in. Asana asks you to allow the app; click <b>Allow</b>, and this page finishes by itself.</p>
+            <div class="hostbox" style="margin:0 0 8px">
+              <input id="asId" type="text" autocomplete="off" spellcheck="false" placeholder="Client ID" style="flex:1;min-width:0;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+            </div>
+            <div class="hostbox">
+              <input id="asSecret" type="password" autocomplete="off" spellcheck="false" placeholder="Client secret" style="flex:1;min-width:0;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <button class="act" type="button" id="asSave">Sign in to Asana</button>
+            </div>
+          </div>
+        </details>
+        <div data-done style="display:none;margin-top:12px"></div>
+        <div class="notice" id="asNotice" style="display:none"></div>
+      </div>
+
       <!-- Services whose official server only lets CLAUDE'S OWN connector sign
            in (catalogue auth 'account': Shopify, Xero). The mineral can hold
            nothing for these, so this card is a guide, not a wizard: where to
@@ -4507,6 +4563,14 @@
         + '<button class="connfix" type="button" data-mcp-remove="' + s.key + '">Disconnect</button>';
       else if (s.configured && s.state !== 'unavailable') btns = '<button class="connfix" type="button" data-mcp-remove="' + s.key + '">Disconnect</button>';
     }
+    // Asana (2026-10-17): the old /sse connection is retiring and never renews
+    // inside an open chat, so it offers the move; on v2 a sign-in needs the
+    // member's own app, which only the Asana card knows how to use.
+    var asanaOld = s.key === 'asana' && s.mine !== false && /\/sse\/?$/.test(s.url || '');
+    if (asanaOld) btns = '<button class="connfix" type="button" data-mcp-asana>Move to the new Asana</button>'
+      + '<button class="connfix" type="button" data-mcp-remove="asana">Disconnect</button>';
+    else if (s.key === 'asana' && s.mine !== false && s.state === 'needs-auth') btns = '<button class="connfix" type="button" data-mcp-asana>Sign in</button>'
+      + '<button class="connfix" type="button" data-mcp-remove="asana">Disconnect</button>';
     // Connected inside Claude Code: chats-only, one click brings it to jobs.
     if (s.adoptable) btns = '<button class="connfix" type="button" data-mcp-adopt="' + s.key + '">Use in jobs too</button>';
     // HOW it authenticates is part of the truth worth visualising: an API-token
@@ -4514,6 +4578,7 @@
     var kind = s.auth === 'token' ? ' · API token' : '';
     var warn = (s.state === 'on' && s.auth === 'oauth' && s.renews === false)
       ? '<div class="sub" style="margin:2px 0 0">Signs you out periodically; you will need to authorise it again when it does.</div>' : '';
+    if (asanaOld) warn += '<div class="sub" style="margin:2px 0 0">Asana is switching this connection off, and it drops out of a chat left open past an hour. Moving it takes about five minutes, once.</div>';
     // contract 5: a Mailchimp key made since 22 June 2026 dies a year after it
     // was made; the box counts from the day it was pasted, so "by about"
     if (s.state === 'on' && s.key_expires_by) {
@@ -4701,10 +4766,10 @@
   // wizards save through mcp-add-custom and then ask the box to call the
   // server (mcp-check, contract 4); a failed check removes the saved entry, so
   // a wrong paste leaves nothing behind and the member simply tries again.
-  var GUIDED_CARDS = { slack: 'skWizard', wordpress: 'wpWizard', mailchimp: 'mcWizard', account: 'acWizard' };
-  var GUIDED_NOTICE = { slack: 'skNotice', wordpress: 'wpNotice', mailchimp: 'mcNotice' };
+  var GUIDED_CARDS = { slack: 'skWizard', wordpress: 'wpWizard', mailchimp: 'mcWizard', account: 'acWizard', asana: 'asWizard' };
+  var GUIDED_NOTICE = { slack: 'skNotice', wordpress: 'wpNotice', mailchimp: 'mcNotice', asana: 'asNotice' };
   // the box contract each wizard stands on: 4 = scheme basic + check, 5 = Mailchimp on the box
-  var GUIDED_CONTRACT = { slack: 4, wordpress: 4, mailchimp: 5 };
+  var GUIDED_CONTRACT = { slack: 4, wordpress: 4, mailchimp: 5, asana: 7 };
   // What the account guide says per service. Facts, verified 2026-10-02:
   // Shopify's sign-in accepts only claude.ai / chatgpt.com redirects; Xero's
   // hosted server refuses third-party tokens and its Claude connector is
@@ -4771,6 +4836,7 @@
       Array.prototype.forEach.call(card.querySelectorAll('[data-tick]'), function(b){ b.checked = false; });
       // a behind box hears the same one-click fix every other mcp verb gives
       if (mcpContract < GUIDED_CONTRACT[kind]) { notice(GUIDED_NOTICE[kind], MCP_TOO_OLD); }
+      if (kind === 'asana') asPrepare();
       guidedSetStep(card, 1);
     }
     card.style.display = 'block';
@@ -4780,7 +4846,7 @@
     b.onclick = function(){ b.closest('[data-guided]').style.display = 'none'; };
   });
   // ticking a step's Done moves the ladder on to the next one
-  ['skWizard', 'wpWizard', 'mcWizard'].forEach(function(id){
+  ['skWizard', 'wpWizard', 'mcWizard', 'asWizard'].forEach(function(id){
     var card = $(id);
     card.addEventListener('change', function(e){
       var t = e.target && e.target.getAttribute && e.target.getAttribute('data-tick');
@@ -4927,6 +4993,69 @@
     if (!u || !pw) { notice('wpNotice', 'Both the username and the application password are needed.'); return; }
     if (u.indexOf(':') >= 0) { notice('wpNotice', 'A WordPress username cannot contain a colon. Check you typed the username, not the password.'); return; }
     guidedConnect('wordpress', { name: 'wordpress', url: o + '/wp-json/mcp/mcp-adapter-default-server', token_b64: b64utf8(u + ':' + pw), scheme: 'basic' }, $('wpSave'));
+  };
+
+  // Asana (2026-10-17): the member's own app, then the ordinary sign-in with
+  // its client ID + secret. The callback address is FIXED (the app must list
+  // it exactly), so the page asks the app's server for it rather than
+  // hard-coding a second copy that could drift.
+  var AS_REDIRECT = '';
+  function asPrepare(){
+    $('asOld').style.display = /\/sse\/?$/.test(mcpUrlFor('asana')) ? 'block' : 'none';
+    $('asId').value = ''; $('asSecret').value = ''; $('asSave').disabled = false;
+    fetch('/mcp-oauth/redirect').then(function(r){ return r.json(); }).then(function(d){
+      AS_REDIRECT = (d && d.uri) || '';
+      $('asRedirect').value = AS_REDIRECT;
+    }).catch(function(){ $('asRedirect').value = ''; notice('asNotice', 'This app could not say its sign-in address. Restart the app and open this again.'); });
+  }
+  // the sign-in finished: say so on the card, in the same shape as the other
+  // guided wizards' success line, and drop the "old way" note it replaced
+  function asDone(){
+    var card = $('asWizard');
+    if (!card || card.style.display === 'none') return;
+    guidedSetStep(card, 5);
+    Array.prototype.forEach.call(card.querySelectorAll('[data-fold]'), function(f){ f.open = false; });
+    $('asOld').style.display = 'none';
+    notice('asNotice', '');
+    var done = card.querySelector('[data-done]');
+    done.innerHTML = '<p class="hint" style="margin:0"><b>Connected.</b> Your assistant can use Asana in chats and in scheduled jobs, and it stays signed in by itself. It is in Your connections above; Disconnect there removes it from your mineral, and deleting the app in Asana cuts it off from that side too.</p>';
+    done.style.display = 'block';
+  }
+  $('asCopy').onclick = function(){
+    try { navigator.clipboard.writeText(AS_REDIRECT).then(function(){ $('asCopy').textContent = 'Copied'; }, function(){ $('asRedirect').select(); }); }
+    catch (e) { $('asRedirect').select(); }
+  };
+  $('asSave').onclick = function(){
+    var id = ($('asId').value || '').trim(), secret = ($('asSecret').value || '').trim();
+    if (!/^[A-Za-z0-9._~+\/=-]{4,300}$/.test(id)) { notice('asNotice', 'Paste the Client ID from the app\'s Basic information page.'); return; }
+    if (!/^[A-Za-z0-9._~+\/=-]{4,300}$/.test(secret)) { notice('asNotice', 'Paste the Client secret from the same page. If it is hidden, Asana has a button to show or copy it.'); return; }
+    if (id === secret) { notice('asNotice', 'The two boxes hold the same thing. The Client ID and the Client secret are different values.'); return; }
+    if (!mcpBoxOk) { notice('asNotice', 'Your mineral did not answer, so nothing can be connected right now.'); return; }
+    if (mcpContract < GUIDED_CONTRACT.asana) { notice('asNotice', MCP_TOO_OLD); return; }
+    var e = mcpDir.entries.filter(function(x){ return x.key === 'asana'; })[0] || {};
+    var url = e.url || 'https://mcp.asana.com/v2/mcp';
+    var btn = $('asSave'); btn.disabled = true;
+    notice('asNotice', 'Saving the connection on your mineral…');
+    run('mcp-add-custom', { def_b64: b64utf8(JSON.stringify({ name: 'asana', url: url })) }).then(function(r){
+      var d = jsonOut(r);
+      if (!d || d.ok === false) { btn.disabled = false; notice('asNotice', mcpErr(d, r)); return; }
+      loadMcp();
+      notice('asNotice', 'Opening Asana to sign in…');
+      return fetch('/mcp-oauth/start', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ host: state.host, name: 'asana', url: url, client_id: id, client_secret: secret, resource: e.resource || 'https://mcp.asana.com/v2' }),
+      }).then(function(r2){ return r2.json(); }).then(function(s2){
+        btn.disabled = false;
+        if (!s2 || s2.ok === false) { notice('asNotice', (s2 && s2.error) || 'The sign-in could not be started'); return; }
+        notice('asNotice', '');
+        $('asSecret').value = '';
+        guidedSetStep($('asWizard'), 4);
+        mcpSigninShow('asana', 'Asana', s2.url);
+        try { window.open(s2.url, '_blank', 'noopener'); } catch (err) { /* the link is right there too */ }
+        if (mcpPoll) clearInterval(mcpPoll);
+        mcpPoll = setInterval(function(){ mcpPollOnce('asana'); }, 2000);
+      });
+    }, function(){ btn.disabled = false; notice('asNotice', 'Could not reach your mineral just now.'); });
   };
 
   // The sign-in-kind pills: same look as the category chips (spec ruling 4),
@@ -5143,7 +5272,7 @@
   function mcpPollOnce(key){
     fetch('/mcp-oauth/status?name=' + encodeURIComponent(key)).then(function(r){ return r.json(); }).then(function(d){
       if (!d) return;
-      if (d.state === 'done') { mcpSigninHide(); loadMcp(); loadDashboard(true); return; }
+      if (d.state === 'done') { mcpSigninHide(); if (key === 'asana') asDone(); loadMcp(); loadDashboard(true); return; }
       if (d.state === 'error') { notice('mcpSigninNotice', d.error || 'That did not finish'); $('mcpSigninWait').textContent = 'Stopped.'; if (mcpPoll) { clearInterval(mcpPoll); mcpPoll = null; } }
     }).catch(function(){});
   }
@@ -5408,6 +5537,7 @@
     // a further Google account: no key yet, the name field decides it
     if (e.target.closest('[data-mcp-google-add]')) { gwOpen(false, ''); return; }
     if (e.target.closest('[data-mcp-slack-add]')) { skOpenAnother(); return; }
+    if (e.target.closest('[data-mcp-asana]')) { guidedOpen({ guided: 'asana', key: 'asana', label: 'Asana' }); return; }
     var ad = e.target.closest('[data-mcp-adopt]');
     if (ad) {
       var ak = ad.getAttribute('data-mcp-adopt');

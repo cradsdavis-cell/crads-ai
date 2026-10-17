@@ -153,6 +153,7 @@ const server = createServer(async (req, res) => {
       const f = globalThis.__mcpFlow;
       return res.end(JSON.stringify({ ok: true, state: !f ? 'none' : (Date.now() - f.at > 3000 ? 'done' : 'waiting') }));
     }
+    if (u.pathname === '/mcp-oauth/redirect') return res.end(JSON.stringify({ ok: true, uri: 'http://localhost:38427/mcp-callback' }));
     if (u.pathname === '/mcp-oauth/cancel') { globalThis.__mcpFlow = null; return res.end(JSON.stringify({ ok: true })); }
     return res.end(JSON.stringify({ ok: false, error: 'unknown' }));
   }
