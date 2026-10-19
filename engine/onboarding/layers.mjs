@@ -32,6 +32,20 @@ export function initialLayersState({ scope = 'person' } = {}) {
 }
 
 /**
+ * The state of an ADOPTED brain (spec 2026-10-17): it arrives already set up,
+ * so it is written as /onboard leaves a finished interview, every layer
+ * covered, synthesized and reviewed, phase done, and marked `adopted` so it
+ * is never mistaken for answers somebody gave. Until 2026-10-18 `--done` only
+ * flipped the phase on the interview seed, so the Overview read "0 of 8"
+ * beside "Complete" (adopt rehearsal T4, finding 10): the count reads the
+ * layers, the label reads the phase.
+ */
+export function doneLayersState({ scope = 'person' } = {}) {
+  const layers = Object.fromEntries(LAYERS.map((id) => [id, { status: 'covered', raw: [], synthesized: true, reviewed: true }]));
+  return { phase: 'done', scope: scope === 'org' ? 'org' : 'person', current_layer: null, adopted: true, layers };
+}
+
+/**
  * True for a state file still in the legacy seed shape that nobody has
  * answered into: `modules`, no `layers`, and not one raw answer recorded.
  * Safe to replace with initialLayersState(); anything with answers is kept.

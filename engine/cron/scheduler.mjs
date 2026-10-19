@@ -26,7 +26,10 @@ import { fileURLToPath } from 'node:url';
 import { normalizeCadence, migrateProfileCadence, buildJobsFromCadence, describeSchedule } from './cadence-lib.mjs';
 import { appendRun, summarize } from '../lib/run-ledger.mjs';   // run ledger (spec 2026-08-04 §5): machinery outcomes land here
 import { releaseBootLockForCadence } from './cadence-lock.mjs';   // a boot lock must not outlive the reason it was taken
+import { normalizeScripts, buildScriptJobs } from './scripts-lib.mjs';   // Scripts on a schedule (spec 2026-10-17 adopt)
+import { readScriptsRaw, problemFor, recordedEnvFiles, runScript, listScripts } from './scripts.mjs';
 import { BRAIN_ROOT_SH, resolveBrainRoot, ensureBrainRootStamped, isOrgBox } from '../lib/brain-root.mjs';
+import { isMovingIn } from '../lib/mineral-identity.mjs';
 
 const stateDir = path.resolve(process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2]
                               : process.env.STATE_DIR || '/state');
@@ -420,6 +423,19 @@ function buildSkillJobs(c) {
   return buildJobsFromCadence(readCadenceFile(), { quiet: c.quiet });
 }
 
+// Member scripts (cockpit/scripts.json): plain programs on a schedule, no
+// Claude. Re-read each minute like cadence, so a switch flipped on the Skills
+// page takes effect within a minute. They are MEMBER jobs, not machinery: the
+// member switches, reschedules and removes them, and a row that cannot run
+// here (its program is not in the container, its folder is gone) never fires;
+// the page names the reason on the row instead.
+function buildScriptJobsNow(c) {
+  const rec = recordedEnvFiles(stateDir);
+  return buildScriptJobs(normalizeScripts(readScriptsRaw(stateDir)), {
+    quiet: c.quiet, problemOf: (id, e) => problemFor(stateDir, e, rec),
+  });
+}
+
 
 // Record that a skill was ASKED FOR (metadata only: id -> ISO). Note the verb.
 //
@@ -465,8 +481,36 @@ function logOutput(stamp, job, out) {
   if (lines.length > OUTPUT_LINES) console.log(`[${stamp}]   ${job.name}: (${lines.length - OUTPUT_LINES} more line(s) suppressed)`);
 }
 
+// Move-in mode (mineral-identity.mjs isMovingIn): fire() is the one door every
+// job goes through (the minute tick, the first-start heartbeat), so the gate
+// sits here, for machinery, skills and scripts alike. Logged once on the way in
+// and once on the way out, never per job. Read fresh each time, so clearing
+// the flag lets the next minute's jobs run.
+let movingIn = null;
+function blockedByMoveIn() {
+  const now = isMovingIn(stateDir);
+  if (now !== movingIn) {
+    if (now) console.log(`[${new Date().toISOString()}] move-in mode (ownership.json moving_in): no scheduled job runs until /move-in finishes; your own jobs on the server are still the ones running this brain.`);
+    else if (movingIn) console.log(`[${new Date().toISOString()}] move-in finished: scheduled jobs run again.`);
+    movingIn = now;
+  }
+  return now;
+}
+
 function fire(job) {
+  if (blockedByMoveIn()) return;
   const stamp = new Date().toISOString();
+  if (job.isScript) {
+    // One path with Run now (scripts.mjs runScript): the overlap lock, the
+    // script's own time limit, and the real exit status into the run ledger.
+    console.log(`[${stamp}] cadence: ${job.name}`);
+    runScript(stateDir, job.script, { source: 'cron' }).then((r) => {
+      if (r.out) logOutput(stamp, job, r.out);
+      if (r.status === 'skipped') console.log(`[${stamp}]   ${job.name}: not started: ${r.reason}`);
+      else if (r.status === 'fail') console.error(`[${stamp}] ${job.name} failed: ${r.reason}`);
+    });
+    return;
+  }
   if (job.cmd) {
     console.log(`[${stamp}] cadence: ${job.name}`);
     execFile(job.cmd[0], job.cmd[1], { cwd: KDIR, maxBuffer: 4 * 1024 * 1024 }, (e, stdout, stderr) => {
@@ -485,6 +529,7 @@ function fire(job) {
   console.log(`[${stamp}] cadence: ${job.name}`);
   if (job.isSkill) recordSkillRun(job.skill);
   const enqArgs = [ENQUEUE, stateDir, job.skill, '--source=cron'];
+  const chatId = readChatId();
   if (job.deliver && chatId) enqArgs.push(`--reply-to=${chatId}`);   // route the brief to the client's Telegram
   // Skill outcomes are written by the KERNEL (with the real one-line summary);
   // the scheduler only records the cases the kernel never saw.
@@ -506,8 +551,10 @@ function fire(job) {
 const c = loadCadence();
 // The client's own Telegram chat, if they've connected it. Cadence jobs with deliver:true are
 // enqueued with reply_to = this id so the kernel hands their output to the Telegram outbox.
-// Empty => no delivery.
-const chatId = (() => { try { return readFileSync(path.join(stateDir, 'secrets', 'telegram_chat_id'), 'utf8').trim(); } catch { return ''; } })();
+// Empty => no delivery. Read at each fire, not once at start: Telegram is usually connected
+// AFTER the scheduler is up (connect-telegram, or a move-in carrying an existing bot over),
+// and a value read at start left every delivered job undelivered until the next restart.
+function readChatId() { try { return readFileSync(path.join(stateDir, 'secrets', 'telegram_chat_id'), 'utf8').trim(); } catch { return ''; } }
 // Fold the profile-cadence jobs into cadence.json exactly once (v2 fold-in).
 // Runs in every mode so --plan / --plan-json describe the same reality that fires.
 ensureMigrated(c, partsInTz(c.tz, new Date()).ymd);
@@ -625,7 +672,8 @@ if (process.argv.includes('--plan-json')) {
   const skills = Object.entries(cad.jobs).map(([id, j]) => ({
     id, enabled: j.enabled === true, deliver: j.deliver === true, schedule: j.schedule, desc: describeSchedule(j.schedule),
   }));
-  console.log(JSON.stringify({ tz: c.tz, jitter_min: jitterMin, quiet_hours: c.quiet, machinery: machineryRows(), skills }));
+  const scripts = listScripts(stateDir).scripts.map((x) => ({ id: x.id, enabled: x.enabled, schedule: x.schedule, desc: x.when, problem: x.problem }));
+  console.log(JSON.stringify({ tz: c.tz, jitter_min: jitterMin, quiet_hours: c.quiet, machinery: machineryRows(), skills, scripts }));
   process.exit(0);
 }
 
@@ -634,12 +682,14 @@ if (process.argv.includes('--plan') || argAt !== -1) {
   for (const r of machineryRows()) console.log(`  ${r.id.padEnd(12)} ${r.when}${r.enabled === false ? ' (opted out)' : ''}`);
   const sj = buildSkillJobs(c);
   console.log(`  skills       ${sj.length ? sj.map(j => j.name).join(', ') : 'none enabled'}`);
+  const scj = buildScriptJobsNow(c);
+  console.log(`  scripts      ${scj.length ? scj.map(j => j.name).join(', ') : 'none enabled'}`);
   if (argAt !== -1) {
     const [hm, dowName] = (process.argv[argAt + 1] || '').split(/\s+/);
     const [h, m] = hm.split(':').map(Number);
     const d = DOW[dowName] ?? new Date().getDay();
     const { ymd } = partsInTz(c.tz, new Date());
-    const firing = jobs.concat(buildSkillJobs(c)).filter(j => j.match(h, m, d, ymd)).map(j => j.name);
+    const firing = jobs.concat(buildSkillJobs(c), buildScriptJobsNow(c)).filter(j => j.match(h, m, d, ymd)).map(j => j.name);
     console.log(`\nAt ${hm} (dow ${d}): ${firing.length ? firing.join(', ') : '(nothing)'}`);
   }
   process.exit(0);
@@ -649,7 +699,8 @@ if (process.argv.includes('--plan') || argAt !== -1) {
 // idle box (an idle box is the churn signal the stall board needs), and live
 // Cadence-panel edits are picked up each tick. box-up backgrounds it once.
 
-console.log(`[${new Date().toISOString()}] scheduler up (tz ${c.tz}); ${jobs.length} machinery jobs + live member cadence (v2) + hourly heartbeat.`);
+console.log(`[${new Date().toISOString()}] scheduler up (tz ${c.tz}); ${jobs.length} machinery jobs + live member cadence (v2) + member scripts + hourly heartbeat.`);
+blockedByMoveIn();   // say so at boot, not only at the first job's minute
 
 // BACKFILL (2026-08-17 hardening): stamp `brain_root:` into deployment.yaml
 // on any org box that predates the promote-time stamp (ingrid,
@@ -669,7 +720,7 @@ function tick() {
   const key = `${dow}:${hour}:${minute}`;
   if (key === last) return;               // evaluate each wall-clock minute exactly once
   last = key;
-  const all = jobs.concat(buildSkillJobs(c));   // member cadence re-read live each minute
+  const all = jobs.concat(buildSkillJobs(c), buildScriptJobsNow(c));   // member cadence + scripts re-read live each minute
   // box-up takes the kernel's human-lock at boot when the box has no member
   // cadence, and every box boots that way. Turning on a first schedule therefore
   // left the boot lock in place, so every drain deferred and nothing said so.
@@ -727,6 +778,8 @@ if (!bootHeartbeatCovered && !existsSync(FIRST_HEARTBEAT_MARK)) {
 // each part). The first run is deferred one interval so box-up's own start-comms settles first,
 // avoiding a double-launch race at boot.
 function superviseComms() {
+  // start-comms.sh has its own move-in gate; this one also spares the fork.
+  if (blockedByMoveIn()) return;
   execFile('bash', [START_COMMS, stateDir], { cwd: ENGINE_DIR }, (e) => e && console.error(`[${new Date().toISOString()}] start-comms failed: ${e.message}`));
 }
 setInterval(superviseComms, 120_000);   // every 2 min; resurrects a crashed Remote Control / bridge / daemon

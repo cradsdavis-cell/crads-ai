@@ -81,6 +81,9 @@ that.
 **After that, watch Health.** It reports the jobs that keep your mineral current, including [how updates reach you](/docs/how-updates-reach-you), and summarises [the jobs your mineral runs by itself](/docs/machinery-jobs) in one
 line before expanding to the individual jobs. It is the only card that tells you
 something is wrong before you notice the symptom.
+On a server you already had before Crads-AI, Health also lists what is
+**still on the server** after [moving in](/docs/move-in-page): the programs your
+server keeps running itself, which Crads-AI does not watch.
 
 **"What your mineral can do" is the map of what is still switched off.** Each row
 either says it is ready, or links to the thing that turns it on. Working down that

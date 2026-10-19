@@ -11,6 +11,7 @@ import {
   ScalewayClient, ScalewayError, parseCredentials, USER_DATA_LIMIT, ROOT_VOLUME_BYTES, ZONE, TAG,
 } from './scaleway.mjs';
 import { provisionSelfHost, destroySelfHost } from './engine.mjs';
+import { RUN_TAG_RE } from './run-tag.mjs';
 
 const SECRET = '11111111-2222-4333-8444-555555555555';
 const PROJECT = '6170692e-7363-616c-6577-61792e636f6d';
@@ -97,8 +98,11 @@ export function fakeScaleway(opts = {}) {
       return ok({ servers: [] });
     }
     if (method === 'GET' && p === `${I}/servers`) {
-      const name = qs.get('name');
-      return ok({ servers: Object.keys(state.servers).filter((id) => state.servers[id].name.includes(name)).map(serverView) });
+      // Scaleway's list filters: `tags` (every tag named must be on the
+      // server), `name` (a substring match, as Scaleway documents it).
+      const tags = qs.get('tags'); const name = qs.get('name');
+      return ok({ servers: Object.keys(state.servers).filter((id) => (tags ? tags.split(',').every((t) => (state.servers[id].tags || []).includes(t)) : true)
+        && (name ? state.servers[id].name.includes(name) : true)).map(serverView) });
     }
     if (method === 'GET' && p === `/account/v3/projects/${PROJECT}`) {
       if (state.projectRead === 403) return err(403, 'permission_denied', 'insufficient permissions');
@@ -407,8 +411,9 @@ test('createServer: create (stopped) -> PATCH cloud-init as text/plain -> powero
     image: ARM_IMG,
     volumes: { 0: { volume_type: 'sbs_volume', size: 80_000_000_000 } },
     dynamic_ip_required: true,
-    tags: [TAG, 'aios-demo'],
+    tags: [TAG, 'aios-demo', r.runTag],
   });
+  assert.match(r.runTag, RUN_TAG_RE, 'a run tag minted for this create, answered for the build record');
   assert.equal(writes[1].headers['Content-Type'], 'text/plain');
   assert.equal(writes[1].body, ud, 'the cloud-init text verbatim, not JSON');
   assert.deepEqual(writes[2].body, { action: 'poweron' });
@@ -434,13 +439,21 @@ test('image selection follows the machine: x86 types get the x86 instance_sbs im
   assert.ok(!g.state.log.some((k) => k.includes('/marketplace/')));
 });
 
-test('a create whose answer was lost is adopted by name, finished (cloud-init + poweron) and never doubled', async () => {
+test('a create whose answer was lost is adopted by its RUN tag (never by name), finished (cloud-init + poweron) and never doubled', async () => {
   const f = fakeScaleway({ dropCreate: true });
+  // An earlier run's server of the same name, with our old marks: until
+  // 2026-10-19 the lookup was by name, and this could have been adopted.
+  f.state.servers.older = { name: 'aios-demo', state: 'running', tags: [TAG, 'aios-demo'], type: 'X', vol: 'v0', polls: 0, created: '2026-10-20T00:00:00Z' };
   const c = client(f);
-  const r = await c.createServer({ name: 'aios-demo', serverType: 'BASIC2-A2C-8G', location: 'fr-par-2', userData: 'ud' });
+  const runTag = 'crads-run-00000000000000cc';
+  const r = await c.createServer({ name: 'aios-demo', serverType: 'BASIC2-A2C-8G', location: 'fr-par-2', userData: 'ud', runTag });
   assert.equal(r.id, f.state.lastCreate, 'the server the dropped request made');
+  assert.notEqual(r.id, 'older', 'not the newer-looking server that shares its name');
+  assert.equal(r.runTag, runTag);
   assert.equal(f.state.log.filter((k) => k === 'POST /instance/v1/zones/fr-par-2/servers').length, 1, 'the create was NOT retried');
-  assert.ok(f.state.log.includes(`GET /instance/v1/zones/fr-par-2/servers?project=${PROJECT}&name=aios-demo&per_page=50`));
+  assert.ok(f.state.log.includes(`GET /instance/v1/zones/fr-par-2/servers?project=${PROJECT}&tags=${runTag}&per_page=50`), 'looked up by the run tag');
+  assert.ok(!f.state.log.some((k) => k.includes('name=aios-demo')), 'never by name');
+  assert.ok(!f.state.log.some((k) => k.includes('/servers/older')), 'the older server is never read or touched');
   assert.equal(f.state.userData[r.id].text, 'ud', 'the adopted server still gets its cloud-init');
   assert.equal(f.state.servers[r.id].state, 'starting', 'and is powered on');
 });
@@ -457,7 +470,7 @@ test('a lost create that left nothing behind is reported, not invented; a same-n
     c.createServer({ name: 'aios-demo', serverType: 'BASIC2-A2C-8G', location: 'fr-par-2', userData: 'x' }),
     (e) => e.code === 'network' && /network failure/.test(e.message) && !e.serverId,
   );
-  assert.ok(f.state.log.some((k) => k.includes('name=aios-demo')), 'it looked before giving up');
+  assert.ok(f.state.log.some((k) => k.includes('tags=crads-run-')), 'it looked (by run tag) before giving up');
   assert.ok(!f.state.log.some((k) => k.includes('/servers/other/')), 'the stranger was left alone');
 });
 
@@ -596,4 +609,63 @@ test('a quota refusal becomes a plain instruction to verify ID, with its own cod
   await assert.rejects(new ScalewayClient(CREDS, { fetchImpl: byMessage, sleep: nosleep }).request('/x', { method: 'POST', body: {}, retry: false }), (e) => e.code === 'quota');
   const other = async () => ({ ok: false, status: 404, json: async () => ({ type: 'not_found', message: 'resource not found' }) });
   await assert.rejects(new ScalewayClient(CREDS, { fetchImpl: other, sleep: nosleep }).request('/x'), (e) => e.code === 'not_found');
+});
+
+// ---- Only our own servers (2026-10-19, the rule DigitalOcean and Hetzner got
+// the same day). The person's project may hold servers the app has nothing to
+// do with; these pin that nothing here can act on one.
+
+const theirs = () => ({ name: 'my-website', state: 'running', tags: ['prod'], type: 'X', vol: 'vp', polls: 0, created: '2026-01-01T00:00:00Z' });
+
+test('a lost answer with two servers on the run tag adopts neither', async () => {
+  const f = fakeScaleway({ dropCreate: true });
+  const runTag = 'crads-run-0123456789abcdef';
+  f.state.servers.dup = { name: 'x', state: 'running', tags: [runTag], type: 'X', vol: 'vd', polls: 0, created: '2026-01-01T00:00:00Z' };
+  await assert.rejects(client(f).createServer({ name: 'aios-demo', serverType: 'BASIC2-A2C-8G', location: 'fr-par-2', userData: 'x', runTag }), (e) => e.code === 'run_tag_ambiguous');
+  assert.ok(!f.state.log.some((k) => k.includes('/servers/dup')), 'neither is touched');
+});
+
+test('a full build on a project that already has a server never reads, matches or touches it; the record carries the run tag', async () => {
+  const f = fakeScaleway();
+  f.state.servers.mine = theirs();
+  const c = client(f);
+  const state = {};
+  const r = await provisionSelfHost({ token: CREDS, boxName: 'demo', ownerPubKey: PUB, state, provider: 'scaleway', overrides: { client: c, image: 'ghcr.io/x/crads-pebble:v2', sleep: nosleep } });
+  assert.notEqual(r.serverId, 'mine');
+  assert.ok(!f.state.log.some((k) => k.includes('/servers/mine')), 'their server id never appears in a request');
+  assert.deepEqual(f.state.servers.mine, theirs(), 'theirs is exactly as it was');
+  assert.match(state.runTag, RUN_TAG_RE);
+  assert.ok(f.state.servers[r.serverId].tags.includes(state.runTag));
+});
+
+test('delete refuses a server that does not carry the record\'s run tag, and changes nothing', async () => {
+  const f = fakeScaleway();
+  f.state.servers.mine = theirs();
+  const c = client(f);
+  const { id, runTag } = await c.createServer({ name: 'aios-demo', serverType: 'BASIC2-A2C-8G', location: 'fr-par-2', userData: 'x' });
+  for (const st of [{ provider: 'scaleway', serverId: 'mine', runTag }, { provider: 'scaleway', serverId: 'mine' }]) {
+    await assert.rejects(destroySelfHost({ token: CREDS, state: st, client: c }), (e) => e.code === 'not_ours' && /has not deleted it/.test(e.message) && /my-website/.test(e.message));
+    assert.equal(st.serverId, 'mine', 'the record is left as it was');
+  }
+  await assert.rejects(c.deleteServer(id, { runTag: 'crads-run-00000000000000ff' }), (e) => e.code === 'not_ours', 'ours, but another run\'s tag');
+  assert.ok(!f.state.calls.some((x) => x.method === 'DELETE' || x.body?.action === 'terminate'), 'no delete or terminate was sent');
+  const { polls, ...left } = f.state.servers.mine; // polls counts the guard's own reads
+  const { polls: p0, ...was } = theirs();
+  assert.deepEqual(left, was, 'read to check, and nothing else');
+  const st = { provider: 'scaleway', serverId: id, runTag };
+  assert.deepEqual(await destroySelfHost({ token: CREDS, state: st, client: c }), { destroyed: true });
+  assert.equal(f.state.servers[id], undefined);
+  assert.equal(st.runTag, undefined, 'the run tag goes with the server');
+});
+
+test('a half-made server keeps its run tag on the record, so Remove can prove it is ours', async () => {
+  const f = fakeScaleway({ failPoweron: true });
+  const c = client(f);
+  const state = {};
+  await assert.rejects(provisionSelfHost({ token: CREDS, boxName: 'demo', ownerPubKey: PUB, state, provider: 'scaleway', overrides: { client: c, image: 'ghcr.io/x/crads-pebble:v2', sleep: nosleep } }));
+  assert.equal(state.serverId, f.state.lastCreate);
+  assert.match(state.runTag, RUN_TAG_RE);
+  assert.ok(f.state.servers[state.serverId].tags.includes(state.runTag));
+  assert.deepEqual(await destroySelfHost({ token: CREDS, state, client: c }), { destroyed: true });
+  assert.equal(f.state.servers[f.state.lastCreate], undefined);
 });

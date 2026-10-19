@@ -6,8 +6,8 @@ audience: public
 access: public
 mode: how-to
 order: 70
-pins: engine/connect-telegram.sh, engine/comms/telegram-link.mjs, wizard/panel/member.html
-reviewed: 2026-10-13
+pins: engine/connect-telegram.sh, engine/comms/telegram-link.mjs, engine/comms/telegram.mjs, engine/comms/telegram-drafts.mjs, wizard/panel/member.html
+reviewed: 2026-10-14
 ---
 
 Telegram is how your assistant reaches you when you are not at the app: the
@@ -91,8 +91,9 @@ The card now shows **a pairing code**, in large digits.
 
 **You should see:** within a few seconds, the card in the app notices and
 finishes the link on its own. Inside Telegram, your bot answers with a tick
-and its standing promise: "Connected. Message me any time. I draft replies for
-you to approve, and never send anything on my own."
+and its standing promise: "Connected. Message me any time. When something
+needs sending, I write the draft and you send it. I never send anything on my
+own."
 
 The code matters. Anyone on Telegram can find a bot by its username and
 message it, and Telegram hands a newly connected bot up to 24 hours of message
@@ -124,11 +125,20 @@ Once linked, the card docks as the first row of your connections list.
 
 ## What your assistant will and will not do there
 
-**It drafts. It never sends.** Anything outbound (an email, a reply, a message
-to another person) is shown to you for approval first. Messaging your
-assistant is private by construction; things *leaving* on your behalf need
-your yes, every time. That is the rule for everything Crads AI ships. A skill
-you write or install that sends unattended is your own choice, and the
+**It drafts. You send.** A message from Telegram reaches your brain and your
+skills and nothing else: that conversation has no email, no Slack and no
+other connected service it could send through. So when you ask for something
+outbound (an email, a reply, a message to another person), it writes the
+draft into the chat and ends with "Here's the draft. Copy it and send it
+yourself." There is no Approve button, because there is nothing behind one.
+Copy the draft into your mail or chat app and send it from there.
+
+If your bot was linked on an older version, a few earlier drafts may still
+show **Approve** and **Deny** buttons. Pressing one never sent anything, and
+now it says so: "Nothing is sent from here. Copy the draft and send it
+yourself."
+
+A skill you write or install that sends unattended is your own choice, and the
 [acceptable use policy](/docs/acceptable-use) treats what it sends as yours.
 
 ## Scheduled output lands here

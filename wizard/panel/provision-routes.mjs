@@ -16,22 +16,34 @@
 //
 //   GET  /provision/providers                            -> {providers: [...]} (providers.mjs, no functions)
 //   POST /provision/validate  {token, provider?}         -> {ok, provider, symbol, chains, locations, server_types, defaults}
-//   POST /provision/start     {token, name, provider?, location?, server_type?} -> {ok, alias}
+//   POST /provision/start     {token, name, provider?, location?, server_type?, confirm_host?} -> {ok, alias}
 //   GET  /provision/status                               -> the run, minus the token
 //   POST /provision/destroy   {token?, name?, provider?} -> destroy-and-retry
 //   POST /provision/own-key   {name}                     -> {ok, publicKey} (2026-10-15)
+//
+// The own server's details may carry `mode: 'adopt'` and `brainRoot` (the
+// card's "Yes, my assistant is already on it", 2026-10-18); they ride through
+// withSlug untouched, and validate adds what the check found as `adopt`.
 //
 // "A server you already have" (providers.mjs `ownServer`): the person makes the
 // server and puts THIS mineral's key on it, so the key must exist before the
 // build does. /provision/own-key mints it (installMemberAccess is idempotent:
 // the build reuses the same key). The details carry no secret; the mineral's
 // name rides into them here so the client can find its key.
+//
+// The takeover confirmation (2026-10-19): a server used for this alone (not
+// adopt) is taken over by setup, so validate passes on the check's `takeover`
+// (the address and the exact list of changes, own-server.mjs) for the door to
+// show, and start refuses to begin unless `confirm_host` is that server's own
+// address, typed by the person. The confirmed address then rides in the
+// details as `confirmHost`, and the client refuses setup without it too.
 import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { providerOf, publicProviders, DEFAULT_PROVIDER, PROVIDERS, defaultLocationFor } from '../provision/providers.mjs';
+import { parseOwnServer, confirmsTakeover, TAKEOVER_UNCONFIRMED } from '../provision/own-server.mjs';
 import { destroySelfHost } from '../provision/engine.mjs';
-import { buildBox } from './build-box.mjs';
+import { buildBox, repairUnfinished } from './build-box.mjs';
 import { installMemberAccess } from './member-connect.mjs';
 import { pinHostForUser, runSsh } from './ssh-bridge.mjs';
 import { registerClaudeSshConfig, syncClaudeStartDir, claudeSettingsPath, OPEN_FOLDER_PROBE } from './claude-settings.mjs';
@@ -50,10 +62,13 @@ export function provisionRoutes(opts = {}) {
   const makeClient = opts.makeClient || ((token, provider) => providerOf(provider).makeClient(token, { sshDir }));
   // An own server's details name the mineral, so its client finds the key on
   // this computer. Every other provider's token passes through untouched.
-  const withSlug = (token, providerId, slug) => {
+  // A confirmation is only ever the route's to add (`extra`, after start has
+  // checked it): one arriving inside the details from the page is dropped.
+  const withSlug = (token, providerId, slug, extra = {}) => {
     if (!providerOf(providerId).ownServer) return token;
     let t; try { t = JSON.parse(token); } catch { return token; }
-    return JSON.stringify({ ...(t && typeof t === 'object' ? t : {}), slug: String(slug || '').toLowerCase() });
+    const { confirmHost, ...rest } = t && typeof t === 'object' ? t : {};
+    return JSON.stringify({ ...rest, slug: String(slug || '').toLowerCase(), ...extra });
   };
   const providerIdOf = (form) => {
     const id = String((form && form.provider) || DEFAULT_PROVIDER);
@@ -132,7 +147,16 @@ export function provisionRoutes(opts = {}) {
   }
   const jsonOut = (res, code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
 
-  return function handle(req, res, path) {
+  // A build this app stopped watching (closed during the boot wait) is finished
+  // here, from its own record, once the mineral answers (build-box.mjs
+  // repairUnfinished, finding 9). This module stays the record's one writer; a
+  // slug with a live build in this session is left to that build.
+  const repairUnbooted = (o = {}) => repairUnfinished({
+    ...buildDeps(), loadState, saveState, log: o.log,
+    busy: (slug) => !!(run && run.slug === slug && run.phase !== 'ready' && run.phase !== 'failed'),
+  });
+
+  function handle(req, res, path) {
     if (!path.startsWith('/provision/')) return false;
 
     if (req.method === 'GET' && path === '/provision/status') { jsonOut(res, 200, view()); return true; }
@@ -146,7 +170,10 @@ export function provisionRoutes(opts = {}) {
         const P = providerOf(providerId);
         const client = makeClient(withSlug(String(form.token || ''), providerId, form.name), providerId);
         const v = await client.validateToken();
-        if (!v.ok) { jsonOut(res, 401, { ok: false, reason: v.reason }); return; }
+        // `plain`: the client's reason is already member-facing words (a
+        // DigitalOcean account at its droplet limit), so the page shows it as
+        // it is instead of the generic "did not accept that token".
+        if (!v.ok) { jsonOut(res, 401, { ok: false, reason: v.reason, ...(v.plain ? { plain: true } : {}) }); return; }
         // Both catalogues ride the validate answer so the form can offer real
         // choices; either failing soft leaves the defaults, not a dead form.
         let locations = []; let types = []; let availability = {};
@@ -172,6 +199,12 @@ export function provisionRoutes(opts = {}) {
         jsonOut(res, 200, {
           ok: true, provider: P.id, label: P.label, symbol: P.symbol, chains: P.sizeChains,
           locations, server_types: types, defaults: { location: defaultLocationFor(P, types), server_type: P.defaults.serverType },
+          // An own server in adopt mode says what it found in the person's
+          // folder (own-server.mjs validateAdopt), so the page can say it back.
+          ...(v.adopt ? { adopt: v.adopt } : {}),
+          // A server used for this alone says what setup will change on it,
+          // for the person to read and confirm by typing its address.
+          ...(v.takeover ? { takeover: v.takeover } : {}),
         });
       });
       return true;
@@ -188,6 +221,16 @@ export function provisionRoutes(opts = {}) {
         if (run && (run.phase === 'provisioning' || run.phase === 'booting')) {
           jsonOut(res, 409, { error: 'a build is already running', alias: run.alias }); return;
         }
+        // A server used for this alone is never set up without the person
+        // having typed its address under the list of what changes.
+        let extra = {};
+        if (providerOf(providerId).ownServer) {
+          const d = parseOwnServer(String(form.token));
+          if (!d.error && d.mode !== 'adopt') {
+            if (!confirmsTakeover(d, form.confirm_host)) { jsonOut(res, 400, { error: TAKEOVER_UNCONFIRMED, code: 'not_confirmed' }); return; }
+            extra = { confirmHost: d.host };
+          }
+        }
         run = {
           slug,
           alias: `${slug}-box`,
@@ -196,7 +239,7 @@ export function provisionRoutes(opts = {}) {
           steps: [],
           ip: null,
           error: null,
-          token: withSlug(String(form.token), providerId, slug),
+          token: withSlug(String(form.token), providerId, slug, extra),
           state: loadState(slug),   // resume semantics: a half-made run picks up where it stopped
           location: String(form.location || '') || null,
           serverType: String(form.server_type || '') || null,
@@ -251,5 +294,7 @@ export function provisionRoutes(opts = {}) {
 
     res.writeHead(404); res.end();
     return true;
-  };
+  }
+  handle.repairUnbooted = repairUnbooted;
+  return handle;
 }

@@ -44,8 +44,29 @@ REMOTE="$(git remote get-url origin 2>/dev/null || true)"
 # the widening, so new entries go below it. See engine/lib/brain-ignore.txt.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IGNORE_LIST="${AIOS_BRAIN_IGNORE:-$HERE/lib/brain-ignore.txt}"
-brain_ignores()  { sed -e 's/#.*//' -e 's/[[:space:]]*$//' "$IGNORE_LIST" | grep -v '^[[:space:]]*$' || true; }
+# Every entry but the last section, which is for adopted brains only.
+brain_ignores()  { awk '/^# --- /{s=($0 ~ /adopted brain only/)} !s {sub(/#.*/,""); sub(/[[:space:]]+$/,""); if (length) print}' "$IGNORE_LIST"; }
 brain_required() { awk '/^# --- repaired/{exit} !/^#/ && NF {print}' "$IGNORE_LIST"; }
+# ADOPTED brains (spec 2026-10-17 § Engine changes) track their own .claude/ and
+# cockpit/ on purpose, so for them the repair and untrack set is the credential
+# floor only. `is_adopted` is the same line in brain-push.sh, connect-github.sh
+# and box-up.sh, and the same test as isAdopted() in engine/lib/mineral-identity.mjs
+# (pinned by engine/adopted-brain.test.mjs). Exactly `"adopted": true`; a pebble
+# never has it and takes the full list exactly as before. Plain grep, not node:
+# with no interpreter on PATH a node test answered "not adopted" and the full
+# untrack ran over the person's .claude/ (found by the test rig, 2026-10-18).
+is_adopted() { grep -Eq '"adopted"[[:space:]]*:[[:space:]]*true([^A-Za-z0-9_]|$)' "$1/ownership.json" 2>/dev/null; }
+ADOPTED=0; is_adopted "$STATE" && ADOPTED=1
+brain_ignores_adopted() { awk '/^# --- /{s=($0 ~ /adopted brain, which tracks/)} !s {sub(/#.*/,""); sub(/[[:space:]]+$/,""); if (length) print}' "$IGNORE_LIST"; }
+[ "$ADOPTED" = 1 ] && brain_ignores() { brain_ignores_adopted; }
+# A template (.env.example) is not a credential and the person tracks it on purpose;
+# the `.env.*` floor used to untrack it (adopt rehearsal, 2026-10-18).
+untrack_entry() { local f; f="$(git ls-files -- "$1" 2>/dev/null | grep -vE '\.(example|sample|template)$')"; [ -n "$f" ] || return 1; printf '%s\n' "$f" | git --literal-pathspecs rm -q --cached --ignore-unmatch --pathspec-from-file=-; }
+# Move-in mode (spec 2026-10-17 § 2): nothing commits or pushes until the person has
+# moved in. The app runs this on every open, outside the scheduler, so the scheduler's
+# gate never covered it: the rehearsal's first app open committed the brain as "box".
+is_moving_in() { grep -Eq '"moving_in"[[:space:]]*:[[:space:]]*true([^A-Za-z0-9_]|$)' "$1/ownership.json" 2>/dev/null; }
+if is_moving_in "$STATE"; then say "moving in: nothing committed or pushed until the move-in is finished"; exit 0; fi
 if [ ! -r "$IGNORE_LIST" ]; then
   # Fail closed. This job is the one that carries data off the box, and without
   # the list it cannot show that a credential would stay on it.
@@ -72,8 +93,21 @@ fi
 # ones this box does not have.
 while IFS= read -r p; do
   p="${p%/}"
-  git ls-files --error-unmatch -- "$p" >/dev/null 2>&1 && git rm -r --cached -q --ignore-unmatch -- "$p" && say "untracked $p"
+  untrack_entry "$p" && say "untracked $p"
 done < <(brain_ignores)
+
+# An adopted brain has a person working in it. A rebase, merge or cherry-pick
+# they have in progress is theirs: committing onto it would land on the detached
+# replay HEAD and wreck it. Stop, and say so as a failure, so the Health row
+# shows why last night's backup did not go.
+if [ "$ADOPTED" = 1 ]; then
+  for _op in rebase-merge rebase-apply MERGE_HEAD CHERRY_PICK_HEAD; do
+    if [ -e "$(git rev-parse --git-path "$_op")" ]; then
+      say "skipped: a rebase or merge is in progress in this brain ($_op), so nothing was committed or pushed"
+      exit 1
+    fi
+  done
+fi
 
 git add -A
 if git diff --cached --quiet 2>/dev/null; then

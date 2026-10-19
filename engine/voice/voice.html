@@ -110,7 +110,7 @@
     const w = document.createElement('div'); w.className = 'who'; w.textContent = who === 'user' ? 'you' : 'assistant';
     const b = document.createElement('div'); b.textContent = text;
     d.appendChild(w); d.appendChild(b);
-    if (propose) { const t = document.createElement('div'); t.className = 'propose-tag'; t.textContent = '⚠ wants to send something on your behalf — approve in Telegram / VS Code'; d.appendChild(t); }
+    if (propose) { const t = document.createElement('div'); t.className = 'propose-tag'; t.textContent = 'Draft only. Copy it and send it yourself.'; d.appendChild(t); }
     logEl.appendChild(d); window.scrollTo(0, document.body.scrollHeight);
     return d;
   }

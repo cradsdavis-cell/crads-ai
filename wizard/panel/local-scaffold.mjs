@@ -22,10 +22,11 @@ import { initialLayersState, isUntouchedLegacySeed } from '../../engine/onboardi
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(HERE, '..', '..');
 
-// The engine skills a local brain is born with: every engine/skills/*.md.
-// Enumerated by name because the packaged exe cannot list a directory of
-// assets; local-assets.test.mjs pins this list against the directory so a
-// new skill cannot be forgotten.
+// The engine skills a local brain is born with: every engine/skills/*.md except
+// the adopted-server ones (ADOPTED_ONLY in engine/kernel/lib/skills.mjs, which
+// syncSkills skips on anything not adopted). Enumerated by name because the
+// packaged exe cannot list a directory of assets; local-scaffold.test.mjs pins
+// this list against the directory so a new skill cannot be forgotten.
 export const LOCAL_SKILL_IDS = ['capture', 'connect', 'daily', 'dashboard', 'explain', 'followup', 'inbox', 'onboard', 'plan-week', 'propose-change', 'weekly', 'write-page'];
 export const LOCAL_TEMPLATE_PAGES = ['ask-me.html', 'my-people.html', 'welcome.html'];
 export const LOCAL_ASSET_FILES = [
@@ -153,7 +154,13 @@ export function seedGitignore(box, brainIgnore) {
   let text = rd(p) || '';
   const lines = new Set(text.split('\n').map((l) => l.trim()));
   const add = [];
-  const pats = String(brainIgnore || '').split('\n').map((l) => l.replace(/#.*/, '').trim()).filter(Boolean);
+  // the list's last section is for adopted server brains only (engine/lib/brain-ignore.txt)
+  const pats = []; let skip = false;
+  for (const l of String(brainIgnore || '').split('\n')) {
+    if (/^# --- /.test(l)) skip = /adopted brain only/.test(l);
+    const t = l.replace(/#.*/, '').trim();
+    if (!skip && t) pats.push(t);
+  }
   const floor = ['.env', '.env.*', 'secrets/', '*.key', '*.pem', '.ssh/', 'ssh/', '.claude-auth/', '.kernel/', '.mcp.json'];
   for (const pat of (pats.length ? pats : floor)) if (!lines.has(pat)) { add.push(pat); lines.add(pat); }
   if (!/never version these/.test(text)) add.unshift('# credentials + machine state: never version these (the brain repo may be pushed to a remote)');

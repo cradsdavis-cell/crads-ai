@@ -63,7 +63,10 @@ export function normalizeCadence(raw) {
 // ---- schedule validity + matching -------------------------------------------
 
 // Returns null when valid, else a one-line reason. Invalid schedules never fire.
-export function scheduleProblem(s) {
+// everyFloor: the smallest "every N minutes" allowed. Skills keep the 30-minute
+// floor (each fire is a `claude -p` on the member's own plan); plain scripts
+// (scripts-lib.mjs) cost nothing on the plan and pass a lower floor.
+export function scheduleProblem(s, { everyFloor = EVERY_FLOOR_MIN } = {}) {
   if (!s || typeof s !== 'object') return 'no schedule';
   if (s.kind === 'times') {
     const days = Array.isArray(s.days) ? s.days : [];
@@ -75,7 +78,7 @@ export function scheduleProblem(s) {
   }
   if (s.kind === 'every') {
     const m = Number(s.minutes);
-    if (!Number.isInteger(m) || m < EVERY_FLOOR_MIN) return `minutes must be an integer >= ${EVERY_FLOOR_MIN}`;
+    if (!Number.isInteger(m) || m < everyFloor) return `minutes must be an integer >= ${everyFloor}`;
     return null;
   }
   if (s.kind === 'every-days') {
@@ -88,8 +91,8 @@ export function scheduleProblem(s) {
 }
 
 // now: { hour, minute, dow (0=Sun..6=Sat), ymd "YYYY-MM-DD", quiet "22:00-07:00"|"" }
-export function scheduleMatches(s, now) {
-  if (scheduleProblem(s)) return false;
+export function scheduleMatches(s, now, opts) {
+  if (scheduleProblem(s, opts)) return false;
   if (s.kind === 'times') {
     const days = Array.isArray(s.days) && s.days.length ? s.days : DAY_KEYS;
     if (!days.includes(DAY_KEYS[now.dow])) return false;
@@ -117,8 +120,8 @@ export function inQuiet(quiet, hour, minute) {
 }
 
 // Human one-liner for --plan and logs (the app renders its own labels).
-export function describeSchedule(s) {
-  const p = scheduleProblem(s);
+export function describeSchedule(s, opts) {
+  const p = scheduleProblem(s, opts);
   if (p) return `invalid (${p})`;
   if (s.kind === 'times') {
     const days = Array.isArray(s.days) && s.days.length ? s.days.join('+') : 'daily';

@@ -50,7 +50,7 @@ export const JOURNEY = [
     id: 'app', title: 'Every page of the app',
     blurb: "Each screen, opening with the app's own words for it.",
     slugs: ['overview-page', 'your-pebble-page', 'brain-page',
-      'skills-page', 'connections-page', 'secrets-page', 'terminal-page', 'team-page'],
+      'skills-page', 'connections-page', 'secrets-page', 'terminal-page', 'team-page', 'move-in-page'],
   },
   {
     id: 'running', title: 'Keep it running',

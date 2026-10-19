@@ -114,6 +114,23 @@ test('validate: a rejected token is a 401, not a build', async (t) => {
   assert.equal(r.status, 401);
 });
 
+test('validate: a refusal the client put in plain words rides along marked plain; a token refusal does not', async (t) => {
+  const words = 'Your DigitalOcean account allows 1 droplet and already has 1. Nothing has been changed.';
+  const h = harness({ makeClient: () => ({ validateToken: async () => ({ ok: false, plain: true, code: 'droplet_limit', reason: words }) }) }); t.after(h.close);
+  const r = await h.call('POST', '/provision/validate', { token: 't', provider: 'digitalocean' });
+  assert.equal(r.status, 401);
+  assert.deepEqual(r.body, { ok: false, reason: words, plain: true });
+  const h2 = harness({ makeClient: () => ({ validateToken: async () => ({ ok: false, reason: 'unauthorized' }) }) }); t.after(h2.close);
+  assert.equal((await h2.call('POST', '/provision/validate', { token: 'bad' })).body.plain, undefined);
+});
+
+test('door: a plain refusal is shown as it is, before the generic token wording', () => {
+  const door = readFileSync(new URL('./door.html', import.meta.url), 'utf8');
+  const plainAt = door.indexOf('if (x.d && x.d.plain && x.d.reason) { shErr(x.d.reason);');
+  const genericAt = door.indexOf("' did not accept that token.");
+  assert.ok(plainAt > 0 && genericAt > plainAt);
+});
+
 test('the whole flow: start -> ready; key before birth, HostName repaired after, pin last, token never on disk', async (t) => {
   const h = harness(); t.after(h.close);
   const r = await h.call('POST', '/provision/start', { token: 'tok-secret', name: 'demo' });
@@ -285,7 +302,7 @@ test('own server: validate and start hand the client the details plus the minera
   assert.deepEqual(JSON.parse(seen.at(-1)[1]), { host: '203.0.113.10', user: 'ubuntu', slug: 'mel' });
   await h.call('POST', '/provision/validate', { provider: 'hetzner', name: 'mel', token: 'hz-token' });
   assert.equal(seen.at(-1)[1], 'hz-token', 'a cloud token is never rewritten');
-  const s = await h.call('POST', '/provision/start', { provider: 'own', name: 'pal', token: JSON.stringify({ host: '203.0.113.11', user: 'ubuntu' }) });
+  const s = await h.call('POST', '/provision/start', { provider: 'own', name: 'pal', token: JSON.stringify({ host: '203.0.113.11', user: 'ubuntu' }), confirm_host: '203.0.113.11' });
   assert.equal(s.status, 200);
   await untilPhase(h.call, 'ready');
   assert.ok(seen.some(([p, tok]) => p === 'own' && JSON.parse(tok).slug === 'pal'), 'the build\'s client gets the name too');
@@ -295,4 +312,87 @@ test('own server is on the members\' list, after the two cloud companies', async
   const h = harness(); t.after(h.close);
   const r = await h.call('GET', '/provision/providers');
   assert.deepEqual(r.body.providers.map((p) => p.id).slice(0, 3), ['hetzner', 'digitalocean', 'own']);
+});
+
+// The adopt answer (2026-10-18): the details carry the mode and the folder
+// through untouched, validate says back what the check found, and the build's
+// steps say "beside what the server already runs", not "creating".
+test('own server, adopt: mode and folder ride through; validate says what it found; the steps say set up beside, in move-in mode', async (t) => {
+  const seen = [];
+  const found = { folder: '/home/pat/second-brain', branch: 'master', skills: 8, cron: 40, units: 2, containers: 3, listeners: 2, git: true, gitOp: '', dirty: 0 };
+  const h = harness({ makeClient: (token, provider) => {
+    seen.push([provider, token]);
+    const c = fakeClient([], provider);
+    if (provider === 'own') c.validateToken = async () => ({ ok: true, adopt: found });
+    return c;
+  } });
+  t.after(h.close);
+  const details = { host: '203.0.113.10', user: 'pat', mode: 'adopt', brainRoot: '~/second-brain' };
+  const v = await h.call('POST', '/provision/validate', { provider: 'own', name: 'idris', token: JSON.stringify(details) });
+  assert.equal(v.status, 200);
+  assert.deepEqual(v.body.adopt, found);
+  assert.deepEqual(JSON.parse(seen.at(-1)[1]), { ...details, slug: 'idris' });
+  const cloud = await h.call('POST', '/provision/validate', { provider: 'hetzner', name: 'idris', token: 'hz' });
+  assert.equal(cloud.body.adopt, undefined, 'only an adopt check says it');
+  await h.call('POST', '/provision/start', { provider: 'own', name: 'idris', token: JSON.stringify(details) });
+  const s = await untilPhase(h.call, 'ready');
+  assert.ok(s.steps.some((w) => /beside what the server already runs/.test(w)), s.steps.join(' | '));
+  assert.ok(s.steps.some((w) => /move-in mode/.test(w)));
+  assert.ok(!s.steps.join(' ').includes('\u2014'));
+});
+
+// The takeover confirmation (2026-10-19): a server used for this alone is taken
+// over by setup (firewall, sign-in, clock, Docker, two logins), so validate
+// carries the exact list and start refuses without the typed address.
+test('own server, used for this alone: validate carries what setup changes; start refuses without the typed address', async (t) => {
+  const seen = [];
+  const takeover = { host: '203.0.113.10', changes: ['Turns on a firewall that lets in SSH (port 22) and nothing else.'] };
+  const h = harness({ makeClient: (token, provider) => {
+    seen.push([provider, token]);
+    const c = fakeClient(h.calls, provider);
+    if (provider === 'own') c.validateToken = async () => ({ ok: true, takeover });
+    return c;
+  } });
+  t.after(h.close);
+  const details = JSON.stringify({ host: '203.0.113.10', user: 'ubuntu' });
+  const v = await h.call('POST', '/provision/validate', { provider: 'own', name: 'mel', token: details });
+  assert.deepEqual(v.body.takeover, takeover);
+  const cloud = await h.call('POST', '/provision/validate', { provider: 'hetzner', name: 'mel', token: 'hz' });
+  assert.equal(cloud.body.takeover, undefined, 'only an own server says it');
+
+  const before = seen.length;
+  for (const confirm of [undefined, '', '203.0.113.1', '203.0.113.100', 'mel']) {
+    const r = await h.call('POST', '/provision/start', { provider: 'own', name: 'mel', token: details, ...(confirm === undefined ? {} : { confirm_host: confirm }) });
+    assert.equal(r.status, 400, `refused with confirm_host=${confirm}`);
+    assert.equal(r.body.code, 'not_confirmed');
+    assert.match(r.body.error, /Nothing has been changed/);
+    assert.ok(!r.body.error.includes('\u2014'));
+  }
+  assert.equal(seen.length, before, 'no client was even made for a refused start');
+  assert.equal((await h.call('GET', '/provision/status')).body.phase, 'idle', 'nothing started');
+
+  // A confirmation smuggled inside the details is not one: the route drops it.
+  const smuggled = JSON.stringify({ host: '203.0.113.10', user: 'ubuntu', confirmHost: '203.0.113.10' });
+  assert.equal((await h.call('POST', '/provision/start', { provider: 'own', name: 'mel', token: smuggled })).status, 400);
+
+  // Typed as people type it: spaces and case do not matter.
+  const ok = await h.call('POST', '/provision/start', { provider: 'own', name: 'mel', token: details, confirm_host: ' 203.0.113.10 ' });
+  assert.equal(ok.status, 200);
+  await untilPhase(h.call, 'ready');
+  const built = seen.filter(([p]) => p === 'own').map(([, tok]) => JSON.parse(tok)).at(-1);
+  assert.equal(built.confirmHost, '203.0.113.10', 'the confirmed address rides to the client, which checks it again');
+});
+
+test('own server, adopt: no confirmation is asked, because adopt changes none of that', async (t) => {
+  const h = harness(); t.after(h.close);
+  const details = JSON.stringify({ host: '203.0.113.10', user: 'pat', mode: 'adopt', brainRoot: '~/second-brain' });
+  const r = await h.call('POST', '/provision/start', { provider: 'own', name: 'idris', token: details });
+  assert.equal(r.status, 200);
+  await untilPhase(h.call, 'ready');
+});
+
+test('a cloud build is never asked to confirm an address', async (t) => {
+  const h = harness(); t.after(h.close);
+  assert.equal((await h.call('POST', '/provision/start', { token: 'tok', name: 'demo' })).status, 200);
+  await untilPhase(h.call, 'ready');
 });

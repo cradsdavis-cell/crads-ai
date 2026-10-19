@@ -20,6 +20,8 @@ import path from 'node:path';
 import { lastRunBySkill, lastRunByJob } from '../lib/run-ledger.mjs';
 import { resolveBrainRoot } from '../lib/brain-root.mjs';
 import { isMain } from '../lib/is-main.mjs';
+import { isAdopted } from '../lib/mineral-identity.mjs';
+import { ENGINE_MARKER } from '../kernel/lib/skills.mjs';
 
 // The engine's own skill catalog. Overridable for tests and for staged runs on
 // boxes whose /app predates this file (same escape hatch as scheduler.mjs).
@@ -47,6 +49,14 @@ export function listSkills(stateDir) {
       .sort();
   } catch {}
 
+  // An adopted brain (spec 2026-10-17) already had skills, and some share a name
+  // with ours (capture, daily, followup, inbox, weekly on the rehearsal server).
+  // There the NAME says nothing about who made it: the engine marks every dir it
+  // creates, and only a marked dir is ours. Found in the adopt rehearsal
+  // (2026-10-18): the person's own five were labelled "built-in".
+  const adopted = isAdopted(stateDir);
+  const isEngine = (id) => (adopted ? existsSync(path.join(base, id, ENGINE_MARKER)) : engine.includes(id));
+
   const skills = ids.map((id) => {
     const md = read(path.join(base, id, 'SKILL.md'));
     const fm = (md.match(/^---\n([\s\S]*?)\n---/) || [])[1] || '';
@@ -66,7 +76,7 @@ export function listSkills(stateDir) {
     // team-skills.mjs carries origin "company" and is replaced on every pull.
     const origin = readJson(path.join(base, id, '.origin.json'));
     if (origin && origin.origin === 'company') source = 'company';
-    else if (engine.includes(id)) source = 'engine';
+    else if (isEngine(id)) source = 'engine';
     else if (SEED_IDS.includes(id)) source = 'seed';
 
     return {

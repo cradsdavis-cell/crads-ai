@@ -46,8 +46,10 @@ export async function provisionSelfHost({ token, boxName, ownerPubKey, state, on
   if (!state.tokenValidated) {
     onStep('validate-token');
     const v = await hc.validateToken();
-    // A server the person made (ownServer) answers in its own plain words.
-    if (!v.ok && P.ownServer) throw new Error(v.reason);
+    // A server the person made (ownServer) answers in its own plain words, and
+    // so does a refusal the client has already put in plain words (`plain`:
+    // DigitalOcean's full-account check, 2026-10-19).
+    if (!v.ok && (P.ownServer || v.plain)) throw new Error(v.reason);
     if (!v.ok) throw new Error(v.reason === 'unauthorized'
       ? `${P.label} rejected the token. Check it is a read-write API token for the right account.`
       : `Could not reach ${P.label}: ${v.reason}`);
@@ -67,7 +69,14 @@ export async function provisionSelfHost({ token, boxName, ownerPubKey, state, on
     // 2026-10-13, and a build that asked for it failed at this step).
     if (!serverType || !location) ({ serverType, location } = await pickMachine(hc, P, { serverType, location }));
     onStep('create-server', `${serverType} @ ${location}`);
-    const userData = renderSelfHostCloudInit({ boxName, ownerPubKey, image, files: overrides.files });
+    // A client may render its own setup file (own-server.mjs in adopt mode:
+    // the shared-server variant, from what its check found). Every other
+    // client, and own-server for a server used for this alone, answers null
+    // or has no such method, and gets the pebble cloud-init unchanged.
+    const custom = typeof hc.renderUserData === 'function'
+      ? await hc.renderUserData({ boxName, ownerPubKey, image, files: overrides.files })
+      : null;
+    const userData = custom ?? renderSelfHostCloudInit({ boxName, ownerPubKey, image, files: overrides.files });
     let created;
     try {
       created = await hc.createServer({
@@ -83,11 +92,18 @@ export async function provisionSelfHost({ token, boxName, ownerPubKey, state, on
       // which server on the error; remembering it is what lets "Remove the
       // half-made server" find it, and stops a retry building a second one.
       if (e && e.serverId) state.serverId = e.serverId;
+      // ...and the mark of it, so that later delete can prove it is ours.
+      if (e && e.serverId && e.runTag) state.runTag = e.runTag;
       throw e;
     }
     state.serverId = created.id;
     state.serverIp = created.ip;
     state.createActionId = created.actionId;
+    // The mark of THIS build's server (2026-10-19; DigitalOcean, Hetzner and
+    // Scaleway): a delete checks for it, so the record can never be used to
+    // delete a server the app did not make. A client without run tags (a
+    // server you already have) answers none.
+    if (created.runTag) state.runTag = created.runTag;
     // The machine and where it is (2026-10-14): what lets "Delete the old server"
     // after a move to this computer name its monthly price from the provider's
     // own list. A record from before this line simply lacks them.
@@ -139,7 +155,7 @@ export async function destroySelfHost({ token, state, client, provider }) {
   if (!state.serverId) return { destroyed: false };
   const P = providerOf(provider || state.provider || DEFAULT_PROVIDER);
   const hc = client ?? P.makeClient(token);
-  await hc.deleteServer(state.serverId);
-  for (const k of ['serverId', 'serverIp', 'createActionId', 'serverRunning', 'serverType', 'location']) delete state[k];
+  await hc.deleteServer(state.serverId, state.runTag ? { runTag: state.runTag } : {});
+  for (const k of ['serverId', 'serverIp', 'createActionId', 'serverRunning', 'serverType', 'location', 'runTag']) delete state[k];
   return { destroyed: true };
 }

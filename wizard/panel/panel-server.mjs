@@ -35,6 +35,11 @@ import { machineName } from './machine-name.mjs';
 import { inventoryRoutes } from './inventory-routes.mjs';
 import { writeLastUsed } from './last-used.mjs';
 import { BRAIN_ROOT_SH } from '../../engine/lib/brain-root.mjs';
+import { validateChanges as validateScriptChanges } from '../../engine/cron/scripts-lib.mjs';
+import { STEP_ID_RE as MOVEIN_STEP_RE } from '../../engine/move-in/lib.mjs';
+import { runHostStep, moveOut, moveOutWords, serverLogin, defaultTeardown, checkHostStep, resolveHostStep } from './move-in-host.mjs';
+import { OwnServerClient } from '../provision/own-server.mjs';
+import { brainListSh, BRAIN_READ_GUARD_SH } from '../../engine/lib/brain-files.mjs';
 import { crossOriginBlocked, refuseCrossOrigin } from './same-origin.mjs';
 import { LOCAL_VERBS } from './local-verbs.mjs';
 import { ownBrainDispatch, precheckDispatch } from './local-routes.mjs';
@@ -74,6 +79,24 @@ const LOCAL_HOST_RE = /^[a-z0-9][a-z0-9-]{0,62}-local$/;
 // stronger than any name pattern.
 const hostShapeOk = (host) => HOST_RE.test(host) || MEMBER_HOST_RE.test(host) || LOCAL_HOST_RE.test(host);
 const B64_RE = /^[A-Za-z0-9+/=\r\n]+$/;
+// The Scripts list, shared by scripts-list and cadence-list's __SCRIPTS__ leg.
+// An image that predates scripts answers with an honest empty state.
+const SCRIPTS_LIST = 'node /app/engine/cron/scripts.mjs /state list 2>/dev/null '
+  + '|| echo \'SCRIPTS_STATE {"scripts":[],"error":"engine-too-old"}\'';
+// Move in (spec 2026-10-17 adopt § 3): an image that predates the move-in tool
+// answers with an honest "not moving in" rather than a shell error.
+const MOVEIN_SHOW = '[ -f /app/engine/move-in/apply.mjs ] && node /app/engine/move-in/apply.mjs /state show '
+  + '|| echo \'MOVEIN_STATE {"moving_in":false,"error":"engine-too-old"}\'';
+const MOVEIN_GUARD = '[ -f /app/engine/move-in/apply.mjs ] || { echo "ERROR: this mineral\'s software is older than the move-in: update and restart it first"; exit 1; }; ';
+// skill-run waits this long for a Claude run to finish inside its own SSH call,
+// then answers RUN_STILL; its verb budget covers the wait with room to spare.
+export const SKILL_RUN_WAIT_S = 40;
+export const SKILL_RUN_VERB_MS = 75000;
+const moveInStep = (v) => {
+  const id = String(v ?? '');
+  if (!MOVEIN_STEP_RE.test(id)) bad('id must be a move-in step id');
+  return id;
+};
 const PUBKEY_RE = /^ssh-ed25519 [A-Za-z0-9+/]+={0,3}( [A-Za-z0-9@._-]{1,64})?$/;
 const pubkeyArg = (v) => {
   if (!PUBKEY_RE.test(String(v ?? ''))) bad('that pubkey doesn’t look right: it should be ONE line starting with "ssh-ed25519". Re-copy the whole line exactly as it was sent (no line breaks, nothing added)');
@@ -476,7 +499,7 @@ const ONBOARD_GATE = 'node -e \'const s=JSON.parse(require("fs").readFileSync(pr
 // 6MB of real bytes, ~8MB once base64'd. Comfortably covers a scan, a diagram or
 // a phone photo; refuses the 40MP raw that would wedge the channel.
 const BRAIN_IMAGE_MAX = 6 * 1024 * 1024;
-function brainVerbs(enter, opts = {}) {
+function brainVerbs(enter) {
   // `wiki` IS IN SCOPE (finding 107, 2026-08-13). box-cockpit.mjs was widened on
   // 2026-08-11 to walk <brain_root>/wiki because /onboard writes every layer to
   // wiki/_layers/ and every person to wiki/people/. That fix reached the GRAPH
@@ -487,10 +510,13 @@ function brainVerbs(enter, opts = {}) {
   // The find predicate is built FROM ASSET_EXT, not hand-written beside it. The
   // finding-107 lesson was one wiki with three readers giving three answers; a
   // second hard-coded extension list would be the same bug wearing a new hat.
-  const namePred = ASSET_EXT.map((e) => `-name '*.${e}'`).join(' -o ');
-  const listFind = opts.scope === 'wiki'
-    ? `{ find . -maxdepth 1 \\( ${namePred} \\); for d in notes decisions insights wiki; do [ -d "$d" ] && find "$d" \\( ${namePred} \\); done; } | sed 's|^\\./||' | sort`
-    : `find . \\( ${namePred} \\) -not -path './.git/*' -not -path './cockpit/*' | sed 's|^\\./||' | sort`;
+  //
+  // FROM THE BRAIN ROOT, WHATEVER ITS SHAPE (2026-10-18, spec adopt-existing-server):
+  // engine/lib/brain-files.mjs owns the rule (git ls-files, the person's own
+  // .gitignore decides what is private, pruned find when there is no repo) and the
+  // graph builder runs the same text, so the tree and the graph agree by
+  // construction. The extension list is still ASSET_EXT, passed in, not copied.
+  const listFind = brainListSh(ASSET_EXT);
   return {
     'brain-list': {
       build: () => ({ command: enter + listFind }),
@@ -501,7 +527,8 @@ function brainVerbs(enter, opts = {}) {
       build: (a = {}) => {
         const page = textArg(a.page);
         return {
-          command: enter + 'cat ' + shq(page, 'page') + ' 2>/dev/null || echo "ERROR: no such page: ' + page + '"',
+          command: enter + 'P=' + shq(page, 'page') + '; ' + BRAIN_READ_GUARD_SH
+            + 'cat ' + shq(page, 'page') + ' 2>/dev/null || echo "ERROR: no such page: ' + page + '"',
         };
       },
     },
@@ -517,7 +544,7 @@ function brainVerbs(enter, opts = {}) {
         const page = imageArg(a.page);
         const q = shq(page, 'page');
         return {
-          command: enter
+          command: enter + `P=${q}; ` + BRAIN_READ_GUARD_SH
             + `[ -f ${q} ] || { echo "ERROR: no such image: ${page}"; exit 1; }; `
             + `sz=$(wc -c < ${q}); `
             + `[ "$sz" -le ${BRAIN_IMAGE_MAX} ] || { echo "ERROR: this image is too large to preview in the app ($((sz/1024))KB; the limit is ${Math.round(BRAIN_IMAGE_MAX / 1024)}KB). Open it over a Claude Code connection instead."; exit 1; }; `
@@ -527,7 +554,11 @@ function brainVerbs(enter, opts = {}) {
     },
   };
 }
-const memberBrainEnter = 'cd /state/wiki 2>/dev/null || { echo "ERROR: no brain at /state/wiki"; exit 1; }; ';
+// The brain ROOT, not /state/wiki (2026-10-18). Every path the list prints, the
+// graph's node paths, and what brain-read / brain-image accept are relative to
+// here, so a graph click opens the page it names (finding 107). A pebble's pages
+// now arrive as wiki/<rel>; a brain without wiki/ (notes/, decisions/) lists at all.
+const memberBrainEnter = 'cd /state 2>/dev/null || { echo "ERROR: no brain at /state"; exit 1; }; ';
 
 
 // ---------------------------------------------------------------- member verbs
@@ -536,8 +567,11 @@ const memberBrainEnter = 'cd /state/wiki 2>/dev/null || { echo "ERROR: no brain 
 // no admin verbs. The only write is the dashboard layout file: cockpit config,
 // never brain content.
 export const MEMBER_VERBS = {
+  // A uid the container image does not name (an adopted server whose owner is
+  // not uid 1000) makes plain `whoami` fail, and the panel read "Not connected"
+  // on a working mineral (shadow test on Oracle, 2026-10-19). Answer anyway.
   whoami: {
-    build: () => ({ command: 'whoami' }),
+    build: () => ({ command: 'whoami 2>/dev/null || echo "uid-$(id -u)"' }),
   },
 
   // Dashboard: regenerate the box's own cockpit data (best-effort), then emit
@@ -665,8 +699,95 @@ export const MEMBER_VERBS = {
         // direction: it can only over-report, never hide a job that runs.
         + 'echo "__PLANJSON__"; __ROLE=member; '
         + 'grep -q \'"tier"[[:space:]]*:[[:space:]]*"rock"\' /state/ownership.json 2>/dev/null && __ROLE=rock; '
-        + 'AIOS_SCHEDULER_ROLE=$__ROLE node /app/engine/cron/scheduler.mjs /state --plan-json 2>/dev/null || echo "{}"',
+        + 'AIOS_SCHEDULER_ROLE=$__ROLE node /app/engine/cron/scheduler.mjs /state --plan-json 2>/dev/null || echo "{}"; '
+        // Scripts on a schedule (spec 2026-10-17 adopt): the Skills page's
+        // Scripts list and the Health card's failing-script rows ride this same
+        // round trip, so one read answers "what runs, and when".
+        + 'echo "__SCRIPTS__"; ' + SCRIPTS_LIST,
     }),
+  },
+  // ---- Scripts on a schedule (spec 2026-10-17 adopt § Scripts on a schedule) --
+  // Plain programs from cockpit/scripts.json, fired by the scheduler without
+  // Claude. The page can read them, switch them, reschedule them, remove them
+  // and run one now. It can NEVER say what runs: there is no verb that takes a
+  // command, scripts-save carries only {enabled, schedule} | {remove} per
+  // existing id, checked here AND again on the box (scripts-lib.mjs
+  // validateChanges), and the box refuses to switch on a row whose program is
+  // not inside the container. Rows come from the assistant or the move-in.
+  'scripts-list': {
+    build: () => ({ command: SCRIPTS_LIST }),
+  },
+  'scripts-save': {
+    mutating: true,
+    build: (a = {}) => {
+      const b64 = String(a.changes_b64 ?? '');
+      if (!b64 || b64.length > 40000 || !B64_RE.test(b64)) bad('changes_b64 must be base64 (max ~30 KB)');
+      let changes;
+      try { changes = JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch { bad('changes_b64 must carry JSON'); }
+      const why = validateScriptChanges(changes);
+      if (why) bad(why);
+      return {
+        command: '[ -f /app/engine/cron/scripts.mjs ] || { echo "ERROR: this mineral\'s software is older than scripts: update and restart it first"; exit 1; }; '
+          + 'node /app/engine/cron/scripts.mjs /state save',
+        // Re-encoded from the parsed object, so what reaches the box is exactly
+        // what was validated, never the caller's bytes.
+        stdin: Buffer.from(JSON.stringify(changes), 'utf8').toString('base64') + '\n',
+      };
+    },
+  },
+  // Run one script NOW, through the scheduler's own path (same lock, same time
+  // limit, same ledger row). The box starts it detached and waits up to ~40s for
+  // the outcome; a longer script reports "still running" and its row shows the
+  // result when it lands.
+  'script-run': {
+    mutating: true,
+    timeoutMs: 60000,
+    build: (a = {}) => {
+      const id = String(a.id ?? '');
+      if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(id)) bad('id must be a kebab-case script id');
+      return {
+        command: '[ -f /app/engine/cron/scripts.mjs ] || { echo "ERROR: this mineral\'s software is older than scripts: update and restart it first"; exit 1; }; '
+          + `node /app/engine/cron/scripts.mjs /state run ${id}`,
+      };
+    },
+  },
+  // ---- Move in (spec 2026-10-17 adopt § 3) --------------------------------------
+  // An adopted server's plan for moving what it already does into Crads-AI.
+  // Every verb names a STEP ID and nothing else: the plan, the files a step
+  // touches and its undo all live on the box (engine/move-in/), so a page can
+  // approve, apply, undo or skip a step and can never say what a step does.
+  // Steps that change the server itself are not verbs at all: they go through
+  // /move-in/host-step below, over the app's own connection to the server.
+  'move-in-show': {
+    build: () => ({ command: MOVEIN_SHOW }),
+  },
+  'move-in-plan': {
+    mutating: true,
+    build: () => ({ command: MOVEIN_GUARD + 'node /app/engine/move-in/plan.mjs /state' }),
+  },
+  'move-in-approve': {
+    mutating: true,
+    build: (a = {}) => {
+      const ids = Array.isArray(a.ids) ? a.ids.map(String) : [String(a.id ?? '')];
+      if (!ids.length || ids.length > 100 || ids.some((id) => !MOVEIN_STEP_RE.test(id))) bad('ids must be move-in step ids');
+      return { command: MOVEIN_GUARD + `node /app/engine/move-in/apply.mjs /state approve ${ids.join(' ')}` };
+    },
+  },
+  'move-in-skip': {
+    mutating: true,
+    build: (a = {}) => ({ command: MOVEIN_GUARD + `node /app/engine/move-in/apply.mjs /state ${a.back === true ? 'unskip' : 'skip'} ${moveInStep(a.id)}` }),
+  },
+  'move-in-apply': {
+    mutating: true,
+    build: (a = {}) => ({ command: MOVEIN_GUARD + `node /app/engine/move-in/apply.mjs /state apply ${moveInStep(a.id)}` }),
+  },
+  'move-in-undo': {
+    mutating: true,
+    build: (a = {}) => ({ command: MOVEIN_GUARD + `node /app/engine/move-in/apply.mjs /state undo ${moveInStep(a.id)}` }),
+  },
+  'move-in-finish': {
+    mutating: true,
+    build: () => ({ command: MOVEIN_GUARD + 'node /app/engine/move-in/apply.mjs /state finish' }),
   },
   'cadence-write': {
     mutating: true,
@@ -729,20 +850,55 @@ export const MEMBER_VERBS = {
   // drain, single-writer). Kebab-id validated app-side AND existence-checked
   // box-side; the last-run stamp lands in skill-runs.json first so the Skills
   // page reflects the run even if the reader looks before the drain finishes.
+  //
+  // DETACHED, like script-run (adopt rehearsal T4 finding 7). A Claude run takes
+  // minutes, and this used to run inside the SSH call, so the bridge's 25 s
+  // watchdog killed the call ("ssh ... exceeded 25000ms; killed") while the run
+  // carried on and succeeded: the page said it failed. Now the run is started in
+  // the background (its output and exit code under /state/.kernel/run-now/),
+  // the call waits up to ~40 s and reports the result if it lands, and
+  // otherwise answers RUN_STILL <id>; the page then asks skill-run-status until
+  // the run ends. A run cut short can never read as a failure.
   'skill-run': {
     mutating: true,
+    timeoutMs: SKILL_RUN_VERB_MS,
     build: (a = {}) => {
       const id = String(a.id ?? '');
       if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(id)) bad('id must be a kebab-case skill id');
+      const D = '/state/.kernel/run-now';
       return {
         command: BR_RESOLVE + `[ -f "$BR/.claude/skills/${id}/SKILL.md" ] || { echo "ERROR: no skill named ${id} is installed on this mineral."; exit 1; }; `
+          + `mkdir -p ${D}; `
+          + `if [ -f ${D}/${id}.pid ] && [ ! -f ${D}/${id}.exit ] && kill -0 "$(cat ${D}/${id}.pid)" 2>/dev/null; then echo "/${id} is already running. Its result shows here when it finishes."; echo "RUN_STILL ${id}"; exit 0; fi; `
           + 'node -e \'const fs=require("fs");const f="/state/cockpit/skill-runs.json";'
           + 'let r={};try{r=JSON.parse(fs.readFileSync(f,"utf8"))}catch{}'
           + `r["${id}"]=new Date().toISOString();`
           + 'fs.mkdirSync("/state/cockpit",{recursive:true});fs.writeFileSync(f,JSON.stringify(r,null,2)+"\\n")\'; '
+          + `rm -f ${D}/${id}.exit; `
           + `echo "Running /${id} now. This usually takes a minute or two."; `
-          + `node /app/engine/kernel/enqueue.mjs /state ${id} --source=dashboard `
-          + '&& node /app/engine/kernel/kernel.mjs /state --once',
+          // the id is kebab-case (checked above), so it is safe inside the quotes
+          + `nohup sh -c 'node /app/engine/kernel/enqueue.mjs /state ${id} --source=dashboard && node /app/engine/kernel/kernel.mjs /state --once; echo $? > "$1.tmp" && mv "$1.tmp" "$1"' sh ${D}/${id}.exit > ${D}/${id}.log 2>&1 < /dev/null & `
+          + `echo $! > ${D}/${id}.pid; `
+          + `i=0; while [ $i -lt ${SKILL_RUN_WAIT_S} ] && [ ! -f ${D}/${id}.exit ]; do sleep 1; i=$((i+1)); done; `
+          + `if [ -f ${D}/${id}.exit ]; then tail -n 20 ${D}/${id}.log; [ "$(cat ${D}/${id}.exit)" = 0 ]; exit $?; fi; `
+          + `echo "RUN_STILL ${id}"; echo "It is still running on your mineral. The result shows here when it finishes."`,
+      };
+    },
+  },
+  // Where a background "Run now" has got to: RUN_STILL while it runs, then
+  // RUN_DONE <exit code> and the last lines of its output. RUN_LOST when the
+  // run is gone without saying how it ended (the mineral restarted under it).
+  // Read only, so a page can ask every few seconds without holding the lock.
+  'skill-run-status': {
+    build: (a = {}) => {
+      const id = String(a.id ?? '');
+      if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(id)) bad('id must be a kebab-case skill id');
+      const D = '/state/.kernel/run-now';
+      return {
+        command: `if [ -f ${D}/${id}.exit ]; then echo "RUN_DONE $(cat ${D}/${id}.exit)"; tail -n 20 ${D}/${id}.log 2>/dev/null; `
+          + `elif [ -f ${D}/${id}.pid ] && kill -0 "$(cat ${D}/${id}.pid)" 2>/dev/null; then echo "RUN_STILL ${id}"; `
+          + `elif [ -f ${D}/${id}.pid ]; then echo "RUN_LOST ${id}"; tail -n 20 ${D}/${id}.log 2>/dev/null; `
+          + `else echo "RUN_NONE ${id}"; fi`,
       };
     },
   },
@@ -2445,6 +2601,62 @@ export function createPanelServer(opts = {}) {
           return;
         }
         vaultRoute(path, host, form, res);
+      });
+      return;
+    }
+
+    // Move in, the steps that change the SERVER (spec 2026-10-17 adopt § 3).
+    // The container cannot reach the server it runs on, so these two run here:
+    // the page names a step id and a direction (or asks to move out), and
+    // move-in-host.mjs does host-begin in the mineral, ONE allow-listed op on
+    // the server over this mineral's own key (validated again here, whatever
+    // the box said), then host-end. No command, path or step body ever comes
+    // from the page.
+    if (req.method === 'POST' && (path === '/move-in/host-step' || path === '/move-in/move-out')) {
+      if (!/application\/json/i.test(String(req.headers['content-type'] || ''))) {
+        res.writeHead(415, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'json only' })); return;
+      }
+      let body = '';
+      req.on('data', (c) => { body += c; if (body.length > 4096) req.destroy(); });
+      req.on('end', () => {
+        const answer = (status, o) => { try { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(o)); } catch { /* gone */ } };
+        let form;
+        try { form = JSON.parse(body); } catch { answer(400, { ok: false, error: 'bad json' }); return; }
+        const host = String(form.host ?? '');
+        let targets = [];
+        try { targets = (bridge.targets() || []).filter(kindOk); } catch { targets = []; }
+        if (!MEMBER_HOST_RE.test(host) || !validTarget(host, targets)) { answer(400, { ok: false, error: 'host must be a configured <slug>-box target' }); return; }
+        const moving = path === '/move-in/move-out';
+        const id = String(form.id ?? '');
+        const action = String(form.action ?? '');
+        // apply | undo run a step; check | finish | rollback recover one the app
+        // stopped half way through (the step's own op, read-only first)
+        if (!moving && (!MOVEIN_STEP_RE.test(id) || !['apply', 'undo', 'check', 'finish', 'rollback'].includes(action))) { answer(400, { ok: false, error: 'a step id and one of apply, undo, check, finish or rollback' }); return; }
+        if (moving && form.confirm !== 'move-out') { answer(400, { ok: false, error: 'moving out needs its confirmation' }); return; }
+        if (busy) { answer(409, { ok: false, error: 'another action is still running: wait for it to finish, then try this again' }); return; }
+        busy = true;
+        // Only this table's own words reach the box: every argument is a
+        // fixed verb, a validated step id, apply|undo or ok|fail.
+        const container = (args, stdin) => {
+          if (!args.every((x) => /^[a-z0-9][a-z0-9-]{0,80}$/.test(String(x)))) return Promise.resolve({ code: 1, stdout: 'ERROR: refused an argument\n' });
+          return runCollect(host, { command: MOVEIN_GUARD + `node /app/engine/move-in/apply.mjs /state ${args.join(' ')}`, stdin })
+            .then((r) => ({ code: r.code, stdout: r.out }));
+        };
+        (async () => {
+          const who = await serverLogin(container);
+          if (!who) return { ok: false, error: 'this mineral has no move-in plan with a server login yet' };
+          const sshDir = opts.sshDir || join(homedir(), '.ssh');
+          const server = opts.moveInHostClient
+            ? opts.moveInHostClient(host, who.login)
+            : new OwnServerClient(JSON.stringify({ host: hostNameFor(host, join(sshDir, 'config')) || '', user: who.login, slug: host.replace(/-box$/, '') }), { sshDir });
+          if (action === 'check') return checkHostStep({ id, container, host: server });
+          if (action === 'finish' || action === 'rollback') return resolveHostStep({ id, choice: action, container, host: server });
+          if (!moving) return runHostStep({ id, action, container, host: server });
+          const out = await moveOut({ container, host: server, brainRoot: who.brainRoot, teardown: opts.moveInTeardown || defaultTeardown });
+          return { ...out, words: moveOutWords(out) };
+        })().then((r) => answer(200, r), (e) => answer(200, { ok: false, error: String((e && e.message) || e).slice(0, 300) }))
+          .finally(() => { busy = false; });
       });
       return;
     }

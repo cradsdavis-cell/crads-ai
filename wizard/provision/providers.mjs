@@ -32,6 +32,11 @@
 //                     in memory only, never written down.
 //   tokenSteps        plain-text steps for the door's "how to get one" fold
 //   tokenNote         the line under them (where the token goes, how to revoke)
+//   modeQuestion,     (2026-10-18, adopt) one question with a choice of answers,
+//   modes             shown under the credential fields: [{ id, label, fields? }].
+//                     The chosen id rides in the details JSON as `mode`, and the
+//                     chosen answer's own fields (same shape as credentialFields)
+//                     ride with it. The first answer is the default.
 //   ownServer         true for "a server you already have": no cloud account, no
 //                     prices, no sizes; the door shows this mineral's key to put
 //                     on the server instead, and provision-routes adds the
@@ -43,7 +48,7 @@
 import { HetznerClient } from './hetzner.mjs';
 import { DigitalOceanClient } from './digitalocean.mjs';
 import { ScalewayClient } from './scaleway.mjs';
-import { OwnServerClient } from './own-server.mjs';
+import { OwnServerClient, DEDICATED_CHOICE, ADOPT_CHOICE } from './own-server.mjs';
 
 export const PROVIDERS = {
   hetzner: {
@@ -88,7 +93,9 @@ export const PROVIDERS = {
     tokenLabel: 'Your DigitalOcean API token',
     tokenHelpDocSlug: 'get-a-digitalocean-api-token',
     costsCopy: 'a DigitalOcean droplet, roughly $24 to $96 a month depending on the size you pick, billed to you by DigitalOcean in US dollars',
-    blurb: 'Dearer than Hetzner at the same size, but it has a Sydney location, and locations across the US, Europe and Asia.',
+    // The last sentence (2026-10-19): a member who already had a droplet read
+    // the build as trying to override it. It never touches one; say so here.
+    blurb: 'Dearer than Hetzner at the same size, but it has a Sydney location, and locations across the US, Europe and Asia. It makes a new droplet and never changes or deletes droplets you already have.',
     // Sydney first: the one location Hetzner cannot offer an Australian.
     defaults: { location: 'syd1', serverType: 's-2vcpu-4gb' },
     // Same machine SPECS as the Hetzner chains (4 / 8 / 16 GB), so "Small",
@@ -112,7 +119,7 @@ export const PROVIDERS = {
     tokenLabel: 'Your server',
     tokenHelpDocSlug: 'use-a-server-you-already-have',
     costsCopy: 'a Linux server you already have: rented anywhere (AWS, Google Cloud, Azure, any host) or a machine you own at home or in the office. You pay whoever runs it, or just the electricity',
-    blurb: 'AWS, Google Cloud, Azure, or a machine you own. Ubuntu 24.04, 4 GB of memory or more, used for this alone.',
+    blurb: 'AWS, Google Cloud, Azure, or a machine you own. Ubuntu 24.04: a new one used for this alone, or the server your assistant already lives on.',
     // Sam's ruling (2026-10-15): "cover all the bases". One path for a server
     // made outside the app, rented or owned; see own-server.mjs. It takes over
     // the machine's firewall (SSH in on 22, nothing else), hence "for this
@@ -128,8 +135,18 @@ export const PROVIDERS = {
       { key: 'host', label: 'Server address', secret: false, placeholder: '203.0.113.10 or myserver.example.com', help: 'Its public IP address or hostname. A machine at home: its address on your network, or its Tailscale name.' },
       { key: 'user', label: 'Login name', secret: false, placeholder: 'ubuntu', help: 'A login with passwordless sudo: ubuntu on AWS; on Google Cloud, the last word of the key you added; on Azure, the user name you chose (azureuser unless you changed it); on your own machine, your own login.' },
     ],
+    // The fork (spec 2026-10-17-adopt-existing-server.md, decision 1). No is
+    // the path above, unchanged; Yes adopts the assistant already on the
+    // server (own-server.mjs adopt mode, adopt-host.mjs).
+    modeQuestion: 'Is your assistant already on it?',
+    modes: [
+      { id: 'dedicated', label: DEDICATED_CHOICE },
+      { id: 'adopt', label: ADOPT_CHOICE, fields: [
+        { key: 'brainRoot', label: 'Your assistant\u2019s folder', secret: false, placeholder: '/home/you/my-assistant or ~/my-assistant', help: 'The folder on the server that holds your assistant: its CLAUDE.md, its skills and its notes. It stays where it is and nothing in it is copied; the app runs your assistant from it. Not your home folder itself.' },
+      ] },
+    ],
     tokenSteps: [
-      'Make (or pick) a server running Ubuntu 24.04 with at least 4 GB of memory, used for this alone: setup turns on a firewall that lets in SSH and nothing else.',
+      'Make (or pick) a server running Ubuntu 24.04 with at least 4 GB of memory, used for this alone: setup turns on a firewall that lets in SSH and nothing else. If your assistant already lives on a server, use that one and answer Yes below: setup then leaves its firewall, its logins and everything else it runs as they are.',
       'Press "Show my key" and add that key to the server for a login with passwordless sudo. In AWS, Google Cloud and Azure there is an SSH key box when you create the server; on your own machine, add it to that login\u2019s ~/.ssh/authorized_keys.',
       'Make sure the server accepts SSH on port 22 from this computer. Cloud servers: allow SSH in the server\u2019s firewall settings. At home: be on the same network, or use Tailscale.',
       'Type the server\u2019s address and the login name below, then press Check the server.',

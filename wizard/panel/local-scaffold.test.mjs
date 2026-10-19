@@ -8,12 +8,14 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
 import { LAYERS } from '../../engine/onboarding/layers.mjs';
+import { ADOPTED_ONLY } from '../../engine/kernel/lib/skills.mjs';
 import { loadEngineAssets, scaffoldLocalBrain, initialOnboardingState, dirState, setBrainName, seedPages, LOCAL_ASSET_FILES, LOCAL_SKILL_IDS, REPO_ROOT } from './local-scaffold.mjs';
 
 const assets = loadEngineAssets();
 
 test('the asset list is the engine truth: every engine/skills/*.md is listed, every listed file exists', () => {
-  const onDisk = readdirSync(join(REPO_ROOT, 'engine', 'skills')).filter((f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, '')).sort();
+  const onDisk = readdirSync(join(REPO_ROOT, 'engine', 'skills')).filter((f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, ''))
+    .filter((id) => !ADOPTED_ONLY.includes(id)).sort();
   assert.deepEqual([...LOCAL_SKILL_IDS].sort(), onDisk, 'LOCAL_SKILL_IDS must name every engine skill (the exe cannot list a directory of assets)');
   for (const f of LOCAL_ASSET_FILES) assert.ok(existsSync(join(REPO_ROOT, f)), `${f} is a real file`);
   assert.equal(Object.keys(assets.skills).length, LOCAL_SKILL_IDS.length);

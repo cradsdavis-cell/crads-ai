@@ -33,9 +33,18 @@ function buildBrain(files) {
   }
   execFileSync(process.execPath, [BUILDER, box], { encoding: 'utf8' });
   const data = JSON.parse(readFileSync(join(box, 'cockpit', 'data.json'), 'utf8'));
+  // Since 2026-10-18 a pebble lists from its brain ROOT, so these wiki/ pages carry
+  // ids (and read paths) of wiki/<rel>: relative to where brain-read now cd's. The
+  // assertions below are about the graph's SHAPE, which must not have moved, so
+  // they name pages wiki-relative and this helper adds the prefix.
+  for (const n of data.graph.nodes) {
+    assert.ok(n.id.startsWith('wiki/'), `a wiki page's id is brain-root-relative: ${n.id}`);
+    assert.equal(n.path, n.id + '.md', 'the read path is the id plus .md, both from the brain root');
+  }
+  const W = (id) => 'wiki/' + id;
   const edge = (a, b) => data.graph.links.find((l) =>
-    (l.source === a && l.target === b) || (l.source === b && l.target === a));
-  return { data, g: data.graph, edge, ids: data.graph.nodes.map((n) => n.id).sort() };
+    (l.source === W(a) && l.target === W(b)) || (l.source === W(b) && l.target === W(a)));
+  return { data, g: data.graph, edge, ids: data.graph.nodes.map((n) => n.id.slice(5)).sort() };
 }
 
 test('every .md page in the wiki becomes a node, at any depth', () => {
@@ -122,19 +131,22 @@ test('a self-link is not an edge, and node degree matches the edges drawn', () =
 // the WRONG PLACE produced the identical "No pages yet" as a box with a genuinely
 // empty brain. Sam hit it on a rock born hours before org mode shipped: the Files
 // tree listed the pages while the graph beside it insisted there were none.
-test('a wiki root that is not there is reported, not passed off as an empty brain', () => {
+// Since 2026-10-18 a pebble looks at its brain ROOT, which is the box itself and
+// always there, so the wrong-place case cannot arise on a pebble any more: a box
+// with no wiki/ is a brain of whatever shape it has, not a lost root. The rock's
+// leg of this (a brain_root that is not there) is box-cockpit-org's to pin.
+test('a pebble with no wiki/ is not reported as a missing root', () => {
   const box = tmpDir('cc-noroot-');
   execFileSync(process.execPath, [BUILDER, box], { encoding: 'utf8' });
   const data = JSON.parse(readFileSync(join(box, 'cockpit', 'data.json'), 'utf8'));
-  assert.equal(data.graph.nodes.length, 0, 'nothing to draw, as before');
-  assert.equal(data.brain.root_missing, true, 'but the panel can now say WHY it is empty');
-  assert.match(data.brain.root, /wiki$/, 'and name the place it looked');
+  assert.equal(data.graph.nodes.length, 0, 'nothing to draw');
+  assert.equal(data.brain.root_missing, false, 'the brain root is the box, and it is there');
+  assert.equal(data.brain.root, box, 'and the place it looked is named');
 });
 
 test('a brain with pages never claims its root is missing', () => {
   const { data } = buildBrain({ 'index.md': '# Index\n' });
   assert.equal(data.brain.root_missing, false);
-  assert.match(data.brain.root, /wiki$/);
 });
 
 test('an empty-but-present wiki is an empty brain, not a lost root', () => {

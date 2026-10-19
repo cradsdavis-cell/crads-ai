@@ -19,6 +19,11 @@
 # The UNTRACK set is DERIVED, never listed twice: take each entry, strip a
 # trailing '/', and it is a valid `git rm -r --cached --ignore-unmatch` pathspec.
 #
+# SECTIONS. A '# --- ' line opens one. Two are read differently from the rest:
+# 'adopted brain, which tracks' is left out for an adopted brain, and 'adopted
+# brain only' (the last) is left out for every OTHER brain. Every reader finds
+# them by those words, so keep them in the headers.
+#
 # The REQUIRED block is the refusal floor: engine/brain-push.sh will not push a
 # tree missing any of them. Keep it credential-shaped only. Widening it turns off
 # nightly backups on every box whose ignore file predates the widening, so a new
@@ -41,10 +46,51 @@ ssh/
 # a second harness's sign-in (spec 2026-09-17). Repaired, not required: adding it to the
 # refusal floor would switch off nightly push on every box born before it existed.
 .opencode-auth/
-.claude/
-cockpit/
 org/
 node_modules/
 .heartbeat-out/
 .git-credentials
 .netrc
+
+# --- repaired, except on an adopted brain, which tracks these itself (spec 2026-10-17) ---
+# A brain the person already had may version its own .claude/ (skills, hooks) and a
+# cockpit/ of its own (Sam's cron fleet lives there). Everywhere else they are machine state.
+.claude/
+cockpit/
+
+# --- engine files inside those dirs: repaired everywhere, adopted brains included ---
+# Redundant on a pebble (the whole dir is ignored). On an adopted brain these are the
+# only lines keeping the engine's caches and the engine's own skills out of the person's
+# repo: the adopt rehearsal (2026-10-18) committed cockpit/data.json and connectors.json.
+.claude/skills/crads-*/
+.claude/skills/move-in/
+cockpit/data.json
+cockpit/connectors.json
+cockpit/heartbeat.json
+cockpit/heartbeat-full.json
+cockpit/skill-runs.json
+cockpit/last-skill-runs.json
+cockpit/last-script-runs.json
+cockpit/run-ledger.jsonl
+cockpit/radar.json
+cockpit/telegram.json
+cockpit/brain-push.log
+
+# --- engine files outside those dirs: adopted brain only (a pebble versions them on purpose) ---
+# A pebble's brain IS the mineral, so its ledgers and custody log are committed by
+# design (the kernel's "ledger+state-view" commit, P3 I6). An adopted brain is the person's
+# own repo, and these are the engine's machine state: the adopt rehearsal (2026-10-18)
+# committed custody-log.jsonl into it. Exact files, never a whole dir, so a state/ or
+# devices/ of the person's own is not hidden. Never a name a person might track
+# themselves: brain-push untracks every entry here. That is why STATE.md is not listed:
+# an adopted brain's engine copy lives in .kernel/STATE.md (engine/box/state-md.mjs).
+# Audit: engine/adopted-brain-hygiene.test.mjs.
+custody-log.jsonl
+state/action_ledger.jsonl
+state/comms-ledger.jsonl
+state/state-view.json
+state/tg-outbox.json
+state/outcomes.jsonl
+state/outcomes.state.json
+backups/crads/heartbeat.json
+devices/seen.log

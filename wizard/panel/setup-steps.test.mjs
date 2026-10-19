@@ -149,3 +149,20 @@ test('assistant: an endpoint has no sign-in; never-probed stays null; junk falls
   const unk = parseAssistant('SETUP_ASSISTANT ' + JSON.stringify({ harness: 'goose', source: 'signin', label: 'X' + String.fromCharCode(7) + '<b>', ready: false }), false);
   assert.deepEqual([unk.signin, unk.label], [null, 'X<b>']);   // unknown harness: no command; control chars gone; the page escapes the rest
 });
+
+// Shadow test on Oracle (2026-10-19): an adopted brain's SSH-alias origin read as
+// "connected", and the door promised a nightly backup the box cannot make.
+test('a remote the box cannot use is not connected, and says why', async () => {
+  const { setupStepsRoutes } = await import('./setup-steps.mjs');
+  const ask = (remote) => new Promise((resolve) => {
+    const h = setupStepsRoutes({ resolveHost: (x) => x, probe: async () => ({ code: 0, stdout: `SETUP_GITHUB ${remote}\nSETUP_CLAUDE_OK\n`, stderr: '' }) });
+    const res = { writeHead() {}, end: (b) => resolve(JSON.parse(b)) };
+    h({ method: 'GET', url: '/setup-steps?box=b' }, res, '/setup-steps');
+  });
+  const alias = await ask('git@github-brain:someone/brain.git');
+  assert.equal(alias.github.connected, false);
+  assert.match(alias.github.why, /github-brain/);
+  const real = await ask('git@github.com:someone/brain.git');
+  assert.equal(real.github.connected, true);
+  assert.equal(real.github.why, undefined);
+});

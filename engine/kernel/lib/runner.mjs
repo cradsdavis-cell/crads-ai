@@ -12,6 +12,8 @@ import { grantsForJob } from './harness/grants.mjs';
 import { runTurn } from './harness/index.mjs';
 import { localDate } from '../../lib/clock.mjs';   // injectable clock (spec §0.5) — brief stamps client-LOCAL virtual date
 
+export const EXECUTE_PROPOSAL_RETIRED = 'nothing sent: approving from Telegram is retired, drafts are sent by the member';
+
 export async function runSkill(stateDir, job, { dryRun = false } = {}) {
   // onboard-ingest is DETERMINISTIC engine code (the seeded path) — run it in both dry and
   // live mode, never via the LLM. The live LLM /onboard is a separate (chaos-tier) skill.
@@ -56,18 +58,20 @@ export async function runSkill(stateDir, job, { dryRun = false } = {}) {
     // Conversational turn from the client (Telegram, D11 secondary channel).
     // DEFAULT-DENY outbound (D4): restricted tools — read/update the brain + run
     // skills, but NO send tools. Anything to send is DRAFTED + flagged
-    // PROPOSE-SEND so the adapter surfaces Approve/Deny buttons.
+    // PROPOSE-SEND; the adapter shows it as a draft the member sends themselves.
     // The restriction itself lives in harness/grants.mjs (grantsForJob).
     prompt =
       `You are the client's AI assistant. They sent you this message — respond helpfully and conversationally. ` +
       `You may read and update their brain (the wiki) and use their skills. ` +
       `You must NOT send anything externally (no emails, DMs, or messages). ` +
       `If something should be sent on their behalf, DRAFT it in your reply and add a final line exactly ` +
-      `"PROPOSE-SEND: <one-line summary>" so it can be surfaced for approval. Do not run git.\n\n` +
+      `"PROPOSE-SEND: <one-line summary>" so it is shown to them as a draft to send themselves. Do not run git.\n\n` +
       `Client message: ${job.args?.text || ''}`;
   } else if (job.skill === 'execute-proposal') {
-    // An approved outbound action. Execution (actually sending) lands with MCP wiring.
-    return { ok: true, output: '(approved action — execution is wired at the MCP phase)' };
+    // RETIRED. Telegram's Approve button used to queue this and nothing ever sent.
+    // Nothing queues it now, but a job left in a queue from before must stop HERE:
+    // falling through to the generic skill branch below would hand it shell + MCP.
+    return { ok: true, output: EXECUTE_PROPOSAL_RETIRED };
   } else if (job.skill === 'prompt') {
     prompt = String(job.args?.text || 'Reply with exactly: AI OS live.');
   } else {
@@ -101,7 +105,7 @@ export async function runSkill(stateDir, job, { dryRun = false } = {}) {
 // Minimal real behaviour so a dry run still exercises read+write of the wiki.
 async function runDry(stateDir, job) {
   if (job.skill === 'message') return { ok: true, output: `dry: would reply to "${String(job.args?.text || '').slice(0, 40)}"` };
-  if (job.skill === 'execute-proposal') return { ok: true, output: '(approved action — stub)' };
+  if (job.skill === 'execute-proposal') return { ok: true, output: EXECUTE_PROPOSAL_RETIRED };
   if (job.skill === 'prompt') return { ok: true, output: `dry: prompt "${String(job.args?.text || '').slice(0, 40)}"` };
   if (job.skill === 'daily') {
     let priorities = '(none found)';

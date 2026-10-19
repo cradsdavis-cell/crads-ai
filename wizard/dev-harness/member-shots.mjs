@@ -3,7 +3,7 @@
 // Same harness + protocol as shots.mjs, but shoots ONLY /member states so an
 // iteration on member.html can self-verify quickly.
 //
-//   cd wizard/dev-harness && node member-shots.mjs --out <dir> [--port 4620]
+//   cd wizard/dev-harness && node member-shots.mjs --out <dir> [--port 4620] [--only <name-prefix>]
 
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, statSync } from 'node:fs';
@@ -21,6 +21,10 @@ const OUT = argOut > -1 ? resolve(process.argv[argOut + 1])
 const argPort = process.argv.indexOf('--port');
 const PORT = argPort > -1 ? parseInt(process.argv[argPort + 1], 10) : 4620;
 const BASE = `http://localhost:${PORT}`;
+// --only <prefix>: shoot just the states whose name starts with it (both themes),
+// so one surface can be photographed without walking every state before it
+const argOnly = process.argv.indexOf('--only');
+const ONLY = argOnly > -1 ? process.argv[argOnly + 1] : '';
 
 mkdirSync(OUT, { recursive: true });
 
@@ -104,6 +108,9 @@ add('member-machinery-failed', '/member', { waitMs: 3500, pre: async (page) => {
   });
 } });
 add('member-brain', '/member', { waitMs: 2500, after: nav('brain', 3500) });
+// a brain with no wiki/ (notes/ + decisions/, Sam's own shape): the brain verbs
+// and the graph run the REAL code on this switch (fixtures.mjs adoptedBrain)
+add('member-brain-adopted', '/member?brain=adopted', { waitMs: 2500, after: nav('brain', 3500) });
 // the Network page (spec 2026-08-04): solo world and org-owned world
 // (?world=org flips the harness fixture). The third state used to be a
 // chip-click -> roster-row flash; the 2026-08-10 rebuild took the orbiting
@@ -127,6 +134,142 @@ add('member-skill-drawer', '/member', { waitMs: 2500, after: async (page) => {
   await nav('skills', 1500)(page);
   await page.locator('#skillsGroups .cadrow .info').first().click();
   await page.waitForTimeout(400);
+} });
+// Scripts on a schedule (spec 2026-10-17 adopt): the second list on the Skills
+// page. The fixture has two switched-on scripts (one finished, one failed) and
+// a host-only program that cannot run here. The shot opens the failing row and
+// its folded output, and fails the run if the page grew a way to type a command.
+add('member-scripts', '/member', { waitMs: 2500, after: async (page) => {
+  await nav('skills', 1500)(page);
+  const box = page.locator('#scriptsBox');
+  await box.scrollIntoViewIfNeeded();
+  const rows = await page.$$eval('#scriptsList .cadrow', (els) => els.map((e) => ({
+    id: e.getAttribute('data-script'), on: !!e.querySelector('.toggle.on'), failed: !!e.querySelector('.info .chip.bad'),
+  })));
+  if (rows.length !== 3) throw new Error(`expected 3 script rows, got ${JSON.stringify(rows)}`);
+  if (rows.filter((r) => r.on).length !== 2) throw new Error(`expected two scripts switched on: ${JSON.stringify(rows)}`);
+  const typeable = await page.$$eval('#scriptsBox textarea, #scriptsBox input[type=text], #scriptsBox input:not([type]), #scriptsBox [contenteditable]', (els) => els.length);
+  if (typeable) throw new Error(`the Scripts list has ${typeable} place(s) to type a command; rows come only from cockpit/scripts.json`);
+  await page.locator('#scriptsList .cadrow[data-script="calendar-guard"] .info').click();
+  await page.locator('#scriptsList .cadrow[data-script="calendar-guard"] details.sctail summary').click();
+  await page.waitForTimeout(400);
+} });
+add('member-health-script', '/member', { waitMs: 4500, after: async (page) => {
+  const txt = await page.$$eval('.mach li', (els) => els.map((e) => e.textContent));
+  if (!txt.some((t) => /Script: Calendar guard/.test(t) && /failed/.test(t))) throw new Error(`the Health card does not show the failing script: ${JSON.stringify(txt)}`);
+  const fold = page.locator('details.machfold').first();
+  await fold.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+} });
+// Move in (spec 2026-10-17 adopt § App surfaces): ?movein=1 is an adopted server
+// mid move-in with five steps, one in each state, and three things still on the
+// server. The shot checks every state rendered, nothing can be typed into, Move
+// out asks on the page (no confirm(): the viewer blocks dialogs), and the
+// confirmation is VISIBLE, not just in the DOM (trap 29).
+add('member-movein', '/member?movein=1', { waitMs: 3000, after: async (page) => {
+  let dialog = '';
+  page.on('dialog', (d) => { dialog = d.type(); d.dismiss().catch(() => {}); });
+  await navTo(page, 'movein', 1200);
+  const states = await page.$$eval('section[data-sec="movein"] .mistep', (els) => els.map((e) => e.getAttribute('data-state')));
+  for (const st of ['pending', 'approved', 'done', 'skipped', 'undone']) if (!states.includes(st)) throw new Error(`no ${st} step on the page: ${JSON.stringify(states)}`);
+  if (states.length !== 8) throw new Error(`expected 8 steps, got ${states.length}`);
+  // rehearsal T4 finding 5: the Telegram switch-over sits in its own group and cannot be pressed while moving in
+  const tg = await page.$$eval('.mistep[data-step="telegram-cutover"] .mibtns button', (els) => els.map((e) => [e.textContent, e.disabled]));
+  if (!tg.some(([t, d]) => t === 'Switch over' && d)) throw new Error(`the Telegram switch-over can be pressed while moving in: ${JSON.stringify(tg)}`);
+  const tgWhy = await page.$eval('.mistep[data-step="telegram-cutover"] .miwait', (e) => e.textContent).catch(() => '');
+  if (!/after you finish moving in/.test(tgWhy)) throw new Error(`the Telegram step does not say why it waits: ${tgWhy}`);
+  const groups = await page.$$eval('#miGroups .migroup h3', (els) => els.map((e) => e.textContent));
+  if (!groups.includes('After you move in')) throw new Error(`no "After you move in" group: ${JSON.stringify(groups)}`);
+  // rehearsal T4 finding 8: the backup switch-over waits for GitHub, and says so
+  const bk = await page.$$eval('.mistep[data-step="cutover-script-backup"] .mibtns button', (els) => els.map((e) => [e.textContent, e.disabled]));
+  if (!bk.some(([t, d]) => t === 'Switch over' && d)) throw new Error(`the backup switch-over is offered before GitHub is connected: ${JSON.stringify(bk)}`);
+  // the Telegram line says who reads the bot right now
+  const sum = await page.$eval('#miSummary', (e) => e.textContent);
+  if (!/your own program on the server answers your bot\. Crads-AI holds its details and sends nothing while you are moving in/.test(sum)) throw new Error(`the Telegram line: ${sum}`);
+  const still = await page.$$eval('#miStill li', (els) => els.length);
+  if (still !== 3) throw new Error(`expected 3 things still on the server, got ${still}`);
+  const typeable = await page.$$eval('section[data-sec="movein"] textarea, section[data-sec="movein"] input, section[data-sec="movein"] [contenteditable]', (els) => els.length);
+  if (typeable) throw new Error(`the Move in page has ${typeable} place(s) to type into`);
+  // a switch-over waiting for its yes offers Approve, never Switch over
+  const labels = await page.$$eval('.mistep[data-step="cutover-script-money-state"] .mibtns button', (els) => els.map((e) => e.textContent));
+  if (!labels.includes('Approve') || labels.includes('Switch over')) throw new Error(`a pending switch-over shows ${JSON.stringify(labels)}`);
+  await page.click('#miMoveOutAsk');
+  const shown = await page.$eval('#miMoveOutConfirm', (e) => !!e.offsetParent && getComputedStyle(e).display !== 'none');
+  if (!shown) throw new Error('the Move out confirmation is not visible');
+  if (dialog) throw new Error(`the Move in page opened a ${dialog} dialog`);
+  await page.locator('#miMoveOut').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+} });
+// ?movein=half: the app stopped part way through two server steps. The checked
+// one offers exactly its two ways out plus Check again; the unchecked one offers
+// only Check the server; neither offers Apply, Undo or Switch over, and Finish
+// moving in stays hidden while anything is part-way through.
+add('member-movein-half', '/member?movein=half', { waitMs: 3000, after: async (page) => {
+  await navTo(page, 'movein', 1200);
+  const btns = async (id) => page.$$eval(`.mistep[data-step="${id}"] .mibtns button`, (els) => els.map((e) => e.textContent));
+  const checked = await btns('cutover-script-money-state');
+  if (JSON.stringify(checked) !== JSON.stringify(['Finish the step', 'Put it back as it was', 'Check again'])) throw new Error(`checked half-done step shows ${JSON.stringify(checked)}`);
+  const fresh = await btns('telegram-cutover');
+  if (JSON.stringify(fresh) !== JSON.stringify(['Check the server'])) throw new Error(`unchecked half-done step shows ${JSON.stringify(fresh)}`);
+  const halves = await page.$$eval('.mistep[data-half]', (els) => els.length);
+  if (halves !== 2) throw new Error(`expected 2 half-done steps, got ${halves}`);
+  const chip = await page.$eval('.mistep[data-step="cutover-script-money-state"] .chip', (e) => e.textContent);
+  if (chip !== 'part-way through') throw new Error(`the chip says ${chip}`);
+  if (await page.$eval('#miFinishBox', (e) => !!e.offsetParent)) throw new Error('Finish moving in shows while a step is part-way through');
+  await page.click('.mistep[data-step="telegram-cutover"] .mibtns button');
+  await page.waitForTimeout(700);
+  const note = await page.$eval('.mistep[data-step="telegram-cutover"] .minote', (e) => !!e.offsetParent && e.textContent).catch(() => '');
+  if (!/switched on and running/.test(String(note))) throw new Error(`the check's answer is not visible on the step: ${note}`);
+  await page.locator('.mistep[data-step="cutover-script-money-state"]').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+} });
+add('member-movein-top', '/member?movein=1', { waitMs: 3000, after: async (page) => { await navTo(page, 'movein', 1200); } });
+// Run it once on a job that asks Claude (rehearsal T4 finding 7): the call comes back
+// "still running" and the page follows the run to its end, never saying it failed.
+add('member-movein-runonce', '/member?movein=1', { waitMs: 3000, after: async (page) => {
+  await navTo(page, 'movein', 1200);
+  const btn = page.locator('.mistep[data-step="cutover-script-weekly"] .mibtns button', { hasText: 'Run it once' });
+  await btn.click();
+  await page.waitForTimeout(800);
+  const mid = await page.$eval('.mistep[data-step="cutover-script-weekly"] .minote', (e) => [e.textContent, e.classList.contains('bad')]).catch(() => ['', false]);
+  if (!/still running/.test(mid[0]) || mid[1]) throw new Error(`while it runs the step says ${JSON.stringify(mid)}`);
+  await page.locator('.mistep[data-step="cutover-script-weekly"]').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+} });
+// Move out says what stays behind: the folder's files and Crads-AI's commits (finding 1)
+add('member-movein-moveout', '/member?movein=1', { waitMs: 3000, after: async (page) => {
+  await navTo(page, 'movein', 1200);
+  await page.click('#miMoveOutAsk');
+  await page.click('#miMoveOutYes');
+  await page.waitForTimeout(900);
+  const t = await page.$eval('#miNotice', (e) => e.textContent);
+  if (!/stay in your folder/.test(t) || !/stay in your git history; nothing was rewritten/.test(t) || !/3f2a9c1 kernel: session/.test(t)) throw new Error(`Move out's answer: ${t}`);
+  await page.locator('#miNotice').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+} });
+add('member-movein-hidden', '/member', { waitMs: 3000, after: async (page) => {
+  const vis = await page.$eval('#moveInNav', (e) => !!e.offsetParent);
+  if (vis) throw new Error('the Move in tab shows on a mineral that is not moving in');
+} });
+add('member-health-still', '/member?movein=done', { waitMs: 4500, after: async (page) => {
+  const fold = page.locator('details.stillfold').first();
+  if (!(await fold.count())) throw new Error('the Health card has no "Still on the server" fold after the move-in');
+  await fold.locator('summary').click();
+  await fold.scrollIntoViewIfNeeded();
+  // after Finish the Move in tab stays: the Telegram switch-over opens there, and Move out stays reachable
+  const vis = await page.$eval('#moveInNav', (e) => !!e.offsetParent);
+  if (!vis) throw new Error('the Move in tab went away after Finish, taking the Telegram step and Move out with it');
+  await page.waitForTimeout(300);
+} });
+add('member-movein-done', '/member?movein=done', { waitMs: 3000, after: async (page) => {
+  await navTo(page, 'movein', 1200);
+  const sum = await page.$eval('#miSummary', (e) => e.textContent);
+  if (!/^You have moved in\./.test(sum) || !/sends you the results of jobs set to "Send me the result"/.test(sum)) throw new Error(`after Finish the summary says ${sum}`);
+  const tg = await page.$$eval('.mistep[data-step="telegram-cutover"] .mibtns button', (els) => els.map((e) => [e.textContent, e.disabled]));
+  if (!tg.some(([t, d]) => t === 'Switch over' && !d)) throw new Error(`after Finish the Telegram switch-over is not offered: ${JSON.stringify(tg)}`);
+  if (await page.$eval('#miFinishBox', (e) => !!e.offsetParent)) throw new Error('Finish moving in shows after the move-in finished');
+  await page.locator('.mistep[data-step="telegram-cutover"]').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
 } });
 add('member-skills-rocks', '/member', { waitMs: 2500, after: async (page) => {
   await nav('skills', 1500)(page);
@@ -227,7 +370,7 @@ const report = {};
 const browser = await chromium.launch();
 let failures = 0;
 
-for (const shot of SHOTS) {
+for (const shot of SHOTS.filter((x) => !ONLY || x.name.startsWith(ONLY))) {
   const ctx = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     colorScheme: shot.theme,

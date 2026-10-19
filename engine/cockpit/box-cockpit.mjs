@@ -14,6 +14,7 @@ import { readAssistantState } from '../lib/assistant-state.mjs';
 import { lastOkRunBySkill } from '../lib/run-ledger.mjs';
 import { connectionLabel } from '../lib/connection-labels.mjs';
 import { resolveBrainRoot, isOrgBox, readOwnership } from '../lib/brain-root.mjs';
+import { brainListSh } from '../lib/brain-files.mjs';
 
 const box = path.resolve(process.argv[2] || '.');
 const rd = (p) => { try { return readFileSync(p, 'utf8'); } catch { return null; } };
@@ -70,10 +71,11 @@ const current = onb?.current_layer || onb?.current_module
   || (steps.find((m) => m.status === 'in-progress')?.name) || (steps[0]?.name);
 
 // ---- brain graph: wiki pages = nodes, [[links]] = edges ----
-// Node ids are wiki-relative paths (sans .md) so same-named files in different folders
+// Node ids are page paths (sans .md; brain-root-relative on a pebble since 2026-10-18,
+// see listPages below) so same-named files in different folders
 // can't collide; `label`/`group` keep the shape the code-server cockpit HTML renders,
 // while `title`/`type`/`path`/`desc`/`deg` feed the member app's full graph viewer.
-const wikiDir = IS_ORG ? brainRoot : path.join(box, 'wiki');
+const wikiDir = IS_ORG ? brainRoot : box;
 // the org wiki proper, brain-list's scope: root pages + these three dirs;
 // everything else at the root of a rock brain is machinery, not pages
 const ORG_WIKI_DIRS = new Set(['notes', 'decisions', 'insights']);
@@ -100,7 +102,30 @@ const walk = (dir, rel, orgRoot = false, prefix = '') => { if (!existsSync(dir))
     pages.push({ rel: r, file: path.join(dir, e.name), read: prefix ? `${prefix}/${r}` : r });
   }
 } };
-walk(wikiDir, '', IS_ORG);
+// A PEBBLE LISTS FROM ITS BRAIN ROOT (2026-10-18, spec adopt-existing-server).
+// It used to walk <box>/wiki, so a brain laid out as notes/ + decisions/ drew an
+// empty graph next to a Files tab that could not list it either. The pages are
+// now exactly what the panel's brain-list prints: the same shell text from
+// engine/lib/brain-files.mjs, run here with ['md'], so the person's own
+// .gitignore keeps private pages out of the graph as well as the tree, and a
+// graph node is always a row the tree can open. Ids and read paths are both
+// relative to the brain root, which is where brain-read cd's (finding 107), so
+// an old pebble's people/harriet is now wiki/people/harriet on both sides.
+const listPages = (root) => {
+  try {
+    return execFileSync('sh', ['-c', 'cd "$1" && ' + brainListSh(['md']), 'sh', root],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 })
+      .split('\n').filter(Boolean);
+  } catch { return []; }
+};
+if (IS_ORG) walk(wikiDir, '', true);
+else {
+  for (const r of listPages(box)) {
+    if (seen.has(r)) continue;
+    seen.add(r);
+    pages.push({ rel: r, file: path.join(box, r), read: r });
+  }
+}
 // A rock's PAGES live under <brain_root>/wiki, and until 2026-08-11 nothing walked
 // it: the org scope kept root .md plus the three dirs above, while /onboard writes
 // every layer to wiki/_layers/<n>-<name>.md and every person to wiki/people/*.md in
@@ -125,13 +150,32 @@ if (IS_ORG) walk(path.join(brainRoot, 'wiki'), '', false, 'wiki');
 const rootMissing = !existsSync(wikiDir);
 const SKELETON = new Set(['daily-brief', 'log', 'priorities']);   // scaffold pages, dimmed until real
 const TYPE_BY_FOLDER = { people: 'person', projects: 'project', _layers: 'layer' };
+// A page's folder, which picks its type, its graph group and the people count.
+// Read off the path relative to the box's own page root: a pebble's scaffolded
+// wiki/ is the box's page folder, not a folder the person chose, so it is
+// skipped, and an old pebble's wiki/people/harriet files under `people` exactly as
+// people/harriet did before (org walks have no wiki/ prefix in `rel`, so this is a
+// no-op there). Then the first segment that names a known type wins, so a brain
+// that keeps people under notes/people/ still counts them; otherwise the first
+// segment (notes/ -> note, decisions/ -> decision); a root page is `core`.
+const folderOf = (rel) => {
+  const segs = rel.split('/').slice(0, -1);
+  if (!IS_ORG && segs[0] === 'wiki') segs.shift();
+  if (!segs.length) return 'core';
+  return segs.find((s) => TYPE_BY_FOLDER[s]) || segs[0];
+};
 for (const p of pages) {
   p.id = p.rel.replace(/\.md$/, '');
   p.slug = p.id.split('/').pop();
-  p.folder = p.rel.includes('/') ? p.rel.split('/')[0] : 'core';
+  p.folder = folderOf(p.rel);
   p.body = rd(p.file) || '';
   p.title = (p.body.match(/^#\s+(.+?)\s*$/m) || [])[1] || p.slug.replace(/-/g, ' ');
-  p.type = SKELETON.has(p.slug) ? 'scaffold' : (TYPE_BY_FOLDER[p.folder] || (p.folder === 'core' ? 'note' : p.folder.replace(/s$/, '')));
+  // Scaffold pages are the ones box-up writes at the top of the page folder. A
+  // brain listed from its root can hold a real decisions/log.md, and dimming that
+  // as unwritten scaffold would be the graph lying about the person's work, so the
+  // name only counts at the top (wiki/log.md on a pebble, log.md anywhere flat).
+  p.scaffold = SKELETON.has(p.slug) && p.folder === 'core';
+  p.type = p.scaffold ? 'scaffold' : (TYPE_BY_FOLDER[p.folder] || (p.folder === 'core' ? 'note' : p.folder.replace(/s$/, '')));
   const fmDesc = (p.body.match(/^description:\s*"?([^"\n]+)"?/m) || [])[1];
   const firstLine = p.body.split('\n').find((l) => l.trim() && !/^(#|---|[a-z-]+:|\s*[-*]\s*$)/.test(l.trim()));
   p.desc = (fmDesc || firstLine || '').trim().slice(0, 160);
@@ -159,6 +203,7 @@ for (const arr of byKey.values()) {
   arr.sort((a, b) => (a.rel.split('/').length - b.rel.split('/').length) || a.rel.localeCompare(b.rel));
 }
 const byPath = new Map(pages.map((p) => [p.id.toLowerCase(), p]));
+const bySuffix = [...pages].sort((a, b) => (a.rel.split('/').length - b.rel.split('/').length) || a.rel.localeCompare(b.rel));
 // A wikilink target as written: may carry folders ([[people/harriet]]), and may be in any
 // case. Prefer an exact path match so a qualified link is never ambiguous; fall back to
 // the basename pick.
@@ -167,6 +212,16 @@ const resolveLink = (raw) => {
   if (!t) return null;
   const exact = byPath.get(t.toLowerCase());
   if (exact) return exact;
+  // A qualified link names the END of a path, the way Obsidian reads it: on a
+  // pebble listed from its root, [[people/harriet]] is wiki/people/harriet, and in a
+  // notes/ brain it is notes/people/harriet. Without this every qualified link in
+  // an old pebble fell back to the basename pick, which is the ambiguity the
+  // qualifier exists to settle.
+  if (t.includes('/')) {
+    const tail = '/' + t.toLowerCase();
+    const hits = bySuffix.filter((p) => p.id.toLowerCase().endsWith(tail));
+    if (hits.length) return hits[0];
+  }
   const cands = byKey.get(t.split('/').pop().toLowerCase());
   return cands ? cands[0] : null;
 };
@@ -200,13 +255,13 @@ const degOf = new Map();
 for (const l of links) { degOf.set(l.source, (degOf.get(l.source) || 0) + 1); degOf.set(l.target, (degOf.get(l.target) || 0) + 1); }
 const nodes = pages.map((p) => ({
   id: p.id, label: p.slug.replace(/-/g, ' '),
-  group: SKELETON.has(p.slug) ? 'skeleton' : (p.folder === 'people' ? 'people' : 'core'),
+  group: p.scaffold ? 'skeleton' : (p.folder === 'people' ? 'people' : 'core'),
   // `path` is the READ path (brain-read resolvable), not the id: on a rock the
   // wiki/ walk's pages live at wiki/<rel> from where brain-read stands.
   title: p.title, type: p.type, path: p.read || p.rel, desc: p.desc, deg: degOf.get(p.id) || 0,
 }));
 const peopleCount = pages.filter((p) => p.folder === 'people').length;
-const realPages = pages.filter((p) => !SKELETON.has(p.slug)).length;
+const realPages = pages.filter((p) => !p.scaffold).length;
 
 // ---- connections (configured / authed / pending) ----
 // Three-layer v2 (2026-07-27): the member owns their tokens, so this view is how

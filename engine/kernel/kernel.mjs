@@ -15,7 +15,7 @@ import path from 'node:path';
 import { kpaths, ensureDirs, listQueued } from './lib/queue.mjs';
 import { ensureRepo, clearRebase, commitAll, syncPush } from './lib/git.mjs';
 import { runSkill } from './lib/runner.mjs';
-import { syncSkills } from './lib/skills.mjs';
+import { syncSkills, ADOPTED_ONLY } from './lib/skills.mjs';
 import { nowISO } from '../lib/clock.mjs';   // injectable clock (spec §0.5)
 import { appendAction, classifyJob } from '../lib/ledger.mjs';   // action ledger (spec §7, §3.P3)
 import { appendRun, summarize } from '../lib/run-ledger.mjs';    // run ledger (spec 2026-08-04 §5): cockpit-side, uncommitted, app-readable
@@ -23,7 +23,8 @@ import { generate as genStateView } from '../lib/stateview.mjs';  // operator st
 import { localDate } from '../lib/clock.mjs';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { brainIgnores } from '../lib/brain-ignore.mjs';
+import { brainIgnoresFor } from '../lib/brain-ignore.mjs';
+import { isMovingIn } from '../lib/mineral-identity.mjs';
 
 const ENGINE_SKILLS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'skills');
 
@@ -40,7 +41,9 @@ const pollMs = Number(process.env.KERNEL_POLL_MS || 2000);
 // so the box that pushes its brain to GitHub could and did track it. Four
 // writers of this list disagreed; now there is one.
 // (org/ in the list = the org-brain clone, its own repo, never tracked here.)
-const IGNORE = brainIgnores();
+// An ADOPTED brain gets the credential floor only: its .claude/ and cockpit/ are
+// the person's and stay tracked (spec 2026-10-17). Read per drain, not at start,
+// because host setup writes `adopted` into ownership.json.
 // Reply outbox dir, keyed by source. Voice turns get their OWN dir: the Telegram
 // adapter drains .kernel/outbox and sends every file to its chat, so a voice reply
 // left there would be mis-delivered (and retried forever). serve-voice.mjs polls voice-outbox.
@@ -53,12 +56,12 @@ async function ensureIgnored(dir) {
   let cur = '';
   try { cur = await readFile(gi, 'utf8'); } catch {}
   const lines = new Set(cur.split('\n'));
-  const missing = IGNORE.filter((l) => !lines.has(l));
+  const missing = brainIgnoresFor(dir).filter((l) => !lines.has(l));
   if (missing.length) await writeFile(gi, (cur && !cur.endsWith('\n') ? cur + '\n' : cur) + missing.join('\n') + '\n');
 }
 
-async function acquireLock(p) {
-  try { await stat(p.humanLock); log('human-lock present — deferring writes'); return false; } catch {}
+async function acquireLock(p, { human = true } = {}) {
+  if (human) { try { await stat(p.humanLock); log('human-lock present — deferring writes'); return false; } catch {} }
   try { await writeFile(p.lock, String(process.pid), { flag: 'wx' }); return true; }
   catch {
     try {
@@ -69,7 +72,61 @@ async function acquireLock(p) {
   }
 }
 
+// Move-in mode (mineral-identity.mjs isMovingIn): an adopted brain whose own
+// host jobs still run it. The kernel commits nothing, pushes nothing, and does
+// no repo init, rebase clean-up or ignore repair. Two exceptions, both what the
+// move-in itself needs:
+//   - it installs the adopted-only engine skills (ADOPTED_ONLY: /move-in), and
+//     no other skill, so /move-in is there during the move-in it serves;
+//   - it runs a job a person started by hand from the app. That is the
+//     skill-run verb in wizard/panel/panel-server.mjs, which enqueues with
+//     --source=dashboard (the only caller that does) and then runs this file
+//     with --once. Cutover needs one successful run of the Crads copy of each
+//     Claude job (engine/move-in/apply.mjs reads the run ledger for it). Such a
+//     run is recorded in the run ledger and commits nothing: what it writes
+//     stays in the person's tree for their own jobs, which still own commits.
+//     It is not deferred by box-up's boot human-lock, which every adopted
+//     brain holds while it has no live cadence (always, during a move-in), so
+//     honouring it would make cutover impossible. Never in a dry run: box-up's
+//     DRY_RUN --once at boot would otherwise finish a pending hand job with
+//     made-up output and record it as a success.
+// Every other job (cron, telegram, voice) stays queued, untouched. Checked on
+// every drain, so clearing the flag lets the next one run normally.
+let movingInLogged = false;
+async function drainMovingIn() {
+  if (!movingInLogged) log('move-in mode (ownership.json moving_in): no scheduled drain, no commit, only /move-in installed, and only runs started by hand from the app');
+  movingInLogged = true;
+  const ns = await syncSkills(stateDir, ENGINE_SKILLS, { only: ADOPTED_ONLY });
+  if (ns && firstDrain) log(`synced ${ns} adopted-only skill(s) -> .claude/skills`);
+  firstDrain = false;
+  if (!once || dryRun) return;
+  const hand = (await listQueued(stateDir)).filter((j) => j.source === 'dashboard');
+  if (!hand.length) return;
+  const p = await ensureDirs(stateDir);
+  if (!(await acquireLock(p, { human: false }))) return;
+  try {
+    for (const job of hand) {
+      log(`-> /${job.skill} (${job.id.slice(0, 8)}) started by hand, move-in mode: runs, commits nothing`);
+      const startedAt = new Date().toISOString();
+      try {
+        const res = await runSkill(stateDir, job, { dryRun });
+        appendRun(stateDir, { ts: startedAt, job: `skill /${job.skill}`, skill: job.skill, source: job.source, status: 'ok', summary: summarize(res.output) });
+        await rename(job.file, path.join(p.done, job.name));
+        log('   done (not committed: move-in mode)');
+      } catch (e) {
+        log(`   FAILED: ${String(e.stderr || e).slice(0, 200)}`);
+        appendRun(stateDir, { ts: startedAt, job: `skill /${job.skill}`, skill: job.skill, source: job.source, status: 'fail', error: String(e.stderr || e) });
+        await rename(job.file, path.join(p.failed, job.name)).catch(() => {});
+      }
+    }
+  } finally {
+    await rm(p.lock).catch(() => {});
+  }
+}
+
 async function drain() {
+  if (isMovingIn(stateDir)) return drainMovingIn();
+  movingInLogged = false;
   const p = await ensureDirs(stateDir);
   await ensureRepo(stateDir);
   // Clear crash-remnant rebase state BEFORE any job touches files: an abort
@@ -149,6 +206,10 @@ async function drain() {
     if (committed) {
       const push = await syncPush(stateDir);
       log(`push: ${push.pushed ? 'ok' : 'skipped (' + push.reason + ')'}`);
+      // Only an ADOPTED brain's push sets `blocked` (a conflict it refused to
+      // override, a rebase of the person's it would not touch). Its reason lands
+      // as the `brain-push` row, the one the Health page already shows.
+      if (push.blocked) appendRun(stateDir, { job: 'brain-push', source: 'kernel', status: 'fail', error: push.reason });
     }
   } finally {
     await rm(p.lock).catch(() => {});

@@ -90,16 +90,19 @@ test('the edition wall is RETIRED (2026-09-01): the once-excluded member verbs a
   } finally { s.close(); }
 });
 
-test('one brain: brain-list reads the mineral\'s own wiki at /state/wiki', async () => {
+test('one brain: brain-list reads the mineral\'s own brain from its root, /state', async () => {
   // The org-pathed twin that read the rock's brain repo lost its page and is
-  // no longer served; every mineral's Brain page is its own wiki.
+  // no longer served; every mineral's Brain page is its own brain. Since
+  // 2026-10-18 that is the brain ROOT, whatever its shape, not /state/wiki
+  // (brain-shape.test.mjs runs the command against real brains).
   const bridge = fakeBridge([ROCK]);
   const s = await listen({ bridge });
   try {
     const r = await runVerb(s, 'brain-list');
     assert.equal(r.status, 200);
     const cmd = (bridge.ran[0] || {}).command || '';
-    assert.ok(cmd.includes('/state/wiki'), `brain-list enters the member wiki (got: ${cmd.slice(0, 80)})`);
+    assert.ok(cmd.startsWith('cd /state 2>'), `brain-list enters the brain root (got: ${cmd.slice(0, 80)})`);
+    assert.ok(!cmd.includes('/state/wiki'), 'and no longer assumes a wiki/ folder');
   } finally { s.close(); }
 });
 

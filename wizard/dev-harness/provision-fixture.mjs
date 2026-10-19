@@ -19,6 +19,7 @@
 // live-guard.sh); nothing in this file can.
 
 import { PROVIDERS, publicProviders, defaultLocationFor } from '../provision/providers.mjs';
+import { TAKEOVER_CHANGES } from '../provision/own-server.mjs';
 export { publicProviders };
 
 export function fakeClient(calls, provider = 'hetzner') {
@@ -127,6 +128,9 @@ export function catalogue(provider = 'hetzner') {
     locations: world.locations.map((l) => ({ ...l })),
     server_types: types,
     defaults: { location: defaultLocationFor(P, types), server_type: P.defaults.serverType },
+    // A server used for this alone answers what setup will change on it
+    // (own-server.mjs, 2026-10-19), so the page's confirmation renders.
+    ...(P.id === 'own' ? { takeover: { host: world.locations[0].city, changes: [...TAKEOVER_CHANGES] } } : {}),
   };
 }
 

@@ -84,3 +84,22 @@ test('dot-dirs, uppercase and skill-less dirs are skipped', () => {
 test('the category vocabulary is the spec six', () => {
   assert.deepEqual(CATEGORIES, ['briefing', 'capture', 'comms', 'box', 'org', 'other']);
 });
+
+test('adopted brain: a skill is the engine\'s only when the engine marked it, whatever its name', () => {
+  const state = mkBox();
+  writeFileSync(join(state, 'ownership.json'), JSON.stringify({ adopted: true, moving_in: true }));
+  addSkill(state, 'daily');                       // the person's own, same name as ours
+  addSkill(state, 'crads-daily');                 // ours, installed beside it under the clash prefix
+  writeFileSync(join(state, '.claude', 'skills', 'crads-daily', '.crads-engine'), '');
+  addSkill(state, 'capture');                     // the person's own
+  const by = Object.fromEntries(listSkills(state).skills.map((s) => [s.id, s.source]));
+  assert.equal(by.daily, 'member', 'the person\'s /daily is theirs, not built-in');
+  assert.equal(by.capture, 'member');
+  assert.equal(by['crads-daily'], 'engine');
+});
+
+test('pebble (not adopted): classification by name is unchanged', () => {
+  const state = mkBox();
+  addSkill(state, 'daily');
+  assert.equal(listSkills(state).skills[0].source, 'engine');
+});

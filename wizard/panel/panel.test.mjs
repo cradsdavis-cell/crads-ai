@@ -151,7 +151,8 @@ test('the org verbs are not served: one table, and it is the member table plus t
     for (const host of ['jane01-box', 'ic-rock']) {
       const ok = await post(s, { host, verb: 'brain-list' });
       assert.equal(ok.status, 200);
-      assert.match(await ok.text(), /\/state\/wiki/, `${host}: one brain, the box's own wiki`);
+      // the box's own brain, from its root since 2026-10-18 (was /state/wiki)
+      assert.match(await ok.text(), /RAN:cd \/state 2>/, `${host}: one brain, the box's own, from its root`);
     }
   } finally { s.close(); }
 });

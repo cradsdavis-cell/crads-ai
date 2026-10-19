@@ -38,6 +38,7 @@ import {
   packPaths, readPack, entryOf, writePack,
 } from '../../engine/move-pack.mjs';
 import { LOCAL_SKILL_IDS, dirState, scaffoldLocalBrain } from './local-scaffold.mjs';
+import { ADOPTED_ONLY } from '../../engine/kernel/lib/skills.mjs';
 import { listLocalTargets, registerLocalBrain, slugForName } from './local-targets.mjs';
 import { localDashboardData } from './local-verbs.mjs';
 import { rawSsh, runSsh } from './ssh-bridge.mjs';
@@ -285,7 +286,7 @@ const stagingDir = (base) => {
 
 /** What travels beside the brain from a folder (ruling 4 and 5, the way back). */
 export function buildUpPack(folder) {
-  const engine = new Set(LOCAL_SKILL_IDS);
+  const engine = new Set([...LOCAL_SKILL_IDS, ...ADOPTED_ONLY]);
   const skip = (rel) => { const m = rel.match(/^\.claude\/skills\/([^/]+)\//); return !!(m && engine.has(m[1])); };
   const extra = [];
   const local = rdJson(path.join(folder, MCP_FILE));

@@ -210,7 +210,10 @@ test('a symlinked CLAUDE.md is never written through', () => {
 
 test('wiring: box-up runs it on every start, against the box root, never fatally', () => {
   const up = readFileSync(join(ENGINE, 'box-up.sh'), 'utf8');
-  assert.match(up, /^node "\$ENGINE\/box\/brain-claude-md\.mjs" "\$BOX" \|\| true$/m);
+  // Every start on every mineral EXCEPT an adopted one, whose CLAUDE.md is the
+  // person's: there the block is offered by /move-in, never written (spec
+  // 2026-10-17; engine/adopted-brain.test.mjs pins the adopted side).
+  assert.match(up, /^\[ "\$ADOPTED" = 1 \] \|\| node "\$ENGINE\/box\/brain-claude-md\.mjs" "\$BOX" \|\| true$/m);
   // It must sit in the unconditional start path, not inside the first-run scaffold.
   assert.ok(up.indexOf('brain-claude-md.mjs') > up.indexOf('open-folder.mjs'));
   assert.ok(up.indexOf('brain-claude-md.mjs') < up.indexOf('scheduler.mjs'));

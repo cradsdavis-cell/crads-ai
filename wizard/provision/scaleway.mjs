@@ -45,8 +45,19 @@
 //     enabled key of the project into root's authorized_keys at EVERY boot.
 //     There is no per-server key list on create, so `sshKeyIds` is accepted and
 //     unused; ownership still rides the cloud-init (selfhost-cloudinit.mjs).
+//
+// ONLY OUR OWN SERVERS (2026-10-19, the rule digitalocean.mjs and hetzner.mjs
+// got that day). The person's project may hold servers this app has nothing
+// to do with. Every server the app makes carries a run tag (run-tag.mjs)
+// minted for that one create next to TAG and its name; a lost create answer
+// is found again by that run tag and nothing else (until this date it was
+// found by name, so an earlier run's server of the same name could have been
+// adopted); and a delete reads the server first and refuses unless it
+// carries the build record's run tag (a record from before this date: TAG
+// plus its own `aios-` name as a tag, the marks the app made then).
 
 import { applyNetDefaults } from '../net-defaults.mjs';
+import { RUN_TAG_RE, newRunTag } from './run-tag.mjs';
 
 const API = 'https://api.scaleway.com';
 export const ZONE = 'fr-par-2';
@@ -403,18 +414,22 @@ export class ScalewayClient {
     }
   }
 
-  /** The newest of OUR servers carrying this exact name, or null. */
-  async findByName(name) {
-    const d = await this.request(`/instance/v1/zones/${ZONE}/servers?project=${encodeURIComponent(this.projectId)}&name=${encodeURIComponent(name)}&per_page=50`);
-    const hits = (d?.servers || []).filter((s) => s.name === name && (s.tags || []).includes(TAG));
-    hits.sort((a, b) => String(b.creation_date || '').localeCompare(String(a.creation_date || '')));
+  /**
+   * The one server carrying this create's run tag, or null. More than one
+   * cannot be ours (a create is never retried), so that stops rather than pick.
+   */
+  async findByRunTag(runTag) {
+    const d = await this.request(`/instance/v1/zones/${ZONE}/servers?project=${encodeURIComponent(this.projectId)}&tags=${encodeURIComponent(runTag)}&per_page=50`);
+    const hits = (d?.servers || []).filter((s) => (s.tags || []).includes(runTag));
+    if (hits.length > 1) throw new ScalewayError(`found ${hits.length} servers tagged ${runTag}; expected at most one, so the app has not adopted any of them`, { code: 'run_tag_ambiguous' });
     return hits[0] || null;
   }
 
-  async createServer({ name, serverType, location, sshKeyIds, userData, image } = {}) {
+  async createServer({ name, serverType, location, sshKeyIds, userData, image, runTag = newRunTag() } = {}) {
     refuseZone(location, 'build a server');
     this.requireProject();
     if (!name || !serverType) throw new ScalewayError('a server name and type are required', { code: 'bad_request' });
+    if (!RUN_TAG_RE.test(runTag)) throw new ScalewayError('internal: a run tag must look like crads-run-<16 hex>', { code: 'bad_run_tag' });
     const ud = String(userData || '');
     if (Buffer.byteLength(ud, 'utf8') > USER_DATA_LIMIT) {
       throw new ScalewayError(`cloud-init is over Scaleway's ${USER_DATA_LIMIT}-byte user data limit`, { code: 'user_data_too_large' });
@@ -431,25 +446,25 @@ export class ScalewayClient {
           image: imageId,
           volumes: { 0: { volume_type: 'sbs_volume', size: ROOT_VOLUME_BYTES } },
           dynamic_ip_required: true,
-          tags: [TAG, name],
+          tags: [TAG, name, runTag],
         },
       });
       server = d.server;
     } catch (e) {
       if (e.code !== 'network') throw e;
-      // The request may have landed. Adopt by name if it did; only if nothing
-      // carries the name is it safe to say the create never happened.
-      server = await this.findByName(name);
+      // The request may have landed. Adopt by RUN tag if it did; only if
+      // nothing carries it is it safe to say the create never happened.
+      server = await this.findByRunTag(runTag);
       if (!server) throw e;
     }
-    return this.finishCreate(server, ud);
+    return { ...(await this.finishCreate(server, ud, runTag)), runTag };
   }
 
   /**
    * cloud-init in, then power on. A failure here leaves a real server behind,
    * so the error carries its id for the wizard's destroy-and-retry.
    */
-  async finishCreate(server, userData) {
+  async finishCreate(server, userData, runTag) {
     const id = server.id;
     let actionId = null;
     try {
@@ -460,10 +475,14 @@ export class ScalewayClient {
     } catch (e) {
       if (e instanceof ScalewayError) {
         e.serverId = id;
+        // the mark the record needs to delete it later (engine.mjs keeps it)
+        if (runTag) e.runTag = runTag;
         e.message = `${e.message} (server ${id} was created and must be removed before a retry)`;
         throw e;
       }
-      throw new ScalewayError(`${this.scrub(e.message)} (server ${id} was created and must be removed before a retry)`, { serverId: id });
+      const w = new ScalewayError(`${this.scrub(e.message)} (server ${id} was created and must be removed before a retry)`, { serverId: id });
+      if (runTag) w.runTag = runTag;
+      throw w;
     }
     return { id, ip: publicIpv4(server), actionId, rootPasswordUnused: null };
   }
@@ -541,8 +560,13 @@ export class ScalewayClient {
    * server. A flexible (non-dynamic) IP on the server was not made by this
    * client, so it is NOT deleted (that would lose someone's address for good);
    * its ids come back in `keptFlexibleIps` so a caller can say so.
+   *
+   * OURS ONLY (2026-10-19): the server is read first and removed ONLY if it
+   * carries the build record's run tag. A record from before run tags (no
+   * `runTag`) falls back to the marks the app made then: TAG, and its own
+   * `aios-` name as a tag. Anything else is refused, and nothing is changed.
    */
-  async deleteServer(id, { timeoutMs = 300_000, pollMs = 3_000, sleep = this.sleep, zone } = {}) {
+  async deleteServer(id, { timeoutMs = 300_000, pollMs = 3_000, sleep = this.sleep, zone, runTag } = {}) {
     refuseZone(zone, 'delete a server');
     const path = `/instance/v1/zones/${ZONE}/servers/${encodeURIComponent(id)}`;
     const read = async () => {
@@ -551,6 +575,13 @@ export class ScalewayClient {
     const deadline = Date.now() + timeoutMs;
     let s = await read();
     if (!s) return { keptFlexibleIps: [] };
+    const tags = Array.isArray(s.tags) ? s.tags : [];
+    const ours = runTag
+      ? RUN_TAG_RE.test(runTag) && tags.includes(runTag)
+      : tags.includes(TAG) && /^aios-/.test(String(s.name || '')) && tags.includes(s.name);
+    if (!ours) {
+      throw new ScalewayError(`The server ${s.name ? `"${s.name}" ` : ''}(id ${id}) does not carry the tag this app put on the server it made, so the app has not deleted it. Nothing has been changed. If it is one you no longer want, delete it yourself in the Scaleway console.`, { code: 'not_ours' });
+    }
     const vols = Object.values(s.volumes || {});
     const blockIds = vols.filter((v) => v.volume_type === 'sbs_volume').map((v) => v.id);
     const localIds = vols.filter((v) => v.volume_type === 'l_ssd').map((v) => v.id);

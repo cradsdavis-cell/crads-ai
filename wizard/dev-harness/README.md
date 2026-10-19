@@ -53,6 +53,13 @@ shots (`docs/product/pipeline/shots.mjs`, `query:`):
   in the body), Sydney-first for DigitalOcean.
 - `/door?setup=done`: the finish checklist's GitHub and Claude chips read
   Done instead of Not yet.
+- `/member?brain=adopted`: a brain with no `wiki/` (notes/, decisions/, a
+  root CLAUDE.md, tracked `.claude/` and `cockpit/`, a `.gitignore` keeping
+  `references/email/` and `private/` out). Not canned: `brain-list`,
+  `brain-read` and `brain-image` run the REAL command the panel builds against
+  a real git repo in a temp folder, and the Overview/Brain graph is the real
+  `engine/cockpit/box-cockpit.mjs` over it. `member-shots.mjs --only
+  member-brain` shoots it beside the canned brain.
 
 ## Stubbed endpoints
 

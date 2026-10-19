@@ -33,7 +33,11 @@ test('the editor offers all three schedule kinds and the guardrails', () => {
   assert.match(html, /every few days/, 'kind: every-days');
   assert.match(html, /daychip/, 'day-of-week chips');
   assert.match(html, /\+ time/, 'multiple times per day');
-  assert.match(html, /mins\.min = 30/, 'the 30-minute interval floor is in the UI too');
+  // The floor is a variable since scripts (2026-10-18) share the editor: 30 for
+  // a skill (each fire is a claude -p on the plan), 1 for a script.
+  assert.match(html, /var floor = opts\.script \? 1 : 30;/, 'the 30-minute interval floor is in the UI too, for skills');
+  assert.match(html, /mins\.min = floor;/, 'and the input enforces it');
+  assert.match(html, /Math\.max\(floor, /, 'and so does the change handler');
   assert.match(html, /Pause overnight \(quiet hours\)/, 'quiet-hours opt-out is explicit');
   assert.match(html, /anchor = todayYmd\(\)/, 'every-days anchors to the day it was set');
   assert.match(html, /Send me the result/, 'deliver toggle');
@@ -51,7 +55,8 @@ test('machinery renders from the scheduler plan on the Health card, honesty carv
   assert.match(fn, /ok = !!state\.heartbeatAt/, 'heartbeat chip can still be false');
   assert.match(fn, /Older image/, 'static fallback survives for pre-P2 boxes');
   assert.match(fn, /if \(!state\.machineryLoaded\) return \[\];/, 'nothing fetched yet says nothing, not a stale trio');
-  assert.match(html, /\+ machineryHtml\(mach, sick\); \} \},/, 'the Health card renders the rows');
+  // the move-in's "Still on the server" fold rides after the rows (adopt spec, 2026-10-18)
+  assert.match(html, /\+ machineryHtml\(mach, sick\)\s*\+ stillOnServerHtml\(\); \} \},/, 'the Health card renders the rows');
   assert.match(html, /if \(now - machineryAt < 120000\) return;/, 'the Overview fetch is throttled: cadence-list is an SSH round-trip');
 });
 
@@ -101,6 +106,8 @@ test('machinery rows carry human labels, never raw job ids', () => {
   assert.doesNotMatch(html, /Liveness stamp|Publishing to members/, 'no stamp vocabulary, no members');
   assert.match(html, /\.filter\(function\(j\)\{ return j\.when !== 'never'; \}\)/, 'a job that cannot fire on this mineral is not listed as on');
   assert.match(html, /'auto-update': 'Software updates'/, 'kebab ids are mapped');
-  assert.match(html, /esc\(machineryLabel\(m\.id\)\)/, 'the row renders through the map');
+  // m.label is set only by the Health card's failing-script rows ("Script: <name>");
+  // every machinery row still renders through the map.
+  assert.match(html, /esc\(m\.label \|\| machineryLabel\(m\.id\)\)/, 'the row renders through the map');
   assert.doesNotMatch(html, /OPTED OUT via cockpit\/auto-update\.json/, 'no config file paths in member copy');
 });

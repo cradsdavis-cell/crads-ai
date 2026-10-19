@@ -3,7 +3,7 @@
 #
 # You make a private Telegram bot (takes a minute), paste its token here, send it a
 # message, and you're connected. From then on you can message your assistant anywhere.
-# It DRAFTS replies for you to approve — it never sends anything on its own.
+# It DRAFTS anything outbound for you to send yourself; it never sends on its own.
 set -euo pipefail
 BOX="${STATE_DIR:-/state}"; SEC="$BOX/secrets"; mkdir -p "$SEC"
 ENGINE="${ENGINE:-/app/engine}"
@@ -109,7 +109,7 @@ echo "✓ Linked to your chat."
 # bring the bridge up now (no box restart needed)
 bash "$ENGINE/start-comms.sh" "$BOX" 2>/dev/null || true
 tg "$TOKEN" sendMessage -d chat_id="$CHAT" \
-  -d text="✅ Connected to your AI OS. Message me anytime — I draft replies for you to approve, never send on my own." >/dev/null || true
+  -d text="✅ Connected. Message me any time. When something needs sending, I write the draft and you send it. I never send anything on my own." >/dev/null || true
 echo
 echo "✓ Done — Telegram is live. Message @$BOTNAME from your phone whenever you like."
 echo "  (Heads up: it needs you signed into Claude in the box, and it spends your Claude usage per message.)"

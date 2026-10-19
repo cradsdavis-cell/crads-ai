@@ -32,6 +32,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CATALOGUE, CATEGORIES } from '../../../wizard/panel/mcp-catalogue.mjs';
+import { ADOPTED_ONLY } from '../../../engine/kernel/lib/skills.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..', '..', '..');
@@ -86,7 +87,9 @@ export const CATEGORY_LABEL = {
 
 export function skills() {
   const dir = path.join(REPO, 'engine', 'skills');
-  return readdirSync(dir).filter((f) => f.endsWith('.md')).sort()
+  // Adopted-server skills (/move-in) are not on every mineral, so this page,
+  // which says "every mineral ships with", leaves them to their own page.
+  return readdirSync(dir).filter((f) => f.endsWith('.md') && !ADOPTED_ONLY.includes(f.slice(0, -3))).sort()
     .map((f) => skillMeta(path.join(dir, f)));
 }
 

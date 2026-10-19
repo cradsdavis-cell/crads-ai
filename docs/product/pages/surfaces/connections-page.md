@@ -53,9 +53,9 @@ linked by you. Anyone can find a bot by its name and message it, so without it
 the first stranger to say hello would be the one your mineral answers to."
 
 When the link lands, the bot's first message states the contract: "Connected.
-Message me any time. I draft replies for you to approve, and never send
-anything on my own." Replies wait for your approval; nothing goes out on its
-own. And there is no middleman, which is the reason you make your own bot
+Message me any time. When something needs sending, I write the draft and you
+send it. I never send anything on my own." A draft comes to you in the chat
+and you send it yourself; nothing goes out on its own. And there is no middleman, which is the reason you make your own bot
 rather than using a shared one: "Your mineral talks to Telegram directly.
 Nothing you send passes through Crads-AI." The walkthrough with screenshots is
 [connect Telegram](/docs/connect-telegram).

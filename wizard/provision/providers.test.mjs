@@ -172,3 +172,22 @@ test('Scaleway keeps the memory promise behind the three cards', () => {
   }
   assert.deepEqual(PROVIDERS.scaleway.locationPreference, ['fr-par-2'], 'the low-carbon option has one location');
 });
+
+test('the own card asks "Is your assistant already on it?": No is today\'s path and the default, Yes adds the folder', () => {
+  const P = PROVIDERS.own;
+  assert.equal(P.modeQuestion, 'Is your assistant already on it?');
+  assert.deepEqual(P.modes.map((m) => m.id), ['dedicated', 'adopt'], 'the first answer is the default, so the page opens on today\'s path');
+  assert.equal(P.modes[0].label, 'No, set it up for Crads-AI (used for this alone)');
+  assert.equal(P.modes[1].label, 'Yes, my assistant is already on it');
+  assert.ok(!P.modes[0].fields, 'No asks nothing new');
+  assert.deepEqual(P.modes[1].fields.map((f) => f.key), ['brainRoot']);
+  assert.equal(P.modes[1].fields[0].secret, false);
+  // sentence case: only the first letter of each label is a capital (and the product name)
+  for (const t of [P.modeQuestion, ...P.modes.map((m) => m.label), ...P.modes[1].fields.map((f) => f.label)]) {
+    assert.ok(!/ [A-Z](?![A-Z]|rads)/.test(t.replace(/Crads-AI/g, '')), `sentence case: ${t}`);
+  }
+  assert.ok(!JSON.stringify(P).includes('\u2014'));
+  // the page receives it (no functions, fresh objects)
+  const pub = publicProviders().find((p) => p.id === 'own');
+  assert.deepEqual(pub.modes, P.modes);
+});

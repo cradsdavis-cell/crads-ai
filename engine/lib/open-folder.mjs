@@ -28,6 +28,7 @@ import { lstatSync, mkdirSync, readFileSync, readlinkSync, symlinkSync, unlinkSy
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveBrainRoot } from './brain-root.mjs';
+import { isAdopted } from './mineral-identity.mjs';
 
 export const FALLBACK_NAME = 'control-centre';
 export const NO_LINK_NAME = 'state';
@@ -78,12 +79,15 @@ export function linkTarget(stateDir, brainRoot) {
  * created | kept | replaced | none (no candidate could be linked) and
  * skipped[] lists real entries that were left alone.
  */
-export function ensureOpenFolder(stateDir, { brainRoot, env = process.env, log = () => {} } = {}) {
+export function ensureOpenFolder(stateDir, { brainRoot, env = process.env, log = () => {}, noLink = isAdopted(stateDir) } = {}) {
   const root = brainRoot || resolveBrainRoot(stateDir, { env });
   const target = linkTarget(stateDir, root);
   const skipped = [];
   let result = null;
-  for (const name of nameCandidates(stateDir, { brainRoot: root, env })) {
+  // An ADOPTED brain's root is the person's repo (spec 2026-10-17): a `<name> -> .`
+  // entry would be a stray file in it. No link; the file says `state`, which the
+  // app maps to plain /state. A link an earlier boot made is retired below.
+  for (const name of noLink ? [] : nameCandidates(stateDir, { brainRoot: root, env })) {
     const link = path.join(stateDir, name);
     let st = null;
     try { st = lstatSync(link); } catch { /* absent */ }

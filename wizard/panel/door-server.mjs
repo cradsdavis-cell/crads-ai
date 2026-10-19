@@ -410,5 +410,8 @@ export function createDoorServer(opts = {}) {
   });
 
   server.listen(opts.port ?? 0, opts.host || '127.0.0.1');
+  // Finish any build the app stopped watching (build-box.mjs repairUnfinished):
+  // app.mjs calls this a little after start, and again while one is still booting.
+  server.repairBuilds = (o) => provision.repairUnbooted(o);
   return server;
 }

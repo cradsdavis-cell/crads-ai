@@ -98,10 +98,23 @@ git rev-parse --git-dir >/dev/null 2>&1 || {
 #      owner the two things that actually help: rotate, then delete the repo.
 
 # One glob per line, '#' comments, blanks skipped.
-brain_ignores()  { sed -e 's/#.*//' -e 's/[[:space:]]*$//' "$IGNORE_LIST" | grep -v '^[[:space:]]*$' || true; }
+# Every entry but the last section, which is for adopted brains only.
+brain_ignores()  { awk '/^# --- /{s=($0 ~ /adopted brain only/)} !s {sub(/#.*/,""); sub(/[[:space:]]+$/,""); if (length) print}' "$IGNORE_LIST"; }
 # Everything above the second header: the credential-shaped floor brain-push.sh
 # refuses without. Kept narrow on purpose (see the file's own header).
 brain_required() { awk '/^# --- repaired/{exit} !/^#/ && NF {print}' "$IGNORE_LIST"; }
+# ADOPTED brains (spec 2026-10-17 § Engine changes) track their own .claude/ and
+# cockpit/ on purpose, so for them the repair and untrack set is the credential
+# floor only. `is_adopted` is the same line in brain-push.sh, connect-github.sh
+# and box-up.sh, and the same test as isAdopted() in engine/lib/mineral-identity.mjs
+# (pinned by engine/adopted-brain.test.mjs). Exactly `"adopted": true`; a pebble
+# never has it and takes the full list exactly as before. Plain grep, not node:
+# with no interpreter on PATH a node test answered "not adopted" and the full
+# untrack ran over the person's .claude/ (found by the test rig, 2026-10-18).
+is_adopted() { grep -Eq '"adopted"[[:space:]]*:[[:space:]]*true([^A-Za-z0-9_]|$)' "$1/ownership.json" 2>/dev/null; }
+brain_ignores_adopted() { awk '/^# --- /{s=($0 ~ /adopted brain, which tracks/)} !s {sub(/#.*/,""); sub(/[[:space:]]+$/,""); if (length) print}' "$IGNORE_LIST"; }
+is_adopted "$BOX" && brain_ignores() { brain_ignores_adopted; }
+untrack_entry() { local f; f="$(git ls-files -- "$1" 2>/dev/null | grep -vE '\.(example|sample|template)$')"; [ -n "$f" ] || return 1; printf '%s\n' "$f" | git --literal-pathspecs rm -q --cached --ignore-unmatch --pathspec-from-file=-; }
 
 # Paths that must never appear in a pushed history. Derived from the ignore set,
 # never listed a second time: strip a trailing '/' and every entry is a valid git
@@ -135,7 +148,7 @@ brain_guard() {
 
   # 2. untrack anything already staged or committed into the index
   while IFS= read -r ENTRY; do
-    git rm -r -q --cached --ignore-unmatch -- "${ENTRY%/}" >/dev/null 2>&1 || true
+    untrack_entry "${ENTRY%/}" >/dev/null 2>&1 || true
   done < <(brain_ignores)
 
   # 3. history. HEAD-only on purpose: `git push -u origin HEAD` publishes HEAD's

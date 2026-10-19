@@ -88,7 +88,7 @@ test('/targets surfaces the local row with its kind; /run serves LOCAL_VERBS to 
   assert.ok(all.skills.some((s) => s.id === 'onboard' && s.source === 'engine'), 'engine skills are classified as engine from the bag');
   const mb = await post(server, '/run', { verb: 'whoami', host: 'acme-box', args: {} });
   assert.equal(mb.status, 200);
-  assert.deepEqual(sshCalls, [['acme-box', 'whoami']], 'the box still rides ssh, untouched');
+  assert.deepEqual(sshCalls, [['acme-box', 'whoami 2>/dev/null || echo "uid-$(id -u)"']], 'the box still rides ssh, untouched');
 });
 
 test('/run 400s the server-only verbs on a local target as unknown; the same verbs are known on a box', async (t) => {

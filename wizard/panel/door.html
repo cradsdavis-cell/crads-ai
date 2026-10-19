@@ -200,6 +200,11 @@
   input:hover{border-color:var(--faint)}
   input:focus-visible{outline:none;border-color:var(--accent);box-shadow:var(--focus)}
   select{width:100%;padding:10px 12px;border-radius:var(--r-input);border:1px solid var(--line-2);background:var(--card);color:var(--ink);font-size:14px;font-family:inherit}
+  /* the own-server card's question (2026-10-18, adopt): radios, not cards */
+  .modeq{border:0;margin:16px 0 0;padding:0;min-width:0}
+  .modeq legend{font-size:13px;color:var(--ink);font-weight:500;margin:0 0 4px;padding:0}
+  label.modeopt{display:flex;gap:8px;align-items:flex-start;margin:6px 0;font-weight:400;cursor:pointer}
+  label.modeopt input{width:auto;margin:2px 0 0;flex:none;accent-color:var(--accent)}
   .tokhelp{margin:8px 0 4px;border:1px solid var(--line);border-radius:var(--r-input);background:var(--card-2);padding:8px 12px}
   .tokhelp summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink)}
   .tokhelp ol{margin:.6em 0 .4em 1.2em;padding:0}
@@ -453,6 +458,18 @@
               <span>For a team&#8217;s company assistant, or very heavy use.</span>
               <span class="fine" data-fine></span></button>
           </div>
+        </div>
+        <!-- The takeover confirmation (2026-10-19): a server used for this alone
+             is taken over by setup even when it passes the busy-server check.
+             The check answers the exact list (own-server.mjs TAKEOVER_CHANGES);
+             Build stays off until the person types the server's address, and
+             /provision/start refuses without it too. Adopt shows none of this. -->
+        <div id="shTakeover" style="display:none;margin-top:14px">
+          <label id="shTakeoverHead">What setup changes on this server</label>
+          <ul class="hint" id="shTakeoverList" style="margin:0 0 10px;padding-left:20px"></ul>
+          <p class="hint" style="margin-bottom:6px">These change the whole server, and the app does not undo them later. If anything else runs on this server, stop here: use a server that runs nothing else, or, if your assistant already lives on it, choose &#8220;Yes, my assistant is already on it&#8221; above.</p>
+          <label for="shTakeoverHost" id="shTakeoverLabel">Type the server&#8217;s address to confirm</label>
+          <input id="shTakeoverHost" type="text" autocomplete="off" spellcheck="false">
         </div>
         <button class="act primary" id="shCheckBtn" style="margin-top:14px">Check the token</button>
         <button class="act primary" id="shBuildBtn" style="display:none;margin-top:14px">Build it</button>
@@ -1100,6 +1117,14 @@
   var shProviders = [];
   var shProvider = null;
   function shProviderLabel(){ return (shProvider && shProvider.label) || 'the hosting company'; }
+  // A server the person already has is not "created" and has no "account" to build
+  // on (adopt rehearsal, 2026-10-18: the page read "Building on your A server you
+  // already have account…").
+  function shPhaseWords(phase){
+    var own = !!(shProvider && shProvider.ownServer);
+    if (phase === 'booting') return own ? 'Set up. Waiting for your assistant to answer…' : 'Server created. Waiting for it to wake up…';
+    return own ? 'Setting up your server…' : 'Building on your ' + shProviderLabel() + ' account…';
+  }
   function shRenderProviders(){
     var box = document.getElementById('shProviders');
     box.innerHTML = shProviders.map(function(p){
@@ -1114,7 +1139,7 @@
     if (!shProvider) return;
     document.getElementById('shCostServer').textContent = shProvider.costsCopy;
     document.getElementById('shCostNeed').textContent = shProvider.ownServer
-      ? 'You need an Ubuntu 24.04 server with 4 GB of memory or more that this computer can reach over SSH; the next screen shows the key to put on it. No cloud password or key is asked for.'
+      ? 'You need an Ubuntu 24.04 server this computer can reach over SSH: a new one with 4 GB of memory or more, or the server your assistant already lives on. The next screen shows the key to put on it. No cloud password or key is asked for.'
       : 'You need a ' + shProvider.label + ' account and an API token; the next screen walks you through getting one. The token stays on this computer.';
     document.getElementById('shOwnKeyRow').style.display = shProvider.ownServer ? '' : 'none';
     document.getElementById('shCheckBtn').textContent = shCheckLabel();
@@ -1134,28 +1159,88 @@
   }
   // One token box, or one box per value for a provider that signs in with
   // several (credentialFields). credValue() is the single place either is read.
+  function credField(prefix, f){
+    var id = prefix + 'Cred-' + f.key;
+    return '<label for="' + esc(id) + '">' + esc(f.label) + '</label>'
+      + '<input id="' + esc(id) + '" data-cred="' + esc(f.key) + '" type="' + (f.secret ? 'password' : 'text') + '" autocomplete="off" spellcheck="false" placeholder="' + esc(f.placeholder || '') + '">'
+      + (f.help ? '<p class="hint">' + esc(f.help) + '</p>' : '');
+  }
+  // A provider with a question (providers.mjs modeQuestion + modes, the own
+  // server's "Is your assistant already on it?") gets one radio per answer
+  // under its fields; an answer's own fields show only while it is chosen.
+  // The first answer is the default, so the page opens on today's path.
   function credRender(prefix, p){
     var fields = (p && p.credentialFields) || [];
+    var modes = (p && p.modes) || [];
     document.getElementById(prefix + 'Token').style.display = fields.length ? 'none' : '';
-    document.getElementById(prefix + 'Creds').innerHTML = fields.map(function(f){
-      var id = prefix + 'Cred-' + f.key;
-      return '<label for="' + esc(id) + '">' + esc(f.label) + '</label>'
-        + '<input id="' + esc(id) + '" data-cred="' + esc(f.key) + '" type="' + (f.secret ? 'password' : 'text') + '" autocomplete="off" spellcheck="false" placeholder="' + esc(f.placeholder || '') + '">'
-        + (f.help ? '<p class="hint">' + esc(f.help) + '</p>' : '');
-    }).join('');
+    document.getElementById(prefix + 'Creds').innerHTML = fields.map(function(f){ return credField(prefix, f); }).join('')
+      + (modes.length ? '<fieldset class="modeq" data-modeq><legend>' + esc(p.modeQuestion || '') + '</legend>'
+        + modes.map(function(m, i){
+          return '<label class="modeopt"><input type="radio" name="' + esc(prefix) + 'Mode" value="' + esc(m.id) + '" data-mode="' + esc(m.id) + '"' + (i === 0 ? ' checked' : '') + '><span>' + esc(m.label) + '</span></label>';
+        }).join('')
+        + modes.map(function(m){
+          return (m.fields && m.fields.length) ? '<div data-mode-fields="' + esc(m.id) + '" style="display:none">' + m.fields.map(function(f){ return credField(prefix, f); }).join('') + '</div>' : '';
+        }).join('')
+        + '</fieldset>' : '');
+  }
+  function credMode(prefix, p){
+    var modes = (p && p.modes) || [];
+    if (!modes.length) return null;
+    var el = document.querySelector('input[name="' + prefix + 'Mode"]:checked');
+    var id = el ? el.value : modes[0].id;
+    return modes.filter(function(m){ return m.id === id; })[0] || modes[0];
   }
   function credValue(prefix, p){
     var fields = (p && p.credentialFields) || [];
     if (!fields.length) return document.getElementById(prefix + 'Token').value.trim();
+    var mode = credMode(prefix, p);
     var out = {}, missing = false;
-    fields.forEach(function(f){
+    fields.concat((mode && mode.fields) || []).forEach(function(f){
       var el = document.getElementById(prefix + 'Cred-' + f.key);
       var v = el ? el.value.trim() : '';
       if (v) out[f.key] = v; else if (!f.optional) missing = true;
     });
+    if (mode) out.mode = mode.id;
     return missing ? '' : JSON.stringify(out);
   }
+  // Changing the answer shows that answer's fields, and a check made under
+  // one answer means nothing for the other, so the form goes back to Check.
+  document.getElementById('shCreds').addEventListener('change', function(e){
+    if (!e.target || !e.target.hasAttribute('data-mode')) return;
+    var id = e.target.value;
+    Array.prototype.forEach.call(document.querySelectorAll('#shCreds [data-mode-fields]'), function(el){
+      el.style.display = el.getAttribute('data-mode-fields') === id ? '' : 'none';
+    });
+    shCat = null; shErr(''); shTakeoverReset();
+    document.getElementById('shOpts').style.display = 'none';
+    document.getElementById('shBuildBtn').style.display = 'none';
+    document.getElementById('shCheckBtn').style.display = '';
+  });
   function shCheckLabel(){ return (shProvider && shProvider.ownServer) ? 'Check the server' : 'Check the token'; }
+  // The takeover confirmation (2026-10-19). shTakeoverHost is the address the
+  // check answered, set only for a server used for this alone; the typed
+  // address is matched the way own-server.mjs confirmsTakeover() matches it.
+  var shTakeoverHost = null;
+  function shNormalHost(h){ return String(h || '').trim().replace(/^\[|\]$/g, '').toLowerCase(); }
+  function shSameHost(typed, want){ return !!shNormalHost(want) && shNormalHost(typed) === shNormalHost(want); }
+  function shTakeoverReset(){
+    shTakeoverHost = null;
+    document.getElementById('shTakeover').style.display = 'none';
+    document.getElementById('shTakeoverHost').value = '';
+    document.getElementById('shBuildBtn').disabled = false;
+  }
+  function shTakeoverShow(t){
+    shTakeoverHost = t.host;
+    document.getElementById('shTakeoverHead').textContent = 'What setup changes on ' + t.host;
+    document.getElementById('shTakeoverList').innerHTML = (t.changes || []).map(function(c){ return '<li>' + esc(c) + '</li>'; }).join('');
+    document.getElementById('shTakeoverLabel').textContent = 'Type ' + t.host + ' to confirm';
+    document.getElementById('shTakeoverHost').value = '';
+    document.getElementById('shTakeover').style.display = '';
+    document.getElementById('shBuildBtn').disabled = true;
+  }
+  document.getElementById('shTakeoverHost').addEventListener('input', function(){
+    document.getElementById('shBuildBtn').disabled = !shSameHost(this.value, shTakeoverHost);
+  });
   document.getElementById('shOwnKeyBtn').addEventListener('click', function(){
     shErr('');
     var name = document.getElementById('shName').value.trim().toLowerCase();
@@ -1178,6 +1263,14 @@
     var b = this; setTimeout(function(){ b.textContent = 'Copy the key'; }, 1500);
   });
   function credMissingText(p){
+    // The own server's fields are not "values" of a company: name the empty one.
+    if (p && p.ownServer) {
+      var mode = credMode('sh', p);
+      var empty = (p.credentialFields || []).concat((mode && mode.fields) || []).filter(function(f){
+        var el = document.getElementById('shCred-' + f.key); return !f.optional && !(el && el.value.trim());
+      })[0];
+      if (empty) return 'Fill in ' + empty.label.charAt(0).toLowerCase() + empty.label.slice(1) + ' above first.';
+    }
     return (p && p.credentialFields && p.credentialFields.length)
       ? 'Fill in each ' + String(p.label).replace(/\s*\(.*\)$/, '') + ' value above first.'
       : 'Paste your ' + ((p && p.label) || 'hosting') + ' API token first.';
@@ -1186,6 +1279,7 @@
     shProvider = shProviders.filter(function(p){ return p.id === id; })[0] || shProviders[0] || null;
     // a token checked against one provider means nothing to the other
     shCat = null;
+    shTakeoverReset();
     document.getElementById('shOpts').style.display = 'none';
     document.getElementById('shBuildBtn').style.display = 'none';
     document.getElementById('shCheckBtn').style.display = '';
@@ -1658,6 +1752,7 @@
     if (!token) { shErr(credMissingText(shProvider)); document.getElementById('shRetryRow').style.display='none'; return; }
     var btn = document.getElementById('shCheckBtn');
     btn.disabled = true; btn.textContent = 'Checking…';
+    shTakeoverReset();
     var own = !!(shProvider && shProvider.ownServer);
     fetch('/provision/validate', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ token: token, provider: shProvider ? shProvider.id : undefined, name: document.getElementById('shName').value.trim().toLowerCase() }) })
       .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
@@ -1665,6 +1760,9 @@
         btn.disabled = false; btn.textContent = shCheckLabel();
         // An own server says exactly what is wrong with it (own-server.mjs).
         if (own && (!x.ok || !x.d.ok)) { shErr('Your server is not ready: ' + ((x.d && (x.d.reason || x.d.error)) || 'it did not answer') + '.'); document.getElementById('shRetryRow').style.display='none'; return; }
+        // A refusal the provider client already put in plain words (a full
+        // DigitalOcean account) is shown as it is: it is not a token problem.
+        if (x.d && x.d.plain && x.d.reason) { shErr(x.d.reason); document.getElementById('shRetryRow').style.display='none'; return; }
         if (!x.ok || !x.d.ok) { shErr(shProviderLabel() + ' did not accept that token. Check it against the steps above: it must be an API token (not a password), with write access, from the account the server should live in. Tokens show once; generating a fresh one is quicker than hunting the old.'); document.getElementById('shRetryRow').style.display='none'; return; }
         var loc = document.getElementById('shLoc');
         shCat = x.d;
@@ -1678,7 +1776,9 @@
         var facts = document.getElementById('shOwnFacts');
         var t0 = (x.d.server_types || [])[0];
         facts.style.display = own ? '' : 'none';
-        facts.textContent = own && t0 ? 'Your server answered: ' + t0.cores + ' cpu, ' + t0.memoryGb + ' GB memory, ' + t0.diskGb + ' GB free disk, ' + (t0.arch === 'arm' ? 'Arm' : 'Intel/AMD') + '. Building sets it up for your assistant and turns on its firewall (SSH in, nothing else).' : '';
+        facts.textContent = own && t0 ? 'Your server answered: ' + t0.cores + ' cpu, ' + t0.memoryGb + ' GB memory, ' + t0.diskGb + ' GB free disk, ' + (t0.arch === 'arm' ? 'Arm' : 'Intel/AMD') + '. '
+          + (x.d.adopt ? shAdoptWords(x.d.adopt) : 'Read what setup changes on it, below, before you build.') : '';
+        if (own && x.d.takeover && !x.d.adopt) shTakeoverShow(x.d.takeover);
         document.getElementById('shOpts').style.display = loc.options.length ? 'block' : 'none';
         btn.style.display = 'none';
         document.getElementById('shBuildBtn').style.display = 'inline-block';
@@ -1686,11 +1786,24 @@
       .catch(function(){ btn.disabled = false; btn.textContent = shCheckLabel(); shErr('Could not reach ' + shProviderLabel() + ' from here. Check the connection and try again.'); document.getElementById('shRetryRow').style.display='none'; });
   });
 
+  // What the adopt check found, in words (own-server.mjs adoptSummary).
+  function shAdoptWords(a){
+    var n = function(k, one, many){ return k + ' ' + (k === 1 ? one : many); };
+    var found = [n(a.skills || 0, 'skill', 'skills'), n(a.cron || 0, 'scheduled job', 'scheduled jobs'), n(a.units || 0, 'service', 'services')];
+    return 'Found your assistant at ' + a.folder + (a.branch ? ' (branch ' + a.branch + ')' : '') + ': ' + found.join(', ') + '. '
+      + (a.gitOp ? 'A ' + a.gitOp + ' is in progress there; it is left exactly as it is. ' : '')
+      + 'Building runs your assistant in a container from that folder, beside everything else on the server, and leaves the firewall and the other logins as they are. '
+      + 'It starts in move-in mode: nothing runs on a schedule until you move in, one job at a time.';
+  }
   function shStart(){
     shErr('');
     var locVal = document.getElementById('shLoc').value || '';
     var resolved = shResolveSize(shSizeChoice, locVal);
+    // A server used for this alone: the address typed under the list of changes.
+    var typedHost = document.getElementById('shTakeoverHost').value.trim();
+    if (shTakeoverHost && !shSameHost(typedHost, shTakeoverHost)) { shShow('shForm'); shErr('Type ' + shTakeoverHost + ' under the list of changes to confirm them first.'); document.getElementById('shRetryRow').style.display='none'; return; }
     var body = {
+      confirm_host: shTakeoverHost ? typedHost : undefined,
       token: credValue('sh', shProvider),
       name: document.getElementById('shName').value.trim().toLowerCase(),
       provider: shProvider ? shProvider.id : undefined,
@@ -1825,8 +1938,10 @@
           shChip('shGhChip', ghConnected ? 'Done' : 'Not yet', ghConnected);
           document.getElementById('shGhBtn').style.display = ghConnected ? 'none' : '';
           var dl = document.getElementById('shGhDoneLine');
-          dl.style.display = ghConnected ? '' : 'none';
+          var ghWhy = !ghConnected && st.github && st.github.why;
+          dl.style.display = (ghConnected || ghWhy) ? '' : 'none';
           if (ghConnected) dl.innerHTML = 'Connected: <span class="mono">' + esc(st.github.repo || '') + '</span>. From here it keeps itself current, every night.';
+          else if (ghWhy) dl.innerHTML = 'Your brain pushes to <span class="mono">' + esc(st.github.repo || '') + '</span>, but ' + esc(st.github.why) + '. Your assistant\u2019s nightly backup cannot use it until GitHub is connected here; your own backup keeps running as before.';
         }
         var signedIn = !!(st.claude && st.claude.signedIn);
         // A mineral that thinks with something other than Claude (second-harness spec,
@@ -1924,7 +2039,7 @@
     var tick = function(){
       fetch('/provision/status').then(function(r){ return r.json(); }).then(function(s){
         document.getElementById('shPhase').textContent =
-          s.phase === 'booting' ? 'Server created. Waiting for it to wake up…' : 'Building on your ' + shProviderLabel() + ' account…';
+          shPhaseWords(s.phase);
         document.getElementById('shSteps').innerHTML = (s.steps || []).map(function(t){ return '✓ ' + esc(t); }).join('<br>');
         document.getElementById('shBootNote').style.display = (s.phase === 'booting') ? 'block' : 'none';
         if (s.phase === 'ready') shReady(s);

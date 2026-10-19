@@ -11,12 +11,35 @@ PORT="${COCKPIT_PORT:-7780}"
 export CLAUDE_CONFIG_DIR="$BOX/.claude-auth"                   # her account, not the operator's
 export GH_CONFIG_DIR="$BOX/.kernel/gh"                         # pebble's GitHub auth — persisted, gitignored (.kernel/)
 
+# ---- adopted brain? (spec 2026-10-17-adopt-existing-server.md) ----------------
+# A server and brain the person already had, taken over by the app. Host setup
+# writes `"adopted": true` into ownership.json. Such a brain is already set up and
+# already has its own shape, so every step below that would scaffold, link or drop
+# files into its root takes the adopted branch instead. Same line as in
+# brain-push.sh and connect-github.sh (pinned by engine/adopted-brain.test.mjs).
+is_adopted() { grep -Eq '"adopted"[[:space:]]*:[[:space:]]*true([^A-Za-z0-9_]|$)' "$1/ownership.json" 2>/dev/null; }
+ADOPTED=0; is_adopted "$BOX" && ADOPTED=1
+# Move-in mode: an adopted brain whose own host jobs still run it. box-up still
+# runs (the brain can be opened and /move-in started), but it does not commit or
+# push on exit; the kernel, the scheduler and start-comms each hold off on their
+# own. Same line as in start-comms.sh (pinned by engine/move-in-mode.test.mjs).
+is_moving_in() { grep -Eq '"moving_in"[[:space:]]*:[[:space:]]*true([^A-Za-z0-9_]|$)' "$1/ownership.json" 2>/dev/null; }
+
 # ---- first-run scaffold (fresh/empty mineral, e.g. a freshly-shipped image volume) ----
 # Idempotent: only creates what's missing, so an existing pebble mineral is untouched.
+# Adopted: no wiki scaffold (the brain's structure is the person's); profile.yaml and
+# an onboarding state already at phase `done` only if missing, so the app does not
+# send someone with a working brain through the first-run interview.
+if [ "$ADOPTED" = 1 ]; then
+  mkdir -p "$BOX/secrets" "$BOX/.claude-auth" "$BOX/.kernel"
+  [ -f "$BOX/profile.yaml" ]          || cp "$ENGINE/../config/profile.schema.yaml" "$BOX/profile.yaml" 2>/dev/null || true
+  [ -f "$BOX/onboarding-state.json" ] || node "$ENGINE/onboarding/init-state.mjs" "$BOX" --done >/dev/null 2>&1 || true
+else
 mkdir -p "$BOX/wiki/people" "$BOX/secrets" "$BOX/.claude-auth" "$BOX/.kernel"
 [ -f "$BOX/profile.yaml" ]          || cp "$ENGINE/../config/profile.schema.yaml" "$BOX/profile.yaml" 2>/dev/null || true
 [ -f "$BOX/onboarding-state.json" ] || node "$ENGINE/onboarding/init-state.mjs" "$BOX" >/dev/null 2>&1 || true
 [ -f "$BOX/wiki/priorities.md" ]    || printf '# Priorities — what matters now\n_(populated by /onboard)_\n' > "$BOX/wiki/priorities.md"
+fi
 node "$ENGINE/appshell/seed-pages.mjs" "$BOX" >/dev/null 2>&1 || true   # L3 app-shell surface + L2 ownership record (idempotent, never overwrites)
 # Record WHO holds this mineral (2026-08-12; local-only since the self-host
 # strip 2026-09-01). seed-pages writes the holder; mineral-arm upgrades the flat
@@ -68,7 +91,9 @@ node "$ENGINE/lib/open-folder.mjs" "$BOX" >/dev/null 2>&1 || true
 # workflow and self layer pages and names the other six. Every start, so existing
 # minerals get it at their next nightly restart; it writes only when the block
 # changed, never touches text outside its markers, and skips org boxes.
-node "$ENGINE/box/brain-claude-md.mjs" "$BOX" || true
+# Adopted: the person's CLAUDE.md is theirs; the block is offered by /move-in,
+# never written here (spec 2026-10-17 § move-in mapping).
+[ "$ADOPTED" = 1 ] || node "$ENGINE/box/brain-claude-md.mjs" "$BOX" || true
 
 # ---- mineral machinery comes from the IMAGE, not from cloud-init ----------------
 # These scripts (org-sync, heartbeat-push, org-brain-wire; evict-apply,
@@ -87,12 +112,18 @@ node "$ENGINE/box/brain-claude-md.mjs" "$BOX" || true
 # in the image. Installing on every start is what un-freezes the fleet: a fix
 # ships with the nightly auto-update like everything else. Compare-then-copy so
 # an unchanged script is not rewritten on every boot.
+# Adopted: into $BOX/.kernel/bin (credential-floor ignored), not four new .sh
+# files in the person's repo root. The scheduler still looks in $BOX for
+# heartbeat-push.sh and org-sync.sh and no-ops when they are absent, which is
+# right for an org-less adopted brain; see the spec's TODO before pointing it here.
 install_box_scripts() {
   [ -d "$ENGINE/box" ] || return 0
-  mkdir -p "$BOX"
+  local into="$BOX"
+  [ "$ADOPTED" = 1 ] && into="$BOX/.kernel/bin"
+  mkdir -p "$into"
   for src in "$ENGINE"/box/*.sh; do
     [ -f "$src" ] || continue
-    dst="$BOX/$(basename "$src")"
+    dst="$into/$(basename "$src")"
     if ! cmp -s "$src" "$dst"; then
       cp "$src" "$dst" && chmod +x "$dst"
     fi
@@ -146,15 +177,26 @@ bash "$ENGINE/box/opencode-seed.sh" "$BOX/.opencode-auth" || true
 # *.key, and .env is where ORG_PULL_TOKEN lives, so the very first commit this
 # script makes below could track a credential that connect-github then pushed.
 # APPEND, never overwrite: a member may have added entries of their own.
+# Adopted: the credential block only (above the list's second header). Its
+# .claude/ and cockpit/ are the person's and stay tracked.
 BRAIN_IGNORE="${AIOS_BRAIN_IGNORE:-$ENGINE/lib/brain-ignore.txt}"
 touch "$BOX/.gitignore"
 if [ -r "$BRAIN_IGNORE" ]; then
   grep -q 'never version these' "$BOX/.gitignore" 2>/dev/null || \
     printf '%s\n' '# credentials + machine state: never version these (the brain repo may be pushed to a remote)' >> "$BOX/.gitignore"
+  if [ "$ADOPTED" = 1 ]; then
+    # Everything but the section an adopted brain tracks itself (.claude/, cockpit/).
+    # Was the credential floor only, which let the engine's own sign-ins and caches
+    # into the person's repo (adopt rehearsal, 2026-10-18).
+    _ignore_set() { awk '/^# --- /{s=($0 ~ /adopted brain, which tracks/)} !s {sub(/#.*/,""); sub(/[[:space:]]+$/,""); if (length) print}' "$BRAIN_IGNORE"; }
+  else
+    # Every entry but the last section, which is for adopted brains only.
+    _ignore_set() { awk '/^# --- /{s=($0 ~ /adopted brain only/)} !s {sub(/#.*/,""); sub(/[[:space:]]+$/,""); if (length) print}' "$BRAIN_IGNORE"; }
+  fi
   while IFS= read -r _pat; do
     [ -n "$_pat" ] || continue
     grep -qxF -- "$_pat" "$BOX/.gitignore" || printf '%s\n' "$_pat" >> "$BOX/.gitignore"
-  done < <(sed -e 's/#.*//' -e 's/[[:space:]]*$//' "$BRAIN_IGNORE" | grep -v '^[[:space:]]*$')
+  done < <(_ignore_set)
 else
   # Fail loud rather than seeding an empty ignore: an unprotected first commit is
   # exactly the state this list exists to prevent.
@@ -285,6 +327,17 @@ fi
 
 # commit-on-exit: the browser session = the container's lifetime, so persist the brain when it stops.
 commit_brain(){
+  # Move-in mode: nothing commits or pushes the person's folder yet. Read at
+  # exit, not at start, so a /move-in that finished during this run counts.
+  is_moving_in "$BOX" && return 0
+  # Adopted: a rebase, merge or cherry-pick the person has in progress is
+  # theirs; committing onto it would wreck it. Leave the tree exactly as it is.
+  if [ "$ADOPTED" = 1 ]; then
+    _gd="$(git -C "$BOX" rev-parse --absolute-git-dir 2>/dev/null || true)"
+    for _op in rebase-merge rebase-apply MERGE_HEAD CHERRY_PICK_HEAD; do
+      [ -n "$_gd" ] && [ -e "$_gd/$_op" ] && return 0
+    done
+  fi
   if [ -n "$(git -C "$BOX" status --porcelain 2>/dev/null)" ]; then
     git -C "$BOX" add -A
     git -C "$BOX" -c user.name='AI OS kernel' -c user.email='kernel@ai-os.local' \
@@ -309,7 +362,7 @@ SCHEDPID=$!
 [ "$CAD_ON" = "1" ] && CADENCE_LIVE=1
 
 cleanup(){ commit_brain; kill "$SVPID" ${CSPID:+"$CSPID"} ${SCHEDPID:+"$SCHEDPID"} 2>/dev/null || true
-  for pf in "$BOX"/.kernel/kernel.pid "$BOX"/.kernel/telegram.pid; do [ -f "$pf" ] && kill "$(cat "$pf" 2>/dev/null)" 2>/dev/null; rm -f "$pf"; done
+  for pf in "$BOX"/.kernel/kernel.pid "$BOX"/.kernel/telegram.pid "$BOX"/.kernel/telegram-send.pid; do [ -f "$pf" ] && kill "$(cat "$pf" 2>/dev/null)" 2>/dev/null; rm -f "$pf"; done
   # Remote Control leads its own process group (setsid in start-comms): stop it AND its phone sessions.
   [ -f "$BOX/.kernel/remote-control.pid" ] && { RCP="$(cat "$BOX/.kernel/remote-control.pid" 2>/dev/null)"; kill -- "-$RCP" 2>/dev/null || kill "$RCP" 2>/dev/null; rm -f "$BOX/.kernel/remote-control.pid"; }
   rm -f "$BOX/.kernel/human-lock" 2>/dev/null || true; }

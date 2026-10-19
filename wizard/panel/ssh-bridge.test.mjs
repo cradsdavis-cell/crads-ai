@@ -126,3 +126,96 @@ exit 255
   assert.notEqual(code, 0);
   assert.equal(readFileSync(counter, 'utf8').length, 2, 'two attempts total, then it gives up');
 });
+
+// ---- ControlPath length (adopt rehearsal T4, 2026-10-18) -------------------
+// A long home made the mux socket path overflow sun_path and every panel verb
+// failed. The decision is pure; the private-dir check is exercised on scratch.
+import { muxPathCandidates, muxControlPath, ensurePrivateDir, sunPathLimit, MUX_SUFFIX_BYTES } from './ssh-bridge.mjs';
+import { mkdirSync, statSync, symlinkSync } from 'node:fs';
+
+const expanded = (p) => Buffer.byteLength(p) - 2 + MUX_SUFFIX_BYTES;
+
+test('mux path: an ordinary home keeps the socket in ~/.ssh as before', () => {
+  for (const platform of ['linux', 'darwin']) {
+    const c = muxPathCandidates({ home: '/home/pat', platform, tmp: '/tmp', uid: 1000 });
+    assert.equal(c[0].path, '/home/pat/.ssh/crads-mux-%C');
+    assert.equal(c[0].own, false);
+    assert.equal(muxControlPath({ home: '/Users/samuel', platform, tmp: '/tmp', uid: 501, ensureDir: () => assert.fail('no dir needed') }),
+      '/Users/samuel/.ssh/crads-mux-%C');
+  }
+});
+
+test('mux path: a long home falls back to a short per-user dir, and every choice fits sun_path', () => {
+  const long = '/tmp/claude-1002/-home-sam-second-brain--claude-worktrees-x/scratch/home';
+  for (const platform of ['linux', 'darwin']) {
+    const all = muxPathCandidates({ home: long, platform, tmp: '/tmp', uid: 1002 });
+    assert.ok(!all.some((c) => c.path.startsWith(long)), 'the long home is not offered');
+    assert.equal(all[0].path, '/tmp/crads-1002/%C');
+    assert.equal(all[0].own, true);
+    for (const c of all) assert.ok(expanded(c.path) <= sunPathLimit(platform));
+  }
+  const made = [];
+  assert.equal(muxControlPath({ home: long, platform: 'linux', tmp: '/tmp', uid: 1002, ensureDir: (d) => { made.push(d); return true; } }),
+    '/tmp/crads-1002/%C');
+  assert.deepEqual(made, ['/tmp/crads-1002']);
+});
+
+test('mux path: the boundary is exact (108 on Linux, 104 elsewhere, NUL and the 17-byte temp suffix counted)', () => {
+  // home + "/.ssh/crads-mux-" (16) + 40 + 17 + 1 must be <= limit
+  const fits = (n, platform) => muxPathCandidates({ home: '/' + 'h'.repeat(n - 1), platform, tmp: '', uid: 1 })
+    .some((c) => !c.own);
+  assert.equal(fits(108 - 16 - 58, 'linux'), true);
+  assert.equal(fits(108 - 16 - 58 + 1, 'linux'), false);
+  assert.equal(fits(104 - 16 - 58, 'darwin'), true);
+  assert.equal(fits(104 - 16 - 58 + 1, 'darwin'), false);
+});
+
+test('mux path: macOS long temp dir is skipped for /tmp; nothing that fits means no sharing at all', () => {
+  const macTmp = '/var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T';
+  const c = muxPathCandidates({ home: '/Users/' + 'x'.repeat(80), platform: 'darwin', tmp: macTmp, uid: 501 });
+  assert.deepEqual(c.map((x) => x.path), ['/tmp/crads-501/%C']);
+  // the dir cannot be made ours: drop ControlMaster rather than fail every verb
+  assert.equal(muxControlPath({ home: '/Users/' + 'x'.repeat(80), platform: 'darwin', tmp: macTmp, uid: 501, ensureDir: () => false }), null);
+  // a /tmp that is itself impossible: none
+  assert.deepEqual(muxPathCandidates({ home: '/h'.repeat(60), platform: 'linux', tmp: '/t'.repeat(60), uid: 7 })
+    .filter((x) => !x.path.startsWith('/tmp/')).length, 0);
+});
+
+test('private dir: made 0700, a loose one tightened, a symlink refused', { skip }, () => {
+  const base = tmpDir('mux-');
+  const d = join(base, 'crads-me');
+  assert.equal(ensurePrivateDir(d, process.getuid()), true);
+  assert.equal(statSync(d).mode & 0o777, 0o700);
+  const loose = join(base, 'loose'); mkdirSync(loose, { mode: 0o755 }); chmodSync(loose, 0o755);
+  assert.equal(ensurePrivateDir(loose, process.getuid()), true);
+  assert.equal(statSync(loose).mode & 0o777, 0o700);
+  const link = join(base, 'link'); symlinkSync(loose, link);
+  assert.equal(ensurePrivateDir(link, process.getuid()), false, 'a pre-planted symlink is never used');
+  assert.equal(ensurePrivateDir(d, process.getuid() + 1), false, 'someone else’s dir is never used');
+});
+
+test('every verb under a long home gets a ControlPath that fits (the rehearsal failure, end to end)', { skip }, async () => {
+  const dir = tmpDir('muxlong-');
+  const home = join(dir, 'a-very-long-scratch-home-directory-name-like-the-rehearsal-one', 'home');
+  mkdirSync(home, { recursive: true });
+  const argsLog = join(dir, 'args');
+  const fake = join(dir, 'fake-ssh');
+  writeFileSync(fake, `#!/bin/sh\nfor a in "$@"; do echo "$a"; done > ${argsLog}\n`);
+  chmodSync(fake, 0o755);
+  const cfg = join(dir, 'config'); writeFileSync(cfg, '');
+  const was = process.env.HOME;
+  process.env.HOME = home;
+  try {
+    const r = await runSsh('anyhost', 'true', { sshExe: fake, configPath: cfg });
+    assert.equal(r.code, 0);
+  } finally { process.env.HOME = was; }
+  const args = readFileSync(argsLog, 'utf8').split('\n');
+  const cp = args.find((a) => a.startsWith('ControlPath='));
+  if (cp) {
+    const p = cp.slice('ControlPath='.length);
+    assert.ok(!p.startsWith(home), `socket must not sit under the long home: ${p}`);
+    assert.ok(Buffer.byteLength(p) - 2 + MUX_SUFFIX_BYTES <= sunPathLimit(process.platform), p);
+  } else {
+    assert.ok(!args.includes('ControlMaster=auto'), 'no ControlPath means no ControlMaster either');
+  }
+});

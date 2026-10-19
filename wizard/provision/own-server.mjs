@@ -30,6 +30,26 @@
 // right on a cloud machine, where scripts_user would re-run the provider's own
 // first-boot scripts as well.
 //
+// TWO MODES (2026-10-18, spec docs/superpowers/specs/2026-10-17-adopt-existing-server.md).
+// The card asks "Is your assistant already on it?". No (the default, and the
+// only mode before this date): the machine is set up for Crads-AI alone, as
+// above. Yes: the details carry `mode: 'adopt'` and `brainRoot`, the folder
+// the person's assistant already lives in, and the check, the setup and the
+// record of every change come from adopt-host.mjs instead, which leaves the
+// firewall, the other logins, the timezone and everything else the server runs
+// as they are.
+//
+// THE TAKEOVER CONFIRMATION (2026-10-19). Even when the busy-server guard
+// passes, a server used for this alone is taken over: its firewall, how every
+// login signs in, its clock, its Docker source and two new logins. A server
+// that looks quiet can still be someone's (a project that runs once a month,
+// a site on a port the check cannot see from inside). So the check answers
+// `takeover`, the exact list below, and the door shows it and asks the person
+// to type the server's address. The start route refuses a build without that,
+// and the confirmed address rides in the details as `confirmHost`, so this
+// client itself refuses to run setup on any other address. Adopt mode leaves
+// all of that as it is, so it needs no confirmation.
+//
 // WHAT IT NEVER DOES. It never deletes or resets the person's machine: there
 // is no API to do it with, and it is their machine. "Remove" forgets it on
 // this computer only (the build's state), and says so.
@@ -37,6 +57,10 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { AS_ROOT_SCRIPT, publicPorts } from './own-server-shared.mjs';
+import { parseBrainRoot, probeAdopt, adoptRefusal, adoptSummary, renderForFacts, setupSharedHost } from './adopt-host.mjs';
+
+export { publicPorts };
 
 const HOST_RE = /^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*|\d{1,3}(?:\.\d{1,3}){3}|\[?[0-9A-Fa-f:]+\]?)$/;
 const USER_RE = /^[a-z_][a-z0-9_-]{0,31}$/;
@@ -52,7 +76,37 @@ export const SETUP_MODULES = ['users_groups', 'write_files', 'timezone', 'packag
 // machine, which the measurements on 2026-10-15 say is too small.
 export const MIN_MEMORY_MB = 3300;
 export const MIN_FREE_DISK_GB = 15;
+// The card's two answers to "Is your assistant already on it?" (providers.mjs
+// shows them; the busy refusal names the second).
+export const DEDICATED_CHOICE = 'No, set it up for Crads-AI (used for this alone)';
+export const ADOPT_CHOICE = 'Yes, my assistant is already on it';
 const UBUNTU_OK = ['22.04', '24.04'];
+
+// What setup changes on a server used for this alone, in the words the door
+// shows before the person confirms. Each line is pinned to the setup file
+// (provisioning/managed/cloud-init.template.yaml) by own-server.test.mjs, so
+// the list cannot quietly fall behind what setup does.
+export const TAKEOVER_CHANGES = [
+  'Turns on a firewall that lets in SSH (port 22) and nothing else. Anything else this server offers to the internet stops being reachable.',
+  'Turns off password sign-in over SSH for every login on the server. Only keys work from then on.',
+  'Sets the server\u2019s clock to Sydney time (Australia/Sydney).',
+  'Adds Docker\u2019s own package source and installs Docker from it.',
+  'Adds two logins: aios, which runs your assistant and cannot sign in, and member, the way in from your apps.',
+  'Installs curl, ufw and fail2ban, adds a 2 GB swap file if the server has none, and runs your assistant as a service that starts with the server.',
+];
+
+/** An address as the person might type it: no spaces, no brackets, any case. */
+export function normalHost(h) {
+  return String(h || '').trim().replace(/^\[|\]$/g, '').toLowerCase();
+}
+
+/** True when `typed` is the server's own address (details.host), not just anything. */
+export function confirmsTakeover(details, typed) {
+  const want = normalHost(details && details.host);
+  return !!want && normalHost(typed) === want;
+}
+
+export const TAKEOVER_UNCONFIRMED = 'Setting this server up for Crads-AI alone changes its firewall, how every login signs in, its clock and its Docker setup, so it needs your confirmation first: check the server again, read the list of changes, and type the server\u2019s address under it. Nothing has been changed.';
 
 export class OwnServerError extends Error {
   constructor(message, { code } = {}) { super(message); this.code = code; }
@@ -69,7 +123,18 @@ export function parseOwnServer(token) {
   if (!host || !HOST_RE.test(host)) return { error: 'the server address does not look like an address or a hostname' };
   if (!USER_RE.test(user)) return { error: 'the login name does not look like a Linux user name' };
   if (slug && !SLUG_RE.test(slug)) return { error: 'the mineral name is not valid' };
-  return { host: host.replace(/^\[|\]$/g, ''), user, port, slug };
+  const out = { host: host.replace(/^\[|\]$/g, ''), user, port, slug };
+  // The address the person typed to confirm the takeover (provision-routes
+  // puts it here once it matches); see THE TAKEOVER CONFIRMATION above.
+  if (t.confirmHost) out.confirmHost = String(t.confirmHost).trim();
+  const mode = String(t.mode || 'dedicated');
+  if (mode !== 'dedicated' && mode !== 'adopt') return { error: 'the server details name a setup the app does not know' };
+  if (mode === 'adopt') {
+    const b = parseBrainRoot(t.brainRoot);
+    if (b.error) return { error: b.error };
+    return { ...out, mode, brainRoot: b.brainRoot };
+  }
+  return out;
 }
 
 // The default runner: the system ssh client, with this mineral's own key and
@@ -94,9 +159,8 @@ function systemRunner({ sshExe = 'ssh', knownHosts } = {}) {
   });
 }
 
-// Runs what it is given as root: directly when the login is root, through
-// passwordless sudo otherwise. The script arrives on stdin, never in argv.
-const AS_ROOT = 'if [ "$(id -u)" = 0 ]; then bash -s; else sudo -n bash -s; fi';
+// Runs what it is given as root (see own-server-shared.mjs).
+const AS_ROOT = AS_ROOT_SCRIPT;
 
 const CHECK_SCRIPT = `
 echo "uid=$(id -u)"
@@ -129,26 +193,12 @@ fi
 // Ignored on purpose: SSH (22), rpcbind (111, which some cloud images ship
 // listening), loopback, link-local and Tailscale addresses, and our own
 // container on a re-run.
-const QUIET_PORTS = new Set(['22', '111']);
-function privateListener(host) {
-  const h = String(host).replace(/^\[|\]$/g, '').replace(/%.*$/, '').toLowerCase();
-  if (h === 'localhost' || h === '::1' || /^127\./.test(h)) return true;
-  if (/^fe80:/.test(h) || /^fd7a:115c:a1e0:/.test(h)) return true;           // link-local, Tailscale v6
-  const m = h.match(/^100\.(\d{1,3})\./);                                     // Tailscale CGNAT 100.64.0.0/10
-  return !!m && Number(m[1]) >= 64 && Number(m[1]) <= 127;
-}
-export function publicPorts(listen) {
-  const ports = new Set();
-  for (const a of String(listen || '').split(',').map((x) => x.trim()).filter(Boolean)) {
-    const i = a.lastIndexOf(':');
-    if (i < 0) continue;
-    const host = a.slice(0, i); const port = a.slice(i + 1);
-    if (!/^\d+$/.test(port) || QUIET_PORTS.has(port) || privateListener(host)) continue;
-    ports.add(port);
-  }
-  return [...ports].sort((x, y) => Number(x) - Number(y));
-}
-
+//
+// Since adopt shipped (2026-10-18) the refusal also points at the card's
+// other answer: a busy server is very often the one the person's assistant
+// already lives on, and "Yes, my assistant is already on it" is the path built
+// for exactly that. The guard does not apply in that mode.
+// (The listener rules live in own-server-shared.mjs, shared with adopt.)
 /** What this machine already runs, in words; empty when it runs nothing we would break. */
 export function busyReasons(f) {
   const out = [];
@@ -199,9 +249,12 @@ export class OwnServerClient {
     return this.run({ host: this.t.host, user: this.t.user, port: this.t.port, keyPath: this.keyPath(), command, input, timeoutMs });
   }
 
+  get adopt() { return this.t.mode === 'adopt'; }
+
   /** Reads the machine and says, in words, why it will not do. Changes nothing. */
   async validateToken() {
     if (this.t.error) return { ok: false, reason: this.t.error };
+    if (this.adopt) return this.validateAdopt();
     let r;
     try { r = await this.ssh('bash -s', CHECK_SCRIPT, 30_000); } catch (e) { return { ok: false, reason: e.message }; }
     if (r.code !== 0) return { ok: false, reason: sshReason(r, this.t) };
@@ -217,14 +270,42 @@ export class OwnServerClient {
     this.facts = facts;
     if (!facts.sudo) return { ok: false, reason: `the login "${this.t.user}" needs passwordless sudo (cloud servers have it for their default login; on your own machine, add it with visudo)` };
     const busy = busyReasons(facts);
-    if (busy.length) return { ok: false, busy, reason: `this server already runs other things: ${busy.join('; ')}. Setting it up for Crads-AI turns on a firewall that lets in SSH and nothing else and changes how everyone logs in, which would break them, so the app stops here and has changed nothing. Use a server that runs nothing else, or make a new one` };
+    if (busy.length) return { ok: false, busy, reason: `this server already runs other things: ${busy.join('; ')}. Setting it up for Crads-AI alone turns on a firewall that lets in SSH and nothing else and changes how everyone logs in, which would break them, so the app stops here and has changed nothing. If your assistant already lives on this server, choose "${ADOPT_CHOICE}" above and check again; otherwise use a server that runs nothing else, or make a new one` };
     if (facts.os !== 'ubuntu' || !UBUNTU_OK.includes(facts.version)) return { ok: false, reason: `this needs Ubuntu 24.04 (or 22.04); the server runs ${facts.os || 'an unknown system'} ${facts.version}`.trim() };
     if (!['x86_64', 'aarch64'].includes(facts.arch)) return { ok: false, reason: `this needs an Intel/AMD (x86_64) or Arm (aarch64) machine; this one is ${facts.arch || 'unknown'}` };
     if (!facts.systemd) return { ok: false, reason: 'this needs a normal Ubuntu install with systemd' };
     if (!facts.cloudInit) return { ok: false, reason: 'cloud-init is missing; install it on the server with: sudo apt install cloud-init' };
     if (facts.memoryMb < MIN_MEMORY_MB) return { ok: false, reason: `this needs at least 4 GB of memory; the server has about ${Math.round(facts.memoryMb / 1024 * 10) / 10} GB` };
     if (facts.diskGb < MIN_FREE_DISK_GB) return { ok: false, reason: `this needs at least ${MIN_FREE_DISK_GB} GB of free disk; the server has ${facts.diskGb} GB` };
-    return { ok: true, facts };
+    return { ok: true, facts, takeover: { host: this.t.host, changes: TAKEOVER_CHANGES } };
+  }
+
+  // Adopt mode: the read-only probe (adopt-host.mjs). The busy-server guard
+  // does not apply here: a server that runs the person's assistant is busy by
+  // definition. Refusals only as the spec lists them (§ Flow 1).
+  async validateAdopt() {
+    let p;
+    try { p = await probeAdopt(this); } catch (e) { return { ok: false, reason: e.message }; }
+    if (!p.facts) return { ok: false, reason: sshReason(p.r, this.t) };
+    const f = p.facts;
+    this.facts = f;
+    const why = adoptRefusal(f, { login: this.t.user });
+    if (why) return { ok: false, reason: why };
+    return { ok: true, facts: f, adopt: adoptSummary(f) };
+  }
+
+  /**
+   * The setup file for this server. Adopt mode only (null otherwise, and the
+   * engine renders the usual pebble cloud-init): the shared-server setup,
+   * rendered from what the check found (owner, folder, timezone, inventory).
+   */
+  async renderUserData({ boxName, ownerPubKey, image, files }) {
+    if (!this.adopt) return null;
+    if (!this.facts) {
+      const v = await this.validateToken();
+      if (!v.ok) throw new OwnServerError(v.reason, { code: 'not_ready' });
+    }
+    return renderForFacts(this.facts, { boxName, ownerPubKey, image, files, login: this.t.user }).script;
   }
 
   async listLocations() {
@@ -248,9 +329,18 @@ export class OwnServerClient {
   async deleteSshKey() {}
 
   async createServer({ userData }) {
+    // A server used for this alone is taken over; never without the person
+    // having typed this very address (THE TAKEOVER CONFIRMATION above).
+    if (!this.adopt && !confirmsTakeover(this.t, this.t.confirmHost)) {
+      throw new OwnServerError(TAKEOVER_UNCONFIRMED, { code: 'not_confirmed' });
+    }
     if (!this.facts) {
       const v = await this.validateToken();
       if (!v.ok) throw new OwnServerError(v.reason, { code: 'not_ready' });
+    }
+    if (this.adopt) {
+      await setupSharedHost(this, { script: userData });
+      return { id: this.t.host, ip: this.t.host, actionId: null };
     }
     // Docker's install and the first image pull take a few minutes on a small
     // machine; the ceiling is generous, a stall still ends.

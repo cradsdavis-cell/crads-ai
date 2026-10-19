@@ -12,6 +12,17 @@ BOX="$(cd "${1:?usage: start-comms.sh <box>}" && pwd)"
 ENGINE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export CLAUDE_CONFIG_DIR="$BOX/.claude-auth"
 
+# ---- move-in mode (spec 2026-10-17-adopt-existing-server.md § 2) --------------
+# An adopted brain whose own host programs still run it: start NOTHING, not
+# Remote Control, not the kernel daemon, not the Telegram bridge (the host's own
+# bot reader may still be polling the same bot, and two readers steal each
+# other's messages). /move-in clears the flag; the scheduler re-runs this every
+# two minutes, so comms come up on their own once it is cleared. Same line as in
+# box-up.sh and the same test as isMovingIn() in engine/lib/mineral-identity.mjs
+# (pinned by engine/move-in-mode.test.mjs).
+is_moving_in() { grep -Eq '"moving_in"[[:space:]]*:[[:space:]]*true([^A-Za-z0-9_]|$)' "$1/ownership.json" 2>/dev/null; }
+is_moving_in "$BOX" && exit 0
+
 # ---- Remote Control: the assistant from the Claude app on the member's phone ----
 # ON BY DEFAULT (Sam, 2026-10-14), off only by secrets/remote_control_disabled (the
 # app's Phone card). Spec: docs/superpowers/specs/2026-10-14-remote-control-design.md.
@@ -85,11 +96,31 @@ fi
 mkdir -p "$BOX/.kernel"
 
 alive(){ local pf="$1"; [ -f "$pf" ] && kill -0 "$(cat "$pf" 2>/dev/null)" 2>/dev/null; }
-launch(){ # name  script
-  local pf="$BOX/.kernel/$1.pid"
+launch(){ # name  script  [args...]
+  local name="$1" script="$2"; shift 2
+  local pf="$BOX/.kernel/$name.pid"
   alive "$pf" && return 0
-  nohup node "$2" "$BOX" >"$BOX/.kernel/$1.log" 2>&1 &
+  nohup node "$script" "$BOX" "$@" >"$BOX/.kernel/$name.log" 2>&1 &
   echo $! > "$pf"
 }
+stop(){ local pf="$BOX/.kernel/$1.pid"; if alive "$pf"; then kill "$(cat "$pf")" 2>/dev/null || true; fi; rm -f "$pf"; }
 launch kernel   "$ENGINE/kernel/kernel.mjs"      # daemon: drains message + cadence jobs
+# WHO READS THE BOT (adopt spec 2026-10-17 § Telegram). A move-in that carries an
+# existing bot over writes `host` into .kernel/telegram-reader (engine/move-in):
+# the person's own program on the server keeps answering it, and only one program
+# can read a bot's messages (two long-polls steal each other's). So while the
+# marker says host, the bridge is not started, and one already running is stopped
+# (this runs at every start and every two minutes, so a marker written mid-life
+# takes effect within two minutes). The Telegram cutover step removes the marker,
+# and the next pass starts Crads-AI's reader.
+# SENDING still works in that state (rehearsal T4 finding 6): replies and delivered
+# job results reach Telegram only through telegram.mjs's outbox flush, so the same
+# file runs as `--send-only`, which drains the outbox and never calls getUpdates.
+# Move-in mode starts neither (the gate at the top of this file exits first).
+if grep -qx 'host' "$BOX/.kernel/telegram-reader" 2>/dev/null; then
+  stop telegram
+  launch telegram-send "$ENGINE/comms/telegram.mjs" --send-only   # sender only: never reads the bot
+  exit 0
+fi
+stop telegram-send                                 # one sender: the reader flushes the outbox itself
 launch telegram "$ENGINE/comms/telegram.mjs"     # bridge: long-poll + flush replies

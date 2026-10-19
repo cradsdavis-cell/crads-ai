@@ -10,8 +10,19 @@
 // create takes `ssh_keys` ids and `user_data` (64 KiB at most) and answers
 // `droplet` plus `links.actions`, droplet status is new|active|off|archive,
 // and an action is in-progress|completed|errored.
+//
+// ONLY OUR OWN DROPLETS (2026-10-19, after a member who already had a droplet
+// read the build as "trying to override" it). The person's account may hold
+// droplets this app has nothing to do with, and nothing here may act on one.
+// The rules: a create always makes a NEW droplet; every droplet the app makes
+// carries a random run tag, minted for that one create and written into the
+// build record; the lost-answer recovery looks for that run tag and nothing
+// else; and a delete reads the droplet first and refuses unless it carries the
+// record's run tag (a record from before this date: the old `aios-<name>`
+// self-tag). No other droplet is listed, read, matched, renamed or deleted.
 
 import { applyNetDefaults } from '../net-defaults.mjs';
+import { RUN_TAG_RE, newRunTag } from './run-tag.mjs';
 
 const API = 'https://api.digitalocean.com/v2';
 export const USER_DATA_LIMIT = 64 * 1024;
@@ -20,6 +31,17 @@ export const USER_DATA_LIMIT = 64 * 1024;
 // name ("Sydney 1"). The door shows "<city>, <country>" for every provider, so
 // the country comes from this small table rather than a second request.
 const COUNTRY = { nyc: 'US', sfo: 'US', atl: 'US', ams: 'NL', sgp: 'SG', lon: 'GB', fra: 'DE', tor: 'CA', blr: 'IN', syd: 'AU' };
+
+// A run tag: what marks a droplet as made by one particular create (shared
+// with the other cloud clients since 2026-10-19, run-tag.mjs).
+export { RUN_TAG_RE, newRunTag };
+
+// The plain words for the two refusals a member can actually meet at create
+// time. DigitalOcean's own text ("creating this/these droplet(s) will exceed
+// your droplet limit") read, next to a droplet the person already had, as the
+// app trying to replace it.
+export const limitWords = (limit, count) => `${limit == null ? 'Your DigitalOcean account is at its droplet limit' : `Your DigitalOcean account allows ${limit} droplet${limit === 1 ? '' : 's'} and already has ${count}`}. The app makes a new droplet for your assistant and never changes or deletes the ones you already have, so DigitalOcean will not let it make another one. Ask DigitalOcean to raise your droplet limit (from your account settings in the DigitalOcean console), or choose Hetzner instead. Nothing has been changed.`;
+const SCOPE_WORDS = 'DigitalOcean refused this token for that step. The app needs a token with read and write access (Full Access, or a custom token that can create droplets, SSH keys and tags). Make a new token with that access and check again. Nothing has been changed.';
 
 export class DigitalOceanError extends Error {
   constructor(message, { status, code } = {}) {
@@ -74,13 +96,26 @@ export class DigitalOceanClient {
     return data;
   }
 
-  /** Proves the token and that the account may create anything. Read-only. */
+  /**
+   * Proves the token and that the account may create anything. Read-only.
+   * Also reads the account's droplet limit and how many droplets it has (a
+   * count only: GET /droplets?per_page=1 answers meta.total and at most one
+   * droplet, which is never looked at), so a full account is told so in plain
+   * words BEFORE anything is made. A count that cannot be read is not a
+   * reason to stop: the create's own refusal is mapped to the same words.
+   */
   async validateToken() {
     try {
       const d = await this.request('/account');
       const a = d.account || {};
       if (a.status && a.status !== 'active') {
         return { ok: false, reason: `the DigitalOcean account is ${a.status}${a.status_message ? `: ${a.status_message}` : ''}` };
+      }
+      const limit = Number.isInteger(a.droplet_limit) ? a.droplet_limit : null;
+      if (limit != null) {
+        let count = null;
+        try { const t = (await this.request('/droplets?per_page=1')).meta?.total; count = Number.isInteger(t) ? t : null; } catch { count = null; }
+        if (count != null && count >= limit) return { ok: false, plain: true, code: 'droplet_limit', reason: limitWords(limit, count) };
       }
       return { ok: true };
     } catch (e) {
@@ -149,13 +184,18 @@ export class DigitalOceanClient {
     }
   }
 
-  async createServer({ name, serverType, location, image = 'ubuntu-24-04-x64', sshKeyIds, userData }) {
+  async createServer({ name, serverType, location, image = 'ubuntu-24-04-x64', sshKeyIds, userData, runTag = newRunTag() }) {
     if (Buffer.byteLength(String(userData || ''), 'utf8') > USER_DATA_LIMIT) {
       throw new DigitalOceanError(`cloud-init is over DigitalOcean's ${USER_DATA_LIMIT / 1024} KiB user_data limit`, { code: 'user_data_too_large' });
     }
-    // The tag is how a lost create answer is found again (below); one tag per
-    // box name, so a re-run after a dropped socket adopts rather than doubles.
-    const tag = name;
+    if (!RUN_TAG_RE.test(runTag)) throw new DigitalOceanError('internal: a run tag must look like crads-run-<16 hex>', { code: 'bad_run_tag' });
+    // Two tags. The run tag is minted for THIS create alone, so a droplet that
+    // carries it is this create's droplet by construction: that is how a lost
+    // answer is found again (below) and what a delete checks for. The name tag
+    // is only there so the person can find the droplet in their console.
+    // (Until 2026-10-19 the name tag did both jobs, and any droplet tagged
+    // `aios-<name>`, from an earlier run or another computer, would have been
+    // adopted as this run's.)
     let d;
     try {
       d = await this.request('/droplets', {
@@ -164,17 +204,21 @@ export class DigitalOceanClient {
           name, region: location, size: serverType, image,
           ssh_keys: sshKeyIds, user_data: userData,
           ipv6: true, backups: false, monitoring: false, with_droplet_agent: false,
-          tags: [tag],
+          tags: [name, runTag],
         },
       });
     } catch (e) {
+      if (e.status === 422 && /droplet limit/i.test(e.message)) throw new DigitalOceanError(limitWords(), { status: 422, code: 'droplet_limit' });
+      if (e.status === 403) throw new DigitalOceanError(SCOPE_WORDS, { status: 403, code: 'forbidden' });
       if (e.code !== 'network') throw e;
-      // The request may have landed. Adopt by tag if it did; only if nothing
-      // carries the tag is it safe to say the create never happened.
-      const found = await this.request(`/droplets?tag_name=${encodeURIComponent(tag)}&per_page=10`);
-      const dr = (found.droplets || [])[0];
-      if (!dr) throw e;
-      return { id: dr.id, ip: publicIp(dr), actionId: null };
+      // The request may have landed. Adopt by RUN tag if it did; only if
+      // nothing carries it is it safe to say the create never happened. More
+      // than one cannot be ours (a create is never retried), so that stops.
+      const found = await this.request(`/droplets?tag_name=${encodeURIComponent(runTag)}&per_page=10`);
+      const mine = found.droplets || [];
+      if (!mine.length) throw e;
+      if (mine.length > 1) throw new DigitalOceanError(`found ${mine.length} droplets tagged ${runTag}; expected at most one, so the app has not adopted any of them`, { code: 'run_tag_ambiguous' });
+      return { id: mine[0].id, ip: publicIp(mine[0]), actionId: null, runTag };
     }
     const dr = d.droplet;
     const create = (d.links?.actions || []).find((a) => a.rel === 'create');
@@ -182,6 +226,7 @@ export class DigitalOceanClient {
       id: dr.id,
       ip: publicIp(dr),          // usually null at create time; getServer() fills it once active
       actionId: create?.id ?? null,
+      runTag,                    // the engine writes it into the build record; deleteServer checks it
       rootPasswordUnused: null,
     };
   }
@@ -212,8 +257,28 @@ export class DigitalOceanClient {
     return { serverType: dr.size_slug ?? dr.size?.slug ?? null, location: dr.region?.slug ?? null };
   }
 
-  /** destroy-and-retry; a droplet already gone (404) is the outcome wanted. */
-  async deleteServer(id) {
+  /**
+   * destroy-and-retry; a droplet already gone (404) is the outcome wanted.
+   * Reads the droplet first and deletes it ONLY if it carries the build
+   * record's run tag. A record from before run tags (no `runTag`) falls back
+   * to what the app made then: a droplet named `aios-...` tagged with its own
+   * name. Anything else is refused, and nothing is changed.
+   */
+  async deleteServer(id, { runTag } = {}) {
+    let dr;
+    try {
+      dr = (await this.request(`/droplets/${id}`)).droplet;
+    } catch (e) {
+      if (e.status === 404) return;
+      throw e;
+    }
+    const tags = Array.isArray(dr?.tags) ? dr.tags : [];
+    const ours = runTag
+      ? tags.includes(runTag)
+      : /^aios-/.test(String(dr?.name || '')) && tags.includes(dr.name);
+    if (!ours) {
+      throw new DigitalOceanError(`The droplet ${dr?.name ? `"${dr.name}" ` : ''}(id ${id}) does not carry the tag this app put on the droplet it made, so the app has not deleted it. Nothing has been changed. If it is one you no longer want, delete it yourself in the DigitalOcean console.`, { code: 'not_ours' });
+    }
     try {
       await this.request(`/droplets/${id}`, { method: 'DELETE' });
     } catch (e) {

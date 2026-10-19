@@ -11,12 +11,16 @@
 import { writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { LAYERS, initialLayersState } from './layers.mjs';
+import { LAYERS, initialLayersState, doneLayersState } from './layers.mjs';
 
-const stateDir = path.resolve(process.argv[2] || process.env.STATE_DIR || '.');
+const stateDir = path.resolve(process.argv.slice(2).find((a) => !a.startsWith('--')) || process.env.STATE_DIR || '.');
 // onboard.md: a rock brain is detected by org-policy.yaml in the brain root.
 const scope = existsSync(path.join(stateDir, 'org-policy.yaml')) ? 'org' : 'person';
-const state = initialLayersState({ scope });
+// --done: an ADOPTED brain (spec 2026-10-17) arrives already set up, so its
+// onboarding state is written finished (every layer too, not just the phase:
+// layers.mjs doneLayersState) and the app never routes a working brain back
+// into the first-run interview. box-up.sh passes it only when adopted.
+const state = process.argv.includes('--done') ? doneLayersState({ scope }) : initialLayersState({ scope });
 
 await mkdir(stateDir, { recursive: true });
 const out = path.join(stateDir, 'onboarding-state.json');

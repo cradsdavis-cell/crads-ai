@@ -16,6 +16,10 @@ import path from 'node:path';
 const FILE = (stateDir) => path.join(stateDir, 'cockpit', 'run-ledger.jsonl');
 // One row per skill, immune to the ledger's rotation (see appendRun).
 const LASTFILE = (stateDir) => FILE(stateDir).replace(/run-ledger\.jsonl$/, 'last-skill-runs.json');
+// Same idea for scheduled scripts (cockpit/scripts.json): one row per script,
+// carrying the last few output lines the Skills page folds under the row. The
+// tail lives ONLY here; the ledger itself stays one line per run.
+const LASTSCRIPTFILE = (stateDir) => FILE(stateDir).replace(/run-ledger\.jsonl$/, 'last-script-runs.json');
 export const LEDGER_KEEP = 500;      // newest entries kept after rotation
 const ROTATE_AT = LEDGER_KEEP + 100; // rotate lazily, not on every append
 
@@ -33,7 +37,16 @@ export function appendRun(stateDir, entry) {
       summary: oneLine(entry.summary, 200),
       error: entry.status === 'fail' ? oneLine(entry.error, 200) : null,
     };
+    if (entry.script) row.script = String(entry.script);
     appendFileSync(f, JSON.stringify(row) + '\n');
+    if (row.script) {
+      const lf = LASTSCRIPTFILE(stateDir);
+      let last = {};
+      try { last = JSON.parse(readFileSync(lf, 'utf8')) || {}; } catch { last = {}; }
+      const tail = Array.isArray(entry.tail) ? entry.tail.slice(-12).map((l) => String(l).slice(0, 300)) : [];
+      last[row.script] = { ...row, tail, ...(entry.token ? { token: String(entry.token) } : {}) };
+      writeFileSync(lf, JSON.stringify(last, null, 2) + '\n');
+    }
     // A SKILL OUTCOME OUTLIVES ROTATION. The ledger keeps the newest 500 rows,
     // and machinery alone appends ~867 a day on a member box (org-sync fires
     // every even minute), so the visible window is under 14 hours. A skill's
@@ -123,6 +136,15 @@ export function lastOkRunBySkill(stateDir) {
 }
 
 // Newest entry per machinery job name (skill-less rows).
+// Newest run per scheduled script, rotation-proof (the side map), with its
+// output tail. A script whose row has rotated out of the ledger still answers.
+export function lastRunByScript(stateDir) {
+  try {
+    const last = JSON.parse(readFileSync(LASTSCRIPTFILE(stateDir), 'utf8'));
+    return last && typeof last === 'object' && !Array.isArray(last) ? last : {};
+  } catch { return {}; }
+}
+
 export function lastRunByJob(stateDir) {
   const out = {};
   for (const r of readRuns(stateDir)) if (!r.skill) out[r.job] = r;

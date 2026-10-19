@@ -208,5 +208,7 @@ test('a plain pebble with an ownership.json that is NOT tier rock stays a pebble
   const d = build(box);
   assert.equal(d.tier, 'pebble');
   const byId = new Map(d.graph.nodes.map((n) => [n.id, n]));
-  assert.equal(byId.get('people/sam').path, 'people/sam.md', 'pebble paths stay unprefixed');
+  // pebble paths are brain-root-relative since 2026-10-18 (they were wiki-relative):
+  // the point here is the FACE, which must stay pebble, so its node is the pebble shape
+  assert.equal(byId.get('wiki/people/sam').path, 'wiki/people/sam.md', 'pebble paths are relative to the box root, where brain-read stands');
 });

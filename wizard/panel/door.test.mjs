@@ -7,6 +7,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDoorServer } from './door-server.mjs';
+import { confirmsTakeover, TAKEOVER_CHANGES } from '../provision/own-server.mjs';
+import { catalogue } from '../dev-harness/provision-fixture.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -797,4 +799,63 @@ test('every inline script on the door parses', () => {
   const scripts = [...DOOR.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   assert.ok(scripts.length >= 1);
   for (const [i, js] of scripts.entries()) assert.doesNotThrow(() => new Function(js), `inline script ${i} has a syntax error`);
+});
+
+test('building words: a server the person already has is not "created" and has no account', () => {
+  const html = readFileSync(new URL('./door.html', import.meta.url), 'utf8');
+  const fn = html.match(/function shPhaseWords\(phase\)\{([\s\S]*?)\n  \}/);
+  assert.ok(fn, 'the phase line comes from one function');
+  assert.match(fn[1], /ownServer/, 'it asks whether this is a server the person already has');
+  const ownLines = fn[1].split('\n').filter((l) => /own \?/.test(l)).map((l) => l.split(':')[0]);
+  for (const l of ownLines) assert.doesNotMatch(l, /account|created/i, l);
+  assert.match(html, /shPhaseWords\(s\.phase\)/, 'the build screen uses it');
+});
+
+// The takeover confirmation (2026-10-19). A server used for this alone is taken
+// over by setup even when it passes the busy-server check, so the door lists
+// exactly what changes and Build stays off until the person types the address.
+const fnSrc = (name) => {
+  const m = DOOR.match(new RegExp(`function ${name}\\([^)]*\\)\\{[^\\n]*\\}`));
+  assert.ok(m, `door.html no longer carries ${name}() on one line`);
+  return m[0];
+};
+
+test('door: a server used for this alone shows what setup changes and asks for its address', () => {
+  for (const id of ['shTakeover', 'shTakeoverHead', 'shTakeoverList', 'shTakeoverLabel', 'shTakeoverHost']) assert.match(DOOR, new RegExp(`id="${id}"`), `#${id}`);
+  // the list is the check's own answer, escaped, never a copy in the page
+  assert.match(DOOR, /shTakeoverList'\)\.innerHTML = \(t\.changes \|\| \[\]\)\.map\(function\(c\)\{ return '<li>' \+ esc\(c\)/);
+  for (const line of TAKEOVER_CHANGES) assert.ok(!DOOR.includes(line), 'the page renders the list, it does not carry its own');
+  // shown only for an own server that is not adopt, from the validate answer
+  assert.match(DOOR, /if \(own && x\.d\.takeover && !x\.d\.adopt\) shTakeoverShow\(x\.d\.takeover\);/);
+  // Build is off while it is shown, and the typed address alone turns it on
+  const show = DOOR.slice(DOOR.indexOf('function shTakeoverShow'), DOOR.indexOf("getElementById('shTakeoverHost').addEventListener"));
+  assert.match(show, /shBuildBtn'\)\.disabled = true/);
+  assert.match(DOOR, /getElementById\('shTakeoverHost'\)\.addEventListener\('input', function\(\)\{\s*document\.getElementById\('shBuildBtn'\)\.disabled = !shSameHost\(this\.value, shTakeoverHost\);/);
+  // a new check, another provider, or another sign-in mode forgets the confirmation
+  assert.equal((DOOR.match(/shTakeoverReset\(\);/g) || []).length >= 3, true);
+  const pick = DOOR.slice(DOOR.indexOf('function shPickProvider'), DOOR.indexOf('shRenderProviders();', DOOR.indexOf('function shPickProvider')));
+  assert.match(pick, /shTakeoverReset\(\)/);
+  // the start carries the typed address, and refuses to send without a match
+  const start = DOOR.slice(DOOR.indexOf('function shStart'), DOOR.indexOf("fetch('/provision/start'"));
+  assert.match(start, /confirm_host: shTakeoverHost \? typedHost : undefined/);
+  assert.match(start, /if \(shTakeoverHost && !shSameHost\(typedHost, shTakeoverHost\)\) \{[^}]*return; \}/);
+});
+
+test('door: the typed address matches exactly when the server would accept it', () => {
+  // the page's matcher, run as written, against own-server.mjs confirmsTakeover
+  const same = new Function(`${fnSrc('shNormalHost')}\n${fnSrc('shSameHost')}\nreturn shSameHost;`)();
+  const cases = [
+    ['203.0.113.10', '203.0.113.10'], [' 203.0.113.10 ', '203.0.113.10'], ['Box.Example.com', 'box.example.com'],
+    ['[2001:db8::1]', '2001:db8::1'], ['203.0.113.1', '203.0.113.10'], ['203.0.113.100', '203.0.113.10'],
+    ['', '203.0.113.10'], ['', ''], ['mel', '203.0.113.10'],
+  ];
+  for (const [typed, host] of cases) assert.equal(same(typed, host), confirmsTakeover({ host }, typed), `${typed} vs ${host}`);
+});
+
+test('door: the page\'s fixture answers the takeover for an own server, and only there', () => {
+  assert.deepEqual(catalogue('own').takeover, { host: '203.0.113.10', changes: TAKEOVER_CHANGES });
+  assert.equal(catalogue('hetzner').takeover, undefined);
+  const block = DOOR.slice(DOOR.indexOf('<div id="shTakeover"'), DOOR.indexOf('id="shCheckBtn"'));
+  assert.ok(!block.includes('\u2014'), 'no em dash in the confirmation copy');
+  assert.match(block, /the app does not undo them later/);
 });

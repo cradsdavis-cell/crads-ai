@@ -25,6 +25,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PASS_ENV, encryptArgs, decryptArgs } from './lib/snapshot-cipher.mjs';
+import { isAdopted, isMovingIn } from './lib/mineral-identity.mjs';
+import { gitOpInProgressSync } from './kernel/lib/git.mjs';
 
 const stateDir = path.resolve(process.argv[2] || process.env.STATE_DIR || '.');
 if (!existsSync(path.join(stateDir, 'profile.yaml'))) {
@@ -32,7 +34,11 @@ if (!existsSync(path.join(stateDir, 'profile.yaml'))) {
   process.exit(2);
 }
 const ENGINE = path.dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = path.join(stateDir, 'backups');
+// An ADOPTED brain (spec 2026-10-17) may already have a backups/ of its own (the
+// first one tracks an encrypted snapshot there), so ours goes one level down and
+// theirs is never touched. Pebbles keep backups/, where restore.mjs looks.
+const OUT_REL = isAdopted(stateDir) ? path.join('backups', 'crads') : 'backups';
+const OUT_DIR = path.join(stateDir, OUT_REL);
 const OUT = path.join(OUT_DIR, 'state-snapshot.tar.gz.enc');
 const HEARTBEAT = path.join(OUT_DIR, 'heartbeat.json');
 
@@ -126,12 +132,22 @@ try {
   // ride the brain repo offsite (client-owned remote, per connect-github). Best-effort:
   // box-up's commit-on-exit also sweeps backups/; no remote => local-only, heartbeat says so.
   let offsite = false;
+  // Adopted: a person works in this repo. Their rebase or merge in progress is
+  // theirs (no commit lands on it; the blob waits for tomorrow), and whatever
+  // they have staged is not ours to commit under a backup message, so the commit
+  // names our path only. Pebbles keep the plain commit they always made.
+  const adopted = OUT_REL !== 'backups';
+  const held = adopted && gitOpInProgressSync(stateDir);
   try {
-    sh('git', ['-C', stateDir, 'add', '--', 'backups/']);
+    if (held) throw new Error(`a ${held} is in progress in this brain`);
+    // Move-in mode (and Move out, which sets it again before stopping anything):
+    // the snapshot is written, nothing is committed or pushed.
+    if (isMovingIn(stateDir)) throw new Error('moving in: nothing is committed');
+    sh('git', ['-C', stateDir, 'add', '--', OUT_REL + '/']);
     // An explicit identity, as every other engine commit carries: without one a box
     // (or a CI runner) with no global git identity fails this commit silently, and
     // the snapshot only reached GitHub with the 03:50 brain push (found 2026-10-13).
-    try { sh('git', ['-C', stateDir, '-c', 'user.name=AI OS kernel', '-c', 'user.email=kernel@ai-os.local', 'commit', '-q', '-m', `backup: nightly state snapshot ${new Date().toISOString().slice(0, 10)}`]); } catch { /* nothing new staged */ }
+    try { sh('git', ['-C', stateDir, '-c', 'user.name=AI OS kernel', '-c', 'user.email=kernel@ai-os.local', 'commit', '-q', '-m', `backup: nightly state snapshot ${new Date().toISOString().slice(0, 10)}`, ...(adopted ? ['--', OUT_REL + '/'] : [])]); } catch { /* nothing new staged */ }
     const remotes = sh('git', ['-C', stateDir, 'remote']).trim();
     if (remotes) { sh('git', ['-C', stateDir, 'push', '-q']); offsite = true; }
   } catch { /* commit/push best-effort — heartbeat carries the truth */ }

@@ -29,8 +29,18 @@ test('box-up.sh never branches on the box tier: promotion must not change what b
   assert.ok(!/\btier\b/.test(EXEC), 'no executable reference to tier');
   assert.ok(!/\brock\b/.test(EXEC), 'no executable reference to rock');
   // the ownership record is seed-pages' business (idempotent backstop), never a
-  // boot-time branch condition
-  assert.ok(!/ownership\.json/.test(EXEC.replace(/seed-pages\.mjs[^\n]*/, '')), 'ownership.json must not gate boot flow');
+  // boot-time branch condition on the TIER. The one exception is `is_adopted`
+  // (spec 2026-10-17): adopted is a different axis from tier (a server the person
+  // already had, not a promotion), it reads exactly the `adopted` field, and
+  // engine/adopted-brain.test.mjs pins that line identical across the scripts.
+  // `is_moving_in` (same spec, move-in mode) is the second: it reads exactly the
+  // `moving_in` field and gates only the commit-on-exit; engine/move-in-mode.test.mjs
+  // pins it identical to start-comms.sh's.
+  const isAdoptedLine = (EXEC.match(/^is_adopted\(\) \{[^\n]*$/m) || [''])[0];
+  const isMovingInLine = (EXEC.match(/^is_moving_in\(\) \{[^\n]*$/m) || [''])[0];
+  assert.ok(!/tier|rock/.test(isAdoptedLine), 'is_adopted must not read the tier');
+  assert.ok(!/tier|rock/.test(isMovingInLine), 'is_moving_in must not read the tier');
+  assert.ok(!/ownership\.json/.test(EXEC.replace(/seed-pages\.mjs[^\n]*/, '').replace(isAdoptedLine, '').replace(isMovingInLine, '')), 'ownership.json must not gate boot flow');
 });
 
 test('the personal seat has three legs, and all three live in the member entrypoint', () => {

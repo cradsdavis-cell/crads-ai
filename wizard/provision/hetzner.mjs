@@ -5,10 +5,26 @@
 // host: api.hetzner.cloud. Nothing here phones any Crads service; there is no
 // Crads service left to phone. Ownership by construction: the only SSH key on
 // the box from first boot is the user's (see selfhost-cloudinit.mjs).
+//
+// ONLY OUR OWN SERVERS (2026-10-19, the same rule digitalocean.mjs got that
+// day). The person's project may hold servers this app has nothing to do
+// with, and nothing here may act on one. Every server the app makes carries a
+// label minted for that one create, `crads-run=<16 hex>` (the build record
+// keeps it as `runTag`, `crads-run-<16 hex>`, the same shape on every
+// provider); a lost create answer is found again by that label and nothing
+// else; and a delete reads the server first and refuses unless it carries the
+// record's label (a record from before this date: a server named `aios-...`,
+// the only mark the app made then). No other server is listed, matched,
+// renamed or deleted.
 
 import { applyNetDefaults } from '../net-defaults.mjs';
+import { RUN_TAG_RE, newRunTag } from './run-tag.mjs';
 
 const API = 'https://api.hetzner.cloud/v1';
+// The label key a server's run mark rides under. Hetzner label values take
+// letters, digits, dashes, underscores and dots, up to 63 characters.
+export const RUN_LABEL = 'crads-run';
+const runLabelValue = (runTag) => runTag.slice('crads-run-'.length);
 
 export class HetznerError extends Error {
   constructor(message, { status, code } = {}) {
@@ -183,24 +199,43 @@ export class HetznerClient {
     }
   }
 
-  async createServer({ name, serverType, location, image = 'ubuntu-24.04', sshKeyIds, userData }) {
+  async createServer({ name, serverType, location, image = 'ubuntu-24.04', sshKeyIds, userData, runTag = newRunTag() }) {
+    if (!RUN_TAG_RE.test(runTag)) throw new HetznerError('internal: a run tag must look like crads-run-<16 hex>', { code: 'bad_run_tag' });
     const imageRef = await this.resolveImage(image, serverType);
-    const d = await this.request('/servers', {
-      method: 'POST',
-      body: {
-        name,
-        server_type: serverType,
-        location,
-        image: imageRef,
-        ssh_keys: sshKeyIds,
-        user_data: userData,
-        public_net: { enable_ipv4: true, enable_ipv6: true },
-      },
-    });
+    let d;
+    try {
+      d = await this.request('/servers', {
+        method: 'POST',
+        body: {
+          name,
+          server_type: serverType,
+          location,
+          image: imageRef,
+          ssh_keys: sshKeyIds,
+          user_data: userData,
+          public_net: { enable_ipv4: true, enable_ipv6: true },
+          labels: { [RUN_LABEL]: runLabelValue(runTag) },
+        },
+      });
+    } catch (e) {
+      // A dropped socket is retried blind (request() above), so a create that
+      // landed the first time answers 409 on the retry; three dropped sockets
+      // answer 'network'. Either way the server may exist: adopt it by THIS
+      // create's label and nothing else. A 409 from a server of the same name
+      // that does not carry the label (an earlier run, another computer, the
+      // person's own) finds nothing and stands as Hetzner's own refusal.
+      if (e.code !== 'network' && e.code !== 'uniqueness_error') throw e;
+      const found = await this.request(`/servers?label_selector=${encodeURIComponent(`${RUN_LABEL}=${runLabelValue(runTag)}`)}&per_page=10`);
+      const mine = found.servers || [];
+      if (!mine.length) throw e;
+      if (mine.length > 1) throw new HetznerError(`found ${mine.length} servers labelled ${RUN_LABEL}=${runLabelValue(runTag)}; expected at most one, so the app has not adopted any of them`, { code: 'run_tag_ambiguous' });
+      return { id: mine[0].id, ip: mine[0].public_net?.ipv4?.ip ?? null, actionId: null, runTag, rootPasswordUnused: null };
+    }
     return {
       id: d.server.id,
       ip: d.server.public_net?.ipv4?.ip ?? null,
       actionId: d.action?.id ?? null,
+      runTag,                    // the engine writes it into the build record; deleteServer checks it
       rootPasswordUnused: null, // ssh_keys present ⇒ Hetzner sets no root password
     };
   }
@@ -228,9 +263,34 @@ export class HetznerClient {
     return { serverType: d.server.server_type?.name ?? null, location: d.server.datacenter?.location?.name ?? null };
   }
 
-  /** The retry-from-a-half-created-state path. Only ever the user's own metal. */
-  async deleteServer(id) {
-    await this.request(`/servers/${id}`, { method: 'DELETE' });
+  /**
+   * The retry-from-a-half-created-state path, and Remove, delete-after-move
+   * and team leavers, which all come through here. A server already gone
+   * (404) is the outcome wanted. Reads the server first and deletes it ONLY
+   * if it carries the build record's run label. A record from before run
+   * labels (no `runTag`) falls back to the one mark the app made then, a name
+   * starting `aios-`. Anything else is refused, and nothing is changed.
+   */
+  async deleteServer(id, { runTag } = {}) {
+    let s;
+    try {
+      s = (await this.request(`/servers/${id}`)).server;
+    } catch (e) {
+      if (e.status === 404) return;
+      throw e;
+    }
+    const labels = s?.labels && typeof s.labels === 'object' ? s.labels : {};
+    const ours = runTag
+      ? RUN_TAG_RE.test(runTag) && labels[RUN_LABEL] === runLabelValue(runTag)
+      : /^aios-/.test(String(s?.name || ''));
+    if (!ours) {
+      throw new HetznerError(`The server ${s?.name ? `"${s.name}" ` : ''}(id ${id}) does not carry the label this app put on the server it made, so the app has not deleted it. Nothing has been changed. If it is one you no longer want, delete it yourself in the Hetzner console.`, { code: 'not_ours' });
+    }
+    try {
+      await this.request(`/servers/${id}`, { method: 'DELETE' });
+    } catch (e) {
+      if (e.status !== 404) throw e;
+    }
   }
 
   /** Someone left a team (2026-10-11): their box's owner key goes too. Already gone is done. */

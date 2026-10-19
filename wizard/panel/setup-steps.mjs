@@ -61,6 +61,12 @@ export function parseAssistant(out, claudeSignedIn) {
 
 // user:token@ (or token@) in an https remote is a credential; the display
 // string must shed it, same discipline as member-console-state's read.
+// A remote the box cannot use is not "connected": an adopted brain's origin can
+// be an SSH alias only the host knows, or a folder on the host, and the nightly
+// push runs inside the container (shadow test on Oracle, 2026-10-19: the door
+// said "From here it keeps itself current, every night" for such a remote).
+import { remoteReach } from '../../engine/move-in/lib.mjs';
+
 export const stripRepoUrl = (u) => String(u || '')
   .replace(/\/\/[^@/]*@/, '//')
   .replace(/\.git$/, '');
@@ -92,7 +98,11 @@ export function setupStepsRoutes({ resolveHost = () => null, probe } = {}) {
       const url = (out.match(/^SETUP_GITHUB (.+)$/m) || [])[1] || '';
       json(200, {
         reachable: true,
-        github: { connected: !!url, repo: url ? stripRepoUrl(url.trim()) : '' },
+        github: (() => {
+          const reach = url ? remoteReach(url.trim()) : { usable: null };
+          const usable = !!url && reach.usable !== false;
+          return { connected: usable, repo: url ? stripRepoUrl(url.trim()) : '', ...(url && !usable ? { why: reach.why } : {}) };
+        })(),
         // kept for one release: the app exe and the images ship independently, and an
         // older door reads only this
         claude: { signedIn: /SETUP_CLAUDE_OK/.test(out) },

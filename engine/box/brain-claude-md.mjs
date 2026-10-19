@@ -56,6 +56,8 @@
 import { readFileSync, writeFileSync, lstatSync } from 'node:fs';
 import path from 'node:path';
 import { resolveBrainRoot, isOrgBox } from '../lib/brain-root.mjs';
+import { isAdopted } from '../lib/mineral-identity.mjs';
+import { ADOPTED_STATE_MD } from './state-md.mjs';
 import { isMain } from '../lib/is-main.mjs';
 
 // Matched by PREFIX, so the human note inside the start marker can be reworded
@@ -78,9 +80,12 @@ const READ_WHEN = [
   ['7-tasks', 'what they are working on right now'],
 ];
 
-/** The block, pure. `prefix` is the brain root relative to the CLAUDE.md folder ('' on a pebble). */
-export function buildBrainSection({ prefix = '' } = {}) {
+/** The block, pure. `prefix` is the brain root relative to the CLAUDE.md folder ('' on a pebble).
+ *  `stateMd` is where the engine's STATE.md is, relative to the same folder: `${prefix}STATE.md`
+ *  by default, ADOPTED_STATE_MD ('.kernel/STATE.md') on an adopted brain (state-md.mjs). */
+export function buildBrainSection({ prefix = '', stateMd } = {}) {
   const p = prefix ? `${prefix.replace(/\/+$/, '')}/` : '';
+  const sm = stateMd || `${p}STATE.md`;
   const layer = (id) => `${p}wiki/_layers/${id}.md`;
   return [
     START_LINE,
@@ -102,7 +107,7 @@ export function buildBrainSection({ prefix = '' } = {}) {
     ...READ_WHEN.map(([id, what]) => `- \`${layer(id)}\`: ${what.replace('{p}', p)}`),
     '',
     `For a question about this mineral itself (its name, connections, devices,`,
-    `skills or backups), read \`${p}STATE.md\` first.`,
+    `skills or backups), read \`${sm}\` first.`,
     '',
     `If \`${p}wiki/_layers/\` has no pages yet, the interview has not happened. Say so,`,
     'offer to start it with `/onboard`, and do not guess at who they are.',
@@ -148,7 +153,7 @@ export function ensureBrainClaudeMd(stateDir = '/state', { env = process.env } =
   if (st && st.isSymbolicLink()) return { action: 'skipped', file, reason: 'CLAUDE.md is a symlink; not writing through it' };
   if (st && !st.isFile()) return { action: 'skipped', file, reason: 'CLAUDE.md is not a regular file' };
   const before = st ? readFileSync(file, 'utf8') : '';
-  const { text, malformed } = upsertBrainSection(before, buildBrainSection({ prefix }));
+  const { text, malformed } = upsertBrainSection(before, buildBrainSection({ prefix, ...(isAdopted(stateDir) ? { stateMd: ADOPTED_STATE_MD } : {}) }));
   if (malformed) return { action: 'skipped', file, reason: 'the brain-layers markers are broken or doubled; left as the member has it' };
   if (st && text === before) return { action: 'kept', file };
   writeFileSync(file, text);

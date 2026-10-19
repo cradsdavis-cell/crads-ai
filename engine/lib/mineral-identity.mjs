@@ -46,6 +46,40 @@ export function readOwnership(stateDir) {
   try { return JSON.parse(readFileSync(fileOf(stateDir), 'utf8')); } catch { return {}; }
 }
 
+/**
+ * An ADOPTED brain is a server and brain the person already had, taken over by
+ * the app (spec 2026-10-17-adopt-existing-server.md). It keeps its own skills,
+ * branch, tracked .claude/ and cockpit/, and its own backups/, so the engine
+ * bends around it wherever this is true. Exactly `true`, never truthy: every
+ * pebble lacks the field, and a pebble must behave byte-for-byte as before.
+ * The shell scripts carry the same test as one identical grep line
+ * (`is_adopted`, no interpreter needed), pinned to agree with this one by
+ * engine/adopted-brain.test.mjs.
+ */
+export function isAdopted(stateDir) {
+  return readOwnership(stateDir).adopted === true;
+}
+
+/**
+ * MOVE-IN MODE (spec 2026-10-17-adopt-existing-server.md § 2): host setup
+ * writes `"moving_in": true` into an adopted brain's ownership.json before the
+ * container first starts, and /move-in clears it once every step is done or
+ * skipped. While it is set the container is up and the app can open the
+ * brain, but nothing ACTS: the scheduler fires no job (machinery, skills and
+ * scripts alike), the kernel drains nothing, commits nothing and syncs no
+ * skills, start-comms starts nothing, and box-up does not commit or push on
+ * exit. The person's own host jobs are still running the brain at that point,
+ * so a second actor on the same folder is exactly what must not happen.
+ * Exactly `true`, like isAdopted. Read fresh by every caller, never cached, so
+ * clearing the flag lets everything run from the next start (the scheduler
+ * picks it up within a minute). The shell twin is `is_moving_in`, one
+ * identical line in start-comms.sh and box-up.sh, pinned to agree by
+ * engine/move-in-mode.test.mjs.
+ */
+export function isMovingIn(stateDir) {
+  return readOwnership(stateDir).moving_in === true;
+}
+
 function write(stateDir, rec) {
   try { mkdirSync(stateDir, { recursive: true }); } catch { /* exists */ }
   writeFileSync(fileOf(stateDir), JSON.stringify(rec, null, 2) + '\n');

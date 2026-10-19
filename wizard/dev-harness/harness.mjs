@@ -341,14 +341,14 @@ const server = createServer(async (req, res) => {
       sendJson(res, { direction: r.direction, from: r.from, to: r.to, phase: done ? 'done' : 'running', steps: steps.slice(0, n), error: null,
         result: !done ? null : r.direction === 'up'
           ? { ok: true, direction: 'up', to: r.to, commit: 'c0ffee1c0ffee1c0ffee1c0ffee1c0ffee1c0ffe', files: 58, via: 'ssh', restored: ['cockpit/cadence.json', 'secrets/telegram_bot_token'], verified: true }
-          : { ok: true, direction: 'down', from: r.from, path: r.to, alias: FX.LOCAL_HOST, slug: 'sam', name: 'Sam', commit: '71aeccf71aeccf71aeccf71aeccf71aeccf71aec', files: 61, verified: true, deletable: true,
+          : { ok: true, direction: 'down', from: r.from, path: r.to, alias: FX.LOCAL_HOST, slug: 'pat', name: 'Sam', commit: '71aeccf71aeccf71aeccf71aeccf71aeccf71aec', files: 61, verified: true, deletable: true,
             paused: [{ id: 'morning-brief', words: 'Morning brief', detail: 'daily at 07:00, sent to Telegram' }, { id: 'telegram', words: 'Telegram', detail: 'your bot and its chat, kept as they were' }],
             connections: { carried: ['notion'], signIn: ['notion'], needsServer: [] } } });
       return;
     }
     if (req.method === 'GET' && path === '/move/plan') {
       const from = url.searchParams.get('from') || '';
-      sendJson(res, /-local$/.test(from) ? { direction: 'up', from, slug: 'sam', name: 'Sam', path: FX.LOCAL_PATH }
+      sendJson(res, /-local$/.test(from) ? { direction: 'up', from, slug: 'pat', name: 'Sam', path: FX.LOCAL_PATH }
         : { direction: 'down', from, slug: from.replace(/-box$/, ''), name: from.replace(/-box$/, ''), default_path: '/home/mel/Crads-AI/' + from.replace(/-box$/, ''), provider: 'Hetzner', built_here: true });
       return;
     }
@@ -361,12 +361,29 @@ const server = createServer(async (req, res) => {
     if (path === '/move/delete') { sendJson(res, { ok: true, destroyed: true, server: body.confirm, forgot: true }); return; }
     sendJson(res, { error: 'unknown' }, 404); return;
   }
-  if (req.method === 'GET' && path === '/local/status') { sendJson(res, { brains: face === 'local' ? [{ alias: FX.LOCAL_HOST, slug: 'sam', name: 'Sam', path: FX.LOCAL_PATH, state: 'brain' }] : [] }); return; }
+  if (req.method === 'GET' && path === '/local/status') { sendJson(res, { brains: face === 'local' ? [{ alias: FX.LOCAL_HOST, slug: 'pat', name: 'Sam', path: FX.LOCAL_PATH, state: 'brain' }] : [] }); return; }
   if (req.method === 'GET' && path === '/local/setup-steps') {
     sendJson(res, { reachable: true, github: pageParam(req, 'setup') === 'done' ? { connected: true, repo: 'github.com/sam/sam-brain' } : { connected: false, repo: '' }, claude: null, path: FX.LOCAL_PATH });
     return;
   }
 
+  // Move in's server steps (panel-server /move-in/*): the harness never has a server
+  if (req.method === 'POST' && path === '/move-in/host-step') {
+    const b = await readBody(req);
+    if (b.action === 'check') { sendJson(res, { ok: true, said: 'Your server shows telegram-chat.service switched on and running, as it was.' }); return; }
+    sendJson(res, b.id === 'cutover-script-money-state' && b.action === 'apply'
+      ? { ok: false, error: 'Run money-state once from the Move in page first, and check it did what the server\'s copy does. It has not finished a run inside your mineral yet.' }
+      : { ok: true, said: `${b.id} ${b.action === 'undo' ? 'undone' : 'done'}.` });
+    return;
+  }
+  if (req.method === 'POST' && path === '/move-in/move-out') {
+    await readBody(req);
+    sendJson(res, { ok: true, said: ['telegram-carry reversed on your mineral', 'the Crads-AI setup is off your server'],
+      words: 'These stay in your folder: cockpit/move-in.json and move-in.md (the move-in plan), ownership.json (marks your folder as adopted), .kernel/move-in/ (the server inventory and undo records, never committed).\n'
+        + 'Crads-AI made 2 commits in your repository before you moved out. They stay in your git history; nothing was rewritten:\n  3f2a9c1 kernel: session\n  8be04d7 sync: nightly backup 2026-10-18\n'
+        + 'To take one back out without rewriting anything, run git revert with its id.' });
+    return;
+  }
   if (req.method === 'POST' && path === '/run') {
     const form = await readBody(req);
     // ?signedout=1 on the PAGE url (read via referer, same idiom as ?world=org)
@@ -382,7 +399,12 @@ const server = createServer(async (req, res) => {
     // from a server (schedule and Telegram paused), or one a move up left behind
     const paused = /[?&]paused=1/.test(String(req.headers.referer || ''));
     const moved = /[?&]moved=1/.test(String(req.headers.referer || ''));
-    const result = FX.runVerb(surface, String(form.verb || ''), form.args, state, { signedOut, face, thinks, nocli, team, paused, moved });
+    // ?brain=adopted on the PAGE url (2026-10-18): the brain verbs and the graph run
+    // the REAL code against a brain with no wiki/ (fixtures.mjs adoptedBrain)
+    const brain = (String(req.headers.referer || '').match(/[?&]brain=(adopted)/) || [])[1] || '';
+    // ?movein=1|done on the PAGE url (2026-10-18): an adopted server mid move-in, or after it
+    const movein = (String(req.headers.referer || '').match(/[?&]movein=(1|done|half)/) || [])[1] || '';
+    const result = FX.runVerb(surface, String(form.verb || ''), form.args, state, { signedOut, face, thinks, nocli, team, paused, moved, brain, movein });
     streamRun(res, result);
     return;
   }

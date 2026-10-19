@@ -68,6 +68,27 @@ add('door', '/door?state=empty', { waitMs: 2500, suffix: 'empty' });   // fresh 
 add('door', '/door?state=error', { waitMs: 2500, suffix: 'error' });   // boxes not answering: the machine list must still stand
 // (the connect / wizard / join surfaces were deleted 2026-09-01; their shots
 // went with them)
+// The "A server you already have" card's question (2026-10-18, adopt): both
+// answers, the folder field the Yes answer adds, and what the check says back.
+async function ownAdopt(page) {
+  await page.click('[data-make="selfhost"]');
+  await page.waitForTimeout(800);
+  await page.click('[data-provider="own"]');
+  await page.click('#shCostsOk');
+  await page.waitForTimeout(300);
+  await page.fill('#shName', 'idris');
+  await page.fill('input[data-cred="host"]', '203.0.113.10');
+  await page.fill('input[data-cred="user"]', 'pat');
+  await page.check('input[data-mode="adopt"]');
+  await page.fill('input[data-cred="brainRoot"]', '~/second-brain');
+  await page.waitForTimeout(200);
+}
+add('door-own-adopt', '/door?state=empty', { waitMs: 2500, after: ownAdopt });
+add('door-own-adopt-checked', '/door?state=empty', { waitMs: 2500, after: async (page) => {
+  await ownAdopt(page);
+  await page.click('#shCheckBtn');
+  await page.waitForTimeout(1200);
+} });
 
 // suffix goes before the theme in the filename: panel-light-empty.png
 for (const s of SHOTS) if (s.suffix) s.name = s.name.replace(/-(light|dark)$/, (m, t) => `-${t}-${s.suffix}`);

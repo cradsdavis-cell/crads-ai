@@ -513,6 +513,57 @@
   .stab{border:1px solid var(--line);background:var(--card);color:var(--soft-2);border-radius:999px;font-size:12.5px;font-family:inherit;padding:6px 14px;cursor:pointer}
   .stab.on{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 8%,var(--card));color:var(--ink);font-weight:550}
   #skillsGroups .cadrow{cursor:pointer}
+  /* Scripts on a schedule (spec 2026-10-17 adopt): the second list on the
+     Skills page. Same row, same drawer, same editor as a skill row. */
+  #scriptsBox{max-width:760px;margin-top:30px}
+  #scriptsList .cadrow{cursor:pointer;flex-wrap:wrap}
+  #scriptsList .scmd{font-family:var(--mono);font-size:12px;color:var(--soft);background:var(--card-2);border:1px solid var(--line);border-radius:7px;padding:6px 9px;margin-top:8px;overflow-wrap:anywhere}
+  #scriptsList .scproblem{color:var(--bad);font-size:12.5px;margin-top:6px;line-height:1.5}
+  #scriptsList details.sctail{margin-top:8px;font-size:12.5px;color:var(--soft-2)}
+  #scriptsList details.sctail summary{cursor:pointer}
+  #scriptsList details.sctail pre{font-family:var(--mono);font-size:11.5px;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--card-2);border:1px solid var(--line);border-radius:7px;padding:8px 10px;margin:6px 0 0;color:var(--ink)}
+  #scriptsList .toggle.locked{opacity:.45;cursor:not-allowed}
+  body[data-face="local"] #scriptsBox{display:none !important}
+  /* Move in (spec 2026-10-17 adopt § 3, § App surfaces): an adopted server's
+     plan, shown only while ownership.json says moving_in. Hidden on the local
+     face: a folder on this computer has no server to move in from. */
+  body[data-face="local"] #moveInNav,body[data-face="local"] section[data-sec="movein"]{display:none !important}
+  #miBody{max-width:780px}
+  .misum{font-size:13.5px;color:var(--soft);margin:0 0 14px;line-height:1.55}
+  .miacts{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 6px}
+  .migroup{margin-top:26px}
+  .migroup>h3{font-size:14.5px;font-weight:650;margin:0 0 4px}
+  .migroup>.hint{margin:0 0 10px}
+  .mistep{background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);padding:14px 16px;margin:0 0 10px;box-shadow:var(--shadow-1)}
+  .mistep[data-state="done"]{border-left:3px solid var(--good)}
+  .mistep[data-state="approved"]{border-left:3px solid var(--accent)}
+  .mistep[data-state="skipped"]{opacity:.72}
+  .mistep .mihead{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}
+  .mistep .mihead .nm{font-weight:600;font-size:14px;flex:1 1 260px;line-height:1.4}
+  .mistep .what{font-size:13.5px;line-height:1.55;margin:6px 0 0}
+  .mistep .why{font-size:12.5px;line-height:1.55;color:var(--soft-2);margin:6px 0 0}
+  .mistep .src{font-family:var(--mono);font-size:11.5px;color:var(--soft);background:var(--card-2);border:1px solid var(--line);border-radius:7px;padding:6px 9px;margin-top:8px;overflow-wrap:anywhere;white-space:pre-wrap}
+  .mistep ul.midet{margin:8px 0 0;padding-left:18px;font-size:12.5px;line-height:1.55;color:var(--soft)}
+  .mistep .mibtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .mistep[data-half]{border-left:3px solid var(--bad)}
+  .mistep .mihalf{flex-basis:100%;font-size:13px;line-height:1.5;color:var(--ink)}
+  .mistep .mihalf.seen{color:var(--soft);font-size:12.5px;margin-bottom:2px}
+  .mistep .minote{font-size:12.5px;line-height:1.5;margin-top:8px;color:var(--ink);white-space:pre-wrap}
+  .mistep .minote.bad{color:var(--bad)}
+  .chip.side{color:var(--soft)}
+  .chip.st-approved{color:color-mix(in srgb,var(--accent) 80%,var(--ink));border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+  ul.mistill{list-style:none;margin:0;padding:0}
+  ul.mistill li{border-bottom:1px solid var(--line);padding:9px 0;font-size:13px;line-height:1.5}
+  ul.mistill li:last-child{border-bottom:0}
+  ul.mistill li .nm{font-weight:600}
+  ul.mistill li .sub{color:var(--soft-2);font-size:12.5px}
+  .mimove{margin-top:34px;border:1px solid var(--line);border-left:3px solid var(--bad);border-radius:var(--r-card);background:var(--card);padding:14px 16px}
+  .mimove h3{font-size:14.5px;margin:0 0 4px}
+  .mimove p{font-size:13px;line-height:1.55;color:var(--soft);margin:0 0 10px}
+  .mimove .miconfirm{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  .mimove.asking .miconfirm{display:block}
+  .act.danger{border-color:color-mix(in srgb,var(--bad) 55%,var(--line-2));color:var(--bad)}
+  .act.danger.primary{background:var(--bad);border-color:var(--bad);color:#fff}
   /* Rocks, rebuilt 2026-08-10: the roster reuses the skill row's drawer shape,
      so a rock opens exactly the way a skill does and there is one interaction
      to learn. The anchor is the only row allowed to look different: it hosts
@@ -1492,6 +1543,10 @@
     <nav id="nav">
       <button data-sec="dashboard" class="on"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="1.5" width="5.4" height="5.4" rx="1.5"/><rect x="9.1" y="1.5" width="5.4" height="5.4" rx="1.5"/><rect x="1.5" y="9.1" width="5.4" height="5.4" rx="1.5"/><rect x="9.1" y="9.1" width="5.4" height="5.4" rx="1.5"/></svg>Overview</button>
       <button data-sec="seat"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 13.2v-1.4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1.4"/><circle cx="8" cy="5.4" r="2.4"/></svg><span id="seatNavLabel">Your mineral</span></button>
+      <!-- Move in (spec 2026-10-17 adopt § App surfaces): only while the mineral's
+           ownership.json says moving_in (an adopted server). A house with a way in:
+           unique in the nav (nav-icons.test.mjs). -->
+      <button data-sec="movein" id="moveInNav" style="display:none"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2.2 7.4 8 2.6l5.8 4.8"/><path d="M3.8 6.2v7.2h8.4V6.2"/><path d="M6.6 13.4V9.6h2.8v3.8"/></svg>Move in</button>
       <!-- R17 (panel iteration 2, 2026-08-23): Overview · Decisions (rock) ·
            Your rock / Your pebble · Network · Your assistant · Privacy & access ·
            Terminal. The Claude Code tab is gone; its connect guide and the
@@ -2544,6 +2599,46 @@
          on every row and the Library's installable catalogue renders below, so
          "what can my mineral do, when does it run, what else could it do" is one
          answer. The always-on machinery moved to the Health card on Overview. -->
+    <!-- Move in (spec 2026-10-17 adopt § 3): the plan /move-in made from what the
+         server already does. Everything here is rendered FROM state.moveIn and the
+         per-step busy/notes maps, so a repaint never re-enables a button mid-run or
+         erases a result (traps 23, 25). Steps that change the server go through
+         /move-in/host-step; the rest are move-in-* verbs. No field takes a command. -->
+    <section data-sec="movein">
+      <div class="pagehead">
+        <h2>Move in<button class="info" type="button" aria-label="What is this?" data-tip="Your server already ran things before Crads-AI. This plan moves them in one step at a time: jobs come in switched off, then each one is switched over on its own. Nothing happens until you approve it, and every step can be undone.">?</button></h2>
+        <p>What your server already does, moving in one step at a time.</p>
+      </div>
+      <div id="miBody">
+        <div class="misum" id="miSummary">Reading the plan from your mineral…</div>
+        <div class="miacts">
+          <button class="act" id="miReplan" type="button">Make the plan again</button>
+          <button class="act" id="miApproveAll" type="button" style="display:none">Approve everything on your mineral</button>
+        </div>
+        <div class="notice" id="miNotice"></div>
+        <div id="miGroups"></div>
+        <div class="migroup" id="miStillBox" style="display:none">
+          <h3>Still on the server</h3>
+          <p class="hint">These keep running on your server, outside Crads-AI. After you move in, the Health card lists them so they are not forgotten.</p>
+          <ul class="mistill" id="miStill"></ul>
+        </div>
+        <div class="migroup" id="miFinishBox" style="display:none">
+          <h3>Finish moving in</h3>
+          <p class="hint">Every step is done or skipped. Once you finish, the jobs you switched on run on their schedules from the next minute, and Crads-AI's own Telegram and nightly backup come up within a couple of minutes.</p>
+          <button class="act primary" id="miFinish" type="button">Finish moving in</button>
+        </div>
+        <div class="mimove" id="miMoveOut">
+          <h3>Move out</h3>
+          <p>Changed your mind? Moving out reverses every step that is done, newest first, and then takes the Crads-AI setup off your server.</p>
+          <button class="act danger" id="miMoveOutAsk" type="button">Move out…</button>
+          <div class="miconfirm" id="miMoveOutConfirm">
+            <p>First everything Crads-AI runs on your mineral is held, so nothing more is committed. Then your server's jobs and services go back to exactly how they were, and the Crads-AI setup comes off the server. Your brain folder keeps the plan files (cockpit/move-in.json and move-in.md) and ownership.json. Anything Crads-AI already committed stays in your git history; nothing is rewritten, and the app lists those commits when it is done.</p>
+            <button class="act danger primary" id="miMoveOutYes" type="button">Yes, move out</button>
+            <button class="act" id="miMoveOutNo" type="button">Keep moving in</button>
+          </div>
+        </div>
+      </div>
+    </section>
     <section data-sec="skills">
       <div class="pagehead">
         <h2>Skills<button class="info" type="button" aria-label="What is this?" data-tip="Everything your assistant knows how to do lives on this mineral. Open a skill to run it, schedule it, or read what it does; everything is off until you switch it on. Every card says where it came from: built in, a starter, your company, or your own.">?</button></h2>
@@ -2577,6 +2672,18 @@
       <div class="empty" id="skillsEmpty" style="display:none"><b>No skills found yet.</b> That usually means the mineral is still setting itself up; try again in a minute.</div>
       <button class="act primary" id="cadenceSave" style="display:none">Save schedules</button>
       <div class="notice" id="skillsNotice"></div>
+      <!-- Scripts on a schedule (spec 2026-10-17 adopt, ruled 18 Oct): plain
+           programs from cockpit/scripts.json, below the skills. There is NO
+           input here to type a command into: rows come only from the file,
+           which the assistant or the move-in writes. The page switches,
+           reschedules, removes and runs them. Hidden on the local face. -->
+      <div id="scriptsBox" style="display:none">
+        <h3 class="skgroup" data-group="scripts">Scripts<button class="info" type="button" aria-label="What is this?" data-tip="A skill is instructions your assistant follows: it uses your Claude plan and can adapt to what it finds. A script is a fixed program that runs the same way every time, without Claude: it costs nothing on your plan, and it either finishes cleanly or fails. Ask your assistant to add one; it writes it into cockpit/scripts.json, which you can read.">?</button></h3>
+        <p class="hint">Fixed programs that run the same way every time, without Claude. Your assistant adds them; here you choose when they run.</p>
+        <div id="scriptsList"></div>
+        <button class="act primary" id="scriptsSave" style="display:none">Save scripts</button>
+        <div class="notice" id="scriptsNotice"></div>
+      </div>
       <!-- "Read the skill" (R11): SKILL.md rendered with mdRender in a side
            panel, origin block above it when the skill came from a rock. -->
       <div class="skreader" id="skReader" role="dialog" aria-modal="true" aria-labelledby="skReaderTitle">
@@ -2959,6 +3066,42 @@
   // the panel server prepends a transport banner ("▸ verb @ host") to every
   // /run response; strip it before treating lines as data or as member-facing text
   function outLines(r){ return ((r && r.lines) || []).filter(function(l){ return l.indexOf('▸') !== 0; }); }
+
+  // ---- "Run now" for a skill (adopt rehearsal T4 finding 7) -------------------
+  // A Claude run takes minutes. skill-run starts it in the background on the
+  // mineral and waits ~40 s; a run still going answers RUN_STILL, and this then
+  // asks skill-run-status every few seconds until it ends. An SSH call the
+  // app's watchdog cut short is treated the same way, because the run carries
+  // on without it: a cut-short call never reads as a failure. Resolves
+  // { ok, done, text }; `progress(text)` hears the waiting words.
+  var RUN_KILLED_RE = /exceeded \d+ms; killed/;
+  var RUN_POLL_MS = 8000, RUN_POLL_MAX = 240;   // about half an hour
+  function runLines(lines){ return lines.filter(function(l){ return !/^(RUN_STILL|RUN_DONE|RUN_LOST|RUN_NONE)\b/.test(l) && !RUN_KILLED_RE.test(l) && !/^__/.test(l); }); }
+  function runSkillNow(id, progress){
+    return run('skill-run', { id: id }).then(function(rr){
+      var lines = outLines(rr);
+      var still = lines.some(function(l){ return /^RUN_STILL\b/.test(l); }) || lines.some(function(l){ return RUN_KILLED_RE.test(l); });
+      if (!still) {
+        var tail = runLines(lines).slice(-4).join('\n');
+        return { ok: rr.ok, done: true, text: (rr.ok ? '/' + id + ' finished.\n' : '/' + id + ' did not finish:\n') + tail };
+      }
+      if (progress) progress('/' + id + ' is still running on your mineral. Claude jobs often take a few minutes; this updates when it finishes.');
+      return pollSkillRun(id, 0);
+    });
+  }
+  function pollSkillRun(id, n){
+    return new Promise(function(res){ setTimeout(res, RUN_POLL_MS); }).then(function(){
+      return run('skill-run-status', { id: id });
+    }).then(function(r){
+      var lines = outLines(r);
+      var done = lines.map(function(l){ return l.match(/^RUN_DONE (\d+)/); }).filter(Boolean)[0];
+      var tail = runLines(lines).slice(-4).join('\n');
+      if (done) return { ok: done[1] === '0', done: true, text: (done[1] === '0' ? '/' + id + ' finished.\n' : '/' + id + ' did not finish:\n') + tail };
+      if (lines.some(function(l){ return /^RUN_LOST\b/.test(l); })) return { ok: false, done: true, text: '/' + id + ' stopped without saying how it ended (your mineral may have restarted while it ran). Its last lines:\n' + tail };
+      if (n + 1 >= RUN_POLL_MAX) return { ok: true, done: false, text: '/' + id + ' is still running on your mineral after half an hour. Its result shows on the Skills page when it finishes.' };
+      return pollSkillRun(id, n + 1);
+    });
+  }
   function outText(r){ return outLines(r).join('\n'); }
 
   // ---- one fault, not N feature bugs ---------------------------------------
@@ -3205,6 +3348,7 @@
     // and a refusal on load would be a verb-table miss fired at every visitor.
     if (name === 'help') { loadOpenFolder(); loadSupport(); }
     if (name === 'team') loadTeam();
+    if (name === 'movein') loadMoveIn();
     // Telegram lives on Connections now (2026-08-09 audit, R4). Its poll runs
     // only while the page that shows it is open: leaving must stop it, or a
     // background timer keeps opening SSH channels to the box for a link nobody
@@ -3742,7 +3886,7 @@
         // cockpit builder and walks the whole wiki on the box, so polling it every
         // 20s on a healthy connection would be a wiki walk per 20s for nothing.
         if (!quiet || !wasOk) { loadDashboard(true); loadPagesList(); }
-        if (!wasOk && state.kind !== 'local') loadTeamNav();
+        if (!wasOk && state.kind !== 'local') { loadTeamNav(); loadMoveIn(); }
       } else {
         connectAttempts++;
         $('connDot').className = 'dot err';
@@ -4211,7 +4355,8 @@
           + esc(seen || 'just now') + '</div>'
           // the always-on machinery moved here from the Cadence page (R6):
           // health of the box and health of its protected jobs, one card
-          + machineryHtml(mach, sick); } },
+          + machineryHtml(mach, sick)
+          + stillOnServerHtml(); } },
     { id: 'skills', title: 'Skills', zone: 'strip',
       actions: function(){ return [{ label: 'Open Skills', to: 'skills' }]; },
       tile: function(d){
@@ -7138,7 +7283,15 @@
         a.onclick = function(ev){
           ev.preventDefault();
           var slug = a.getAttribute('data-slug');
-          var hit = state.pages.filter(function(x){ return x === slug + '.md' || x.split('/').pop() === slug + '.md'; })[0];
+          // exact path, then a qualified link as the END of a path, then the
+          // basename. The middle step is the 2026-10-18 brain-root listing: a
+          // pebble's [[people/harriet]] lives at wiki/people/harriet.md now, and an
+          // adopted brain's at notes/people/harriet.md (box-cockpit resolves the
+          // graph's edges the same way)
+          var want = slug + '.md', tail = '/' + want;
+          var hit = state.pages.filter(function(x){ return x === want; })[0]
+            || (slug.indexOf('/') >= 0 && state.pages.filter(function(x){ var y = '/' + x; return y.slice(-tail.length) === tail; })[0])
+            || state.pages.filter(function(x){ return x.split('/').pop() === want; })[0];
           if (hit) selectPage(hit);
         };
       });
@@ -7601,7 +7754,9 @@
     try { state.heartbeatAt = (JSON.parse(seg('__HEARTBEAT__', '__ALLSKILLS__').trim() || '{}') || {}).generated_at || null; } catch(e){ state.heartbeatAt = null; }
     var am = seg('__ALLSKILLS__', '__PLANJSON__').match(/SKILLS_STATE (.*)/);
     try { state.allSkills = JSON.parse(am ? am[1] : '{}'); } catch(e){ state.allSkills = {}; }
-    try { state.planJson = JSON.parse(seg('__PLANJSON__').trim() || '{}'); } catch(e){ state.planJson = {}; }
+    try { state.planJson = JSON.parse(seg('__PLANJSON__', '__SCRIPTS__').trim() || '{}'); } catch(e){ state.planJson = {}; }
+    var scm = seg('__SCRIPTS__').match(/SCRIPTS_STATE (.*)/);
+    try { state.scriptsState = scm ? JSON.parse(scm[1]) : null; } catch(e){ state.scriptsState = null; }
     state.machineryLoaded = true;   // the Health card may now render machinery rows
   }
   function loadSkills(keep){       // keep: preserve a verb's own confirmation
@@ -7612,6 +7767,7 @@
       state.skillsState = state.allSkills;   // cadChip and the rows read one truth
       state.skillRows = skillRowsFrom(state.allSkills);
       renderSkills();
+      renderScripts();
       renderCards();   // the Health card shows the machinery this parse refreshed
     });
   }
@@ -7643,7 +7799,8 @@
   // one drawer open at a time: the list stays calm however deep you dig
   function drawerOpen(row){
     var was = row.classList.contains('open');
-    [].slice.call($('skillsGroups').querySelectorAll('.cadrow.open')).forEach(function(x){ x.classList.remove('open'); });
+    var list = row.closest('#scriptsList') || $('skillsGroups');
+    [].slice.call(list.querySelectorAll('.cadrow.open')).forEach(function(x){ x.classList.remove('open'); });
     if (!was) row.classList.add('open');
   }
   function rowShell(headL, headR){
@@ -7654,7 +7811,7 @@
     (headR || []).forEach(function(el){ row.appendChild(el); });
     row.addEventListener('click', function(e){
       // the row is the drawer handle; live controls inside it are not
-      if (e.target.closest('.toggle,button,input,select,a,.sched,.drawer .daychip')) return;
+      if (e.target.closest('.toggle,button,input,select,a,.sched,.drawer .daychip,.drawer details')) return;
       drawerOpen(row);
     });
     return row;
@@ -7784,10 +7941,9 @@
         if (gated) return sendToSignIn();
         runBtn.disabled = true; runBtn.textContent = 'Running…';
         notice('skillsNotice', 'Running /' + s.id + '. It works in the background on your mineral; the result lands in your brain.');
-        run('skill-run', { id: s.id }).then(function(rr){
+        runSkillNow(s.id, function(text){ notice('skillsNotice', text); }).then(function(o){
           runBtn.disabled = false; runBtn.textContent = 'Run now';
-          var tail = outLines(rr).slice(-3).join('\n');
-          notice('skillsNotice', (rr.ok ? '/' + s.id + ' finished.\n' : '/' + s.id + ' did not finish:\n') + tail);
+          notice('skillsNotice', o.text);
           loadSkills(true);   // the outcome above is this reload's whole point; keep it
         });
       };
@@ -7830,6 +7986,435 @@
     switchable(tog);
     return row;
   }
+  // ---- Scripts on a schedule (spec 2026-10-17 adopt § Scripts on a schedule) ----
+  // The second list on this page. A script is a fixed program from
+  // cockpit/scripts.json, fired by the scheduler without Claude, so nothing here
+  // is gated on the mineral's Claude sign-in. The page can switch a script,
+  // change when it runs, remove it and run it now. It cannot say what runs:
+  // there is no field for a command, and scripts-save carries only
+  // {enabled, schedule} | {remove} for ids the file already has.
+  state.scriptEdits = {};
+  function scTitle(sc){ return sc.name || skTitle({ id: sc.id }); }
+  // The command, shown so the person can see exactly what runs. Read-only.
+  function scCommand(sc){
+    return (sc.argv || []).map(function(a){ return /^[A-Za-z0-9_@%+=:,./-]+$/.test(a) ? a : "'" + String(a).replace(/'/g, "'\\''") + "'"; }).join(' ');
+  }
+  function scHealth(last){
+    if (!last) return { chip: '', sub: 'Has not run yet.' };
+    var when = ago(last.ts) || last.ts;
+    if (last.status === 'fail') return { chip: ' <span class="chip bad">failed ' + esc(when) + '</span>', sub: 'Failed ' + esc(when) + (last.error ? ': ' + esc(last.error) : '') + '.' };
+    return { chip: ' <span class="chip ok">ran ' + esc(when) + '</span>', sub: 'Finished cleanly ' + esc(when) + '.' };
+  }
+  function renderScripts(){
+    var box = $('scriptsBox'), list = $('scriptsList');
+    if (!box) return;
+    var st = state.scriptsState;
+    // An image that predates scripts (or an unreadable answer) shows nothing,
+    // rather than an empty list that reads as "you have none".
+    if (!st || st.error || state.kind === 'local'){ box.style.display = 'none'; return; }
+    box.style.display = '';
+    list.innerHTML = '';
+    state.scriptEdits = {};
+    $('scriptsSave').style.display = 'none';
+    var rows = st.scripts || [];
+    if (!rows.length){
+      var e0 = document.createElement('div'); e0.className = 'empty';
+      e0.innerHTML = '<b>No scripts yet.</b> Ask your assistant to add one, for example &ldquo;run tools/report.sh every morning at 7&rdquo;.';
+      list.appendChild(e0);
+      return;
+    }
+    rows.forEach(function(sc){ list.appendChild(scriptRow(sc)); });
+  }
+  function scriptRow(sc){
+    var entry = { enabled: !!sc.enabled, deliver: false, schedule: JSON.parse(JSON.stringify(sc.schedule || { kind: 'times', days: [], times: ['07:00'] })) };
+    var health = scHealth(sc.last);
+    var blocked = !!sc.problem;
+    var chipText = function(){ return entry.enabled ? describeCad(entry) : 'off'; };
+    var head = '<div class="nm">' + esc(scTitle(sc))
+      + ' <span class="cadchip chip' + (entry.enabled ? ' ok' : '') + '">' + esc(chipText()) + '</span>'
+      + health.chip
+      + (sc.running ? ' <span class="chip chk">running</span>' : '')
+      + (blocked ? ' <span class="chip bad">cannot run here</span>' : '') + '</div>';
+    var tog = document.createElement('div');
+    tog.className = 'toggle' + (entry.enabled ? ' on' : '');
+    tog.setAttribute('aria-label', 'Run ' + scTitle(sc) + ' on a schedule');
+    tog.setAttribute('role', 'switch');
+    tog.setAttribute('tabindex', '0');
+    tog.setAttribute('aria-checked', entry.enabled ? 'true' : 'false');
+    // A row that cannot run here cannot be switched ON (the box refuses too);
+    // switching an already-on broken row OFF is always allowed.
+    if (blocked && !entry.enabled){ tog.classList.add('locked'); tog.setAttribute('aria-disabled', 'true'); tog.title = sc.problem; }
+    tog.onkeydown = function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tog.click(); } };
+    var x = document.createElement('button'); x.type = 'button'; x.className = 'skx';
+    x.setAttribute('aria-label', 'Remove ' + scTitle(sc)); x.title = 'Remove ' + scTitle(sc);
+    x.innerHTML = '&times;';
+    x.onclick = function(e){
+      e.stopPropagation();
+      if (!confirm('Remove ' + scTitle(sc) + ' from this mineral?\n\nIt stops running. Its settings are kept in cockpit/scripts.json, so your assistant can put it back.')) return;
+      x.disabled = true;
+      var gone = {}; gone[sc.id] = { remove: true };
+      run('scripts-save', { changes_b64: b64utf8(JSON.stringify(gone)) }).then(function(rr){
+        notice('scriptsNotice', outLines(rr).slice(-2).join('\n'));
+        loadSkills(true);
+      });
+    };
+    var row = rowShell(head, [tog, x]);
+    row.classList.toggle('schedon', entry.enabled);
+    row.setAttribute('data-script', sc.id);
+    if (blocked) row.setAttribute('data-blocked', '');
+    var drawer = document.createElement('div'); drawer.className = 'drawer';
+    var d = '<div class="sub">' + esc(sc.description || 'No description yet.') + ' ' + health.sub + '</div>';
+    if (blocked) d += '<div class="scproblem">' + esc(sc.problem) + '</div>';
+    d += '<div class="scmd" title="What runs. Ask your assistant to change it.">' + esc(scCommand(sc)) + '</div>'
+      + '<div class="dmeta"><span class="chip">in ' + esc(sc.cwd || '/state') + '</span> <span class="chip">stops after ' + esc(String(sc.timeout_s || 600)) + ' s</span></div>';
+    drawer.innerHTML = d;
+    if (sc.last && (sc.last.tail || []).length){
+      var tail = document.createElement('details'); tail.className = 'sctail';
+      tail.innerHTML = '<summary>Last output</summary><pre></pre>';
+      tail.querySelector('pre').textContent = sc.last.tail.join('\n');
+      drawer.appendChild(tail);
+    }
+    var acts = document.createElement('div'); acts.className = 'dacts';
+    var runBtn = document.createElement('button'); runBtn.className = 'act mini'; runBtn.textContent = 'Run now';
+    runBtn.disabled = blocked;
+    if (blocked) runBtn.title = sc.problem;
+    runBtn.onclick = function(){
+      runBtn.disabled = true; runBtn.textContent = 'Running…';
+      notice('scriptsNotice', 'Running ' + scTitle(sc) + ' on your mineral…');
+      run('script-run', { id: sc.id }).then(function(rr){
+        runBtn.disabled = false; runBtn.textContent = 'Run now';
+        notice('scriptsNotice', outLines(rr).slice(-6).join('\n'));
+        loadSkills(true);
+      });
+    };
+    acts.appendChild(runBtn);
+    drawer.appendChild(acts);
+    var controls = schedControls(entry, { script: true });
+    drawer.appendChild(controls);
+    row.appendChild(drawer);
+    function commit(){
+      state.scriptEdits[sc.id] = { enabled: entry.enabled, schedule: entry.schedule };
+      $('scriptsSave').style.display = '';
+      var cc = row.querySelector('.cadchip');
+      cc.textContent = chipText();
+      cc.classList.toggle('ok', entry.enabled);
+      row.classList.toggle('schedon', entry.enabled);
+      tog.setAttribute('aria-checked', entry.enabled ? 'true' : 'false');
+    }
+    tog.onclick = function(){
+      if (blocked && !entry.enabled){ notice('scriptsNotice', scTitle(sc) + ' cannot be switched on: ' + sc.problem); return; }
+      entry.enabled = !tog.classList.contains('on');
+      tog.classList.toggle('on', entry.enabled);
+      if (entry.enabled && !row.classList.contains('open')) drawerOpen(row);
+      commit();
+    };
+    controls.addEventListener('change', commit);
+    controls.addEventListener('click', commit);
+    switchable(tog);
+    return row;
+  }
+  $('scriptsSave').onclick = function(){
+    var b = $('scriptsSave');
+    if (!Object.keys(state.scriptEdits).length) return;
+    b.disabled = true;
+    run('scripts-save', { changes_b64: b64utf8(JSON.stringify(state.scriptEdits)) }).then(function(r){
+      b.disabled = false;
+      notice('scriptsNotice', r.ok ? 'Saved to your mineral. It takes effect within a minute.' : 'The save failed:\n' + outText(r));
+      if (r.ok) loadSkills(true);
+    });
+  };
+  // The Health card's view of scripts (spec: "a broken script is seen, not
+  // discovered"): only switched-on scripts whose last run failed, or which can
+  // no longer run here, become rows, shaped like a failing machinery job.
+  function scriptHealthRows(){
+    var st = state.scriptsState;
+    if (!st || st.error) return [];
+    return (st.scripts || []).filter(function(sc){
+      return sc.enabled && (sc.problem || (sc.last && sc.last.status === 'fail'));
+    }).map(function(sc){
+      var why = sc.problem ? esc(sc.problem)
+        : 'Last run failed ' + esc(ago(sc.last.ts) || sc.last.ts) + (sc.last.error ? ': ' + esc(sc.last.error) : '') + '.';
+      return { id: 'script:' + sc.id, label: 'Script: ' + scTitle(sc), chip: 'failed', ok: false,
+        sub: why + ' See Scripts on the Skills page.' };
+    });
+  }
+
+  // ---- Move in (spec 2026-10-17 adopt § 3, § App surfaces) ------------------
+  // The plan lives on the mineral (cockpit/move-in.json, written by
+  // engine/move-in/plan.mjs). This page reads it, and every button names a step
+  // id and nothing more: container steps are move-in-* verbs, steps that change
+  // the server go to /move-in/host-step, which the app runs over its own
+  // connection to the server. Rendered FROM state (moveIn, miBusy, miNotes), so
+  // a repaint never re-enables a button mid-run or wipes a result (traps 23, 25).
+  // No confirm(): the viewer blocks dialogs, so Move out asks on the page.
+  state.moveIn = null; state.miBusy = {}; state.miNotes = {};
+  var MI_STATE = { pending: 'waiting for your yes', approved: 'approved', done: 'done', skipped: 'skipped', undone: 'undone' };
+  function miParse(r){ var m = outText(r).match(/MOVEIN_STATE (.*)/); try { return m ? JSON.parse(m[1]) : null; } catch(e){ return null; } }
+  function loadMoveIn(){
+    if (state.kind === 'local') { $('moveInNav').style.display = 'none'; return Promise.resolve(); }
+    return run('move-in-show', {}).then(function(r){
+      var st = r.ok ? miParse(r) : null;
+      state.moveIn = st;
+      $('moveInNav').style.display = miShown(st) ? '' : 'none';
+      renderMoveIn();
+      renderCards();   // the Health card's "Still on the server" fold reads the same state
+    });
+  }
+  function miSteps(){ return (state.moveIn && state.moveIn.plan && state.moveIn.plan.steps) || []; }
+  // The page is shown while moving in (or moving out), and after Finish too
+  // while the plan is there: letting Crads-AI answer the Telegram bot is a step
+  // that only opens after Finish, and Move out stays one click away.
+  function miShown(st){ return !!(st && (st.moving_in || st.moving_out || (st.adopted && st.plan && st.plan.finished_at))); }
+  function miSettled(x){ return (x.state === 'done' || x.state === 'skipped') && !x.in_flight; }
+  function miNote(id, text, bad){ state.miNotes[id] = { text: text, bad: !!bad }; }
+  function miFinishText(lines){ return (lines || []).map(function(l){ return String(l).replace(/^(OK|ERROR): /, ''); }).join('\n'); }
+  function miVerb(id, verb, args){
+    state.miBusy[id] = true; renderMoveIn();
+    return run(verb, args).then(function(r){
+      state.miBusy[id] = false;
+      miNote(id, miFinishText(outLines(r).slice(-3)) || (r.ok ? 'Done.' : 'That did not work.'), !r.ok);
+      return loadMoveIn();
+    }, function(){ state.miBusy[id] = false; miNote(id, 'Could not reach your mineral just now. Try again in a moment.', true); renderMoveIn(); });
+  }
+  function miHost(id, action){
+    state.miBusy[id] = true; renderMoveIn();
+    return fetch('/move-in/host-step', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ host: state.host, id: id, action: action }) })
+      .then(function(r){ return r.json(); })
+      .then(function(o){
+        state.miBusy[id] = false;
+        miNote(id, o.ok ? ((o.said || 'Done.') + (o.warning ? '\n' + o.warning : '')) : (o.error || 'That did not work.'), !o.ok);
+        return loadMoveIn();
+      }, function(){ state.miBusy[id] = false; miNote(id, 'Could not reach the app just now. Try again in a moment.', true); renderMoveIn(); });
+  }
+  // Run it once. A Claude job takes minutes, so a run still going is never
+  // reported as a failure: a skill is followed through skill-run-status, a
+  // script through the last run the mineral recorded for it (move-in-show).
+  function miRunOnce(s){
+    var j = s.job || {};
+    state.miBusy[s.id] = true; renderMoveIn();
+    var progress = function(text){ miNote(s.id, text, false); renderMoveIn(); };
+    if (j.target !== 'scripts'){
+      return runSkillNow(j.id, progress).then(function(o){
+        state.miBusy[s.id] = false; miNote(s.id, o.text, !o.ok); return loadMoveIn();
+      });
+    }
+    var before = ((state.moveIn && state.moveIn.last_runs) || {})['scripts:' + j.id];
+    var since = before ? before.ts : '';
+    return run('script-run', { id: j.id }).then(function(r){
+      var lines = outLines(r);
+      if (!lines.some(function(l){ return /still running/i.test(l) || RUN_KILLED_RE.test(l); })){
+        state.miBusy[s.id] = false;
+        miNote(s.id, runLines(lines).slice(-6).join('\n') || (r.ok ? 'It ran.' : 'It did not run.'), !r.ok);
+        return loadMoveIn();
+      }
+      progress('It is still running on your mineral. Jobs that ask Claude often take a few minutes; this updates when it finishes.');
+      return miWaitScript(s, j.id, since, 0);
+    });
+  }
+  function miWaitScript(s, id, since, n){
+    return new Promise(function(res){ setTimeout(res, RUN_POLL_MS); }).then(function(){ return loadMoveIn(); }).then(function(){
+      var last = ((state.moveIn && state.moveIn.last_runs) || {})['scripts:' + id];
+      if (last && last.ts > since){
+        state.miBusy[s.id] = false;
+        miNote(s.id, last.status === 'ok' ? 'It finished cleanly.' : 'It failed: ' + (last.error || 'no reason given') + '.', last.status !== 'ok');
+        renderMoveIn(); return;
+      }
+      if (n + 1 >= RUN_POLL_MAX){ state.miBusy[s.id] = false; miNote(s.id, 'It is still running after half an hour. Its result shows on the Scripts row when it finishes.', false); renderMoveIn(); return; }
+      return miWaitScript(s, id, since, n + 1);
+    });
+  }
+  function miButton(label, cls, onClick, disabled){
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'act mini' + (cls ? ' ' + cls : '');
+    b.textContent = label; b.disabled = !!disabled; b.onclick = onClick; return b;
+  }
+  function miStepEl(s){
+    var el = document.createElement('div'); el.className = 'mistep';
+    el.setAttribute('data-step', s.id); el.setAttribute('data-state', s.state);
+    if (s.after_finish) el.setAttribute('data-after-finish', '');
+    if (s.hold) el.setAttribute('data-hold', '');
+    if (s.in_flight) el.setAttribute('data-half', s.in_flight);
+    var busy = !!state.miBusy[s.id];
+    var host = s.side === 'host';
+    el.innerHTML = '<div class="mihead"><span class="nm"></span>'
+      + '<span class="chip st-' + esc(s.state) + (s.state === 'done' && !s.in_flight ? ' ok' : '') + (s.in_flight ? ' bad' : '') + '">' + esc(busy ? 'working…' : s.in_flight ? 'part-way through' : (MI_STATE[s.state] || s.state)) + '</span>'
+      + (host ? '<span class="chip side">on your server</span>' : '') + '</div>'
+      + '<div class="what"></div>' + (s.why ? '<div class="why"></div>' : '')
+      + (s.source && s.source.display ? '<div class="src" title="What your server runs today (anything that looks like a password is hidden)"></div>' : '');
+    el.querySelector('.nm').textContent = s.title || s.id;
+    el.querySelector('.what').textContent = s.what || '';
+    if (s.why) el.querySelector('.why').textContent = s.why;
+    if (s.source && s.source.display) el.querySelector('.src').textContent = s.source.display;
+    if ((s.details || []).length){
+      var ul = document.createElement('ul'); ul.className = 'midet';
+      s.details.forEach(function(d){ var li = document.createElement('li'); li.textContent = d.name + ': ' + d.words; ul.appendChild(li); });
+      el.appendChild(ul);
+    }
+    if (s.offered_text){
+      var det = document.createElement('details'); det.innerHTML = '<summary>The block it would add</summary><div class="src"></div>';
+      det.querySelector('.src').textContent = s.offered_text; el.appendChild(det);
+    }
+    var btns = document.createElement('div'); btns.className = 'mibtns';
+    var dep = s.after ? miSteps().filter(function(x){ return x.id === s.after; })[0] : null;
+    var blocked = !!(dep && dep.state !== 'done');
+    if (s.in_flight){
+      // The app stopped between the two halves of this step (it closed, or the
+      // connection dropped). Nothing is guessed: the server is read first, with
+      // the step's own op in its read-only form, and only then is a way out offered.
+      var hd = document.createElement('div'); hd.className = 'mihalf';
+      hd.textContent = s.in_flight === 'undo'
+        ? 'The app stopped part way through undoing this step, so it does not know yet whether your server changed back.'
+        : 'The app stopped part way through this step, so it does not know yet whether your server changed.';
+      btns.appendChild(hd);
+      var ck = s.check;
+      if (ck && ck.words){ var cw = document.createElement('div'); cw.className = 'mihalf seen'; cw.textContent = ck.words; btns.appendChild(cw); }
+      (ck && ck.choices || []).forEach(function(c, i){
+        btns.appendChild(miButton(c.label, i === 0 ? 'primary' : '', function(){ miHost(s.id, c.choice); }, busy));
+      });
+      btns.appendChild(miButton(ck ? 'Check again' : 'Check the server', ck ? '' : 'primary', function(){ miHost(s.id, 'check'); }, busy));
+    } else if (s.kind === 'note' && (s.state === 'pending' || s.state === 'undone' || s.state === 'approved')){
+      // a note changes nothing: one click says it was read
+      btns.appendChild(miButton('Got it', 'primary', function(){
+        state.miBusy[s.id] = true; renderMoveIn();
+        var go = s.state === 'approved' ? Promise.resolve({ ok: true }) : run('move-in-approve', { ids: [s.id] });
+        go.then(function(r){ if (!r.ok) return r; return run('move-in-apply', { id: s.id }); }).then(function(r){
+          state.miBusy[s.id] = false; if (!r.ok) miNote(s.id, outText(r), true); return loadMoveIn();
+        });
+      }, busy));
+      btns.appendChild(miButton('Skip', '', function(){ miVerb(s.id, 'move-in-skip', { id: s.id }); }, busy));
+    } else if (s.state === 'pending' || s.state === 'undone'){
+      btns.appendChild(miButton('Approve', 'primary', function(){ miVerb(s.id, 'move-in-approve', { ids: [s.id] }); }, busy));
+      btns.appendChild(miButton('Skip', '', function(){ miVerb(s.id, 'move-in-skip', { id: s.id }); }, busy));
+    } else if (s.state === 'approved'){
+      // Not yet: a step that opens only after Finish, or one held until GitHub is connected.
+      var later = !!(s.after_finish && state.moveIn && state.moveIn.moving_in);
+      var wait = later ? 'Available after you finish moving in.' : (s.hold || '');
+      if (s.kind === 'cutover') btns.appendChild(miButton('Run it once', '', function(){ miRunOnce(s); }, busy || blocked));
+      var label = host ? 'Switch over' : 'Apply';
+      btns.appendChild(miButton(label, 'primary', function(){
+        if (host) miHost(s.id, 'apply'); else miVerb(s.id, 'move-in-apply', { id: s.id });
+      }, busy || blocked || !!wait));
+      btns.appendChild(miButton('Skip', '', function(){ miVerb(s.id, 'move-in-skip', { id: s.id }); }, busy));
+      if (blocked) { var w = document.createElement('div'); w.className = 'why'; w.textContent = 'Do "' + (dep.title || dep.id) + '" first.'; btns.appendChild(w); }
+      else if (wait) { var w2 = document.createElement('div'); w2.className = 'why miwait'; w2.textContent = wait; btns.appendChild(w2); }
+    } else if (s.state === 'done' && s.kind !== 'note'){
+      btns.appendChild(miButton('Undo', '', function(){
+        if (host) miHost(s.id, 'undo'); else miVerb(s.id, 'move-in-undo', { id: s.id });
+      }, busy));
+    } else if (s.state === 'skipped'){
+      btns.appendChild(miButton('Bring it back', '', function(){ miVerb(s.id, 'move-in-skip', { id: s.id, back: true }); }, busy));
+    }
+    if (btns.childNodes.length) el.appendChild(btns);
+    var n = state.miNotes[s.id];
+    if (n && n.text){ var nd = document.createElement('div'); nd.className = 'minote' + (n.bad ? ' bad' : ''); nd.textContent = n.text; el.appendChild(nd); }
+    return el;
+  }
+  function renderMoveIn(){
+    var st = state.moveIn, groups = $('miGroups');
+    if (!groups) return;
+    groups.innerHTML = '';
+    var plan = st && st.plan;
+    var steps = miSteps();
+    if (!st || st.error){ $('miSummary').textContent = st && st.error === 'engine-too-old' ? 'This mineral\'s software is older than the move-in. Update and restart it from Help first.' : 'Could not read the plan from your mineral just now.'; }
+    else if (!plan){ $('miSummary').textContent = st.has_inventory ? 'No plan yet. Make it, and your assistant can explain it step by step (ask it to run /move-in).' : 'The server inventory has not arrived yet. It is written while the app sets your server up.'; }
+    else {
+      var count = function(k){ return steps.filter(function(x){ return x.state === k; }).length; };
+      var tg = (st.telegram_now && st.telegram_now.words) || '';
+      $('miSummary').textContent = (st.moving_out ? 'Move out started and stopped part way. Nothing of Crads-AI runs or commits until it is finished: press Move out again. '
+          : !st.moving_in ? 'You have moved in. ' : '')
+        + steps.length + ' steps: ' + count('done') + ' done, ' + count('approved') + ' approved, '
+        + (count('pending') + count('undone')) + ' waiting for your yes, ' + count('skipped') + ' skipped. '
+        + (steps.some(function(x){ return x.in_flight; }) ? 'One or more steps stopped part way through; check them below. ' : '')
+        + tg;
+    }
+    $('miReplan').textContent = plan ? 'Make the plan again' : 'Make the plan';
+    $('miReplan').disabled = !!state.miBusy.__plan || !(st && st.has_inventory);
+    var waiting = steps.filter(function(x){ return x.side === 'container' && (x.state === 'pending' || x.state === 'undone'); });
+    $('miApproveAll').style.display = waiting.length > 1 ? '' : 'none';
+    $('miApproveAll').textContent = 'Approve all ' + waiting.length + ' steps on your mineral';
+    $('miApproveAll').disabled = !!state.miBusy.__all;
+    var defs = [
+      ['On your mineral', 'Jobs come in switched off, so nothing runs twice.', function(x){ return x.side === 'container' && x.kind !== 'note'; }],
+      ['On your server', 'One job at a time: Crads-AI\'s copy is switched on, then the server\'s line is switched off. Run it once first.', function(x){ return x.side === 'host' && !x.after_finish; }],
+      ['After you move in', 'These open once you finish moving in, and they do not count toward finishing.', function(x){ return !!x.after_finish; }],
+      ['Things to know', 'Nothing changes for these. Mark each one when you have read it.', function(x){ return x.kind === 'note'; }]
+    ];
+    defs.forEach(function(d){
+      var list = steps.filter(d[2]);
+      if (!list.length) return;
+      var g = document.createElement('div'); g.className = 'migroup';
+      g.innerHTML = '<h3></h3><p class="hint"></p>';
+      g.querySelector('h3').textContent = d[0]; g.querySelector('.hint').textContent = d[1];
+      list.forEach(function(x){ g.appendChild(miStepEl(x)); });
+      groups.appendChild(g);
+    });
+    var still = (plan && plan.still_on_server) || [];
+    $('miStillBox').style.display = still.length ? '' : 'none';
+    $('miStill').innerHTML = '';
+    still.forEach(function(x){
+      var li = document.createElement('li'); li.innerHTML = '<span class="nm"></span> <div class="sub"></div>';
+      li.querySelector('.nm').textContent = x.name; li.querySelector('.sub').textContent = x.what + (x.why ? ' (' + x.why + ')' : '');
+      $('miStill').appendChild(li);
+    });
+    var counted = steps.filter(function(x){ return !x.after_finish; });
+    var settledAll = counted.length && counted.every(miSettled) && !steps.some(function(x){ return x.in_flight; });
+    $('miFinishBox').style.display = (st && st.moving_in && !st.moving_out && settledAll) ? '' : 'none';
+    $('miFinish').disabled = !!state.miBusy.__finish;
+    var mo = $('miMoveOut');
+    mo.style.display = plan ? '' : 'none';
+    mo.classList.toggle('asking', !!state.miAskOut);
+    $('miMoveOutAsk').style.display = state.miAskOut ? 'none' : '';
+    $('miMoveOutYes').disabled = $('miMoveOutNo').disabled = !!state.miBusy.__out;
+    $('miMoveOutYes').textContent = state.miBusy.__out ? 'Moving out…' : 'Yes, move out';
+    var gn = state.miNotes.__page;
+    notice('miNotice', gn && gn.text ? gn.text : '');
+  }
+  $('miReplan').onclick = function(){
+    state.miBusy.__plan = true; renderMoveIn();
+    run('move-in-plan', {}).then(function(r){ state.miBusy.__plan = false; miNote('__page', miFinishText(outLines(r).filter(function(l){ return l.indexOf('MOVEIN_PLAN') !== 0; })), !r.ok); return loadMoveIn(); });
+  };
+  $('miApproveAll').onclick = function(){
+    var ids = miSteps().filter(function(x){ return x.side === 'container' && (x.state === 'pending' || x.state === 'undone'); }).map(function(x){ return x.id; });
+    if (!ids.length) return;
+    state.miBusy.__all = true; renderMoveIn();
+    run('move-in-approve', { ids: ids }).then(function(r){ state.miBusy.__all = false; miNote('__page', r.ok ? ids.length + ' steps approved. Apply each one when you are ready.' : outText(r), !r.ok); return loadMoveIn(); });
+  };
+  $('miFinish').onclick = function(){
+    state.miBusy.__finish = true; renderMoveIn();
+    run('move-in-finish', {}).then(function(r){ state.miBusy.__finish = false; miNote('__page', miFinishText(outLines(r)), !r.ok); return loadMoveIn(); });
+  };
+  $('miMoveOutAsk').onclick = function(){ state.miAskOut = true; renderMoveIn(); };
+  $('miMoveOutNo').onclick = function(){ state.miAskOut = false; renderMoveIn(); };
+  $('miMoveOutYes').onclick = function(){
+    state.miBusy.__out = true; renderMoveIn();
+    fetch('/move-in/move-out', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host: state.host, confirm: 'move-out' }) })
+      .then(function(r){ return r.json(); })
+      .then(function(o){
+        state.miBusy.__out = false; state.miAskOut = false;
+        var left = o.words ? '\n' + o.words : '';
+        // said: "<step> reversed on your server|mineral" lines, then the setup line
+        var rev = (o.said || []).filter(function(x){ return / reversed on /.test(x); }).map(function(x){ return x.replace(/ reversed on your (server|mineral)$/, ''); });
+        var rest = (o.said || []).filter(function(x){ return !/ reversed on /.test(x); }).map(function(x){ x = String(x); return x.charAt(0).toUpperCase() + x.slice(1) + '.'; });
+        var revText = rev.length ? '\nReversed, newest first: ' + rev.join(', ') + '.' : '';
+        miNote('__page', o.ok ? 'You have moved out. ' + rest.join(' ') + revText + left
+          : 'Moving out stopped: ' + (o.error || 'unknown') + (rev.length ? '\nAlready reversed: ' + rev.join(', ') + '.' : '') + left, !o.ok);
+        return loadMoveIn();
+      }, function(){ state.miBusy.__out = false; miNote('__page', 'Could not reach the app just now. Nothing was changed.', true); renderMoveIn(); });
+  };
+  // "Still on the server" on the Health card, after the move-in (spec § App
+  // surfaces): host jobs and services the move-in left running, so one that
+  // fails is not invisible because the app only watches the container.
+  function stillOnServerHtml(){
+    var st = state.moveIn;
+    if (!st || !st.adopted || st.moving_in || !st.plan) return '';
+    var still = st.plan.still_on_server || [];
+    if (!still.length) return '';
+    return '<details class="machfold stillfold"><summary title="Your server runs these itself; Crads-AI does not watch them.">Still on the server: ' + still.length + '</summary>'
+      + '<ul class="mach">' + still.map(function(x){
+        return '<li><span class="nm">' + esc(x.name) + '</span><span class="chip">on the server</span><div class="sub">' + esc(x.what) + (x.why ? ' (' + esc(x.why) + ')' : '') + '</div></li>';
+      }).join('') + '</ul></details>';
+  }
+
   // One way in, shared by every gated control: land on the Terminal tab with
   // `claude` already typed. Nothing to read, nothing to work out.
   function sendToSignIn(){
@@ -8027,7 +8612,7 @@
             sub = 'Encrypted snapshot of your settings and credentials; your brain backs up to your own repository · ' + esc(j.when || '') + '. See the Backup card for whether it has actually run.'; }
         }
         return { id: j.id, chip: chip, ok: ok, sub: sub };
-      });
+      }).concat(scriptHealthRows());
     }
     // Older image (no --plan-json yet): the previous static trio, honesty rules intact.
     return [
@@ -8041,7 +8626,7 @@
         chip: state.heartbeatAt ? 'on' : 'checking\u2026', ok: !!state.heartbeatAt },
       { id: 'Nightly backup', sub: 'Encrypted snapshot of your settings and credentials; your brain backs up to your own repository. See the Backup card for whether it has actually run.',
         chip: 'see Backup', ok: false }
-    ];
+    ].concat(scriptHealthRows());
   }
   // A live box sends kebab job ids (auto-update, heartbeat, backup) and older
   // images send the static trio's own names. Both were printed raw, so the
@@ -8075,7 +8660,7 @@
     return '<details class="machfold"' + (sick ? ' open' : '') + '>'
       + '<summary title="These look after themselves. Listed so nothing runs invisibly.">' + line + '</summary>'
       + '<ul class="mach">' + rows.map(function(m){
-        return '<li><span class="nm">' + esc(machineryLabel(m.id)) + '</span>'
+        return '<li><span class="nm">' + esc(m.label || machineryLabel(m.id)) + '</span>'
           + '<span class="chip ' + (m.ok ? 'ok' : (m.chip === 'failed' ? 'bad' : (String(m.chip).indexOf('checking') === 0 ? 'chk' : ''))) + '">' + esc(m.chip) + '</span>'
           + (m.ok ? '' : '<div class="sub">' + m.sub + '</div>') + '</li>';
       }).join('') + '</ul></details>';
@@ -8090,12 +8675,16 @@
     var d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
-  function schedControls(entry){
+  function schedControls(entry, opts){
+    opts = opts || {};
+    // A script costs nothing on the plan, so it may run every minute; a skill
+    // keeps the 30-minute floor (cadence-lib EVERY_FLOOR_MIN).
+    var floor = opts.script ? 1 : 30;
     var s = entry.schedule;
     var wrap = document.createElement('div'); wrap.className = 'sched';
     var kind = document.createElement('select');
     kind.innerHTML = '<option value="times">on days, at times</option>'
-      + '<option value="every">every few hours</option>'
+      + '<option value="every">' + (opts.script ? 'every few minutes' : 'every few hours') + '</option>'
       + '<option value="every-days">every few days</option>';
     kind.value = (s.kind === 'every' || s.kind === 'every-days') ? s.kind : 'times';
     wrap.appendChild(kind);
@@ -8143,9 +8732,9 @@
         var lbl = document.createElement('span'); lbl.className = 'lbl'; lbl.textContent = 'every';
         body.appendChild(lbl);
         var mins = document.createElement('input'); mins.type = 'number';
-        mins.min = 30; mins.step = 30; mins.value = Number(s.minutes) || 120;
+        mins.min = floor; mins.step = floor; mins.value = Number(s.minutes) || 120;
         mins.setAttribute('aria-label', 'Interval in minutes');
-        mins.onchange = function(){ s.minutes = Math.max(30, parseInt(mins.value, 10) || 120); mins.value = s.minutes; };
+        mins.onchange = function(){ s.minutes = Math.max(floor, parseInt(mins.value, 10) || 120); mins.value = s.minutes; };
         body.appendChild(mins);
         var lbl2 = document.createElement('span'); lbl2.className = 'lbl'; lbl2.textContent = 'minutes';
         body.appendChild(lbl2);
@@ -8176,6 +8765,8 @@
       renderBody();
     };
     renderBody();
+    // A script's output is not a message (spec 2026-10-17): no Telegram switch.
+    if (opts.script) return wrap;
     // deliver: only meaningful once Telegram is connected, harmless before —
     // the scheduler simply has nowhere to send it.
     var dl = document.createElement('label'); dl.className = 'opt';

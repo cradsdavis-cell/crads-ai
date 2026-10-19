@@ -26,6 +26,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync, 
 import { createHash, randomBytes } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
+import { CONNECTED_GREETING } from './telegram-drafts.mjs';
 
 const stateDir = path.resolve(process.argv[2] || '/state');
 const cmd = process.argv[3] || 'status';
@@ -65,7 +66,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // which is the exact situation the button exists to end.
 async function stopComms() {
   const survivors = [];
-  for (const name of ['telegram', 'kernel']) {
+  for (const name of ['telegram', 'telegram-send', 'kernel']) {   // telegram-send: the send-only drainer (start-comms.sh)
     const pf = path.join(stateDir, '.kernel', `${name}.pid`);
     let pid = 0;
     try { pid = Number(readFileSync(pf, 'utf8').trim()); } catch { continue; }
@@ -263,7 +264,7 @@ if (cmd === 'link') {
   try {
     await tg(token, 'sendMessage', {
       chat_id: String(chat),
-      text: '✅ Connected. Message me any time. I draft replies for you to approve, and never send anything on my own.',
+      text: CONNECTED_GREETING,
     });
   } catch { /* the link is real even if the greeting fails */ }
   // The code is spent: a used challenge must not stay answerable.

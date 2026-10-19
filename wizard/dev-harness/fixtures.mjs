@@ -1,5 +1,11 @@
 import { catalogue as provisionCatalogue, BUILD_STEPS, publicProviders } from './provision-fixture.mjs';
 import { connectionLabel } from '../../engine/lib/connection-labels.mjs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { MEMBER_VERBS } from '../panel/panel-server.mjs';
 // fixtures.mjs: realistic demo data for the UI-overhaul dev harness.
 //
 // One fictional org ("driftwood-surf") with a fleet of members, operators,
@@ -37,7 +43,7 @@ const FAKE_KEY = (label) => `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF4k3m0eXAMPLEe
 export function targets(surface, state, face) {
   const base = { role: 'admin', roleAssumed: false, wizardUrl: '/wizard', doorUrl: '/door' };
   if (face === 'local') {
-    return { targets: [{ host: LOCAL_HOST, org: 'sam', kind: 'local', path: LOCAL_PATH, name: 'Sam' }], edition: 'member', ...base };
+    return { targets: [{ host: LOCAL_HOST, org: 'pat', kind: 'local', path: LOCAL_PATH, name: 'Sam' }], edition: 'member', ...base };
   }
   if (surface === 'member') {
     return { targets: state === 'empty' ? [{ host: MEMBER_HOST, org: ORG, kind: 'member' }]
@@ -49,7 +55,7 @@ export function targets(surface, state, face) {
 export function identities(state, face) {
   if (state === 'empty') return { identities: [], open: {} };
   if (face === 'local') {
-    return { identities: [{ host: LOCAL_HOST, org: 'sam', kind: 'local', path: LOCAL_PATH, name: 'Sam' }], open: { member: '/member' } };
+    return { identities: [{ host: LOCAL_HOST, org: 'pat', kind: 'local', path: LOCAL_PATH, name: 'Sam' }], open: { member: '/member' } };
   }
   return {
     // `org` IS THE ALIAS PREFIX, not the org's display slug. listPanelTargets
@@ -487,6 +493,71 @@ const MEMBER_GRAPH = () => {
   return { nodes, links };
 };
 
+// ---------------------------------------------------------------------------
+// ?brain=adopted (2026-10-18): a brain with NO wiki/, laid out the way Sam's own
+// is (notes/, decisions/, a root CLAUDE.md, tracked .claude/ and cockpit/, a
+// .gitignore keeping references/email/ and private/ out). Unlike every other
+// fixture here, the brain verbs on this switch are NOT canned: they run the REAL
+// command MEMBER_VERBS builds, re-pointed from /state at a real git repo in a
+// temp folder, and the Overview graph is the REAL engine/cockpit/box-cockpit.mjs
+// over that folder. So a shot of the Brain tab on this switch is the code a box
+// runs, against a brain shape the app used to answer "no brain at /state/wiki".
+// ---------------------------------------------------------------------------
+const ADOPTED_FILES = {
+  'CLAUDE.md': '# Sam\'s second brain\n\nStart at [[notes/index]]. Decisions live in [[decisions/log]].\n',
+  'notes/index.md': '# Index\n\nThe hub. People: [[harriet]], [[people/lockie]]. Goals: [[6-goals]]. Latest call: [[2026-10-01-roadmap-call]].\n',
+  'notes/_layers/6-goals.md': '# Goals\n\n- part-of :: [[index]]\n\nThree lanes: the open-source build, cash, clean exits.\n',
+  'notes/people/harriet.md': '# Harriet\n\nFirst coaching client. Runs the community.\n\n- references :: [[index]]\n',
+  'notes/people/lockie.md': '# Lockie\n\nCo-runs the retreats with [[harriet]] in the loop.\n',
+  'notes/meetings/2026-10-01-roadmap-call.md': '# Roadmap call\n\nThree pains, one first win. Follow-up in [[decisions/log]].\n',
+  'notes/research/job-ad-channel.csv': 'company,role,sent\nFernway,EA,2026-10-08\n',
+  'notes/diagram.png': '__FIXTURE_PNG__',
+  'decisions/log.md': '# Decision log\n\n- 2026-10-18 brain structure is user-land: [[notes/index]] stays where it is.\n',
+  'ops/daily/2026-10-18-brief.md': '# Morning brief\n\nNothing urgent.\n',
+  'archives/old-plan.md': '# An archived plan\n',
+  '.claude/skills/capture/SKILL.md': '# capture\n',
+  'cockpit/README.md': '# cockpit machinery\n',
+  '.gitignore': 'references/email/\nprivate/\n',
+};
+const ADOPTED_UNTRACKED = {
+  'references/email/2026/10/thread.md': '# a real email: must never show\n',
+  'private/diary.md': '# diary: must never show\n',
+};
+let ADOPTED_DIR = null;
+function adoptedBrain() {
+  if (ADOPTED_DIR) return ADOPTED_DIR;
+  ADOPTED_DIR = mkdtempSync(join(tmpdir(), 'aios-harness-adopted-'));
+  process.on('exit', () => { try { rmSync(ADOPTED_DIR, { recursive: true, force: true }); } catch { /* best effort */ } });
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAFklEQVR4nGP8L8HwnwEPYMInOWQUAADAxQIBHmm4mgAAAABJRU5ErkJggg==', 'base64');
+  const put = (files) => { for (const [rel, body] of Object.entries(files)) {
+    const f = join(ADOPTED_DIR, rel); mkdirSync(dirname(f), { recursive: true });
+    writeFileSync(f, body === '__FIXTURE_PNG__' ? PNG : body);
+  } };
+  put(ADOPTED_FILES);
+  const g = (...a) => execFileSync('git', ['-c', 'user.email=h@example.com', '-c', 'user.name=h', '-c', 'init.defaultBranch=master', ...a], { cwd: ADOPTED_DIR, stdio: 'ignore' });
+  g('init', '-q'); g('add', '-A'); g('commit', '-qm', 'brain');
+  put(ADOPTED_UNTRACKED);
+  return ADOPTED_DIR;
+}
+function adoptedRun(verb, args) {
+  const root = adoptedBrain();
+  let command;
+  try { ({ command } = MEMBER_VERBS[verb].build(args || {})); } catch (e) { return { code: 1, lines: ['ERROR: ' + e.message] }; }
+  let out = '', code = 0;
+  try {
+    out = execFileSync('sh', ['-c', command.replace('cd /state 2>/dev/null', 'cd "$BRAIN" 2>/dev/null')],
+      { encoding: 'utf8', env: { ...process.env, BRAIN: root }, maxBuffer: 32 * 1024 * 1024 });
+  } catch (e) { out = String(e.stdout || ''); code = e.status || 1; }
+  return { code, lines: out.replace(/\n$/, '').split('\n') };
+}
+function adoptedGraph() {
+  const root = adoptedBrain();
+  const builder = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'engine', 'cockpit', 'box-cockpit.mjs');
+  execFileSync(process.execPath, [builder, root], { stdio: 'ignore' });
+  const d = JSON.parse(readFileSync(join(root, 'cockpit', 'data.json'), 'utf8'));
+  return { graph: d.graph, brain: d.brain };
+}
+
 // `pebble` is the field engine/cockpit/box-cockpit.mjs actually writes (the
 // person on a pebble, the rock's name on a rock). These fixtures said `client`,
 // which no live box has ever emitted, and the panel read `client` too — so the
@@ -506,7 +577,7 @@ function thinksFixture(thinks) {
   }
   return null;
 }
-function dashboardDataLines(state, signedOut, surface, thinks) {
+function dashboardDataLines(state, signedOut, surface, thinks, brain) {
   const tf = thinksFixture(thinks);
   if (state === 'empty') {
     const data = {
@@ -551,6 +622,7 @@ function dashboardDataLines(state, signedOut, surface, thinks) {
       { name: 'Todoist', status: 'not connected', state: '' },
     ],
     graph: MEMBER_GRAPH(),
+    ...(brain === 'adopted' && surface === 'member' ? adoptedGraph() : {}),
   };
   // __LAYOUT__ is vestigial: customise mode died 2026-08-09 and nothing reads the
   // saved order any more. Kept so old boxes' emitted shape stays exercised.
@@ -623,7 +695,8 @@ function allSkillsState() {
 function cadenceListLines(state) {
   if (state === 'empty') {
     return ['__SKILLS__', '__CADENCE__', '{}', '__RUNS__', '{}', '__AUTOUPDATE__', '{}',
-      '__HEARTBEAT__', '{}', '__ALLSKILLS__', 'SKILLS_STATE {"skills":[],"cadence":{},"runs":{}}', '__PLANJSON__', '{}'];
+      '__HEARTBEAT__', '{}', '__ALLSKILLS__', 'SKILLS_STATE {"skills":[],"cadence":{},"runs":{}}', '__PLANJSON__', '{}',
+      '__SCRIPTS__', 'SCRIPTS_STATE ' + JSON.stringify(scriptsState(state))];
   }
   const out = ['__SKILLS__'];
   for (const s of SKILLS) {
@@ -650,7 +723,108 @@ function cadenceListLines(state) {
     { id: 'heartbeat', when: 'hourly', note: 'notes once an hour that this mineral is alive and signed in' },
     { id: 'backup', when: '02:30 nightly', note: 'encrypted snapshot of your settings and credentials' },
   ] }));
+  out.push('__SCRIPTS__', 'SCRIPTS_STATE ' + JSON.stringify(scriptsState(state)));
   return out;
+}
+
+// Move in (spec 2026-10-17 adopt § 3): the shape engine/move-in/apply.mjs `show`
+// prints. ?movein=1 on the page url: an adopted server mid move-in, with a plan
+// of five steps in mixed states plus a still-on-the-server list. ?movein=done:
+// the move-in finished, so the Health card carries "Still on the server".
+// Without the param the mineral is not adopted and the Move in tab stays hidden.
+export function moveInState(mode) {
+  if (mode !== '1' && mode !== 'done' && mode !== 'half') return { adopted: false, moving_in: false, has_inventory: false, plan: null };
+  const step = (o) => ({ changes: [], undo: [], details: [], ...o });
+  const steps = [
+    step({ id: 'telegram-carry', kind: 'telegram-carry', side: 'container', state: 'done', done_seq: 1, title: 'Carry your Telegram bot over',
+      what: 'Copies your bot\'s token and chat from vps/.env into your mineral\'s Telegram settings, so the app shows Telegram connected with the same bot and no re-pairing. Your own program keeps answering it.',
+      why: 'Only one program can read a bot\'s messages; two readers steal each other\'s. So this step only carries the details over, and Crads-AI reads nothing. While you are moving in, Crads-AI sends nothing to Telegram either. Once you finish moving in, it can send you the results of jobs set to "Send me the result", while your own program still answers the bot.',
+      source: { type: 'env', file: 'vps/.env', display: 'vps/.env: TELEGRAM_BOT_TOKEN=<hidden>, TELEGRAM_CHAT_ID' } }),
+    step({ id: 'script-money-state', kind: 'script-add', side: 'container', state: 'approved', title: 'Add Money state to your Scripts (switched off)',
+      what: 'Adds Money state to the Scripts list on your Skills page with the same times as your server, switched off.',
+      why: 'This line runs a program without Claude. Your server runs /home/fixture/.nvm/versions/node/v22.11.0/bin/node; inside your mineral it uses its own node.',
+      source: { type: 'crontab', display: '*/5 * * * * /home/fixture/.nvm/versions/node/v22.11.0/bin/node /home/fixture/brain/cockpit/tools/money-state.mjs' },
+      job: { target: 'scripts', id: 'money-state' } }),
+    step({ id: 'cutover-script-money-state', kind: 'cutover', side: 'host', state: 'pending', after: 'script-money-state', title: 'Switch Money state over to Crads-AI',
+      what: 'Switches Money state on in Crads-AI, then switches the server\'s line off by putting "# crads-move-in" in front of it. Run it once from this page first and check the result.',
+      why: 'One owner per job: it runs on your server or in Crads-AI, never both. The line is commented, never deleted.',
+      job: { target: 'scripts', id: 'money-state' }, host_op: { op: 'cron-comment', user: 'fixture' } }),
+    step({ id: 'cadence-morning', kind: 'cadence-add', side: 'container', state: 'skipped', title: 'Schedule Morning in Crads-AI (switched off)',
+      what: 'Adds Morning to your Skills page with the same times as your server, switched off. It runs your own /morning skill.',
+      why: 'This line asks Claude to do something (it runs claude -p). Its own options (--dangerously-skip-permissions) are not carried over.',
+      source: { type: 'crontab', display: '0 7 * * * cd /home/fixture/brain && claude -p "/morning" >> cockpit/logs/morning.log 2>&1' } }),
+    step({ id: 'note-skills', kind: 'note', side: 'container', state: 'undone', title: 'Your skills stay yours',
+      what: 'Your 6 skills stay exactly as they are; Crads-AI never writes into them. Crads-AI\'s own skills install beside yours with crads- in front of their names (crads-capture, crads-connect, crads-daily, crads-explain, crads-inbox, crads-onboard), so none of them can take a name of yours.',
+      why: 'The one exception is /move-in, the skill that explains this plan, which keeps its name.',
+      details: [{ name: 'daily', words: 'yours stays /daily; Crads-AI\'s is /crads-daily' }] }),
+    // rehearsal T4 findings 4 and 8: a Claude job carried over as the person's own runner,
+    // and a backup switch-over held until GitHub is connected
+    step({ id: 'cutover-script-weekly', kind: 'cutover', side: 'host', state: 'approved', title: 'Switch Weekly over to Crads-AI',
+      what: 'Switches Weekly on in Crads-AI, then switches the server\'s line off by putting "# crads-move-in" in front of it. Run it once from this page first and check the result.',
+      why: 'One owner per job: it runs on your server or in Crads-AI, never both. The line is commented, never deleted.',
+      job: { target: 'scripts', id: 'weekly' }, host_op: { op: 'cron-comment', user: 'fixture' } }),
+    step({ id: 'cutover-script-backup', kind: 'cutover', side: 'host', state: 'approved', title: 'Switch Backup over to Crads-AI',
+      what: 'Switches Backup on in Crads-AI, then switches the server\'s line off by putting "# crads-move-in" in front of it. Run it once from this page first and check the result.',
+      why: 'One owner per job: it runs on your server or in Crads-AI, never both. The line is commented, never deleted. This one looks like a backup. Crads-AI also backs up every night (into backups/crads/); switch this over only after one Crads-AI backup has been restored as a test.',
+      hold: 'Connect GitHub first. Crads-AI\'s nightly backup cannot push to your repository from inside your mineral yet, so your own backup job keeps running on the server until it can. Connect GitHub from the app, then make the plan again.',
+      job: { target: 'scripts', id: 'backup' }, host_op: { op: 'cron-comment', user: 'fixture' } }),
+    // rehearsal T4 finding 5: only after Finish, and it never counts toward finishing
+    step({ id: 'telegram-cutover', kind: 'telegram-cutover', side: 'host', state: 'approved', after: 'telegram-carry', after_finish: true,
+      title: 'Let Crads-AI answer your Telegram bot', what: 'Stops and switches off telegram-chat.service on your server (it is never removed), then starts Crads-AI\'s own Telegram reader.',
+      why: 'This step is available once you finish moving in, and it does not count toward finishing. While you are moving in, Crads-AI\'s own Telegram reader is held back, so switching your program off now would leave nobody answering your bot. Your program does things Crads-AI\'s Telegram does not do yet: voice notes. Switch over only when you are happy to lose those, or keep your own program answering.',
+      host_op: { op: 'unit-disable', name: 'telegram-chat.service', scope: 'system' } }),
+  ];
+  // ?movein=half: the app stopped part way through two server steps. One has
+  // been checked (the server shows the line switched off), one not yet.
+  if (mode === 'half') {
+    Object.assign(steps[2], { state: 'approved', in_flight: 'apply', in_flight_ymd: '2026-10-18',
+      check: { at: '2026-10-18T09:40:00.000Z', server: 'changed', words: 'Your server shows the line switched off, with "# crads-move-in" in front of it.',
+        choices: [{ choice: 'finish', label: 'Finish the step' }, { choice: 'rollback', label: 'Put it back as it was' }] } });
+    Object.assign(steps.find((x) => x.id === 'telegram-cutover'), { state: 'done', in_flight: 'undo' });
+  }
+  if (mode === 'done') for (const s of steps) if (s.state !== 'done' && !s.after_finish) s.state = s.state === 'approved' || s.state === 'pending' ? 'done' : 'skipped';
+  const movingIn = mode !== 'done';
+  return {
+    adopted: true, moving_in: movingIn, moving_out: false, has_inventory: true,
+    telegram_now: mode === 'half'
+      ? { who: 'unclear', words: 'Telegram: switching who answers your bot stopped part way through, so the app does not know yet who reads it. Check that step below.' }
+      : movingIn
+        ? { who: 'host', words: 'Telegram: your own program on the server answers your bot. Crads-AI holds its details and sends nothing while you are moving in.' }
+        : { who: 'host', words: 'Telegram: your own program on the server answers your bot. Crads-AI reads nothing, and sends you the results of jobs set to "Send me the result".' },
+    last_runs: {},
+    plan: { version: 1, brain_root: '/home/fixture/brain', login: 'fixture', telegram: { carried: true, answered_by: 'host', env_file: 'vps/.env' }, seq: 1,
+      ...(mode === 'done' ? { finished_at: '2026-10-18T11:00:00.000Z' } : {}),
+      still_on_server: [
+        { id: 'reboot-1', name: 'Started when the server starts', what: 'cd /home/fixture/brain/bridge && ./whatsapp-bridge', why: 'it runs all the time, so it stays on the server in this version' },
+        { id: 'unit-telegram-chat-service', name: 'telegram-chat.service', what: '/usr/bin/node /home/fixture/brain/cockpit/telegram-chat.mjs', why: 'it answers your Telegram bot until you switch that over' },
+        { id: 'container-metabase', name: 'metabase', what: 'a metabase/metabase:v0.50 container (Up 2 days)', why: 'your mineral leaves your other containers alone' },
+      ],
+      steps },
+  };
+}
+
+// Scripts on a schedule (spec 2026-10-17 adopt): the shape engine/cron/scripts.mjs
+// `list` prints. Two switched-on scripts, one finishing and one failing, plus a
+// host-only program that cannot run inside the mineral and stays off.
+function scriptsState(state) {
+  if (state === 'empty') return { version: 1, scripts: [], removed: 0 };
+  return { version: 1, removed: 0, scripts: [
+    { id: 'money-state', name: 'Money state', description: 'Rebuilds the money card from the bank export.',
+      enabled: true, schedule: { kind: 'every', minutes: 15, quiet: false }, when: 'every 15m',
+      argv: ['node', 'cockpit/tools/money-state.mjs'], cwd: '/state', timeout_s: 300, problem: null, running: false,
+      last: { ts: iso(6 * MIN), status: 'ok', summary: 'money.json rebuilt (14 transactions)', error: null, source: 'cron',
+        tail: ['reading bank export…', 'money.json rebuilt (14 transactions)'] } },
+    { id: 'calendar-guard', name: 'Calendar guard', description: 'Keeps calendar holds marked Free so they never block bookings.',
+      enabled: true, schedule: { kind: 'times', days: [], times: ['08:05'] }, when: 'daily 08:05',
+      argv: ['node', 'cockpit/jobs/calendar-guard.mjs', '--fix'], cwd: '/state', timeout_s: 120, problem: null, running: false,
+      last: { ts: iso(3 * 60 * MIN), status: 'fail', summary: 'invalid_grant', error: 'exited with code 1', source: 'cron',
+        tail: ['checking 41 events…', 'Google said: invalid_grant (the sign-in has lapsed)', 'nothing changed'] } },
+    { id: 'whatsapp-bridge', name: 'WhatsApp bridge', description: 'The Go bridge that keeps WhatsApp connected.',
+      enabled: false, schedule: { kind: 'every', minutes: 5, quiet: false }, when: 'every 5m',
+      argv: ['/home/pat/whatsapp-mcp/whatsapp-bridge/whatsapp-bridge'], cwd: '/state', timeout_s: 60,
+      problem: '/home/pat/whatsapp-mcp/whatsapp-bridge/whatsapp-bridge is not installed inside your mineral, so this cannot run here yet.',
+      running: false, last: null },
+  ] };
 }
 
 function sharingListLines(state) {
@@ -1076,7 +1250,14 @@ export function provisionValidate(body) {
   if (!token || token.includes('bad')) return { status: 401, body: { ok: false, reason: 'unauthorized' } };
   const provider = String((body && body.provider) || 'hetzner');
   if (!publicProviders().some((p) => p.id === provider)) return { status: 400, body: { error: 'unknown provider' } };
-  return { status: 200, body: provisionCatalogue(provider) };
+  const answer = provisionCatalogue(provider);
+  // "Yes, my assistant is already on it" (2026-10-18): the check says what it
+  // found in the person's folder, shaped as own-server.mjs adoptSummary.
+  let details = null; try { details = JSON.parse(token); } catch { /* a cloud token */ }
+  if (provider === 'own' && details && details.mode === 'adopt') {
+    answer.adopt = { folder: '/home/pat/second-brain', branch: 'master', git: true, gitOp: '', dirty: 3, skills: 47, cron: 40, units: 2, containers: 3, listeners: 3 };
+  }
+  return { status: 200, body: answer };
 }
 export function provisionStart(body) {
   const slug = String((body && body.name) || '').toLowerCase();
@@ -1193,8 +1374,8 @@ export function runVerb(surface, verb, args, state, opts) {
         moved: opts && opts.moved ? { to: 'sam-box', at: iso(3 * H) } : null,
       })]);
     }
-    if (verb === 'open-folder') return ok(['sam']);
-    if (verb === 'whoami') return ok(['sam']);
+    if (verb === 'open-folder') return ok(['pat']);
+    if (verb === 'whoami') return ok(['pat']);
     // 2026-09-18: the folder's own Overview data (the shape local-verbs.mjs
     // localDashboardData returns: 8 layers, claude_opened/claude_cli, no
     // server rows), and the local-only verbs. ?nocli=1 on the page URL
@@ -1233,6 +1414,13 @@ export function runVerb(surface, verb, args, state, opts) {
       return ok(surface === 'member'
         ? ['login=member user=member']
         : ['▸ connecting…', 'login=aios-op user=op']);
+    case 'brain-list':
+    case 'brain-read':
+    case 'brain-image':
+      if (opts && opts.brain === 'adopted' && surface === 'member' && state !== 'empty') return adoptedRun(verb, A);
+      break;
+  }
+  switch (verb) {
     case 'brain-list': {
       if (state === 'empty') return ok(['▸ listing pages…']);
       const pages = surface === 'member' ? MEMBER_PAGES : ORG_PAGES;
@@ -1433,7 +1621,7 @@ export function runVerb(surface, verb, args, state, opts) {
 
     // ---- member -----------------------------------------------------------
     case 'dashboard-data':
-      return ok(dashboardDataLines(state, signedOut, surface, opts && opts.thinks));
+      return ok(dashboardDataLines(state, signedOut, surface, opts && opts.thinks, opts && opts.brain));
     case 'pages-list':
       return ok(pagesListLines(state));
     case 'page-read':
@@ -1443,6 +1631,34 @@ export function runVerb(surface, verb, args, state, opts) {
       return ok(cadenceListLines(state));
     case 'cadence-write':
       return ok(['saved']);
+    case 'move-in-show':
+      return ok(['MOVEIN_STATE ' + JSON.stringify(moveInState(opts && opts.movein))]);
+    case 'move-in-plan':
+      return ok(['MOVEIN_PLAN {"steps":5}', 'OK: the plan is in /state/move-in.md and on the app\'s Move in page.']);
+    case 'move-in-approve':
+      return ok((Array.isArray(A.ids) ? A.ids : [A.id]).map((id) => `OK: ${id} approved`));
+    case 'move-in-skip':
+      return ok([`OK: ${A.id} ${A.back ? 'is back in the plan' : 'skipped'}`]);
+    case 'move-in-apply':
+      return ok([`OK: ${A.id === 'script-money-state' ? 'money-state is in your Scripts list, switched off.' : 'Noted. Nothing changed.'}`]);
+    case 'move-in-undo':
+      return ok([`OK: ${A.id} undone: the files are as they were before it.`]);
+    case 'move-in-finish':
+      return { code: 1, lines: ['ERROR: 2 steps are not done or skipped yet: cutover-script-money-state, note-skills'] };
+    case 'scripts-list':
+      return ok(['SCRIPTS_STATE ' + JSON.stringify(scriptsState(state))]);
+    case 'scripts-save':
+      return ok(['OK: scripts saved. Changes take effect within a minute.']);
+    // a Claude run outlives its call (rehearsal T4 finding 7): RUN_STILL, then the status verb
+    case 'skill-run':
+      return ok([`Running /${A.id} now. This usually takes a minute or two.`, `RUN_STILL ${A.id}`, 'It is still running on your mineral. The result shows here when it finishes.']);
+    case 'skill-run-status':
+      return ok(['RUN_DONE 0', `/${A.id} wrote today's note.`]);
+    case 'script-run':
+      if (String(A.id) === 'weekly') return ok(['Running Weekly now.', 'It is still running. Its result shows on this row when it finishes.']);
+      return String(A.id) === 'calendar-guard'
+        ? { code: 1, lines: ['Running Calendar guard now.', '  Google said: invalid_grant (the sign-in has lapsed)', 'It failed: exited with code 1.'] }
+        : ok(['Running Money state now.', '  money.json rebuilt (14 transactions)', 'It finished cleanly.']);
     case 'skill-remove': {
       const meta = SKILL_META[args.id] || {};
       if (meta.source === 'org') return ok([`OK: /${args.id} removed. Your rock still offers it, so you can add it again any time.`]);

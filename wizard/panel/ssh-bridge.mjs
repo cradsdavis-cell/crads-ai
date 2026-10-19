@@ -28,8 +28,8 @@
 import { spawn } from 'node:child_process';
 import { poolFor } from './ssh-channel.mjs';
 import { createHmac } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 
 export function sshConfigPath() {
@@ -259,9 +259,66 @@ function sshArgs(configPath) {
   // connection. Windows OpenSSH has no ControlMaster support, so there the concurrency
   // queue below is the whole defence.
   if (process.platform !== 'win32') {
-    args.push('-o', 'ControlMaster=auto', '-o', `ControlPath=${join(homedir(), '.ssh', 'crads-mux-%C')}`, '-o', 'ControlPersist=300s');
+    const cp = muxControlPath();
+    if (cp) args.push('-o', 'ControlMaster=auto', '-o', `ControlPath=${cp}`, '-o', 'ControlPersist=300s');
   }
   return args;
+}
+
+// WHERE THE SHARED CONNECTION'S SOCKET GOES (adopt rehearsal T4, 2026-10-18).
+// A unix socket path has a hard ceiling (sun_path: 104 bytes on macOS and the
+// BSDs, 108 on Linux, NUL included), and ssh needs more than the path it is
+// given: %C expands to 40 hex characters, and the master first binds a temp
+// name with 17 more (".<16 random>") before renaming it. With a long home
+// directory every ssh call failed with "path too long for Unix domain socket"
+// and EVERY panel verb died (the rehearsal's scratch home). So: the home path
+// when it fits, else a short per-user directory under the temp dir (then
+// /tmp, for macOS whose temp dir is itself long), else no sharing at all,
+// which only costs a handshake per verb. Windows never gets here.
+export const MUX_SUFFIX_BYTES = 40 + 17 + 1; // %C, the master's temp suffix, NUL
+export function sunPathLimit(platform = process.platform) {
+  return platform === 'linux' ? 108 : 104;
+}
+// Pure: the ControlPaths that FIT, best first (each { path, dir, own }; the
+// socket is <dir>/<name>%C). `own` = a directory we make and must check.
+export function muxPathCandidates({ home, platform = process.platform, tmp = tmpdir(), uid = '' }) {
+  const limit = sunPathLimit(platform);
+  const u = String(uid === undefined || uid === null ? '' : uid);
+  const all = [
+    { path: join(home, '.ssh', 'crads-mux-%C'), dir: join(home, '.ssh'), own: false },
+    ...[...new Set([tmp, '/tmp'].filter(Boolean))].map((base) => {
+      const dir = join(base, `crads-${u}`);
+      return { path: join(dir, '%C'), dir, own: true };
+    }),
+  ];
+  return all.filter((c) => Buffer.byteLength(c.path) - 2 + MUX_SUFFIX_BYTES <= limit);
+}
+// A short directory only we can use: made 0700, and refused if it is a
+// symlink or someone else's (a shared /tmp is anyone's to pre-create).
+export function ensurePrivateDir(dir, uid = process.getuid ? process.getuid() : undefined) {
+  try {
+    try { mkdirSync(dir, { recursive: true, mode: 0o700 }); } catch { /* exists, or cannot: checked below */ }
+    const st = lstatSync(dir);
+    if (!st.isDirectory() || st.isSymbolicLink()) return false;
+    if (uid !== undefined && st.uid !== uid) return false;
+    if ((st.mode & 0o077) !== 0) chmodSync(dir, 0o700);
+    return true;
+  } catch { return false; }
+}
+const muxCache = new Map();
+// The ControlPath for this run, or null (no connection sharing). Decided once
+// per home/temp/user and cached: sshArgs runs on every verb.
+export function muxControlPath({ home = homedir(), platform = process.platform, tmp = tmpdir(),
+  uid = process.getuid ? process.getuid() : undefined, ensureDir = ensurePrivateDir } = {}) {
+  const key = [platform, home, tmp, uid].join('|');
+  const cacheable = ensureDir === ensurePrivateDir;
+  if (cacheable && muxCache.has(key)) return muxCache.get(key);
+  let out = null;
+  for (const c of muxPathCandidates({ home, platform, tmp, uid })) {
+    if (!c.own || ensureDir(c.dir, uid)) { out = c.path; break; }
+  }
+  if (cacheable) muxCache.set(key, out);
+  return out;
 }
 
 // Portable half of the same defence: at most MAX_CONC ssh processes in flight; the

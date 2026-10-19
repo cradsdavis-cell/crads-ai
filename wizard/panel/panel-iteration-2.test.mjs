@@ -95,7 +95,7 @@ test('R19a: Health = headline, Checked N ago, one jobs line; the job list folds,
   assert.match(fn, /<ul class="mach">/, 'the per-job rows survive inside the fold');
   const card = html.split("{ id: 'health'")[1].split("{ id: 'skills'")[0];
   assert.match(card, /">Checked '\s*\+ esc\(seen \|\| 'just now'\)/, 'Checked N ago');
-  assert.match(card, /\+ machineryHtml\(mach, sick\);/, 'the card hands its own sick count to the fold');
+  assert.match(card, /\+ machineryHtml\(mach, sick\)[;\s]/, 'the card hands its own sick count to the fold');
   assert.doesNotMatch(card, /everything it needs is working/, 'the reassurance sentence is gone; the jobs line carries it');
 });
 

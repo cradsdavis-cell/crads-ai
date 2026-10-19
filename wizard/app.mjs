@@ -34,6 +34,7 @@ import { listPanelTargets, registerPromotedHost, unregisterPromotedHost, systemB
 import { probePromotedHosts } from './panel/face-probe.mjs';
 import { getBuildInfo, checkForUpdate, cleanupOld, applyUpdate } from './panel/updater.mjs';
 import { createDoorServer } from './panel/door-server.mjs';
+import { scheduleRepair } from './panel/build-box.mjs';
 import { extractBox, registerProtocolHandler } from './panel/protocol.mjs';
 import { wantsUninstall, wantsInstall, uninstall, registerUninstall } from './panel/uninstall.mjs';
 import { pushOwnedBrains } from './panel/brain-push.mjs';
@@ -500,6 +501,14 @@ async function main() {
       },
     },
   });
+  // A build the app stopped watching (closed during the first-boot wait) gets
+  // its Claude Code host-key pin and Environment entry here, once the mineral
+  // answers (build-box.mjs repairUnfinished; adopt rehearsal finding 9).
+  // Best-effort, never blocks opening.
+  scheduleRepair(() => door.repairBuilds({ log: dbg }).then((r) => {
+    if (r.repaired.length || r.waiting.length) dbg(`build repair: ${r.repaired.length} finished, ${r.waiting.length} still booting`);
+    return r;
+  }));
   door.on('listening', () => {
     doorUrl = `http://127.0.0.1:${door.address().port}/`;
     // let the sibling panel server bind, then open the right window
