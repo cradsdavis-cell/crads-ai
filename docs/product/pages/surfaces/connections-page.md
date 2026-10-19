@@ -127,7 +127,7 @@ need, and a Done box that moves you on. At the end your mineral saves what you
 pasted, then asks the service to answer, from your mineral, the way your
 scheduled jobs will. If the service answers, the card says how many tools it
 found. If it does not, the card says why in plain words and keeps nothing, so
-you can fix it and try again. Three services work this way today:
+you can fix it and try again. Four services work this way today:
 
 - **Slack**, with a private Slack app you make from our template:
   [connect Slack](/docs/connect-slack).
@@ -137,6 +137,10 @@ you can fix it and try again. Three services work this way today:
 - **Mailchimp**, with an API key you make in your own account. Its connection
   runs on your mineral itself, and it drafts campaigns but never sends them:
   [connect Mailchimp](/docs/connect-mailchimp).
+- **Microsoft 365**, for Outlook mail, calendar and contacts. There is nothing
+  to make: you type a short code at Microsoft, and the sign-in and the
+  connection both live on your mineral:
+  [connect Microsoft 365](/docs/connect-microsoft).
 
 **Two are listed but cannot live on your mineral.** Shopify and Xero only let
 Claude's own connector sign in at the moment. Their cards say **Chats only**,

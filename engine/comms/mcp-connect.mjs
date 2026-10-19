@@ -27,14 +27,16 @@
 //   node mcp-connect.mjs <state-dir> add <key>          (featured key)
 //   node mcp-connect.mjs <state-dir> add-custom         (stdin: {name,url,token_b64?,scheme?})
 //   node mcp-connect.mjs <state-dir> add-mailchimp      (stdin: {key_b64})
+//   node mcp-connect.mjs <state-dir> add-microsoft      (stdin: {account, client_id?, tenant_id?})
 //   node mcp-connect.mjs <state-dir> check <key>        (does the saved server answer?)
 //   node mcp-connect.mjs <state-dir> remove <key>       (featured or app-added)
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { connectionLabel } from '../lib/connection-labels.mjs';
 import { GOOGLE_KEY_RE, PRIMARY_GOOGLE_KEY, GOOGLE_CREDS_DIR, googleStateFiles } from '../lib/google-byo.mjs';
 import { headersHelperCmd, HELPER_RE } from '../lib/mcp-header-helper.mjs';
+import { MS365_KEY, isMs365, ms365Def, ms365Dir, ms365LoginFile, ms365Settings, parseLoginResult } from '../lib/ms365.mjs';
 
 const stateDir = path.resolve(process.argv[2] || '/state');
 const cmd = process.argv[3] || 'status';
@@ -89,7 +91,13 @@ const key = String(process.argv[4] || '');
 //       the server URL, and the renewal job asks for the same resource with
 //       the member app's client secret. The page gates ONLY its Asana wizard
 //       on 7; a 6-box is told to update.
-const CONTRACT = 7;
+//   8 = Microsoft 365 on the box (2026-10-19): the add-microsoft verb writes
+//       a stdio server (the baked @softeria/ms-365-mcp-server, Outlook mail,
+//       calendar and contacts) and engine/comms/ms365-login.mjs runs
+//       Microsoft's device-code sign-in ON the box. The row is byo:'microsoft'
+//       and carries the signed-in `email`. The page gates ONLY its Microsoft
+//       wizard on 8; a 7-box is told to update.
+const CONTRACT = 8;
 
 const MCP_F = path.join(stateDir, '.mcp.json');
 const OAUTH_F = path.join(stateDir, '.kernel', 'mcp-oauth.json');   // read-only here; mcp-token.mjs is the writer
@@ -190,6 +198,18 @@ function forgetCliToken(name) {
   writeFileSync(CREDS_F, JSON.stringify(doc, null, 2) + '\n', { mode: 0o600 });
 }
 
+// Microsoft 365 (contract 8): its sign-in lives in the package's own cache
+// under .kernel/ms365, not in Claude Code's store. Stop a sign-in still in
+// progress, then delete the lot: the cache, its key file, the record.
+function forgetMicrosoft() {
+  const dir = ms365Dir(stateDir);
+  try {
+    const s = JSON.parse(readFileSync(ms365LoginFile(stateDir), 'utf8'));
+    if (s?.pid && (s.stage === 'code' || s.stage === 'starting')) process.kill(s.pid, 'SIGTERM');
+  } catch { /* no run, or already gone */ }
+  try { rmSync(dir, { recursive: true, force: true }); } catch { /* nothing there */ }
+}
+
 // A server whose definition carries its own credential (a header) is
 // TOKEN-auth: no OAuth dance, credentialed from the moment it is written.
 // Any header counts since contract 6: a service may want its key somewhere
@@ -286,6 +306,22 @@ function googleRows(srv) {
   return [googleRow(PRIMARY_GOOGLE_KEY, srv[PRIMARY_GOOGLE_KEY]), ...extra.map((k) => googleRow(k, srv[k]))];
 }
 
+// Microsoft 365 (contract 8): one row, present once the member has started
+// the set-up. Its truth is the sign-in record ms365-login.mjs keeps; the token
+// itself stays in the package's own cache, which this file never opens.
+function microsoftRow(def) {
+  const base = { key: MS365_KEY, label: connectionLabel(MS365_KEY), blurb: 'Outlook mail, calendar and contacts',
+    auth: 'device', byo: 'microsoft', mine: true, configured: true };
+  const login = rdJSON(ms365LoginFile(stateDir), null) || {};
+  if (login.stage === 'done') {
+    return { ...base, state: 'on', status: 'working, including in scheduled jobs', authorised: true, renews: true,
+      email: login.user || null };
+  }
+  const waiting = login.stage === 'code' || login.stage === 'starting';
+  return { ...base, state: 'needs-auth', authorised: false, renews: null, email: null,
+    status: waiting ? 'waiting for you to enter the code at Microsoft' : 'added, waiting for you to sign in once' };
+}
+
 function rows() {
   const srv = servers();
   const mine = appAdded();
@@ -308,6 +344,7 @@ function rows() {
   }
 
   list.push(...googleRows(srv));
+  if (isMs365(srv[MS365_KEY])) list.push(microsoftRow(srv[MS365_KEY]));
 
   const known = new Set([...Object.keys(FEATURED), 'google', ...list.map((r) => r.key)]);
   for (const k of Object.keys(srv)) {
@@ -480,6 +517,7 @@ if (cmd === 'status') {
 
 if (cmd === 'add') {
   if (GOOGLE_KEY_RE.test(key)) out({ ok: false, error: 'Google connects through its own set-up flow (add-google), not a plain add' });
+  if (key === MS365_KEY) out({ ok: false, error: 'Microsoft 365 connects through its own set-up flow (add-microsoft), not a plain add' });
   const def = FEATURED[key];
   if (!def) out({ ok: false, error: UNAVAILABLE[key] ? `${connectionLabel(key)} cannot be connected this way yet` : `unknown service: ${key}` });
   const doc = rdJSON(MCP_F, {});
@@ -500,7 +538,7 @@ if (cmd === 'add-custom') {
   catch { out({ ok: false, error: 'expected base64 JSON on stdin' }); }
   const name = String(req.name || '').toLowerCase();
   if (!NAME_RE.test(name)) out({ ok: false, error: 'name must be 2-32 chars: lowercase letters, digits, - or _' });
-  if (FEATURED[name] || UNAVAILABLE[name] || GOOGLE_KEY_RE.test(name)) out({ ok: false, error: `"${name}" is a featured service, connect it from its own row` });
+  if (FEATURED[name] || UNAVAILABLE[name] || GOOGLE_KEY_RE.test(name) || name === MS365_KEY) out({ ok: false, error: `"${name}" is a featured service, connect it from its own row` });
   let url;
   try { url = new URL(String(req.url || '')); } catch { out({ ok: false, error: 'that does not look like a URL' }); }
   if (url.protocol !== 'https:') out({ ok: false, error: 'only https servers can be connected' });
@@ -615,6 +653,35 @@ if (cmd === 'add-google') {
   out({ ok: true, contract: CONTRACT, key: gkey, action: 'add-google', services: rows() });
 }
 
+if (cmd === 'add-microsoft') {
+  // stdin, base64(JSON): { account: 'work'|'personal', client_id?, tenant_id? }.
+  // Nothing secret: an app ID and a tenant are public identifiers, and the
+  // sign-in itself runs on the box afterwards (ms365-login.mjs). Saving again
+  // with different settings is how a member switches account kind or app.
+  let req = {};
+  try { req = JSON.parse(Buffer.from(readFileSync(0, 'utf8').trim(), 'base64').toString('utf8')); }
+  catch { out({ ok: false, error: 'expected base64 JSON on stdin' }); }
+  const set = ms365Settings(req);
+  if (set.error) out({ ok: false, error: set.error });
+  const doc = rdJSON(MCP_F, {});
+  doc.mcpServers = doc.mcpServers || {};
+  const prev = doc.mcpServers[MS365_KEY];
+  if (prev && !isMs365(prev) && !appAdded().has(MS365_KEY)) {
+    out({ ok: false, error: `a hand-added "${MS365_KEY}" server already exists on this box; remove it in Claude Code first` });
+  }
+  const next = ms365Def(stateDir, set);
+  // A different door or app means the cached sign-in belongs to something
+  // else: drop it, so the row cannot say "working" over a token the new
+  // settings will never use. Same settings: keep it (a repeat press is harmless).
+  const same = prev && isMs365(prev)
+    && prev.env?.MS365_MCP_TENANT_ID === next.env.MS365_MCP_TENANT_ID
+    && (prev.env?.MS365_MCP_CLIENT_ID || '') === (next.env.MS365_MCP_CLIENT_ID || '');
+  if (prev && !same) forgetMicrosoft();
+  doc.mcpServers[MS365_KEY] = next;
+  writeMcp(doc); syncAllow(MS365_KEY, true); rememberAdded(MS365_KEY, true); ensureApproved([MS365_KEY]);
+  out({ ok: true, contract: CONTRACT, key: MS365_KEY, action: 'add-microsoft', services: rows() });
+}
+
 // CHECK (contract 4, 2026-10-02): ask a saved server for its tool list, from
 // the box, with the very definition jobs will load. The guided wizards (Slack,
 // WordPress) run this straight after saving, the way Telegram verifies its
@@ -687,7 +754,29 @@ async function checkStdio(def) {
   });
 }
 
+// Microsoft 365: the server starts happily with no sign-in, so a tool list
+// proves nothing. The package's own --verify-login fetches the member's
+// profile with the cached token, which is the thing that can be wrong.
+async function checkMicrosoft(def) {
+  const { spawn } = await import('node:child_process');
+  return await new Promise((resolve) => {
+    let child, stdout = '';
+    try { child = spawn(def.command, [...(def.args || []), '--verify-login'], { env: { ...process.env, ...(def.env || {}) }, stdio: ['ignore', 'pipe', 'ignore'] }); }
+    catch { resolve({ working: false, problem: 'unreachable' }); return; }
+    const timer = setTimeout(() => { try { child.kill(); } catch { /* gone */ } resolve({ working: false, problem: 'unreachable' }); }, 30000);
+    child.on('error', () => { clearTimeout(timer); resolve({ working: false, problem: 'unreachable', detail: 'the Microsoft connection is missing from this mineral' }); });
+    child.stdout.on('data', (b) => { stdout += b; });
+    child.on('close', () => {
+      clearTimeout(timer);
+      const r = parseLoginResult(stdout);
+      if (r?.success) resolve({ working: true, server: 'ms-365-mcp-server', account: String(r.userData?.userPrincipalName || '').slice(0, 120) || undefined });
+      else resolve({ working: false, problem: 'auth', detail: String(r?.message || 'not signed in').replace(/\s+/g, ' ').slice(0, 160) });
+    });
+  });
+}
+
 async function checkServer(def) {
+  if (isMs365(def)) return checkMicrosoft(def);
   if (def.command) return checkStdio(def);
   if (def.type === 'sse') return { working: false, problem: 'sse' };
   const base = { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...(def.headers || {}) };
@@ -779,6 +868,7 @@ if (cmd === 'remove') {
   // the OK line says so.
   try { execFileSync('node', [TOKEN_TOOL, stateDir, 'forget', key], { stdio: 'ignore' }); } catch { /* nothing keyed yet */ }
   forgetCliToken(key);
+  if (key === MS365_KEY) forgetMicrosoft();
   out({ ok: true, contract: CONTRACT, key, action: 'remove',
     notice: `${connectionLabel(key)} is disconnected and its credential is gone from this box. The permission you granted at ${connectionLabel(key)} is yours to revoke there.`,
     services: rows() });

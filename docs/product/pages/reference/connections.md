@@ -1,6 +1,6 @@
 ---
 title: What you can connect
-summary: The 66 services your mineral can connect to, the 2 that only connect through your Claude account, and how each one signs in.
+summary: The 67 services your mineral can connect to, the 2 that only connect through your Claude account, and how each one signs in.
 audience: public
 access: public
 mode: reference
@@ -10,7 +10,7 @@ order: 20
 
 > Generated from the code by docs/product/pipeline/generate.mjs. Do not edit by hand: run the generator.
 
-66 services your mineral can connect to without you finding an endpoint
+67 services your mineral can connect to without you finding an endpoint
 yourself. 6 of them ship inside the box as featured connectors; the rest
 are in the list on the same page, and you connect them from there. 2 more (Shopify and Xero) are listed so you can find them, but they only connect through your Claude account, so they work in your chats and never in scheduled jobs.
 
@@ -92,6 +92,7 @@ gets probed.
 | **Zoom** | meetings and recordings | Token | From the list |
 | **Slack** | search, read and post in your workspace | [Guided](/docs/connect-slack) | Guided setup |
 | **Mailchimp** | audiences, contacts, draft campaigns and reports | [Guided](/docs/connect-mailchimp) | Guided setup |
+| **Microsoft 365** | Outlook mail, calendar and contacts | [Guided](/docs/connect-microsoft) | Guided setup |
 
 ## Data
 

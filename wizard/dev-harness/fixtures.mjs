@@ -897,7 +897,7 @@ const MCP_ON = {
   canva: { authorised: true, auth: 'oauth', renews: true },
 };
 const MCP_CHAT = { stripe: true };   // a connection made inside Claude Code (chats-only)
-const MCP_CONTRACT = 7;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
+const MCP_CONTRACT = 8;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
                           // (2 = the byo google row, 2026-08-17; 3 = several
                           // google rows, one per account, 2026-09-14. Bumped
                           // in lockstep with the engine. rekey_due_at left the
@@ -1010,6 +1010,7 @@ function mcpRows() {
   });
   for (const [key, st] of Object.entries(MCP_ON)) {
     if (MCP_FEATURED[key]) continue;
+    if (key === 'microsoft') continue;   // its own row shape, below
     rows.push({ key, label: connectionLabel(key), blurb: st.blurb || 'connected by you', key_expires_by: st.key_expires_by, auth: st.auth, state: st.authorised ? 'on' : 'needs-auth',
       status: st.authorised ? 'working, including in scheduled jobs' : 'added, waiting for you to sign in once',
       configured: true, authorised: st.authorised, renews: st.renews, mine: true });
@@ -1025,6 +1026,14 @@ function mcpRows() {
   // the box's report; the connectable byo rows below are the offer now
   // (contract 3, 2026-09-14: one per account).
   rows.push(...gwFixtureRows());
+  // contract 8 (2026-10-19): Microsoft 365, the byo:'microsoft' row the box
+  // emits from its sign-in record (engine/comms/mcp-connect.mjs microsoftRow)
+  if (MS_FX.saved) {
+    const on = MS_FX.stage === 'done';
+    rows.push({ key: 'microsoft', label: 'Microsoft 365', blurb: 'Outlook mail, calendar and contacts', auth: 'device', byo: 'microsoft',
+      mine: true, configured: true, state: on ? 'on' : 'needs-auth', authorised: on, renews: on ? true : null, email: on ? MS_FX.user : null,
+      status: on ? 'working, including in scheduled jobs' : MS_FX.stage === 'code' ? 'waiting for you to enter the code at Microsoft' : 'added, waiting for you to sign in once' });
+  }
   // R21 (panel iteration 2): a connector on the member's CLAUDE ACCOUNT, the
   // exact shape engine/comms/mcp-connect.mjs emits for one. Never adoptable,
   // never able to serve a job; the page folds it under "Connected to your
@@ -1035,6 +1044,12 @@ function mcpRows() {
   return rows;
 }
 let TG_POLLS = 0;
+
+// Microsoft 365 (contract 8): the box's device-code sign-in, walked on a clock.
+// Save -> a code -> two status polls later "done", so the card is drivable end
+// to end. Choosing "personal" with the app ID 00000000-0000-0000-0000-000000000000
+// drives Microsoft's admin-approval refusal instead (the failure path).
+const MS_FX = { saved: false, stage: 'idle', polls: 0, user: null, fail: false };
 
 // ---- the door's self-host wizard (/provision/*, /setup-steps) ---------------
 // The real routes live in wizard/panel/provision-routes.mjs and setup-steps.mjs
@@ -1125,6 +1140,7 @@ export function resetFlows() {
   RC_STATE = { ...RC_ON };
   gwReset();
   provReset();
+  Object.assign(MS_FX, { saved: false, stage: 'idle', polls: 0, user: null, fail: false });
 }
 
 const SSH_FAIL = [
@@ -1550,6 +1566,9 @@ export function runVerb(surface, verb, args, state, opts) {
     // literal "wrong", which answers the 401 a real site gives, so the wizard's
     // failure path can be driven here too.
     case 'mcp-check': {
+      if (args.key === 'microsoft') return ok([JSON.stringify(MS_FX.stage === 'done'
+        ? { ok: true, contract: MCP_CONTRACT, key: 'microsoft', working: true, server: 'ms-365-mcp-server', account: MS_FX.user }
+        : { ok: true, contract: MCP_CONTRACT, key: 'microsoft', working: false, problem: 'auth', detail: 'No valid token found' })]);
       const on = MCP_ON[args.key];
       if (!on) return ok([JSON.stringify({ ok: false, error: `"${args.key}" is not a connection on this box` })]);
       if (on.wrong) return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: args.key, working: false, problem: 'auth', status: 401, detail: 'Sorry, you are not allowed to do that.' })]);
@@ -1563,6 +1582,31 @@ export function runVerb(surface, verb, args, state, opts) {
     }
     // contract 5: Mailchimp on the box. A key ending -us0 stands in for one
     // Mailchimp turns down, so the wizard's failure path can be driven here.
+    case 'mcp-add-microsoft': {
+      const p = JSON.parse(Buffer.from(String(args.def_b64 || ''), 'base64').toString('utf8'));
+      if (p.client_id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(p.client_id)) return ok([JSON.stringify({ ok: false, error: 'that app ID does not look right: it is a GUID like 1a2b3c4d-…, from the app\'s Overview page' })]);
+      MS_FX.saved = true; MS_FX.fail = p.client_id === '00000000-0000-0000-0000-000000000000';
+      MS_FX.user = p.account === 'personal' ? 'mel.driftwood@outlook.com' : 'mel@driftwoodsurf.example';
+      if (MS_FX.stage !== 'done') MS_FX.stage = 'idle';
+      return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: 'microsoft', action: 'add-microsoft', services: mcpRows() })]);
+    }
+    case 'mcp-microsoft-login': {
+      if (!MS_FX.saved) return ok([JSON.stringify({ ok: false, error: 'Microsoft 365 is not set up on this mineral yet' })]);
+      if (MS_FX.stage === 'done') return ok([JSON.stringify({ ok: true, stage: 'done', user: MS_FX.user })]);
+      MS_FX.stage = 'code'; MS_FX.polls = 0;
+      return ok([JSON.stringify({ ok: true, stage: 'code', url: 'https://login.microsoft.com/device', code: 'H3RB9TK2Q', expires_at: new Date(Date.now() + 15 * 60e3).toISOString() })]);
+    }
+    case 'mcp-microsoft-login-status': {
+      if (MS_FX.stage === 'code' && ++MS_FX.polls >= 2) {
+        if (MS_FX.fail) { MS_FX.stage = 'idle'; return ok([JSON.stringify({ ok: true, stage: 'failed', reason: 'AADSTS90094: Admin consent is required for the permissions requested by this application.' })]); }
+        MS_FX.stage = 'done';
+      }
+      return ok([JSON.stringify({ ok: true, stage: MS_FX.stage, ...(MS_FX.stage === 'code' ? { code: 'H3RB9TK2Q', url: 'https://login.microsoft.com/device' } : {}), ...(MS_FX.stage === 'done' ? { user: MS_FX.user } : {}) })]);
+    }
+    case 'mcp-microsoft-login-cancel': {
+      if (MS_FX.stage !== 'done') MS_FX.stage = 'idle';
+      return ok([JSON.stringify({ ok: true, stage: MS_FX.stage === 'done' ? 'done' : 'cancelled' })]);
+    }
     case 'mcp-add-mailchimp': {
       const p = JSON.parse(Buffer.from(String(args.def_b64 || ''), 'base64').toString('utf8'));
       const k = Buffer.from(String(p.key_b64 || ''), 'base64').toString('utf8').trim();
@@ -1573,6 +1617,7 @@ export function runVerb(surface, verb, args, state, opts) {
     }
     case 'mcp-remove': {
       delete MCP_ON[args.key];
+      if (args.key === 'microsoft') Object.assign(MS_FX, { saved: false, stage: 'idle', polls: 0, user: null, fail: false });
       // a Google row: the primary goes back to the off offer, a further account vanishes
       if (GW[args.key]) { if (args.key === 'google') GW.google = gwFresh(); else delete GW[args.key]; }
       // R8: the verb's own notice, printed verbatim by the page

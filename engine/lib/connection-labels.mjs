@@ -13,6 +13,8 @@
 export const CONNECTION_LABELS = {
   // provider bridges
   ms365: 'Microsoft 365 (Outlook + Calendar)',
+  // the on-box Microsoft connection (2026-10-19, engine/lib/ms365.mjs)
+  microsoft: 'Microsoft 365',
   google: 'Google Workspace',
   todoist: 'Todoist',
   // featured MCP catalogue (labels here; urls/blurbs live with the catalogue)

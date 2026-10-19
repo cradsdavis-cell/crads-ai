@@ -37,6 +37,11 @@
 // official Marketing server, and the hosted ones relay a member's audience
 // through someone else. Its url is a placeholder, never connected to: the
 // real address comes from the key's data-center suffix.
+// 'microsoft' (contract 8, 2026-10-19) runs ON the box as well (the baked
+// ms-365-mcp-server), and signs in with Microsoft's device code: the member
+// types a short code at Microsoft's page, nothing is pasted, so it sits with
+// the one-click (oauth) kind. Its url is the Graph API it reaches, never
+// connected to as an MCP address.
 
 export const CATEGORIES = ['Design', 'Dev', 'Docs', 'Comms', 'Data', 'Meetings', 'Payments', 'Web', 'AI'];
 
@@ -119,6 +124,7 @@ export const CATALOGUE = [
   // guided connections (2026-10-02): a wizard on the page, not a probe
   { key: 'slack',     label: 'Slack',     category: 'Comms', url: 'https://mcp.slack.com/mcp', blurb: 'search, read and post in your workspace', auth: 'token', guided: 'slack' },
   { key: 'mailchimp', label: 'Mailchimp', category: 'Comms', url: 'https://us1.api.mailchimp.com/3.0/', blurb: 'audiences, contacts, draft campaigns and reports', auth: 'token', guided: 'mailchimp' },
+  { key: 'microsoft', label: 'Microsoft 365', category: 'Comms', url: 'https://graph.microsoft.com/v1.0/', blurb: 'Outlook mail, calendar and contacts', auth: 'oauth', guided: 'microsoft' },
   { key: 'wordpress', label: 'WordPress', category: 'Web',   url: 'https://your-site/wp-json/mcp/mcp-adapter-default-server', blurb: 'your site, and WooCommerce orders and products', auth: 'token', guided: 'wordpress' },
   // connected through the member's Claude account only (see 'account' above)
   { key: 'shopify',   label: 'Shopify',   category: 'Payments', url: 'https://setup.shopify.com/mcp', blurb: 'your store, in your chats with Claude', auth: 'account', guided: 'account' },

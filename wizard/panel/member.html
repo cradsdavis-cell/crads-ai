@@ -2244,6 +2244,62 @@
         <div class="notice" id="asNotice" style="display:none"></div>
       </div>
 
+      <!-- Microsoft 365 (contract 8, 2026-10-19): Outlook mail, calendar and
+           contacts through ms-365-mcp-server, baked into the image and run ON
+           the mineral. The sign-in is Microsoft's device code, also run on the
+           mineral (engine/comms/ms365-login.mjs): the page shows the code, the
+           member types it at Microsoft, and the token never touches this app.
+           No app to make: the server signs in with its own public Microsoft
+           app unless the member names theirs under "Your own app". -->
+      <div class="guidecard" id="msWizard" style="margin-top:14px;display:none" data-guided="microsoft">
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <p class="gtitle" style="margin:0">Microsoft 365: Outlook mail, calendar and contacts</p>
+          <button class="connfix" type="button" data-guided-close style="margin-left:auto">Close</button>
+        </div>
+        <p class="hint" style="margin:6px 0 10px">Your assistant signs in to your Microsoft account with a short code you type at Microsoft. The sign-in stays on your mineral, and the part that reads your mail runs there too: nothing passes through anyone else. There is no app to make. About two minutes.</p>
+        <p class="hint" style="margin:0 0 12px">It can read, search and send email, and see and manage your calendar and contacts, in chats and in scheduled jobs. It <b>cannot delete</b> mail, contacts or calendars, make inbox rules that forward your mail, or share your calendar. It does not reach your files, SharePoint or Teams.</p>
+        <div class="fsteps" data-ladder style="margin:0 0 12px">
+          <span class="fstep" data-step="1">Your account</span>
+          <span class="fstep" data-step="2">Enter the code</span>
+          <span class="fstep" data-step="3">Working</span>
+        </div>
+        <details class="secfold" data-fold="1">
+          <summary>Step 1: Which Microsoft account?<span class="sum2">Work or personal</span></summary>
+          <div class="fbody">
+            <label class="check" style="margin:6px 0 6px"><input type="radio" name="msAccount" value="work" checked><span><b>Work or school</b>: Microsoft 365 for business, or an email at your own domain on Outlook</span></label>
+            <label class="check" style="margin:0 0 10px"><input type="radio" name="msAccount" value="personal"><span><b>Personal</b>: outlook.com, hotmail.com or live.com</span></label>
+            <details style="margin:0 0 10px">
+              <summary class="hint" style="cursor:pointer">Your own Microsoft app (optional)</summary>
+              <p class="hint" style="margin:8px 0 8px">Only if your organisation wants its own app on the consent screen. Register an app in Microsoft Entra (Accounts in any organizational directory, or only yours), turn on <b>Allow public client flows</b> under Authentication, add the Microsoft Graph delegated permissions it asks for, then paste its Application (client) ID here. A tenant is needed only if the app is for your organisation alone.</p>
+              <div class="hostbox" style="margin:0 0 8px">
+                <input id="msClient" type="text" autocomplete="off" spellcheck="false" placeholder="Application (client) ID" style="flex:1;min-width:0;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              </div>
+              <div class="hostbox">
+                <input id="msTenant" type="text" autocomplete="off" spellcheck="false" placeholder="Directory (tenant) ID or your domain, if the app is single-tenant" style="flex:1;min-width:0;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              </div>
+            </details>
+            <button class="act" type="button" id="msStart">Get a sign-in code</button>
+          </div>
+        </details>
+        <details class="secfold" data-fold="2" style="margin-top:10px">
+          <summary>Step 2: Enter the code at Microsoft<span class="sum2">On this computer or your phone</span></summary>
+          <div class="fbody">
+            <p class="hint" style="margin:6px 0 8px">Open Microsoft's sign-in page, type this code, sign in with the account you chose, and accept. This page finishes by itself. The code lasts 15 minutes.</p>
+            <div class="hostbox" style="margin:0 0 10px">
+              <input id="msCode" type="text" readonly spellcheck="false" style="flex:1;min-width:0;font-family:var(--mono);font-size:20px;letter-spacing:2px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <button class="connfix" type="button" id="msCopy">Copy</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <a class="openlink" id="msOpen" href="https://login.microsoft.com/device" target="_blank" rel="noopener">Open Microsoft's sign-in page</a>
+              <button class="connfix" type="button" id="msCancel">Cancel</button>
+            </div>
+            <p class="hint" style="margin:10px 0 0">At work, Microsoft may say an administrator has to approve it. If that is you, sign in as the administrator and tick <b>Consent on behalf of your organization</b>. If not, your IT person can approve it once for everyone; the Microsoft 365 guide in Help says how.</p>
+          </div>
+        </details>
+        <div data-done style="display:none;margin-top:12px"></div>
+        <div class="notice" id="msNotice" style="display:none"></div>
+      </div>
+
       <!-- Services whose official server only lets CLAUDE'S OWN connector sign
            in (catalogue auth 'account': Shopify, Xero). The mineral can hold
            nothing for these, so this card is a guide, not a wizard: where to
@@ -4554,6 +4610,18 @@
         + '<span class="why">' + gwho + esc(s.blurb) + '</span><span style="display:flex;gap:4px">' + btns + '</span>'
         + '<span class="chip ' + (MCP_CHIP[s.state] || '') + '">' + esc(s.status) + '</span>' + gsub + '</li>';
     }
+    // Microsoft 365 (contract 8): Sign in reopens the card, which runs the
+    // Microsoft code sign-in on the mineral; Disconnect is the ordinary remove,
+    // which on the box also deletes the sign-in cache. The row says whose
+    // account it is once signed in.
+    if (s.byo === 'microsoft') {
+      btns = (s.state === 'on' ? '' : '<button class="connfix" type="button" data-mcp-microsoft>Sign in</button>')
+        + '<button class="connfix" type="button" data-mcp-remove="microsoft">Disconnect</button>';
+      var mwho = s.email ? esc(s.email) + ' · ' : '';
+      return '<li class="marked">' + markSpan('microsoft', s.label) + '<span class="nm">' + esc(s.label) + '</span>'
+        + '<span class="why">' + mwho + esc(s.blurb) + '</span><span style="display:flex;gap:4px">' + btns + '</span>'
+        + '<span class="chip ' + (MCP_CHIP[s.state] || '') + '">' + esc(s.status) + '</span></li>';
+    }
     // mine=false is a server the member created by hand in Claude Code: shown
     // and reported, never offered a Disconnect: we did not put it there.
     if (s.mine !== false) {
@@ -4766,10 +4834,10 @@
   // wizards save through mcp-add-custom and then ask the box to call the
   // server (mcp-check, contract 4); a failed check removes the saved entry, so
   // a wrong paste leaves nothing behind and the member simply tries again.
-  var GUIDED_CARDS = { slack: 'skWizard', wordpress: 'wpWizard', mailchimp: 'mcWizard', account: 'acWizard', asana: 'asWizard' };
-  var GUIDED_NOTICE = { slack: 'skNotice', wordpress: 'wpNotice', mailchimp: 'mcNotice', asana: 'asNotice' };
+  var GUIDED_CARDS = { slack: 'skWizard', wordpress: 'wpWizard', mailchimp: 'mcWizard', account: 'acWizard', asana: 'asWizard', microsoft: 'msWizard' };
+  var GUIDED_NOTICE = { slack: 'skNotice', wordpress: 'wpNotice', mailchimp: 'mcNotice', asana: 'asNotice', microsoft: 'msNotice' };
   // the box contract each wizard stands on: 4 = scheme basic + check, 5 = Mailchimp on the box
-  var GUIDED_CONTRACT = { slack: 4, wordpress: 4, mailchimp: 5, asana: 7 };
+  var GUIDED_CONTRACT = { slack: 4, wordpress: 4, mailchimp: 5, asana: 7, microsoft: 8 };
   // What the account guide says per service. Facts, verified 2026-10-02:
   // Shopify's sign-in accepts only claude.ai / chatgpt.com redirects; Xero's
   // hosted server refuses third-party tokens and its Claude connector is
@@ -4837,6 +4905,7 @@
       // a behind box hears the same one-click fix every other mcp verb gives
       if (mcpContract < GUIDED_CONTRACT[kind]) { notice(GUIDED_NOTICE[kind], MCP_TOO_OLD); }
       if (kind === 'asana') asPrepare();
+      if (kind === 'microsoft') msPrepare();
       guidedSetStep(card, 1);
     }
     card.style.display = 'block';
@@ -5057,6 +5126,115 @@
       });
     }, function(){ btn.disabled = false; notice('asNotice', 'Could not reach your mineral just now.'); });
   };
+
+  // Microsoft 365 (contract 8, 2026-10-19). Three box verbs: save the server
+  // (mcp-add-microsoft), start the Microsoft code sign-in ON the mineral
+  // (mcp-microsoft-login, which answers with the code), then poll its record
+  // (mcp-microsoft-login-status) until Microsoft says yes or no. Last, the
+  // box's own check proves the cached sign-in reaches Microsoft from there.
+  var msPoll = null;
+  function msStop(){ if (msPoll) { clearInterval(msPoll); msPoll = null; } }
+  function msPrepare(){
+    msStop();
+    $('msStart').disabled = false; $('msCode').value = ''; $('msCopy').textContent = 'Copy';
+    $('msClient').value = ''; $('msTenant').value = '';
+  }
+  function msAccount(){
+    var r = document.querySelector('input[name="msAccount"]:checked');
+    return (r && r.value) || 'work';
+  }
+  // Microsoft's own words, made into a next step where one is known
+  function msWhy(reason){
+    var r = String(reason || '');
+    if (/AADSTS65001|AADSTS90094|admin(istrator)? (approval|consent)|need(s)? admin/i.test(r)) return 'Your organisation needs an administrator to approve this once. If that is you, press Get a sign-in code again, sign in as the administrator and tick Consent on behalf of your organization. Microsoft said: ' + r;
+    if (/AADSTS50020|AADSTS9002331|not.*(exist|found).*tenant|personal Microsoft account/i.test(r)) return 'That account does not match the kind you picked. Choose the other one in step 1 (Work or school, or Personal) and get a new code. Microsoft said: ' + r;
+    if (/declin|denied|cancel/i.test(r)) return 'The sign-in was declined at Microsoft. Get a new code to try again.';
+    return r || 'The sign-in did not finish. Get a new code to try again.';
+  }
+  function msDone(user){
+    var card = $('msWizard');
+    msStop();
+    guidedSetStep(card, 5);
+    Array.prototype.forEach.call(card.querySelectorAll('[data-fold]'), function(f){ f.open = false; });
+    notice('msNotice', '');
+    var done = card.querySelector('[data-done]');
+    done.innerHTML = '<p class="hint" style="margin:0"><b>Connected' + (user ? ' as ' + esc(user) : '') + '.</b> Your assistant can use your Outlook mail, calendar and contacts in chats and in scheduled jobs, and it stays signed in by itself. It is in Your connections above; Disconnect there deletes the sign-in from your mineral. To cut it off from Microsoft\'s side too, remove the app under My Apps at myapps.microsoft.com (work) or account.microsoft.com/privacy/app-access (personal).</p>';
+    done.style.display = 'block';
+    $('msStart').disabled = false; $('msCode').value = '';
+    loadMcp(); loadDashboard(true);
+  }
+  function msCheck(user){
+    notice('msNotice', 'Signed in. Asking Microsoft to answer from your mineral…');
+    run('mcp-check', { key: 'microsoft' }).then(function(r){
+      var c = jsonOut(r);
+      if (c && c.working) { msDone(c.account || user); return; }
+      notice('msNotice', msWhy(c && c.detail));
+      $('msStart').disabled = false;
+      guidedSetStep($('msWizard'), 1);
+      loadMcp();
+    }, function(){ msDone(user); });
+  }
+  function msPollOnce(){
+    run('mcp-microsoft-login-status').then(function(r){
+      var d = jsonOut(r);
+      if (!d || d.ok === false) return;   // a missed beat; the next poll tries again
+      if (d.stage === 'done') { msStop(); msCheck(d.user); return; }
+      if (d.stage === 'failed' || d.stage === 'cancelled' || d.stage === 'idle') {
+        msStop();
+        $('msStart').disabled = false; $('msCode').value = '';
+        guidedSetStep($('msWizard'), 1);
+        if (d.stage === 'failed') notice('msNotice', msWhy(d.reason));
+        else notice('msNotice', '');
+        loadMcp();
+      }
+    });
+  }
+  $('msStart').onclick = function(){
+    var btn = $('msStart');
+    var client = ($('msClient').value || '').trim(), tenant = ($('msTenant').value || '').trim();
+    var GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (client && !GUID.test(client)) { notice('msNotice', 'The app ID is a GUID like 1a2b3c4d-1111-2222-3333-444455556666, from the app\'s Overview page in Microsoft Entra.'); return; }
+    if (tenant && !client) { notice('msNotice', 'A tenant only goes with your own app. Add the app ID too, or leave both empty.'); return; }
+    if (!mcpBoxOk) { notice('msNotice', 'Your mineral did not answer, so nothing can be connected right now.'); return; }
+    if (mcpContract < GUIDED_CONTRACT.microsoft) { notice('msNotice', MCP_TOO_OLD); return; }
+    btn.disabled = true;
+    notice('msNotice', 'Saving the connection on your mineral…');
+    var def = { account: msAccount() };
+    if (client) def.client_id = client;
+    if (tenant) def.tenant_id = tenant;
+    run('mcp-add-microsoft', { def_b64: b64utf8(JSON.stringify(def)) }).then(function(r){
+      var d = jsonOut(r);
+      if (!d || d.ok === false) { btn.disabled = false; notice('msNotice', mcpErr(d, r)); return; }
+      loadMcp();
+      notice('msNotice', 'Asking Microsoft for a sign-in code…');
+      return run('mcp-microsoft-login').then(function(r2){
+        var s2 = jsonOut(r2);
+        if (!s2 || s2.ok === false || !s2.code) { btn.disabled = false; notice('msNotice', s2 && s2.error === 'box-too-old' ? MCP_TOO_OLD : msWhy((s2 && (s2.error || s2.reason)) || 'Microsoft did not send a code. Try again in a minute.')); return; }
+        if (s2.stage === 'done') { msCheck(s2.user); return; }
+        notice('msNotice', '');
+        $('msCode').value = s2.code;
+        if (s2.url) $('msOpen').href = s2.url;
+        guidedSetStep($('msWizard'), 2);
+        msStop();
+        msPoll = setInterval(msPollOnce, 3000);
+      });
+    }, function(){ btn.disabled = false; notice('msNotice', 'Could not reach your mineral just now.'); });
+  };
+  $('msCopy').onclick = function(){
+    var v = $('msCode').value;
+    try { navigator.clipboard.writeText(v).then(function(){ $('msCopy').textContent = 'Copied'; }, function(){ $('msCode').select(); }); }
+    catch (e) { $('msCode').select(); }
+  };
+  $('msCancel').onclick = function(){
+    msStop();
+    run('mcp-microsoft-login-cancel').then(function(){ loadMcp(); });
+    $('msStart').disabled = false; $('msCode').value = '';
+    notice('msNotice', '');
+    guidedSetStep($('msWizard'), 1);
+  };
+  // closing the card stops the polling; the sign-in itself keeps running on
+  // the mineral until its code expires, and Sign in on the row rejoins it
+  $('msWizard').querySelector('[data-guided-close]').addEventListener('click', msStop);
 
   // The sign-in-kind pills: same look as the category chips (spec ruling 4),
   // but a separate group with its own toggle-off behaviour: clicking the
@@ -5538,6 +5716,7 @@
     if (e.target.closest('[data-mcp-google-add]')) { gwOpen(false, ''); return; }
     if (e.target.closest('[data-mcp-slack-add]')) { skOpenAnother(); return; }
     if (e.target.closest('[data-mcp-asana]')) { guidedOpen({ guided: 'asana', key: 'asana', label: 'Asana' }); return; }
+    if (e.target.closest('[data-mcp-microsoft]')) { guidedOpen({ guided: 'microsoft', key: 'microsoft', label: 'Microsoft 365' }); return; }
     var ad = e.target.closest('[data-mcp-adopt]');
     if (ad) {
       var ak = ad.getAttribute('data-mcp-adopt');

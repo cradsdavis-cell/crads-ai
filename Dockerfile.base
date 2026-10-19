@@ -28,6 +28,18 @@ RUN python3 -m venv /opt/gws \
     && /opt/gws/bin/pip install --no-cache-dir "workspace-mcp==${WORKSPACE_MCP_VERSION}" \
     && /opt/gws/bin/workspace-mcp --help >/dev/null
 
+# --- ms-365-mcp-server (PINNED): serves a member's Microsoft 365 connection ---
+# Outlook mail, calendar and contacts (engine/lib/ms365.mjs, contract 8). Baked
+# for the same reason as workspace-mcp above: `npx -y` would download it on the
+# first tool call, which reads as broken. Optional deps are left out on purpose:
+# keytar is a native keyring module, a container has no keyring, and the env
+# sets MS365_MCP_USE_KEYTAR=0 so the token cache is a file under .kernel/.
+# Bump deliberately: ms365-login.mjs parses this package's --login output.
+ARG MS365_MCP_VERSION=0.158.0
+RUN npm install --prefix /opt/ms365 --omit=optional --ignore-scripts --no-audit --no-fund \
+      "@softeria/ms-365-mcp-server@${MS365_MCP_VERSION}" \
+    && /opt/ms365/node_modules/.bin/ms-365-mcp-server --help >/dev/null
+
 # GitHub CLI (device-flow backup auth). cron drives the optional per-box cadence.
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \

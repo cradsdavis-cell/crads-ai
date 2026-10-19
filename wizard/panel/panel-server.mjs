@@ -1470,6 +1470,50 @@ export const MEMBER_VERBS = {
       };
     },
   },
+  // Microsoft 365 (contract 8, 2026-10-19): Outlook mail, calendar and
+  // contacts through the baked ms-365-mcp-server. add-microsoft saves the
+  // server (the account kind, and an optional app ID + tenant: public
+  // identifiers, but they ride stdin like every member input). The sign-in is
+  // Microsoft's device code, run ON the box by ms365-login.mjs: `start` hands
+  // back the code to show, `status` is polled, `cancel` stops it. Guarded on
+  // ms365-login.mjs, the newest file, so a box from before reads as too old.
+  'mcp-add-microsoft': {
+    mutating: true,
+    build: (a = {}) => {
+      const b64 = String(a.def_b64 ?? '');
+      if (!b64 || b64.length > 800 || !B64_RE.test(b64)) bad('def_b64 must be base64 (a small JSON: account, app ID, tenant)');
+      return {
+        command: `[ -f /app/engine/comms/ms365-login.mjs ] `
+          + `&& node /app/engine/comms/mcp-connect.mjs /state add-microsoft `
+          + `|| echo '{"ok":false,"error":"box-too-old"}'`,
+        stdin: b64 + '\n',
+      };
+    },
+  },
+  'mcp-microsoft-login': {
+    mutating: true,
+    build: () => ({
+      command: `[ -f /app/engine/comms/ms365-login.mjs ] `
+        + `&& node /app/engine/comms/ms365-login.mjs /state start `
+        + `|| echo '{"ok":false,"error":"box-too-old"}'`,
+    }),
+  },
+  'mcp-microsoft-login-status': {
+    mutating: false,
+    build: () => ({
+      command: `[ -f /app/engine/comms/ms365-login.mjs ] `
+        + `&& node /app/engine/comms/ms365-login.mjs /state status `
+        + `|| echo '{"ok":false,"error":"box-too-old"}'`,
+    }),
+  },
+  'mcp-microsoft-login-cancel': {
+    mutating: true,
+    build: () => ({
+      command: `[ -f /app/engine/comms/ms365-login.mjs ] `
+        + `&& node /app/engine/comms/ms365-login.mjs /state cancel `
+        + `|| echo '{"ok":false,"error":"box-too-old"}'`,
+    }),
+  },
   // (The paste-back sign-in that drove `claude mcp login` lived here until
   // 2026-08-09. It is gone: the app now runs OAuth itself, so there is no CLI to
   // puppeteer, no terminal to fake, and no address for the member to copy.)

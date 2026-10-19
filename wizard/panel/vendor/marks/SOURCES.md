@@ -56,3 +56,4 @@ package colour is near-invisible as a tint on the light theme:
 
 - mailchimp: package hex #FFE01B (Mailchimp yellow); tinted #241C15, Mailchimp's
   dark brand ink, which reads in both themes. Added 2026-10-02.
+| microsoft | drawn by hand 2026-10-19 from Microsoft's published four-square logo geometry and colours (simple-icons removed Microsoft's marks at Microsoft's request; Microsoft's trademark guidelines, https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks , govern the logo) | svg, img (four squares, kept as drawn) | Microsoft's trademark guidelines: identify the product or service only, no implied endorsement; do not alter the logo | #00A4EF (the blue square) | 2026-10-19 |
