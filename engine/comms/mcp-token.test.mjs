@@ -18,7 +18,12 @@ const b64 = (o) => Buffer.from(JSON.stringify(o), 'utf8').toString('base64');
 const mcp = (d) => JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8'));
 const oauth = (d) => JSON.parse(readFileSync(path.join(d, '.kernel', 'mcp-oauth.json'), 'utf8'));
 
-const SET = { name: 'canva', url: 'https://mcp.canva.com/mcp', access_token: 'AT', refresh_token: 'RT', token_endpoint: 'https://mcp.canva.com/token', client_id: 'cid', expires_at: Date.now() + 3600e3 };
+// The fake refresh token is distinctive on purpose (2026-10-19): it was 'RT', and
+// .mcp.json carries the headersHelper command, whose path runs through a random
+// tmp dir name. A name containing "RT" failed the never-in-.mcp.json check
+// (public CI, wizard-app run 39227192484) for no fault of the code.
+const REFRESH = 'refresh-q7zk2w';
+const SET = { name: 'canva', url: 'https://mcp.canva.com/mcp', access_token: 'AT', refresh_token: REFRESH, token_endpoint: 'https://mcp.canva.com/token', client_id: 'cid', expires_at: Date.now() + 3600e3 };
 
 test('the access token becomes a header the CLI simply sends', () => {
   const d = box();
@@ -35,8 +40,8 @@ test('the REFRESH token never enters .mcp.json, and its file is 0600', () => {
   const d = box();
   run(d, ['set'], b64(SET));
   const raw = readFileSync(path.join(d, '.mcp.json'), 'utf8');
-  assert.ok(!raw.includes('RT'), 'the long-lived credential must not sit in the file every session reads');
-  assert.equal(oauth(d).canva.refresh_token, 'RT');
+  assert.ok(!raw.includes(REFRESH), 'the long-lived credential must not sit in the file every session reads');
+  assert.equal(oauth(d).canva.refresh_token, REFRESH);
   assert.equal(statSync(path.join(d, '.kernel', 'mcp-oauth.json')).mode & 0o777, 0o600);
 });
 
@@ -55,7 +60,7 @@ test('a refresh that omits a new refresh token keeps the old one', () => {
   const d = box();
   run(d, ['set'], b64(SET));
   run(d, ['set'], b64({ name: 'canva', url: SET.url, access_token: 'AT2', expires_at: Date.now() + 60e3 }));
-  assert.equal(oauth(d).canva.refresh_token, 'RT');
+  assert.equal(oauth(d).canva.refresh_token, REFRESH);
   assert.equal(mcp(d).mcpServers.canva.headers.Authorization, 'Bearer AT2');
   assert.equal(oauth(d).canva.client_id, 'cid', 'client identity survives a refresh too');
 });
@@ -165,7 +170,7 @@ test('show reports state and NEVER a value', () => {
   run(d, ['set'], b64({ ...SET, expires_at: Date.now() - 1000 }));
   const raw = execFileSync('node', [SCRIPT, d, 'show'], { encoding: 'utf8' });
   assert.ok(!raw.includes('AT') || !raw.includes('"access_token"'), 'no token value in the report');
-  assert.ok(!raw.includes('RT'), 'and certainly not the refresh token');
+  assert.ok(!raw.includes(REFRESH), 'and certainly not the refresh token');
   const s = JSON.parse(raw).services[0];
   assert.equal(s.name, 'canva');
   assert.equal(s.connected, true);
@@ -249,7 +254,7 @@ test('set gives the connection a headersHelper that prints the CURRENT header, r
   run(d, ['set'], b64({ name: 'asana', url: 'https://mcp.asana.com/sse', access_token: 'RENEWED', expires_at: Date.now() + 3600e3 }));
   assert.deepEqual(helper(s.headersHelper, 'asana', d), { Authorization: 'Bearer RENEWED' },
     'an open chat that re-runs the helper after a 401 gets the renewed token');
-  assert.ok(!JSON.stringify(helper(s.headersHelper, 'asana', d)).includes('RT'), 'never the refresh token');
+  assert.ok(!JSON.stringify(helper(s.headersHelper, 'asana', d)).includes(REFRESH), 'never the refresh token');
 });
 
 test('the helper never fails a connection: anything wrong prints {}', () => {
