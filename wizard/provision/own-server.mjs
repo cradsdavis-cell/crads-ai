@@ -109,7 +109,59 @@ echo "disk_gb=$(df -BG --output=avail / 2>/dev/null | tail -1 | tr -dc 0-9)"
 command -v cloud-init >/dev/null 2>&1 && echo cloudinit=yes || echo cloudinit=no
 command -v systemctl >/dev/null 2>&1 && echo systemd=yes || echo systemd=no
 [ -e /etc/ai-os/env ] && echo existing=yes || echo existing=no
+echo "listen=$(ss -ltnH 2>/dev/null | awk '{print $4}' | paste -sd, -)"
+if [ "$(id -u)" = 0 ] || sudo -n true 2>/dev/null; then
+  S=""; [ "$(id -u)" = 0 ] || S="sudo -n"
+  echo "busy_cron=$($S sh -c 'n=0; for f in /var/spool/cron/crontabs/*; do [ -f "$f" ] && grep -qvE "^[[:space:]]*(#|$)" "$f" && n=$((n+1)); done; echo $n' 2>/dev/null || echo 0)"
+  echo "busy_containers=$($S docker ps --format '{{.Names}}' 2>/dev/null | grep -vx ai-os | head -5 | paste -sd, -)"
+  echo "busy_repos=$($S find /home -maxdepth 4 -type d -name .git -mtime -30 2>/dev/null | wc -l)"
+fi
 `;
+
+// THE BUSY-SERVER GUARD (2026-10-18).
+// Setup takes the machine over: it turns on a firewall that lets in SSH and
+// nothing else, sets PasswordAuthentication no for every login, rewrites the
+// docker apt source and sets the timezone. On a machine that already runs
+// other things that breaks them, and the door's "used for this alone" was the
+// only thing saying so. Measured on a real busy server (2026-10-17): a long
+// user crontab, several containers, three public listeners and a git repo
+// committed to every few minutes. Any one of these is enough to stop.
+// Ignored on purpose: SSH (22), rpcbind (111, which some cloud images ship
+// listening), loopback, link-local and Tailscale addresses, and our own
+// container on a re-run.
+const QUIET_PORTS = new Set(['22', '111']);
+function privateListener(host) {
+  const h = String(host).replace(/^\[|\]$/g, '').replace(/%.*$/, '').toLowerCase();
+  if (h === 'localhost' || h === '::1' || /^127\./.test(h)) return true;
+  if (/^fe80:/.test(h) || /^fd7a:115c:a1e0:/.test(h)) return true;           // link-local, Tailscale v6
+  const m = h.match(/^100\.(\d{1,3})\./);                                     // Tailscale CGNAT 100.64.0.0/10
+  return !!m && Number(m[1]) >= 64 && Number(m[1]) <= 127;
+}
+export function publicPorts(listen) {
+  const ports = new Set();
+  for (const a of String(listen || '').split(',').map((x) => x.trim()).filter(Boolean)) {
+    const i = a.lastIndexOf(':');
+    if (i < 0) continue;
+    const host = a.slice(0, i); const port = a.slice(i + 1);
+    if (!/^\d+$/.test(port) || QUIET_PORTS.has(port) || privateListener(host)) continue;
+    ports.add(port);
+  }
+  return [...ports].sort((x, y) => Number(x) - Number(y));
+}
+
+/** What this machine already runs, in words; empty when it runs nothing we would break. */
+export function busyReasons(f) {
+  const out = [];
+  const cron = Number(f.busyCron) || 0;
+  if (cron) out.push(cron === 1 ? 'a login with scheduled jobs' : `${cron} logins with scheduled jobs`);
+  const boxes = (f.busyContainers || []).filter((n) => n && n !== 'ai-os');
+  if (boxes.length) out.push(`other containers (${boxes.join(', ')})`);
+  const ports = publicPorts(f.listen);
+  if (ports.length) out.push(`programs reachable from outside on port${ports.length > 1 ? 's' : ''} ${ports.join(', ')}`);
+  const repos = Number(f.busyRepos) || 0;
+  if (repos) out.push(repos === 1 ? 'a git project changed in the last 30 days' : `${repos} git projects changed in the last 30 days`);
+  return out;
+}
 
 export function setupScript(userData) {
   const b64 = Buffer.from(String(userData), 'utf8').toString('base64').replace(/(.{76})/g, '$1\n');
@@ -158,9 +210,14 @@ export class OwnServerClient {
       sudo: f.sudo === 'ok', os: f.os || '', version: f.version || '', arch: f.arch || '',
       memoryMb: Number(f.mem_mb) || 0, cpus: Number(f.cpus) || 1, diskGb: Number(f.disk_gb) || 0,
       cloudInit: f.cloudinit === 'yes', systemd: f.systemd === 'yes', existing: f.existing === 'yes',
+      listen: f.listen || '', busyCron: Number(f.busy_cron) || 0,
+      busyContainers: String(f.busy_containers || '').split(',').map((x) => x.trim()).filter(Boolean),
+      busyRepos: Number(f.busy_repos) || 0,
     };
     this.facts = facts;
     if (!facts.sudo) return { ok: false, reason: `the login "${this.t.user}" needs passwordless sudo (cloud servers have it for their default login; on your own machine, add it with visudo)` };
+    const busy = busyReasons(facts);
+    if (busy.length) return { ok: false, busy, reason: `this server already runs other things: ${busy.join('; ')}. Setting it up for Crads-AI turns on a firewall that lets in SSH and nothing else and changes how everyone logs in, which would break them, so the app stops here and has changed nothing. Use a server that runs nothing else, or make a new one` };
     if (facts.os !== 'ubuntu' || !UBUNTU_OK.includes(facts.version)) return { ok: false, reason: `this needs Ubuntu 24.04 (or 22.04); the server runs ${facts.os || 'an unknown system'} ${facts.version}`.trim() };
     if (!['x86_64', 'aarch64'].includes(facts.arch)) return { ok: false, reason: `this needs an Intel/AMD (x86_64) or Arm (aarch64) machine; this one is ${facts.arch || 'unknown'}` };
     if (!facts.systemd) return { ok: false, reason: 'this needs a normal Ubuntu install with systemd' };

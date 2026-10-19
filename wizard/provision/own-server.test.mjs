@@ -4,7 +4,7 @@
 // proven on a stand-in Ubuntu 24.04 server (see own-server.mjs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OwnServerClient, parseOwnServer, setupScript, SETUP_MODULES } from './own-server.mjs';
+import { OwnServerClient, parseOwnServer, setupScript, SETUP_MODULES, busyReasons, publicPorts } from './own-server.mjs';
 import { provisionSelfHost, destroySelfHost } from './engine.mjs';
 import { PROVIDERS } from './providers.mjs';
 
@@ -65,6 +65,39 @@ test('every unfit machine is refused with a reason a person can act on, before a
   assert.match(await reason({}, { checkCode: 255, checkErr: 'Permission denied (publickey).' }), /key shown above/);
   assert.match(await reason({}, { checkCode: 255, checkErr: 'Connection refused' }), /port 22/);
   assert.match(await reason({}, { checkCode: 255, checkErr: 'Connection timed out' }), /Tailscale/);
+});
+
+test('a server that already runs other things is refused before anything changes (busy-server guard, 2026-10-18)', async () => {
+  const check = async (over) => client(fakeServer({ check: facts(over) })).validateToken();
+  const quiet = { listen: '0.0.0.0:22,[::]:22,0.0.0.0:111,127.0.0.1:7780,127.0.0.53%lo:53,100.100.10.20:48439,[fd7a:115c:a1e0::1]:39634,[fe80::1%eth0]:5353', busy_cron: '0', busy_containers: '', busy_repos: '0' };
+  const ok = await check(quiet);
+  assert.equal(ok.ok, true, 'SSH, rpcbind, loopback, link-local and Tailscale listeners are not "busy"');
+  assert.equal((await check({ ...quiet, existing: 'yes', busy_containers: '' })).ok, true, 'a re-run on our own mineral still passes');
+
+  // The shape measured on a real busy server: every signal at once.
+  const busy = await check({ listen: '*:8080,0.0.0.0:22,0.0.0.0:9000,0.0.0.0:9001,127.0.0.1:4620', busy_cron: '1', busy_containers: 'web,worker', busy_repos: '5', disk_gb: '4' });
+  assert.equal(busy.ok, false);
+  assert.match(busy.reason, /already runs other things/);
+  assert.match(busy.reason, /scheduled jobs/);
+  assert.match(busy.reason, /web, worker/);
+  assert.match(busy.reason, /ports 8080, 9000, 9001/);
+  assert.match(busy.reason, /5 git projects/);
+  assert.match(busy.reason, /changed nothing/);
+  assert.doesNotMatch(busy.reason, /free disk/, 'the busy reason wins over a disk reason: it is the one that matters');
+  assert.doesNotMatch(busy.reason, /\u2014/, 'no em dashes in member copy');
+
+  // Each signal alone is enough.
+  for (const over of [{ busy_cron: '2' }, { busy_containers: 'web' }, { listen: '0.0.0.0:443' }, { listen: '[::]:3000' }, { busy_repos: '1' }]) {
+    assert.equal((await check({ ...quiet, ...over })).ok, false, JSON.stringify(over));
+  }
+  // An older check script (no busy lines at all) is not refused on that account.
+  assert.equal((await check({})).ok, true);
+});
+
+test('busy-server helpers: listeners read as ports, our own container never counts', () => {
+  assert.deepEqual(publicPorts('*:8080,0.0.0.0:22,[::]:8080,192.0.2.5:9000,127.0.0.1:1,100.64.0.9:7,100.128.0.9:8'), ['8', '8080', '9000'], '100.128/10 is outside Tailscale\'s range');
+  assert.deepEqual(busyReasons({ busyContainers: ['ai-os'] }), []);
+  assert.deepEqual(busyReasons({ busyCron: 1 }), ['a login with scheduled jobs']);
 });
 
 test('the setup script hands our file to the machine\'s own cloud-init, module by module, then runs the commands', () => {
