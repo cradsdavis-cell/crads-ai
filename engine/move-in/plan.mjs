@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url';
 import {
   parseCronLine, analyzeCommand, cronToSchedule, readJobDefinition, slashSkill, toContainer, underDir, homeOf,
   redact, uniqueId, slug, telegramGap, isTelegramish, mcpPlace, envRefs, hookInterpreter, RUNNER_RE,
-  sentences, remoteReach, parseGitRemoteUrl,
+  sentences, remoteReach, parseGitRemoteUrl, mineralRewrite,
 } from './lib.mjs';
 import { sha256 } from './host-ops.mjs';
 import { parseEnvFile } from '../cron/scripts-lib.mjs';
@@ -133,7 +133,11 @@ export function buildPlan(stateDir, inv, opts = {}) {
   // app the person's own backup job stays on the server (rehearsal T4 finding 8).
   const git = inv.git && typeof inv.git === 'object' ? inv.git : null;
   const remoteUrl = git ? String(git.url || '') || remoteUrlOf(stateDir, String(git.remote || 'origin')) : '';
-  const reach = remoteReach(remoteUrl);
+  // Connect GitHub gives the MINERAL its own HTTPS way to an alias remote, in its
+  // own git config (HOME is <brain>/.kernel/home in an adopted container), and
+  // leaves the shared .git/config alone. So that is where "connected" shows.
+  const routed = remoteUrl ? mineralRewrite(remoteUrl, rd(path.join(stateDir, '.kernel', 'home', '.gitconfig'))) : '';
+  const reach = remoteReach(routed || remoteUrl);
   const remoteBlock = git && git.remote && reach.usable === false ? {
     reach,
     hold: 'Connect GitHub first. Crads-AI\'s nightly backup cannot push to your repository from inside your mineral yet, so your own backup job keeps running on the server until it can. Connect GitHub from the app, then make the plan again.',
@@ -553,8 +557,9 @@ export function buildPlan(stateDir, inv, opts = {}) {
   if (git) {
     const dirty = Number(git.dirty) || 0;
     add({ id: 'note-git', kind: 'note', side: 'container', title: 'Your repository and branch are kept',
-      what: `Crads-AI's nightly push uses your branch${git.branch ? ` (${git.branch})` : ''}${git.remote ? ` and your remote (${redact(git.remote)})` : ''}, as they are.`,
-      why: sentences(dirty && `There ${dirty === 1 ? 'is 1 change' : `are ${dirty} changes`} not committed yet. Crads-AI commits what is in the folder, so commit or put those aside first`,
+      what: sentences(`Crads-AI's nightly push uses your branch${git.branch ? ` (${git.branch})` : ''}${git.remote ? ` and your remote (${redact(git.remote)})` : ''}, as they are`,
+        routed && `From inside your mineral it reaches that remote over HTTPS (${redact(routed)}), a way in of its own; your server's settings for it are unchanged`),
+      why: sentences(dirty && `There ${dirty === 1 ? 'is 1 change' : `are ${dirty} changes`} not committed yet. Crads-AI never commits those: it commits only what its own jobs write, and pushes the commits already there`,
         'If someone else pushes to the same branch, Crads-AI stops and says so on the Health page instead of overwriting') });
     if (remoteBlock) {
       const backups = steps.filter((x) => x.hold && x.kind === 'cutover').map((x) => x.title);

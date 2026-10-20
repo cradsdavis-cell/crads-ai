@@ -49,12 +49,31 @@ export async function isDirty(cwd) {
   return (await git(cwd, ['status', '--porcelain'])).length > 0;
 }
 
+// Paths with uncommitted changes right now: tracked edits, deletions and
+// untracked files (gitignored ones never appear). Not via git(): its trim()
+// would eat the first entry's leading status space.
+export async function dirtyPaths(cwd) {
+  const out = await exec('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames'], { cwd, maxBuffer: 16 * 1024 * 1024 })
+    .then((r) => r.stdout, () => '');
+  return new Set(out.split('\0').filter((e) => e.length > 3).map((e) => e.slice(3)));
+}
+
 // Commit everything; returns the new SHA, or null if there was nothing to commit.
+//
+// ADOPTED: never everything (trap 77, 2026-10-20). The folder is shared with the
+// server's own jobs and the person's sessions, and what is uncommitted in it is
+// their work in progress: on the first adopted server, 82 changes and 57
+// untracked files at one moment. So an adopted commit names its paths: those
+// dirty now that were clean in `before` (dirtyPaths() taken when the run began).
+// A file that was already dirty is left for the person even if the run touched
+// it too, because its diff would carry their edits under our message. No
+// `before` means nothing is committed. Their staged entries stay staged: the
+// commit is pathspec-limited (--only), not a commit of the index.
 // Never commits onto rebase state: a commit made on the detached rebase HEAD
 // captures conflict markers and gets destroyed by the eventual abort (2026-07-25
 // re-review). clearRebase first: untracked new files survive the abort and are
 // then committed cleanly on the branch.
-export async function commitAll(cwd, message) {
+export async function commitAll(cwd, message, { before } = {}) {
   // Move-in mode, and Move out (which sets moving_in again before it stops
   // anything): nothing commits the person's folder. Checked HERE as well as at
   // the top of a drain, because a drain already running when Move out sets the
@@ -64,6 +83,7 @@ export async function commitAll(cwd, message) {
   // Adopted: whatever clearRebase left is the person's operation. Committing onto
   // it would land on their detached replay HEAD; skip, and the next drain commits.
   if (isAdopted(cwd) && gitOpInProgressSync(cwd)) return null;
+  if (isAdopted(cwd)) return commitOurs(cwd, message, before);
   await git(cwd, ['add', '-A']);
   const staged = await git(cwd, ['diff', '--cached', '--name-only']);
   if (!staged) return null;
@@ -72,6 +92,21 @@ export async function commitAll(cwd, message) {
     '-c', 'user.email=kernel@ai-os.local',
     'commit', '-q', '-m', message,
   ]);
+  return git(cwd, ['rev-parse', 'HEAD']);
+}
+
+async function commitOurs(cwd, message, before) {
+  if (!(before instanceof Set)) return null;
+  const ours = [...(await dirtyPaths(cwd))].filter((p) => !before.has(p));
+  if (!ours.length) return null;
+  // NUL-separated literal pathspecs on stdin: any file name, any count.
+  const spec = { cwd, input: ours.join('\0') + '\0', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 16 * 1024 * 1024 };
+  const lit = ['--literal-pathspecs'];
+  execFileSync('git', [...lit, 'add', '-A', '--pathspec-from-file=-', '--pathspec-file-nul'], spec);
+  try {
+    execFileSync('git', [...lit, '-c', 'user.name=AI OS kernel', '-c', 'user.email=kernel@ai-os.local',
+      'commit', '-q', '-m', message, '--only', '--pathspec-from-file=-', '--pathspec-file-nul'], spec);
+  } catch { return null; }
   return git(cwd, ['rev-parse', 'HEAD']);
 }
 
@@ -178,6 +213,15 @@ async function adoptedPush(cwd, { remote, branch, retries }) {
         await git(cwd, ['fetch', '-q', remote, branch]);
         const behind = await git(cwd, ['merge-base', '--is-ancestor', 'FETCH_HEAD', 'HEAD']).then(() => false, () => true);
         if (behind) {
+          // Uncommitted tracked edits make `git rebase` refuse, and on an adopted
+          // brain they are someone else's work in progress (the kernel commits
+          // only its own paths since trap 77). Stashing them would lift a live
+          // edit off disk under whoever is writing it, so stop and say so; the
+          // person's own pull brings the remote's commits in, and the next run pushes.
+          const busy = (await exec('git', ['status', '--porcelain', '--untracked-files=no'], { cwd }).then((r) => r.stdout, () => '')).trim();
+          if (busy) {
+            return blocked(`${remote}/${branch} has commits this brain does not have yet, and the folder has uncommitted changes that are not Crads-AI's, so nothing was rebased or pushed. Once those commits are pulled in, the next run pushes.`, { behind: true });
+          }
           markKernelRebase(cwd);
           try {
             await git(cwd, [...IDENT, 'rebase', '-q', 'FETCH_HEAD']);

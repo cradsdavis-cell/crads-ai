@@ -82,7 +82,9 @@ cockpit/brain-push.log
 # own repo, and these are the engine's machine state: the adopt rehearsal (2026-10-18)
 # committed custody-log.jsonl into it. Exact files, never a whole dir, so a state/ or
 # devices/ of the person's own is not hidden. Never a name a person might track
-# themselves: brain-push untracks every entry here. That is why STATE.md is not listed:
+# themselves. (brain-push untracked every entry here until 2026-10-20; since trap 77
+# nothing is untracked or committed on an adopted brain's shared index, so the ignore
+# line is what keeps these out.) That is why STATE.md is not listed:
 # an adopted brain's engine copy lives in .kernel/STATE.md (engine/box/state-md.mjs).
 # Audit: engine/adopted-brain-hygiene.test.mjs.
 custody-log.jsonl

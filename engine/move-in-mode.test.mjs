@@ -352,11 +352,11 @@ function movingOutBrain() {
 }
 
 // box-up's exit trap, run from its real text: is_moving_in, then commit_brain.
-function runCommitBrain(d) {
+function runCommitBrain(d, { adopted = 1 } = {}) {
   const src = readFileSync(join(ENGINE, 'box-up.sh'), 'utf8');
   const fn = src.slice(src.indexOf('commit_brain(){'), src.indexOf('# ---- optional per-box cadence'));
   assert.ok(fn.startsWith('commit_brain(){') && fn.length > 100, 'box-up.sh: commit_brain moved');
-  const r = spawnSync('bash', ['-c', `BOX="$1"; ADOPTED=1\n${IS_MOVING_IN_LINE}\n${fn}\ncommit_brain`, 'box-up', d], { encoding: 'utf8' });
+  const r = spawnSync('bash', ['-c', `BOX="$1"; ADOPTED=${adopted}\n${IS_MOVING_IN_LINE}\n${fn}\ncommit_brain`, 'box-up', d], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
 }
 
@@ -378,11 +378,19 @@ test('Move out: a container stop commits and pushes nothing (box-up exit trap, b
   assert.match(git(d, 'status', '--porcelain'), /note\.md/, 'their half-made edit is still uncommitted, for them');
 });
 
-test('Move out, control: the same stop with the flags cleared does commit (the slice really is the exit trap)', () => {
+test('Move out, control: the same stop with the flags cleared does commit a pebble (the slice really is the exit trap)', () => {
+  const { d, head } = movingOutBrain();
+  own(d, {});
+  runCommitBrain(d, { adopted: 0 });
+  assert.notEqual(git(d, 'rev-parse', 'HEAD'), head);
+});
+
+test('box-up exit trap, adopted and moved in: still no commit of the shared folder (trap 77), only the push', () => {
   const { d, head } = movingOutBrain();
   own(d, { adopted: true });
   runCommitBrain(d);
-  assert.notEqual(git(d, 'rev-parse', 'HEAD'), head);
+  assert.equal(git(d, 'rev-parse', 'HEAD'), head, 'a stop never snapshots the person\'s folder');
+  assert.match(git(d, 'status', '--porcelain'), /note\.md/, 'their half-made edit is still theirs');
 });
 
 test('Move out: the scheduler fires nothing and commits nothing on its way down', async () => {

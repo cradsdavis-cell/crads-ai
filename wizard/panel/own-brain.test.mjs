@@ -190,3 +190,45 @@ test('O5a gate regression: member-crafted ownership.json cannot smuggle a grant 
   assert.ok(!cmds.some((c) => c.includes('org-inbox/transfer/to-member.json')), 'the grant probe never even ran (unparseable ownership is not org-owned)');
   assert.equal(r.ok, true, 'falls through to the normal member path, which touches nothing of the org\'s');
 });
+
+// ---- adopted brains (trap 77, 2026-10-20) ------------------------------------
+// The button on an adopted brain must not make a <slug>-brain repo, re-point the
+// shared origin, untrack the person's .claude/ and cockpit/ or commit the tree.
+// It hands the sign-in to gh on the box and runs connect-github, which gives the
+// mineral its own route to the repository the brain already has.
+function adoptedBridge({ connectOut = 'Your brain pushes to git@github-brain:acme/brain.git.\n✓ Your mineral reaches acme/brain over HTTPS. Your server\'s own settings for origin are unchanged.\nYou are still moving in, so nothing was pushed.\n', connectCode = 0 } = {}) {
+  const cmds = [];
+  const run = async (host, cmd, opts = {}) => {
+    cmds.push({ host, cmd, opts });
+    if (cmd.includes('ownership.json')) return { code: 0, stdout: '{"adopted": true, "moving_in": true}\n', stderr: '' };
+    if (cmd.includes('connect-github')) return { code: connectCode, stdout: connectOut, stderr: '' };
+    return { code: 0, stdout: '', stderr: '' };
+  };
+  run.cmds = cmds;
+  return run;
+}
+
+test('adopted: no new repo, no wiring script; the token goes to gh on stdin and connect-github does the rest', async () => {
+  const fetcher = stubApi(); const bridge = adoptedBridge();
+  const steps = [];
+  const r = await ownBrain({ slug: 'jane01', boxAlias: 'jane01-box', token: 'gho_t', bridge, fetcher, log: (l) => steps.push(l) });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.repo, 'acme/brain', 'the repository the brain already had, not jane01-brain');
+  assert.equal(r.pushed, false, 'moving in: nothing pushed');
+  assert.ok(!fetcher.calls.some((c) => c.url.endsWith('/user/repos')), 'no repo is created');
+  const all = bridge.cmds.map((c) => c.cmd).join('\n');
+  assert.doesNotMatch(all, /git (add|commit|rm|push)|remote (add|set-url)|\.gitignore|brain-github-token|credential\.helper/, `the shared tree and its config are not touched here:\n${all}`);
+  assert.ok(!all.includes('gho_t'), 'the token is never in a command line');
+  const connect = bridge.cmds.find((c) => c.cmd.includes('connect-github'));
+  assert.match(connect.cmd, /gh auth login --with-token/);
+  assert.equal(connect.opts.stdin, 'gho_t\n', 'it rides on stdin');
+  assert.ok(steps.some((l) => /over HTTPS/.test(l)), 'connect-github\'s own sentences reach the card');
+});
+
+test('adopted: when connect-github stops, its own last sentences are the reason', async () => {
+  const bridge = adoptedBridge({ connectCode: 1, connectOut: 'Stopping: GitHub does not show acme/brain as a private repository this account can read.\nNothing was committed or pushed, and your repository\'s settings are as they were.\n' });
+  const r = await ownBrain({ slug: 'jane01', boxAlias: 'jane01-box', token: 'gho_t', bridge, fetcher: stubApi() });
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /private repository/);
+  assert.match(r.reason, /Nothing was committed/);
+});

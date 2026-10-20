@@ -12,7 +12,9 @@ const TARGETS = [{ host: 'fern-box', org: 'fern', kind: 'member' }];
 
 const listen = (opts) => new Promise((resolve) => {
   const s = createDoorServer({ port: 0, host: '127.0.0.1', htmlText: '<html>door</html>',
-    bridge: { targets: () => TARGETS }, ...opts });
+    bridge: { targets: () => TARGETS }, ...opts,
+    // /own-brain/start's adopted-scope probe goes through the precheck bridge; never a real ssh
+    ...(opts && opts.ownBrain ? { ownBrain: { precheckBridge: async () => ({ code: 0, stdout: '', stderr: '' }), ...opts.ownBrain } } : {}) });
   s.on('listening', () => resolve(s));
 });
 const get = (s, path) => fetch(`http://127.0.0.1:${s.address().port}${path}`);

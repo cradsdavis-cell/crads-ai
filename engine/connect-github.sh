@@ -49,14 +49,6 @@ command -v gh >/dev/null || { echo "GitHub CLI isn't available in this box."; ex
 [ -d "$BOX" ] || { echo "There is no brain at $BOX to back up."; exit 1; }
 cd "$BOX"
 
-# A brain that is not a git repository yet becomes one, rather than ending in an
-# instruction to go and type `git init` somewhere. The kernel normally does this
-# at first boot; a brain reborn on the box has been seen without it.
-git rev-parse --git-dir >/dev/null 2>&1 || {
-  echo "Setting up version history for your brain…"
-  git init -q -b main
-}
-
 # ---------------------------------------------------------------- THE GUARD
 #
 # WHAT WENT WRONG (found 2026-08-20). This script pushed the member's brain with
@@ -192,6 +184,172 @@ brain_guard() {
     git add -A
     git -c user.name=box -c user.email=box@local commit -q -m "connect-github: first snapshot" || true
   }
+}
+
+# ---------------------------------------------------------------- ADOPTED
+#
+# WHAT WENT WRONG (found 2026-10-20 on the first adopted server). An adopted
+# brain is a folder the server's own jobs and the person's own sessions already
+# work in, mounted at /state, with ONE .git shared by all of them. Its origin was
+# `git@github-brain:<owner>/<repo>.git`, a host alias that exists only in
+# the server's ~/.ssh/config, so from inside the mineral `git ls-remote origin`
+# answers "Could not resolve hostname". This script saw that an origin existed,
+# took the already-connected branch below and never signed in or changed how the
+# mineral reaches GitHub. It did run `git add -A` over the whole shared tree and
+# commit it as "box": that afternoon, 82 changes and 57 untracked files that were
+# other people's work in progress (PDFs, a half-finished download), which the
+# server's own jobs would then have pushed. And then the push failed, so nothing
+# was connected.
+#
+# So on an adopted brain this script never stages, commits, untracks or edits
+# .gitignore: the tree is not ours to snapshot. It does three things only:
+#   1. find out whether the mineral can already use origin (a read, ls-remote);
+#   2. if it cannot, sign in and give the MINERAL its own HTTPS way to the same
+#      repository: `url.<https>.insteadOf <origin's url>` plus a gh credential
+#      helper, both in the mineral's OWN git config ($HOME/.gitconfig, and an
+#      adopted container's HOME is <brain>/.kernel/home, which is never committed
+#      and which the server's git never reads). The shared .git/config is not
+#      touched, so the server keeps its alias. Why a rewrite and not a second
+#      remote: the person's own jobs that move into the mineral `git pull origin`,
+#      and a second remote would fix only our push, while adding it writes to
+#      the shared .git/config. The image already does exactly this for
+#      `git@github.com:` (Dockerfile.base); an alias is the case that needs it per
+#      repository;
+#   3. push the commits that already exist, and only once moving in is finished.
+# Which repository the alias means is read from its path and then PROVEN, never
+# assumed: GitHub must say it is private and pushable, and it must hold the last
+# commit the server fetched from origin. Any doubt stops with nothing written,
+# like the private-repo checks below.
+
+is_moving_in() { grep -Eq '"moving_in"[[:space:]]*:[[:space:]]*true([^A-Za-z0-9_]|$)' "$1/ownership.json" 2>/dev/null; }
+adopted_stop() {
+  printf '%s\n' "$@" >&2
+  echo "Nothing was committed or pushed, and your repository's settings are as they were." >&2
+  exit 1
+}
+# A url as it may be shown: credentials in it never reach the screen.
+shown() { printf '%s' "$1" | sed -E 's#//[^/@]*@#//#'; }
+# Read-only, no prompts, bounded: can this mineral use origin as it is?
+origin_reachable() {
+  GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=10" \
+    timeout 45 git ls-remote -q origin >/dev/null 2>&1
+}
+is_path_remote() { case "$1" in file://*|/*|./*|../*|~*) return 0 ;; esac; return 1; }
+# owner/repo from an https://github.com url, an ssh:// url or an scp-style one
+# (any host: an alias names GitHub only by what its path says, which is then
+# checked). Nothing for anything else.
+github_slug_of() {
+  local u="$1" p=""
+  case "$u" in
+    https://github.com/*) p="${u#https://github.com/}" ;;
+    ssh://*) p="${u#ssh://}"; p="${p#*/}" ;;
+    *://*) return 1 ;;
+    *:*) p="${u#*:}" ;;
+    *) return 1 ;;
+  esac
+  p="${p#/}"; p="${p#\~/}"; p="${p%/}"; p="${p%.git}"
+  printf '%s\n' "$p" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' || return 1
+  printf '%s\n' "$p"
+}
+# The mineral's own git config file, and whether it really is the mineral's:
+# under <brain>/.kernel/, which the server never reads and git never commits.
+# Anywhere else (this script run by hand on the server itself) a rewrite would
+# change how the SERVER reaches origin too, so it is refused.
+MINERAL_GITCONFIG="${GIT_CONFIG_GLOBAL:-${HOME:+$HOME/.gitconfig}}"
+mineral_scoped() {
+  [ -n "$1" ] || return 1
+  case "$(readlink -m "$1" 2>/dev/null)" in "$(readlink -m "$BOX/.kernel" 2>/dev/null)"/*) return 0 ;; esac
+  return 1
+}
+
+adopted_connect() {
+  local raw eff branch slug="" tip seen key added="" reach=0
+  git rev-parse --git-dir >/dev/null 2>&1 || adopted_stop \
+    "Your brain at $BOX is not a git repository, and Crads-AI does not start one in a folder you already had."
+  raw="$(git config --get remote.origin.url 2>/dev/null || true)"
+  [ -n "$raw" ] || adopted_stop "Your brain has no remote called origin." \
+    "Crads-AI backs up to the repository your server already uses, so add one there first, then press Connect GitHub again."
+  branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  [ -n "$branch" ] || adopted_stop "Your brain is not on a branch right now (a detached HEAD), so there is nothing to back up yet."
+  # The url git would really use from here, this mineral's own rewrites applied.
+  eff="$(git remote get-url --push origin 2>/dev/null || printf '%s' "$raw")"
+
+  origin_reachable && reach=1
+  if [ "$reach" = 1 ] && ! slug="$(github_slug_of "$eff")"; then
+    # Not GitHub, and it already works from in here (a remote the mineral can
+    # see). Whose and how private it is, is the person's own choice.
+    echo "Your mineral can already reach your repository ($(shown "$raw")) as it is."
+  else
+    if [ "$reach" = 0 ] && is_path_remote "$raw"; then
+      adopted_stop "Your brain's remote is a folder on your server ($(shown "$raw")), which your mineral cannot see," \
+        "so Crads-AI cannot back up there. On the server, point origin at a private repository on GitHub, then press Connect GitHub again."
+    fi
+    slug="$(github_slug_of "$eff" || github_slug_of "$raw" || true)"
+    [ -n "$slug" ] || adopted_stop "Crads-AI cannot tell which GitHub repository $(shown "$raw") is."
+    mineral_scoped "$MINERAL_GITCONFIG" || adopted_stop \
+      "This is not running inside your mineral (its git settings would be ${MINERAL_GITCONFIG:-unset}, which your server reads too)." \
+      "Press Connect GitHub in the app instead."
+
+    echo "Your brain pushes to $(shown "$raw"). Signing in to GitHub to give your mineral its own way to the same repository…"
+    if ! gh auth status >/dev/null 2>&1; then
+      node "$HERE/gh-device-login.mjs" </dev/null || adopted_stop "Sign-in did not finish. Press Connect GitHub again when you are ready."
+    fi
+
+    # Proof that the alias means this repository, before anything is written.
+    [ "$(gh api "repos/$slug" -q .private 2>/dev/null || true)" = "true" ] || adopted_stop \
+      "Stopping: GitHub does not show $slug as a private repository this account can read." \
+      "Your brain holds your notes and your credentials, so it only ever goes to a private repo."
+    [ "$(gh api "repos/$slug" -q .permissions.push 2>/dev/null || true)" = "true" ] || adopted_stop \
+      "Stopping: the GitHub account you signed in with cannot push to $slug."
+    tip="$(git rev-parse -q --verify "refs/remotes/origin/$branch" 2>/dev/null || git for-each-ref --count=1 --format='%(objectname)' refs/remotes/origin/ 2>/dev/null || true)"
+    [ -n "$tip" ] || adopted_stop \
+      "Crads-AI cannot show that $slug is the repository your server pushes to: this brain has no record of anything fetched from origin." \
+      "Run  git fetch  in it on the server, then press Connect GitHub again."
+    seen="$(gh api "repos/$slug/commits/$tip" -q .sha 2>/dev/null || true)"
+    [ "$seen" = "$tip" ] || adopted_stop \
+      "Stopping: $slug on GitHub does not have ${tip:0:12}, the last commit your server fetched from origin, so it may not be the same repository."
+
+    # The way in, in the mineral's own config only. The helper names gh's config
+    # dir itself: the app's verbs run without box-up's environment.
+    local helper="!GH_CONFIG_DIR='$GH_CONFIG_DIR' gh auth git-credential"
+    if [ "$(git config --file "$MINERAL_GITCONFIG" --get-all credential.https://github.com.helper 2>/dev/null || true)" != "$(printf '\n%s' "$helper")" ]; then
+      git config --file "$MINERAL_GITCONFIG" --unset-all credential.https://github.com.helper 2>/dev/null || true
+      git config --file "$MINERAL_GITCONFIG" --add credential.https://github.com.helper ''
+      git config --file "$MINERAL_GITCONFIG" --add credential.https://github.com.helper "$helper"
+    fi
+    if [ "$eff" != "https://github.com/$slug.git" ] && [ "$eff" != "https://github.com/$slug" ]; then
+      key="url.https://github.com/$slug.git.insteadOf"
+      git config --file "$MINERAL_GITCONFIG" --get-all "$key" 2>/dev/null | grep -qxF -- "$raw" \
+        || { git config --file "$MINERAL_GITCONFIG" --add "$key" "$raw"; added=1; }
+    fi
+    if ! origin_reachable; then
+      [ -n "$added" ] && git config --file "$MINERAL_GITCONFIG" --fixed-value --unset "$key" "$raw" 2>/dev/null
+      adopted_stop "Signed in, but your mineral still cannot reach $slug over HTTPS, so the new way in was taken out again."
+    fi
+    echo "✓ Your mineral reaches $slug over HTTPS. Your server's own settings for origin are unchanged."
+  fi
+
+  if is_moving_in "$BOX"; then
+    echo "You are still moving in, so nothing was pushed. Crads-AI's nightly backup starts from here once you have moved in."
+    return 0
+  fi
+  # The commits that are already there, to the branch they are on. Never a
+  # force, never -u (an upstream is written into the shared .git/config).
+  if git push -q origin "HEAD:refs/heads/$branch" 2>/dev/null; then
+    echo "✓ pushed $branch. You're backed up."
+  else
+    echo "Not pushed yet: $branch on GitHub has commits this brain does not have. Nothing was overwritten; the nightly backup pushes once they are pulled here."
+  fi
+}
+if is_adopted "$BOX"; then adopted_connect; exit 0; fi
+
+# A brain that is not a git repository yet becomes one, rather than ending in an
+# instruction to go and type `git init` somewhere. The kernel normally does this
+# at first boot; a brain reborn on the box has been seen without it. (Moved below
+# the guard 2026-10-20, so the adopted branch above never starts one.)
+git rev-parse --git-dir >/dev/null 2>&1 || {
+  echo "Setting up version history for your brain…"
+  git init -q -b main
 }
 
 # already connected? guard, then push.

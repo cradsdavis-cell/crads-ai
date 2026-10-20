@@ -8,11 +8,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPanelServer } from './panel-server.mjs';
 
+const NO_SSH = async () => ({ code: 0, stdout: '', stderr: '' });
 const TARGETS = [{ host: 'jane01-box', org: 'jane01', kind: 'member' }];
 const listen = (opts) => new Promise((resolve) => {
   const s = createPanelServer({ port: 0, host: '127.0.0.1', htmlText: '<html>app</html>',
     bridge: { targets: () => TARGETS, run: () => { throw new Error('no real ssh in this test'); } },
-    lastUsedPath: null, ...opts });
+    // /own-brain/start reads ownership.json through the precheck bridge (the
+    // adopted-scope probe); never a real ssh from a test.
+    lastUsedPath: null, precheckBridge: NO_SSH, ...opts });
   s.on('listening', () => resolve(s));
 });
 const post = (s, path, body) => fetch(`http://127.0.0.1:${s.address().port}${path}`, {
@@ -137,3 +140,21 @@ test('precheck: the two probes are SEPARATE commands (no combined read, the O5a 
     assert.ok(cmds[1].includes('to-member.json') && !cmds[1].includes('ownership.json'), 'probe 2 reads the grant only');
   } finally { s.close(); }
 });
+
+// gh refuses a token without read:org, and an adopted brain's sign-in is handed
+// to gh on the box. Asked for there only: every other box's consent screen is unchanged.
+for (const [own, want] of [['{"adopted": true, "moving_in": true}', 'repo read:org'], ['{"owner":"member"}', undefined], ['', undefined]]) {
+  test(`start asks GitHub for ${want || 'the usual scope'} when ownership.json is ${own || 'unreadable'}`, async () => {
+    let scope = 'unset';
+    const s = await listen({
+      precheckBridge: async () => ({ code: 0, stdout: own, stderr: '' }),
+      deviceFlow: async (o = {}) => { scope = o.scope; return { userCode: 'C', verificationUri: 'https://github.com/login/device', poll: async () => ({ ok: false, reason: 'test' }) }; },
+      ownBrain: async () => ({ ok: true }),
+    });
+    try {
+      const r = await post(s, '/own-brain/start', { slug: 'jane01', box: 'jane01-box' });
+      assert.equal(r.status, 200);
+      assert.equal(scope, want);
+    } finally { s.close(); }
+  });
+}

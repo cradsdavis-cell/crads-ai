@@ -74,6 +74,15 @@ export async function ownBrain({ slug, boxAlias, token, bridge, fetcher = fetch,
   //     and its deploy key + the member's door keys are org-revocable.
   const ownProbe = await bridge(boxAlias, 'cat /state/ownership.json 2>/dev/null');
   let ownRec = null; try { ownRec = JSON.parse(String(ownProbe.stdout || '')); } catch { ownRec = null; }
+  // 1.2 ADOPTED (spec 2026-10-17; trap 77, 2026-10-20). This brain is a folder the
+  //     server's own jobs and sessions already work in, with a repository of its
+  //     own. Everything below is wrong for it: it would make a NEW `<slug>-brain`
+  //     repo, re-point the shared origin at it, ignore and untrack the person's
+  //     tracked .claude/ and cockpit/, and commit the whole tree. So it goes
+  //     straight to connect-github, which gives the mineral its own way to the
+  //     repository the brain already has and never commits the shared tree.
+  if (ownRec && ownRec.adopted === true) return adoptedConnect({ boxAlias, token, bridge, login, log });
+
   const orgOwned = !!ownRec && ownRec.owner === 'org';
   let grant = null;
   if (orgOwned) {
@@ -190,4 +199,29 @@ export async function ownBrain({ slug, boxAlias, token, bridge, fetcher = fetch,
   else log('no rock channel to receipt (self-sovereign box, or the push will retry on the next accept)');
 
   return { ok: true, repo: repoPath, pushed: true };
+}
+
+// The sign-in the person just approved becomes gh's on the box (token on stdin,
+// never in the command line), then connect-github does the rest. Its own
+// sentences are the reason when it stops, because they say what to do next.
+const ADOPTED_CONNECT = [
+  'export GH_CONFIG_DIR=/state/.kernel/gh',
+  'mkdir -p "$GH_CONFIG_DIR" && chmod 700 "$GH_CONFIG_DIR" || { echo "STEP=gh-dir"; exit 10; }',
+  'unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN',
+  'if ! OUT="$(gh auth login --with-token --hostname github.com 2>&1)"; then echo "STEP=login"; printf "%s\\n" "$OUT" | head -3; exit 11; fi',
+  'STATE_DIR=/state connect-github </dev/null 2>&1',
+].join('\n');
+
+async function adoptedConnect({ boxAlias, token, bridge, login, log }) {
+  log(`signed in as ${login}; this brain already has a repository, so Crads-AI connects to that one`);
+  const r = await bridge(boxAlias, ADOPTED_CONNECT, { stdin: `${token}\n`, hardTimeoutMs: 180000 });
+  const out = String(r.stdout || '') + String(r.stderr || '');
+  const lines = out.split('\n').map((l) => l.trim()).filter(Boolean);
+  for (const l of lines) if (!/^STEP=/.test(l)) log(l);
+  if (r.code !== 0) {
+    const step = (out.match(/^STEP=(\S+)/m) || [])[1];
+    return { ok: false, reason: step ? `the box could not take the GitHub sign-in (${step}): ${lines.slice(-2).join(' ')}` : lines.slice(-3).join(' ') || 'connect-github did not finish' };
+  }
+  const repo = (out.match(/reaches ([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+) over HTTPS/) || [])[1] || '';
+  return { ok: true, repo, pushed: /✓ pushed/.test(out), adopted: true };
 }

@@ -97,7 +97,16 @@ export function createOwnBrainRoutes({ defaultHost = () => null, resolveHost = (
         (async () => {
           try {
             const df = opts.deviceFlow || (await import('./github-device-flow.mjs')).startDeviceFlow;
-            const flow = await df({});
+            const bridge = opts.ownBrainBridge || (await import('./ssh-bridge.mjs')).runSsh;
+            // An ADOPTED brain's sign-in is handed to gh on the box (own-brain.mjs
+            // adoptedConnect), and `gh auth login --with-token` refuses a token
+            // without read:org. Asked only there, so every other box's GitHub
+            // consent screen reads exactly as before. The read is the precheck's
+            // (a local folder answers nothing); unreadable means "not adopted".
+            const probe = opts.precheckBridge || bridge;
+            let adopted = false;
+            try { adopted = JSON.parse(String((await probe(boxAlias, 'cat /state/ownership.json 2>/dev/null')).stdout || '')).adopted === true; } catch { adopted = false; }
+            const flow = await df(adopted ? { scope: 'repo read:org' } : {});
             const st = { stage: 'waiting', steps: [], userCode: flow.userCode, verificationUri: flow.verificationUri };
             state.flow = st;
             json(200, { userCode: flow.userCode, verificationUri: flow.verificationUri });
@@ -107,8 +116,7 @@ export function createOwnBrainRoutes({ defaultHost = () => null, resolveHost = (
             if (!polled.ok) { st.stage = 'failed'; st.reason = polled.reason; return; }
             st.stage = 'working';
             const ob = opts.ownBrain || (await import('./own-brain.mjs')).ownBrain;
-            const result = await ob({ slug, boxAlias, token: polled.token,
-              bridge: opts.ownBrainBridge || (await import('./ssh-bridge.mjs')).runSsh,
+            const result = await ob({ slug, boxAlias, token: polled.token, bridge,
               log: (l) => st.steps.push(String(l)) });
             if (state.flow !== st) return;   // superseded mid-run: newest flow owns the state
             if (result && result.ok) { st.stage = 'done'; st.result = { repo: result.repo, pushed: result.pushed }; }

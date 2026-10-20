@@ -18,15 +18,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpDir } from '../tests/tmp-dir.mjs';
 import { isAdopted } from './lib/mineral-identity.mjs';
 import { brainIgnoresFor, brainIgnores, brainRequired, brainIgnoresAdopted } from './lib/brain-ignore.mjs';
 import { syncSkills, ENGINE_MARKER, ADOPTED_ONLY } from './kernel/lib/skills.mjs';
-import { clearRebase, commitAll, syncPush, KERNEL_REBASE_MARK } from './kernel/lib/git.mjs';
-import { enqueue } from './kernel/lib/queue.mjs';
+import { clearRebase, commitAll, dirtyPaths, syncPush, KERNEL_REBASE_MARK } from './kernel/lib/git.mjs';
+import { enqueue, kpaths } from './kernel/lib/queue.mjs';
 import { ensureOpenFolder, NO_LINK_NAME } from './lib/open-folder.mjs';
 
 const ENGINE = dirname(fileURLToPath(import.meta.url));
@@ -81,6 +81,7 @@ function fixture({ adopted = true, gitignore } = {}) {
 function otherWriter(bare, file, content) {
   const w = tmpDir('adopt-other-');
   ok('/', 'clone', '-q', bare, w);
+  mkdirSync(dirname(join(w, file)), { recursive: true });
   writeFileSync(join(w, file), content);
   ok(w, 'add', '-A');
   ok(w, ...IDENT, 'commit', '-q', '-m', `other writer: ${file}`);
@@ -314,6 +315,8 @@ test('kernel drain: sentinels survive, .claude/ and cockpit/ stay tracked and un
 test('brain-push.sh: nothing of the person\'s is untracked, and it pushes master', () => {
   const { bare, brain } = fixture();
   writeFileSync(join(brain, 'note.md'), 'tonight\n');
+  ok(brain, 'add', 'note.md');
+  ok(brain, ...IDENT, 'commit', '-q', '-m', 'the person\'s own commit');
   const r = spawnSync('bash', [join(ENGINE, 'brain-push.sh'), brain], { encoding: 'utf8' });
   const log = readFileSync(join(brain, 'cockpit', 'brain-push.log'), 'utf8');
   assert.equal(r.status, 0, log);
@@ -321,7 +324,7 @@ test('brain-push.sh: nothing of the person\'s is untracked, and it pushes master
   for (const p of ['.claude/settings.json', 'cockpit/jobs.js', 'backups/their-snapshot.enc', ...CLASHES.map((n) => `.claude/skills/${n}/SKILL.md`)]) {
     assert.equal(tracked(brain, p).length, 1, `${p} still tracked`);
   }
-  assert.equal(remoteTip(bare, 'master'), ok(brain, 'rev-parse', 'HEAD'), 'master carries tonight\'s commit');
+  assert.equal(remoteTip(bare, 'master'), ok(brain, 'rev-parse', 'HEAD'), 'master carries the person\'s commit');
   assert.equal(remoteTip(bare, 'main'), '', 'no main branch invented on the remote');
 });
 
@@ -341,7 +344,7 @@ test('brain-push.sh: a rebase the person has in progress is not committed onto, 
   assert.ok(existsSync(join(gd, 'rebase-merge')), 'the rebase is still there');
 });
 
-test('connect-github.sh, already connected: repairs the floor only and untracks nothing of the person\'s', () => {
+test('connect-github.sh, already reachable: edits nothing, untracks nothing of the person\'s', () => {
   const { brain } = fixture({ gitignore: '' });
   const dir = tmpDir('adopt-cgh-');
   writeFileSync(join(dir, 'gh'), '#!/usr/bin/env bash\nexit 0\n');
@@ -352,9 +355,10 @@ test('connect-github.sh, already connected: repairs the floor only and untracks 
   writeFileSync(join(dir, 'run.sh'), readFileSync(join(ENGINE, 'connect-github.sh')));
   const out = spawnSync('bash', [join(dir, 'run.sh')], { encoding: 'utf8', env: { PATH: `${dir}:/usr/bin:/bin`, HOME: dir, STATE_DIR: brain } });
   assert.equal(out.status, 0, out.stdout + out.stderr);
-  const gi = readFileSync(join(brain, '.gitignore'), 'utf8').split('\n');
-  for (const req of brainRequired()) assert.ok(gi.includes(req), `floor entry ${req}`);
-  assert.ok(!gi.includes('.claude/') && !gi.includes('cockpit/'), gi.join('|'));
+  // Since trap 77 (2026-10-20) an adopted brain's .gitignore is the person's own
+  // and connect-github does not edit it at all; the kernel and box-up repair the
+  // credential floor (pinned above), and brain-push refuses without it.
+  assert.equal(readFileSync(join(brain, '.gitignore'), 'utf8'), '', 'the person\'s .gitignore is untouched');
   assert.ok(tracked(brain, '.claude/settings.json').length && tracked(brain, 'cockpit/jobs.js').length, out.stdout + out.stderr);
 });
 
@@ -362,8 +366,9 @@ test('connect-github.sh, already connected: repairs the floor only and untracks 
 
 test('syncPush: pushes the branch the brain is on (master), not main', async () => {
   const { bare, brain } = fixture();
+  const before = await dirtyPaths(brain);
   writeFileSync(join(brain, 'note.md'), 'x\n');
-  await commitAll(brain, 'job');
+  await commitAll(brain, 'job', { before });
   const r = await syncPush(brain);
   assert.equal(r.pushed, true, JSON.stringify(r));
   assert.equal(r.branch, 'master');
@@ -374,8 +379,9 @@ test('syncPush: pushes the branch the brain is on (master), not main', async () 
 test('syncPush: another writer\'s non-conflicting commit is kept, ours replays on top', async () => {
   const { bare, brain } = fixture();
   const theirs = otherWriter(bare, 'laptop.md', 'from the laptop\n');
+  const before = await dirtyPaths(brain);
   writeFileSync(join(brain, 'note.md'), 'x\n');
-  await commitAll(brain, 'job');
+  await commitAll(brain, 'job', { before });
   const r = await syncPush(brain);
   assert.equal(r.pushed, true, JSON.stringify(r));
   assert.equal(git(bare, 'merge-base', '--is-ancestor', theirs, 'refs/heads/master').code, 0, 'their commit is in master');
@@ -385,8 +391,10 @@ test('syncPush: another writer\'s non-conflicting commit is kept, ours replays o
 test('syncPush: a conflicting remote commit stops the push and reports; nothing is overridden', async () => {
   const { bare, brain } = fixture();
   const theirs = otherWriter(bare, 'shared.md', 'the laptop\'s version\n');
+  const before = await dirtyPaths(brain);
   writeFileSync(join(brain, 'shared.md'), 'the box\'s version\n');
-  const ours = await commitAll(brain, 'job');
+  const ours = await commitAll(brain, 'job', { before });
+  assert.ok(ours, 'precondition: the run\'s own edit is committed');
   const r = await syncPush(brain);
   assert.equal(r.pushed, false);
   assert.equal(r.blocked, true);
@@ -401,9 +409,13 @@ test('syncPush: a conflicting remote commit stops the push and reports; nothing 
 });
 
 test('kernel drain: a blocked push lands as the brain-push row the Health page reads', async () => {
-  const { bare, brain } = fixture();
-  otherWriter(bare, 'shared.md', 'the laptop\'s version\n');
-  writeFileSync(join(brain, 'shared.md'), 'the box\'s version\n');
+  // The adopted ignore set, as box-up leaves it, so the engine's own logs are not
+  // uncommitted edits (those would stop the push one step earlier, tested below).
+  const { bare, brain } = fixture({ gitignore: brainIgnoresAdopted().join('\n') + '\n' });
+  // The dry daily writes wiki/daily-brief.md; another writer already pushed one.
+  // (An edit that was in the folder before the drain is the person's and is not
+  // committed at all on an adopted brain, so it cannot be what conflicts.)
+  otherWriter(bare, 'wiki/daily-brief.md', 'the laptop\'s brief\n');
   await enqueue(brain, { skill: 'daily', args: {}, source: 'cli' });
   execFileSync('node', [KERNEL, brain, '--once', '--dry-run'], { encoding: 'utf8' });
   const rows = readFileSync(join(brain, 'cockpit', 'run-ledger.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
@@ -571,3 +583,112 @@ test('open-folder, pebble: unchanged, the mineral-named link is made', () => {
 });
 
 function lstatExists(p) { try { lstatSync(p); return true; } catch { return false; } }
+
+// --- 6. never a blind `git add -A` on the shared tree (trap 77, 2026-10-20) ------
+// The folder is shared with the server's jobs and the person's sessions, so what
+// is uncommitted in it is somebody's work in progress.
+function inProgress(brain) {
+  writeFileSync(join(brain, 'shared.md'), 'half-edited by a session on the server\n');
+  writeFileSync(join(brain, 'invoice.pdf'), '%PDF-1.4 not ours\n');
+  writeFileSync(join(brain, 'staged.md'), 'staged by the person\n');
+  ok(brain, 'add', 'staged.md');
+}
+
+test('kernel drain: the job\'s own output is committed, nobody else\'s work in progress is', async () => {
+  const { brain } = fixture();
+  inProgress(brain);
+  await enqueue(brain, { skill: 'daily', args: {}, source: 'cli' });
+  execFileSync('node', [KERNEL, brain, '--once', '--dry-run'], { encoding: 'utf8' });
+  const files = ok(brain, 'show', '--name-only', '--format=', 'HEAD').split('\n').filter(Boolean);
+  assert.deepEqual(files, ['wiki/daily-brief.md'], `the job's commit names its own output only: ${files}`);
+  assert.match(ok(brain, 'log', '-1', '--format=%s'), /^job\(daily\)/, 'made by the job\'s own commit, not swept up later');
+  assert.equal(readdirSync(kpaths(brain).failed).length, 0, 'and the job did not fail');
+  const st = ok(brain, 'status', '--porcelain');
+  assert.ok(ok(brain, 'diff', '--name-only').split('\n').includes('shared.md'), 'their edit is still an edit');
+  assert.match(st, /^\?\? invoice\.pdf$/m, 'their file is still untracked');
+  assert.match(st, /^A  staged\.md$/m, 'what they staged is still staged, not committed under our message');
+});
+
+test('commitAll on an adopted brain: no "before", no commit (never everything)', async () => {
+  const { brain } = fixture();
+  inProgress(brain);
+  const head = ok(brain, 'rev-parse', 'HEAD');
+  assert.equal(await commitAll(brain, 'job'), null);
+  assert.equal(ok(brain, 'rev-parse', 'HEAD'), head);
+});
+
+test('commitAll on an adopted brain: a file already dirty before the run stays theirs, even if the run touched it', async () => {
+  const { brain } = fixture();
+  inProgress(brain);
+  const before = await dirtyPaths(brain);
+  writeFileSync(join(brain, 'shared.md'), 'half-edited, then the job appended\n');
+  writeFileSync(join(brain, 'gone.md'), 'x\n');
+  ok(brain, 'add', 'gone.md'); ok(brain, ...IDENT, 'commit', '-q', '-m', 'their gone.md', '--', 'gone.md');
+  const before2 = await dirtyPaths(brain);
+  rmSync(join(brain, 'gone.md'));
+  writeFileSync(join(brain, 'job out.md'), 'a name with a space\n');
+  const sha = await commitAll(brain, 'job', { before: new Set([...before, ...before2]) });
+  assert.ok(sha);
+  assert.deepEqual(ok(brain, 'show', '--name-only', '--format=', 'HEAD').split('\n').filter(Boolean).sort(), ['gone.md', 'job out.md']);
+  assert.ok(ok(brain, 'diff', '--name-only').split('\n').includes('shared.md'), 'their edit is still only an edit');
+});
+
+test('commitAll, pebble: unchanged, still everything', async () => {
+  const { brain } = fixture({ adopted: false });
+  inProgress(brain);
+  assert.ok(await commitAll(brain, 'job'));
+  assert.equal(ok(brain, 'status', '--porcelain'), '');
+});
+
+test('brain-push.sh on an adopted brain: commits nothing, untracks nothing, writes no upstream; pushes what is committed', () => {
+  const { bare, brain } = fixture();
+  ok(brain, 'branch', '--unset-upstream');
+  writeFileSync(join(brain, 'mine.md'), 'committed by the person\n');
+  ok(brain, 'add', 'mine.md'); ok(brain, ...IDENT, 'commit', '-q', '-m', 'theirs');
+  inProgress(brain);
+  const head = ok(brain, 'rev-parse', 'HEAD');
+  const status = ok(brain, 'status', '--porcelain');
+  const cfg = readFileSync(join(brain, '.git', 'config'), 'utf8');
+  const r = spawnSync('bash', [join(ENGINE, 'brain-push.sh'), brain], { encoding: 'utf8' });
+  const log = readFileSync(join(brain, 'cockpit', 'brain-push.log'), 'utf8');
+  assert.equal(r.status, 0, log);
+  assert.equal(ok(brain, 'rev-parse', 'HEAD'), head, 'no commit');
+  const now = ok(brain, 'status', '--porcelain').split('\n').filter((l) => !l.endsWith('cockpit/brain-push.log')).join('\n');
+  assert.equal(now, status, 'the work in progress is exactly as it was (its own log aside)');
+  assert.equal(readFileSync(join(brain, '.git', 'config'), 'utf8'), cfg, 'no upstream written into the shared config');
+  assert.equal(remoteTip(bare, 'master'), head, 'the person\'s commit is pushed');
+});
+
+test('brain-push.sh on an adopted brain: a credential the repo already tracks is named, not untracked', () => {
+  const { brain } = fixture();
+  writeFileSync(join(brain, '.mcp.json'), '{}\n');
+  ok(brain, 'add', '-f', '.mcp.json'); ok(brain, ...IDENT, 'commit', '-q', '-m', 'their mcp');
+  spawnSync('bash', [join(ENGINE, 'brain-push.sh'), brain], { encoding: 'utf8' });
+  assert.equal(tracked(brain, '.mcp.json').length, 1, 'the shared index is not changed under the person');
+  assert.match(readFileSync(join(brain, 'cockpit', 'brain-push.log'), 'utf8'), /WARNING: your repository tracks \.mcp\.json/);
+});
+
+test('box-up commit_brain: an adopted brain is never snapshotted on stop, a pebble still is', () => {
+  const src = readFileSync(join(ENGINE, 'box-up.sh'), 'utf8');
+  const body = src.slice(src.indexOf('commit_brain(){'), src.indexOf('\n}', src.indexOf('commit_brain(){')));
+  const add = body.indexOf('git -C "$BOX" add -A');
+  assert.ok(add > 0);
+  assert.match(body.slice(0, add), /if \[ "\$ADOPTED" != 1 \] && \[ -n "\$\(git -C "\$BOX" status --porcelain/, 'the add -A is behind the adopted guard');
+});
+
+test('syncPush on an adopted brain: behind the remote with someone\'s edits in the folder stops plainly, edits untouched', async () => {
+  const { bare, brain } = fixture();
+  otherWriter(bare, 'laptop.md', 'from the laptop\n');
+  const before = await dirtyPaths(brain);
+  writeFileSync(join(brain, 'job.md'), 'ours\n');
+  const ours = await commitAll(brain, 'job', { before });
+  writeFileSync(join(brain, 'shared.md'), 'half-edited by a session on the server\n');
+  const r = await syncPush(brain);
+  assert.equal(r.pushed, false);
+  assert.equal(r.blocked, true);
+  assert.equal(r.behind, true);
+  assert.match(r.reason, /uncommitted changes that are not Crads-AI's/);
+  assert.equal(readFileSync(join(brain, 'shared.md'), 'utf8'), 'half-edited by a session on the server\n', 'never stashed or reset');
+  assert.equal(ok(brain, 'rev-parse', 'HEAD'), ours);
+  assert.equal(ok(brain, 'stash', 'list'), '', 'no stash made');
+});

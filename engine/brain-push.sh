@@ -91,10 +91,32 @@ fi
 # Derived from the same list, never spelled out a second time: strip a trailing
 # slash and every entry is a valid pathspec, and --ignore-unmatch swallows the
 # ones this box does not have.
-while IFS= read -r p; do
-  p="${p%/}"
-  untrack_entry "$p" && say "untracked $p"
-done < <(brain_ignores)
+#
+# On an adopted brain (trap 77, 2026-10-20) the index is shared with the server
+# and the person's own sessions, so a `git rm --cached` here is staged for THEIR
+# next commit. So only the engine's OWN files are untracked there: the list's two
+# "engine files" sections, exact names a person does not keep (an earlier engine
+# committed some, adopt rehearsal 2026-10-18). A credential-shaped path they track
+# is theirs to decide about: nothing here commits, so untracking it would not keep
+# it out of what we push (commits already there, which the server's own push sends
+# anyway). It is named in the log instead.
+brain_engine_files() { awk '/^# --- /{s=($0 ~ /engine files/)} s && !/^#/ {sub(/#.*/,""); sub(/[[:space:]]+$/,""); if (length) print}' "$IGNORE_LIST"; }
+if [ "$ADOPTED" = 1 ]; then
+  while IFS= read -r p; do
+    p="${p%/}"
+    untrack_entry "$p" && say "untracked $p (an engine file)"
+  done < <(brain_engine_files)
+  while IFS= read -r p; do
+    p="${p%/}"
+    f="$(git ls-files -- "$p" 2>/dev/null | grep -vE '\.(example|sample|template)$' | head -3 | tr '\n' ' ')"
+    [ -n "$f" ] && say "WARNING: your repository tracks $f(never-commit list: $p); it is pushed as it is, so rotate it and untrack it yourself"
+  done < <(brain_required)
+else
+  while IFS= read -r p; do
+    p="${p%/}"
+    untrack_entry "$p" && say "untracked $p"
+  done < <(brain_ignores)
+fi
 
 # An adopted brain has a person working in it. A rebase, merge or cherry-pick
 # they have in progress is theirs: committing onto it would land on the detached
@@ -109,17 +131,30 @@ if [ "$ADOPTED" = 1 ]; then
   done
 fi
 
-git add -A
-if git diff --cached --quiet 2>/dev/null; then
-  say "nothing to commit; checking for unpushed commits"
+# An adopted brain is never snapshotted with `git add -A` (trap 77): the folder is
+# shared with the server, and what is uncommitted in it is somebody's work in
+# progress, not ours to commit as "box". Its own commits are pushed below.
+if [ "$ADOPTED" = 1 ]; then
+  say "adopted brain: nothing committed (the folder is shared); pushing the commits already there"
 else
-  git -c user.name=box -c user.email=box@local commit -q -m "sync: nightly backup $(date -u +%Y-%m-%d)" || true
+  git add -A
+  if git diff --cached --quiet 2>/dev/null; then
+    say "nothing to commit; checking for unpushed commits"
+  else
+    git -c user.name=box -c user.email=box@local commit -q -m "sync: nightly backup $(date -u +%Y-%m-%d)" || true
+  fi
 fi
 
 # A branch with no upstream makes a bare `git push` fail ("no upstream branch"),
 # which is exactly the state a freshly wired repo can be in. Set it on the way
 # rather than failing every night until a human notices. Found by test, 2026-07-30.
-if git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' >/dev/null 2>&1; then
+if [ "$ADOPTED" = 1 ]; then
+  # The branch they are on, to the same name. Never -u: an upstream is written
+  # into the shared .git/config. Detached means there is no branch to back up.
+  BRANCH="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  if [ -z "$BRANCH" ]; then say "skipped: this brain is not on a branch (detached HEAD), so nothing was pushed"; exit 1; fi
+  OUT="$(git push -q origin "HEAD:refs/heads/$BRANCH" 2>&1)"; RC=$?
+elif git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' >/dev/null 2>&1; then
   OUT="$(git push -q 2>&1)"; RC=$?
 else
   BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)"

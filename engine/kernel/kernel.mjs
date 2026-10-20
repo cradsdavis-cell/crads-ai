@@ -13,7 +13,7 @@
 import { rename, writeFile, rm, readFile, stat, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { kpaths, ensureDirs, listQueued } from './lib/queue.mjs';
-import { ensureRepo, clearRebase, commitAll, syncPush } from './lib/git.mjs';
+import { ensureRepo, clearRebase, commitAll, dirtyPaths, syncPush } from './lib/git.mjs';
 import { runSkill } from './lib/runner.mjs';
 import { syncSkills, ADOPTED_ONLY } from './lib/skills.mjs';
 import { nowISO } from '../lib/clock.mjs';   // injectable clock (spec §0.5)
@@ -24,7 +24,7 @@ import { localDate } from '../lib/clock.mjs';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { brainIgnoresFor } from '../lib/brain-ignore.mjs';
-import { isMovingIn } from '../lib/mineral-identity.mjs';
+import { isAdopted, isMovingIn } from '../lib/mineral-identity.mjs';
 
 const ENGINE_SKILLS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'skills');
 
@@ -153,6 +153,10 @@ async function drain() {
     let tz = 'UTC';
     try { tz = (await readFile(path.join(stateDir, 'profile.yaml'), 'utf8')).match(/timezone:\s*"?([^"\n]+)"?/)?.[1]?.trim() || 'UTC'; } catch {}
     let committed = false, ledgerDirty = false;
+    // Adopted (trap 77): a commit names only what changed during the run, so
+    // take the "before" now; undefined on a pebble, which commits as it always has.
+    const adopted = isAdopted(stateDir);
+    const drainBefore = adopted ? await dirtyPaths(stateDir) : undefined;
     // Build one action-ledger row (spec §7, §3.P3). git_commit is the sha the skill produced.
     const logAction = (job, { sha = null, ok = true } = {}) => {
       const c = classifyJob(job);
@@ -173,10 +177,11 @@ async function drain() {
       log(`-> /${job.skill} (${job.id.slice(0, 8)}) from ${job.source || '?'}`);
       const startedAt = new Date().toISOString();
       try {
+        const before = adopted ? await dirtyPaths(stateDir) : undefined;
         const res = await runSkill(stateDir, job, { dryRun });
         if (res.output) log(`   output: ${res.output.slice(0, 200).replace(/\s+/g, ' ').trim()}`);
         appendRun(stateDir, { ts: startedAt, job: `skill /${job.skill}`, skill: job.skill, source: job.source || 'cli', status: 'ok', summary: summarize(res.output) });
-        const sha = await commitAll(stateDir, `job(${job.skill}): ${(res.output || 'done').slice(0, 60)} [${job.id.slice(0, 8)}]`);
+        const sha = await commitAll(stateDir, `job(${job.skill}): ${(res.output || 'done').slice(0, 60)} [${job.id.slice(0, 8)}]`, { before });
         await rename(job.file, path.join(p.done, job.name));
         if (job.reply_to) {
           // Hand the reply to the comms adapter (Telegram) or the voice bridge via its outbox.
@@ -202,7 +207,7 @@ async function drain() {
     // Regenerate the operator state-view from the box's own data (spec §3.P5), then
     // persist ledger rows + state-view in one git-reachable commit (P3 I6 / P5 freshness).
     try { genStateView(stateDir); ledgerDirty = true; } catch (e) { log(`   state-view gen failed: ${String(e).slice(0, 120)}`); }
-    if (ledgerDirty) { const lsha = await commitAll(stateDir, `ledger+state-view [run ${runId.slice(0, 8)}]`); if (lsha) committed = true; }
+    if (ledgerDirty) { const lsha = await commitAll(stateDir, `ledger+state-view [run ${runId.slice(0, 8)}]`, { before: drainBefore }); if (lsha) committed = true; }
     if (committed) {
       const push = await syncPush(stateDir);
       log(`push: ${push.pushed ? 'ok' : 'skipped (' + push.reason + ')'}`);

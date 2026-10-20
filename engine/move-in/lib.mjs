@@ -531,6 +531,26 @@ export function parseGitRemoteUrl(configText, name = 'origin') {
   return '';
 }
 
+// The url git inside the mineral really uses for `url`, after the mineral's own
+// `url.<base>.insteadOf` rules (connect-github writes one for an alias remote,
+// trap 77). Longest matching prefix wins, as in git. '' when none applies.
+export function mineralRewrite(url, gitconfigText) {
+  const u = String(url || '');
+  let base = null, best = '', to = '';
+  for (const raw of String(gitconfigText || '').split('\n')) {
+    const line = raw.trim();
+    const sec = line.match(/^\[\s*url\s+"([^"]*)"\s*\]$/i);
+    if (sec) { base = sec[1]; continue; }
+    if (/^\[/.test(line)) { base = null; continue; }
+    const kv = base != null && line.match(/^insteadof\s*=\s*(.*)$/i);
+    if (kv) {
+      const from = kv[1].trim().replace(/^"(.*)"$/, '$1');
+      if (from && u.startsWith(from) && from.length > best.length) { best = from; to = base + u.slice(from.length); }
+    }
+  }
+  return to;
+}
+
 // Can a program inside the mineral use this remote at all? Two shapes cannot,
 // whatever is signed in: a host name only the server's own ~/.ssh/config knows
 // (`git@github-brain:me/brain.git`), and a folder on the server. Answers

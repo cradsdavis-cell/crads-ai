@@ -7,7 +7,7 @@
 // apply.mjs's own CLI entry point, run in-process against a scratch brain.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, statSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, readdirSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
@@ -16,7 +16,7 @@ import { buildPlan, planNow } from './plan.mjs';
 import { runCli, approve, applyStep, undoStep, show } from './apply.mjs';
 import { readPlan, readInventory } from './store.mjs';
 import { HOST_OPS, validateHostOp, sha256 } from './host-ops.mjs';
-import { commentCronLine, uncommentCronLine, cronToSchedule, analyzeCommand, redact, readJobDefinition, settled, sentences, remoteReach, parseGitRemoteUrl, telegramNow } from './lib.mjs';
+import { commentCronLine, uncommentCronLine, cronToSchedule, analyzeCommand, redact, readJobDefinition, settled, sentences, remoteReach, parseGitRemoteUrl, mineralRewrite, telegramNow } from './lib.mjs';
 import { runHostStep, moveOut } from '../../wizard/panel/move-in-host.mjs';
 import { appendRun } from '../lib/run-ledger.mjs';
 
@@ -733,6 +733,9 @@ test('T4 finding 8: a remote only the server can use holds the backup switch-ove
   assert.equal(remoteReach('git@github.com:me/brain.git').usable, true);
   assert.equal(remoteReach('https://github.com/me/brain.git').usable, true);
   assert.equal(remoteReach('').usable, null);
+  assert.equal(mineralRewrite('git@github-brain:me/brain.git', '[url "https://github.com/"]\n\tinsteadOf = git@github.com:\n[url "https://github.com/me/brain.git"]\n\tinsteadOf = git@github-brain:me/brain.git\n'), 'https://github.com/me/brain.git');
+  assert.equal(mineralRewrite('git@github-brain:me/other.git', '[url "https://github.com/me/brain.git"]\n\tinsteadOf = git@github-brain:me/brain.git\n'), '', 'a route is for its own repository only');
+  assert.equal(mineralRewrite('x', null), '');
   assert.equal(parseGitRemoteUrl('[core]\n\tbare = false\n[remote "origin"]\n\turl = git@github-brain:me/brain.git\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n', 'origin'), 'git@github-brain:me/brain.git');
   // the plan, with the inventory naming the remote and .git/config holding an alias
   const d = makeBrain(tmpDir('mi-remote-'));
@@ -757,7 +760,17 @@ test('T4 finding 8: a remote only the server can use holds the backup switch-ove
   assert.equal(r.ok, false);
   assert.match(r.error, /Connect GitHub first/);
   assert.equal(srv.calls.length, 0);
-  // once the remote is one the mineral can reach, the plan made again lets it through
+  // Connect GitHub (trap 77) gives the MINERAL its own route and leaves the shared
+  // .git/config holding the alias: the plan made again sees the route and lets it through.
+  mkdirSync(path.join(d, '.kernel', 'home'), { recursive: true });
+  writeFileSync(path.join(d, '.kernel', 'home', '.gitconfig'), '[url "https://github.com/fixture/brain.git"]\n\tinsteadOf = git@github-brain:fixture/brain.git\n');
+  assert.ok(planNow(d, { has, now: NOW }).ok);
+  assert.equal(readFileSync(path.join(d, '.git', 'config'), 'utf8'), '[remote "origin"]\n\turl = git@github-brain:fixture/brain.git\n', 'the server\'s remote is still its alias');
+  assert.equal(step(d, 'note-git-remote'), undefined, 'connected through the mineral\'s own route');
+  assert.equal(step(d, 'cutover-script-backup').hold, undefined);
+  assert.match(step(d, 'note-git').what, /over HTTPS \(https:\/\/github\.com\/fixture\/brain\.git\)/);
+  // and a remote the mineral can reach as it is needs no route at all
+  rmSync(path.join(d, '.kernel', 'home', '.gitconfig'));
   writeFileSync(path.join(d, '.git', 'config'), '[remote "origin"]\n\turl = https://github.com/fixture/brain.git\n');
   assert.ok(planNow(d, { has, now: NOW }).ok);
   assert.equal(step(d, 'note-git-remote'), undefined);

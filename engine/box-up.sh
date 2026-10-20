@@ -338,7 +338,9 @@ commit_brain(){
       [ -n "$_gd" ] && [ -e "$_gd/$_op" ] && return 0
     done
   fi
-  if [ -n "$(git -C "$BOX" status --porcelain 2>/dev/null)" ]; then
+  # Adopted (trap 77): the folder is shared with the server, so stopping the
+  # container never snapshots it with `git add -A`; only the push below runs.
+  if [ "$ADOPTED" != 1 ] && [ -n "$(git -C "$BOX" status --porcelain 2>/dev/null)" ]; then
     git -C "$BOX" add -A
     git -C "$BOX" -c user.name='AI OS kernel' -c user.email='kernel@ai-os.local' \
         commit -q -m "session $(date +%Y-%m-%d): brain update" 2>/dev/null || true

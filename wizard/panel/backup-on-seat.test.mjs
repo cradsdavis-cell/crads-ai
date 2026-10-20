@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { createPanelServer } from './panel-server.mjs';
 import { ownBrain } from './own-brain.mjs';
 
+const NO_SSH = async () => ({ code: 0, stdout: '', stderr: '' });
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MEMBER_HTML = readFileSync(path.join(HERE, 'member.html'), 'utf8');
 
@@ -32,6 +33,7 @@ const listen = (opts) => new Promise((resolve) => {
   const s = createPanelServer({
     port: 0, host: '127.0.0.1', htmlText: MEMBER_HTML, edition: 'member',
     bridge: { targets: () => TARGETS, stream: () => { throw new Error('unused'); }, tty: () => { throw new Error('unused'); } },
+    precheckBridge: NO_SSH,   // /own-brain/start's adopted-scope probe; never a real ssh
     ...opts,
   });
   s.on('listening', () => resolve(s));
