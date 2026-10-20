@@ -2312,7 +2312,7 @@
           <button class="connfix" type="button" data-guided-close style="margin-left:auto">Close</button>
         </div>
         <p class="hint" style="margin:6px 0 10px">Your assistant signs in to your Microsoft account with a short code you type at Microsoft. The sign-in stays on your mineral, and the part that reads your mail runs there too: nothing passes through anyone else. There is no app to make. About two minutes.</p>
-        <p class="hint" style="margin:0 0 12px">It can read, search and send email, and see and manage your calendar and contacts, in chats and in scheduled jobs. It <b>cannot delete</b> mail, contacts or calendars, make inbox rules that forward your mail, or share your calendar. It does not reach your files, SharePoint or Teams.</p>
+        <p class="hint" style="margin:0 0 12px">It can read and search your email and write drafts for you to send, and see and manage your calendar and contacts, in chats and in scheduled jobs. It sends email only if you turn that on in step 1. It <b>cannot delete</b> mail, contacts or calendars, make inbox rules that forward your mail, or share your calendar. It does not reach your files, SharePoint or Teams.</p>
         <div class="fsteps" data-ladder style="margin:0 0 12px">
           <span class="fstep" data-step="1">Your account</span>
           <span class="fstep" data-step="2">Enter the code</span>
@@ -2323,6 +2323,11 @@
           <div class="fbody">
             <label class="check" style="margin:6px 0 6px"><input type="radio" name="msAccount" value="work" checked><span><b>Work or school</b>: Microsoft 365 for business, or an email at your own domain on Outlook</span></label>
             <label class="check" style="margin:0 0 10px"><input type="radio" name="msAccount" value="personal"><span><b>Personal</b>: outlook.com, hotmail.com or live.com</span></label>
+            <!-- Sending (2026-10-20): off, the five sending tools are left out
+                 on the mineral, so Microsoft is never asked for Mail.Send.
+                 engine/lib/ms365.mjs MS365_SEND_TOOLS. -->
+            <label class="check" style="margin:0 0 4px"><input type="checkbox" id="msSend"><span><b>Let it send email</b></span></label>
+            <p class="hint" style="margin:0 0 10px 26px">Off: it writes drafts in your Outlook Drafts folder and you send them yourself, and Microsoft is never asked for permission to send. Calendar changes still reach people the usual way: when it creates, changes or cancels a meeting, or answers an invitation, Outlook tells the people involved.</p>
             <details style="margin:0 0 10px">
               <summary class="hint" style="cursor:pointer">Your own Microsoft app (optional)</summary>
               <p class="hint" style="margin:8px 0 8px">Only if your organisation wants its own app on the consent screen. Register an app in Microsoft Entra (Accounts in any organizational directory, or only yours), turn on <b>Allow public client flows</b> under Authentication, add the Microsoft Graph delegated permissions it asks for, then paste its Application (client) ID here. A tenant is needed only if the app is for your organisation alone.</p>
@@ -4663,7 +4668,11 @@
   // fix: off / needs-auth / on / unavailable (older boxes' Google rows, from
   // before the bring-your-own-key wizard) / dead-end (the first catalogue's
   // Google endpoints, still on some boxes, where sign-in can never complete).
-  var MCP_CHIP = { on: 'ok', 'needs-auth': 'configured', off: '', unavailable: '', 'dead-end': '', 'chat-only': 'configured', account: '' };
+  // 'broken' (contract 9, 2026-10-20): the box found the reason it cannot work
+  // (a setting unset on the mineral, a program not installed, a file from
+  // another machine, or a failed check). An older page shows it as a plain
+  // chip carrying the same words, which is still the truth.
+  var MCP_CHIP = { on: 'ok', 'needs-auth': 'configured', off: '', unavailable: '', 'dead-end': '', 'chat-only': 'configured', account: '', broken: 'bad' };
 
   // ---- R20 marks (panel iteration 2) ----------------------------------------
   // markFor comes from the /vendor/marks module (see the module script in the
@@ -4758,9 +4767,10 @@
     // Microsoft 365 (contract 8): Sign in reopens the card, which runs the
     // Microsoft code sign-in on the mineral; Disconnect is the ordinary remove,
     // which on the box also deletes the sign-in cache. The row says whose
-    // account it is once signed in.
+    // account it is once signed in. Change (2026-10-20) reopens the same card
+    // on a connected row, so "Let it send email" can be turned on or off later.
     if (s.byo === 'microsoft') {
-      btns = (s.state === 'on' ? '' : '<button class="connfix" type="button" data-mcp-microsoft>Sign in</button>')
+      btns = '<button class="connfix" type="button" data-mcp-microsoft>' + (s.state === 'on' ? 'Change' : 'Sign in') + '</button>'
         + '<button class="connfix" type="button" data-mcp-remove="microsoft">Disconnect</button>';
       var mwho = s.email ? esc(s.email) + ' · ' : '';
       return '<li class="marked">' + markSpan('microsoft', s.label) + '<span class="nm">' + esc(s.label) + '</span>'
@@ -4786,12 +4796,32 @@
       + '<button class="connfix" type="button" data-mcp-remove="asana">Disconnect</button>';
     // Connected inside Claude Code: chats-only, one click brings it to jobs.
     if (s.adoptable) btns = '<button class="connfix" type="button" data-mcp-adopt="' + s.key + '">Use in jobs too</button>';
+    // Check (contract 9): a token or program connection can be asked, from the
+    // mineral, whether it answers; the box keeps the answer and the row reports
+    // it. Offered before the first check, and again after one that failed. A
+    // row that cannot even start says why instead: checking would only repeat it.
+    if (mcpContract >= 9 && !s.adoptable && (s.auth === 'token' || s.auth === 'stdio' || s.auth === 'local')
+      && ((s.state === 'on' && !s.last_check) || (s.state === 'broken' && s.problem === 'check'))) {
+      btns = '<button class="connfix" type="button" data-mcp-check="' + esc(s.key) + '">' + (s.state === 'broken' ? 'Check again' : 'Check') + '</button>' + btns;
+    }
     // HOW it authenticates is part of the truth worth visualising: an API-token
-    // connection never needs a sign-in, an OAuth one might sign you out.
-    var kind = s.auth === 'token' ? ' · API token' : '';
+    // connection never needs a sign-in, an OAuth one might sign you out, and a
+    // program connection, or a server on the same machine, runs on the mineral itself.
+    var kind = s.auth === 'token' ? ' · API token' : (s.auth === 'stdio' || s.auth === 'local') ? ' · runs on your mineral' : '';
     var warn = (s.state === 'on' && s.auth === 'oauth' && s.renews === false)
       ? '<div class="sub" style="margin:2px 0 0">Signs you out periodically; you will need to authorise it again when it does.</div>' : '';
     if (asanaOld) warn += '<div class="sub" style="margin:2px 0 0">Asana is switching this connection off, and it drops out of a chat left open past an hour. Moving it takes about five minutes, once.</div>';
+    // broken: the chip carries the verdict ("can't start", "not working"), the
+    // line under the row carries the reason, which is often a long path
+    var chipText = s.status;
+    if (s.state === 'broken') {
+      var cut = String(s.status || '').indexOf(': ');
+      if (cut > 0) {
+        chipText = s.status.slice(0, cut);
+        var why = s.status.slice(cut + 2);
+        warn += '<div class="sub" style="margin:2px 0 0">' + esc(why.charAt(0).toUpperCase() + why.slice(1)) + '.</div>';
+      }
+    }
     // contract 5: a Mailchimp key made since 22 June 2026 dies a year after it
     // was made; the box counts from the day it was pasted, so "by about"
     if (s.state === 'on' && s.key_expires_by) {
@@ -4801,7 +4831,7 @@
     }
     return '<li class="marked">' + markSpan(markKey(s), s.label) + '<span class="nm">' + esc(s.label) + '</span>'
       + '<span class="why">' + esc(s.blurb) + esc(kind) + '</span><span style="display:flex;gap:4px">' + btns + '</span>'
-      + '<span class="chip ' + (MCP_CHIP[s.state] || '') + '">' + esc(s.status) + '</span>' + warn + '</li>';
+      + '<span class="chip ' + (MCP_CHIP[s.state] || '') + '">' + esc(chipText) + '</span>' + warn + '</li>';
   }
   // R21: a row for the folded "Connected to your Claude account" list. No
   // button (nothing on the mineral to disconnect) and no status chip: the
@@ -4836,6 +4866,7 @@
     var yours = services.filter(function(s){ return s.state !== 'account' && (s.configured || s.byo === 'google' || s.state === 'chat-only' || s.state === 'dead-end'); });
     var account = services.filter(function(s){ return s.state === 'account'; });
     gwRows = services.filter(function(s){ return s.byo === 'google'; });
+    msRow = services.filter(function(s){ return s.byo === 'microsoft'; })[0] || null;
     gwRow = gwRows[0] || null;
     mcpDir.connectedKeys = {}; mcpDir.connectedUrls = {};
     services.forEach(function(s){ if (s.configured) { mcpDir.connectedKeys[s.key] = true; if (s.url) mcpDir.connectedUrls[s.url] = true; } });
@@ -4982,7 +5013,7 @@
   var GUIDED_CARDS = { slack: 'skWizard', wordpress: 'wpWizard', mailchimp: 'mcWizard', account: 'acWizard', asana: 'asWizard', microsoft: 'msWizard' };
   var GUIDED_NOTICE = { slack: 'skNotice', wordpress: 'wpNotice', mailchimp: 'mcNotice', asana: 'asNotice', microsoft: 'msNotice' };
   // the box contract each wizard stands on: 4 = scheme basic + check, 5 = Mailchimp on the box
-  var GUIDED_CONTRACT = { slack: 4, wordpress: 4, mailchimp: 5, asana: 7, microsoft: 8 };
+  var GUIDED_CONTRACT = { slack: 4, wordpress: 4, mailchimp: 5, asana: 7, microsoft: 10 };
   // What the account guide says per service. Facts, verified 2026-10-02:
   // Shopify's sign-in accepts only claude.ai / chatgpt.com redirects; Xero's
   // hosted server refuses third-party tokens and its Claude connector is
@@ -5278,11 +5309,15 @@
   // (mcp-microsoft-login-status) until Microsoft says yes or no. Last, the
   // box's own check proves the cached sign-in reaches Microsoft from there.
   var msPoll = null;
+  var msRow = null;   // the box's microsoft row from the last mcp-status render (contract 10: carries `sends`)
   function msStop(){ if (msPoll) { clearInterval(msPoll); msPoll = null; } }
   function msPrepare(){
     msStop();
     $('msStart').disabled = false; $('msCode').value = ''; $('msCopy').textContent = 'Copy';
     $('msClient').value = ''; $('msTenant').value = '';
+    // reopening a connected card shows what it does now, so a repeat press
+    // never quietly turns sending off (or on)
+    $('msSend').checked = !!(msRow && msRow.sends);
   }
   function msAccount(){
     var r = document.querySelector('input[name="msAccount"]:checked');
@@ -5303,7 +5338,8 @@
     Array.prototype.forEach.call(card.querySelectorAll('[data-fold]'), function(f){ f.open = false; });
     notice('msNotice', '');
     var done = card.querySelector('[data-done]');
-    done.innerHTML = '<p class="hint" style="margin:0"><b>Connected' + (user ? ' as ' + esc(user) : '') + '.</b> Your assistant can use your Outlook mail, calendar and contacts in chats and in scheduled jobs, and it stays signed in by itself. It is in Your connections above; Disconnect there deletes the sign-in from your mineral. To cut it off from Microsoft\'s side too, remove the app under My Apps at myapps.microsoft.com (work) or account.microsoft.com/privacy/app-access (personal).</p>';
+    var sends = $('msSend').checked;
+    done.innerHTML = '<p class="hint" style="margin:0"><b>Connected' + (user ? ' as ' + esc(user) : '') + '.</b> Your assistant can use your Outlook mail' + (sends ? ', including sending,' : ' (it writes drafts, you send them)') + ' and your calendar and contacts in chats and in scheduled jobs, and it stays signed in by itself. It is in Your connections above; Disconnect there deletes the sign-in from your mineral. To cut it off from Microsoft\'s side too, remove the app under My Apps at myapps.microsoft.com (work) or account.microsoft.com/privacy/app-access (personal).</p>';
     done.style.display = 'block';
     $('msStart').disabled = false; $('msCode').value = '';
     loadMcp(); loadDashboard(true);
@@ -5344,7 +5380,7 @@
     if (mcpContract < GUIDED_CONTRACT.microsoft) { notice('msNotice', MCP_TOO_OLD); return; }
     btn.disabled = true;
     notice('msNotice', 'Saving the connection on your mineral…');
-    var def = { account: msAccount() };
+    var def = { account: msAccount(), send: $('msSend').checked };
     if (client) def.client_id = client;
     if (tenant) def.tenant_id = tenant;
     run('mcp-add-microsoft', { def_b64: b64utf8(JSON.stringify(def)) }).then(function(r){
@@ -5875,6 +5911,16 @@
         // an adopted connection with no surviving sign-in flows straight into one
         var s = (d.services || []).filter(function(x){ return x.key === ak; })[0];
         if (s && s.state === 'needs-auth' && s.auth !== 'token') mcpStartSignin(ak, s.label);
+      });
+      return;
+    }
+    var ck = e.target.closest('[data-mcp-check]');
+    if (ck) {
+      ck.disabled = true; ck.textContent = 'Checking…';
+      run('mcp-check', { key: ck.getAttribute('data-mcp-check') }).then(function(r){
+        var d = jsonOut(r);
+        if (!d || d.ok === false) { notice('mcpNotice', mcpErr(d, r)); }
+        loadMcp();   // the box recorded the answer; its row now says it
       });
       return;
     }

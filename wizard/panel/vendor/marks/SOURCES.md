@@ -1,8 +1,9 @@
 # Sources for the hand-sourced marks
 
-simple-icons 16.28.0 (CC0-1.0, see LICENSE) covers 47 of the 72 marks. The 25
+simple-icons 16.28.0 (CC0-1.0, see LICENSE) covers 48 of the 75 marks (Stripe,
+`icons/stripe.svg`, hex #635BFF, added 2026-10-20). The 26
 below were not in that package and were fetched by hand (17 on 2026-08-23, the
-six note-takers on 2026-08-24, Pipedrive and Slack on 2026-10-02), in this order of preference: the vendor's own
+six note-takers on 2026-08-24, Pipedrive and Slack on 2026-10-02, Metricool on 2026-10-20), in this order of preference: the vendor's own
 brand kit, the vendor's own favicon, the vendor's GitHub organisation avatar. Every file was reduced to a 24x24 viewBox
 (SVG) or 32 to 64 px (PNG, under 6 KB); gradients and clip paths were dropped
 because the panel CSP test forbids `url(`. "mask" means a single-colour SVG the
@@ -39,6 +40,7 @@ guidelines, which govern any use beyond that.
 | fyxer | Fyxer site favicon, https://www.fyxer.com/favicon.ico (ICO 32px, converted with Pillow; no public brand page) | png 64px, img | none stated | #FF5B3A (the F) | 2026-08-24 |
 | pipedrive | Pipedrive site apple-touch-icon, https://cdn.syd-1.pipedriveassets.com/www-main-renderer/_next/static/media/apple-touch-icon-76x76.508317f7.png (76px, resized to 32px with Pillow; the favicon.ico is 16px only) | png 32px, img | none stated | #017737 (the disc) | 2026-10-02 |
 | slack | Slack site favicon, https://a.slack-edge.com/9cc0056/img/icons/favicon-32.png (35x34, padded square and resized to 32px with Pillow; not in simple-icons 16.28.0) | png 32px, img | not checked; nominative use only | #4A154B (Slack aubergine) | 2026-10-02 |
+| metricool | Metricool site favicon, https://metricool.com/wp-content/uploads/cropped-web-app-manifest-512x512-1-32x32.png (declared `rel=icon` 32x32 on metricool.com; no public brand page found) | png 32px, img | none stated | #E7FF56 (the tile ground) | 2026-10-20 |
 
 **Why these six came from vendor domains, not GitHub avatars.** The 2026-08-23
 batch used GitHub organisation avatars as a third-choice source. For the

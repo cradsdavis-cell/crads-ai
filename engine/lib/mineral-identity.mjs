@@ -66,7 +66,8 @@ export function isAdopted(stateDir) {
  * container first starts, and /move-in clears it once every step is done or
  * skipped. While it is set the container is up and the app can open the
  * brain, but nothing ACTS: the scheduler fires no job (machinery, skills and
- * scripts alike), the kernel drains nothing, commits nothing and syncs no
+ * scripts alike, except mcp-refresh, which renews the mineral's own connection
+ * tokens; scheduler.mjs heldByMoveIn), the kernel drains nothing, commits nothing and syncs no
  * skills, start-comms starts nothing, and box-up does not commit or push on
  * exit. The person's own host jobs are still running the brain at that point,
  * so a second actor on the same folder is exactly what must not happen.

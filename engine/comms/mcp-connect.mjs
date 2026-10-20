@@ -27,16 +27,17 @@
 //   node mcp-connect.mjs <state-dir> add <key>          (featured key)
 //   node mcp-connect.mjs <state-dir> add-custom         (stdin: {name,url,token_b64?,scheme?})
 //   node mcp-connect.mjs <state-dir> add-mailchimp      (stdin: {key_b64})
-//   node mcp-connect.mjs <state-dir> add-microsoft      (stdin: {account, client_id?, tenant_id?})
+//   node mcp-connect.mjs <state-dir> add-microsoft      (stdin: {account, client_id?, tenant_id?, send?})
 //   node mcp-connect.mjs <state-dir> check <key>        (does the saved server answer?)
 //   node mcp-connect.mjs <state-dir> remove <key>       (featured or app-added)
-import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, accessSync, constants as fsConst } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { connectionLabel } from '../lib/connection-labels.mjs';
 import { GOOGLE_KEY_RE, PRIMARY_GOOGLE_KEY, GOOGLE_CREDS_DIR, googleStateFiles } from '../lib/google-byo.mjs';
 import { headersHelperCmd, HELPER_RE } from '../lib/mcp-header-helper.mjs';
-import { MS365_KEY, isMs365, ms365Def, ms365Dir, ms365LoginFile, ms365Settings, parseLoginResult } from '../lib/ms365.mjs';
+import { MS365_KEY, isMs365, ms365Def, ms365Sends, ms365Dir, ms365LoginFile, ms365Settings, parseLoginResult } from '../lib/ms365.mjs';
 
 const stateDir = path.resolve(process.argv[2] || '/state');
 const cmd = process.argv[3] || 'status';
@@ -97,7 +98,22 @@ const key = String(process.argv[4] || '');
 //       Microsoft's device-code sign-in ON the box. The row is byo:'microsoft'
 //       and carries the signed-in `email`. The page gates ONLY its Microsoft
 //       wizard on 8; a 7-box is told to update.
-const CONTRACT = 8;
+//   9 = honest rows (2026-10-20, a live audit of an adopted mineral found the
+//       page calling 3 broken token servers and 8 stdio servers "working" or
+//       "waiting for you to sign in"). A row may now be state 'broken' with a
+//       plain-words `status`, a `problem` code ('setting', 'program', 'path',
+//       'check') and, for 'setting', the `missing` variable names. Servers
+//       defined by `command` are auth 'stdio', never 'oauth'; an HTTP server
+//       on a loopback address with no sign-in on file is auth 'local'. `check` records
+//       its answer on the box and status reports it as `last_check` until the
+//       definition changes. The page gates ONLY its Check button on 9; an
+//       older page renders 'broken' as a plain chip with the same words.
+//  10 = Microsoft drafts only (2026-10-20): add-microsoft takes `send`
+//       (boolean, default false). Off, the five sending tools are left out,
+//       so Microsoft is never asked for Mail.Send; the row carries `sends`.
+//       The page gates its Microsoft wizard on 10, because a 9-box would
+//       ignore `send` and keep sending while the card said drafts only.
+const CONTRACT = 10;
 
 const MCP_F = path.join(stateDir, '.mcp.json');
 const OAUTH_F = path.join(stateDir, '.kernel', 'mcp-oauth.json');   // read-only here; mcp-token.mjs is the writer
@@ -105,6 +121,7 @@ const ALLOW_F = path.join(stateDir, '.kernel', 'mcp-allow');
 const ADDED_F = path.join(stateDir, '.kernel', 'mcp-added.json');   // keys THIS tool added, so remove stays scoped to them
 const CREDS_F = path.join(stateDir, '.claude-auth', '.credentials.json');
 const CLAUDE_JSON = path.join(stateDir, '.claude-auth', '.claude.json');
+const CHECKS_F = path.join(stateDir, '.kernel', 'mcp-checks.json');   // the last `check` answer per key (no secrets)
 
 // FEATURED, every entry's sign-in verified to complete with no secrets:
 // notion/linear/sentry advertise a registration_endpoint (checked 2026-08-09);
@@ -223,6 +240,146 @@ const HEADER_RE = /^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/;
 const RESERVED_HEADERS = new Set(['accept', 'content-type', 'content-length', 'host', 'connection',
   'transfer-encoding', 'mcp-session-id', 'mcp-protocol-version', 'cookie', 'user-agent']);
 
+// HONEST ROWS (contract 9, 2026-10-20). A live audit of Sam's adopted mineral
+// found 4 of 19 connections working while this page called most of the rest
+// "working" or "waiting for you to sign in". Two lies, two fixes:
+//   1. a header like `Bearer ${GITHUB_TOKEN}` was read as a credential. Claude
+//      Code fills ${VAR} from the environment the run gets, which on a mineral
+//      is the container's, and there GITHUB_TOKEN was never set: every call
+//      went out as "Bearer " and came back 401.
+//   2. a server defined by `command` (stdio) fell through to the OAuth branch,
+//      so a box with no `uv` on it, or a script path from another machine,
+//      was told to "sign in once", which no button could ever do.
+// This process runs in the same container as the jobs (the panel's verb is a
+// docker exec), so its own environment is the honest one to resolve against.
+//
+// ${VAR} and ${VAR:-default} are the two forms Claude Code expands in
+// .mcp.json (command, args, env, url, headers). Unset with no default is
+// missing. In a HEADER an empty value counts as missing too: "Bearer " is
+// never a key. Elsewhere empty is left alone, a flag may legitimately be off.
+const REF_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)(:-([^}]*))?\}/g;
+function expandDef(def, env = process.env) {
+  const missing = new Set();
+  const x = (v, strict) => String(v).replace(REF_RE, (_, name, hasDefault, dflt) => {
+    const val = env[name];
+    if (val !== undefined && !(strict && val === '')) return val;
+    if (hasDefault !== undefined) return dflt;
+    missing.add(name);
+    return '';
+  });
+  const map = (o, strict) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, x(v, strict)]));
+  const d = { ...def };
+  if (def.url != null) d.url = x(def.url);
+  if (def.command != null) d.command = x(def.command);
+  if (Array.isArray(def.args)) d.args = def.args.map((a) => x(a));
+  if (def.env && typeof def.env === 'object') d.env = map(def.env, false);
+  if (def.headers && typeof def.headers === 'object') d.headers = map(def.headers, true);
+  return { def: d, missing: [...missing] };
+}
+
+// Where a program name resolves the way spawn would: through PATH, unless it
+// already names a path. Only whether it is there and runnable.
+function programFound(cmd, envPath = process.env.PATH || '') {
+  const can = (p) => { try { accessSync(p, fsConst.X_OK); return true; } catch { return false; } };
+  if (cmd.includes('/')) return can(cmd);
+  return envPath.split(':').filter(Boolean).some((dir) => can(path.join(dir, cmd)));
+}
+
+// A path from another machine (a brain adopted from a VPS keeps the VPS's
+// absolute paths) usually has a twin under the mounted state dir: say where.
+function twinUnderState(p) {
+  const parts = p.split('/').filter(Boolean);
+  for (let i = 1; i <= Math.min(4, parts.length - 2); i++) {
+    const cand = path.join(stateDir, ...parts.slice(i));
+    if (existsSync(cand)) return cand;
+  }
+  return null;
+}
+
+// localhost, 127.0.0.0/8 and ::1: an address that can only mean this machine
+function isLoopback(url) {
+  let h;
+  try { h = new URL(url).hostname.toLowerCase(); } catch { return false; }
+  return h === 'localhost' || h.endsWith('.localhost') || /^127(\.\d{1,3}){3}$/.test(h) || h === '[::1]' || h === '::1';
+}
+
+const plural = (xs, one, many) => xs.length === 1 ? one : many;
+const names = (xs) => xs.length <= 1 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1];
+
+// What stops this definition before it can even be tried, as one problem the
+// member can act on. null when nothing does. Order: a missing program first
+// (nothing else matters), then paths, then settings.
+function preflight(def) {
+  const { def: d, missing } = expandDef(def);
+  if (d.command) {
+    if (!programFound(d.command)) {
+      return { problem: 'program', status: `can't start: the program ${d.command} isn't installed on this mineral` };
+    }
+    const gone = (d.args || []).filter((a) => a.startsWith('/') && !existsSync(a));
+    if (gone.length) {
+      const twin = twinUnderState(gone[0]);
+      return { problem: 'path', missing_paths: gone,
+        status: `can't start: it points at ${gone[0]}, which isn't on this mineral`
+          + (twin ? ` (the same file is at ${twin} here)` : '') };
+    }
+  }
+  if (missing.length) {
+    return { problem: 'setting', missing,
+      status: d.command
+        ? `can't start: ${names(missing)} ${plural(missing, "isn't", "aren't")} set on this mineral`
+        : `not working: ${names(missing)} ${plural(missing, "isn't", "aren't")} set on this mineral, so it has no key to send` };
+  }
+  return null;
+}
+
+// The last `check` answer, kept per key with a fingerprint of the definition it
+// checked: edit the server and the old answer stops counting. Only the outcome
+// is kept (working or which kind of no, and the HTTP status); never the
+// server's words, which could echo what was sent.
+const defPrint = (def) => createHash('sha256').update(JSON.stringify(def || {})).digest('hex').slice(0, 16);
+const CHECK_WORDS = {
+  auth: 'the service turned the key down',
+  missing: 'nothing answered at that address',
+  unreachable: 'it did not answer',
+  sse: 'it uses the old connection type, which is not checked here',
+  other: 'it answered with an error',
+  setting: 'a setting it needs is not set',
+  program: 'its program is not installed',
+  path: 'a file it needs is not here',
+};
+function lastCheck(k, def) {
+  const c = rdJSON(CHECKS_F, {})[k];
+  if (!c || c.fp !== defPrint(def)) return null;
+  return { at: c.at, working: !!c.working, problem: c.problem || null, http: c.http || null };
+}
+function recordCheck(k, def, r) {
+  const all = rdJSON(CHECKS_F, {});
+  all[k] = { at: new Date().toISOString(), fp: defPrint(def), working: !!r.working,
+    ...(r.working ? {} : { problem: r.problem || 'other', ...(r.status ? { http: r.status } : {}) }) };
+  try { mkdirSync(path.dirname(CHECKS_F), { recursive: true }); writeFileSync(CHECKS_F, JSON.stringify(all, null, 2) + '\n'); }
+  catch { /* a read-only state dir still answers the check */ }
+}
+function forgetCheck(k) {
+  const all = rdJSON(CHECKS_F, null);
+  if (!all || !all[k]) return;
+  delete all[k];
+  try { writeFileSync(CHECKS_F, JSON.stringify(all, null, 2) + '\n'); } catch { /* fine */ }
+}
+
+// Fold the preflight and the last check into a row that would otherwise claim
+// what its config says. A failed preflight wins (it is true right now); then a
+// failed check on this exact definition; a passed check is reported as such.
+function honest(row, k, def) {
+  const pre = preflight(def);
+  if (pre) return { ...row, state: 'broken', authorised: false, ...pre };
+  const lc = lastCheck(k, def);
+  if (!lc) return row;
+  if (lc.working) return { ...row, last_check: lc };
+  const day = String(lc.at || '').slice(0, 10);
+  return { ...row, state: 'broken', authorised: false, problem: 'check', last_check: lc,
+    status: `not working: the last check${day ? ` (${day})` : ''} failed, ${CHECK_WORDS[lc.problem] || CHECK_WORDS.other}${lc.http ? ` (${lc.http})` : ''}` };
+}
+
 function describe(k, def, { label, blurb, mine, catalogUrl }) {
   const now = Date.now();
   // the page needs the ADDRESS to start a sign-in for a service we do not carry
@@ -241,8 +398,18 @@ function describe(k, def, { label, blurb, mine, catalogUrl }) {
   // box already carries reads as un-connected and gets a duplicate Connect card.
   try { if (url) url = new URL(url).href; } catch { /* not a url: report as typed */ }
   if (hasTokenHeader(def)) {
-    return { key: k, label, blurb, url, auth: 'token', state: 'on', status: 'working, including in scheduled jobs',
-      configured: true, authorised: true, renews: true, mine };
+    // A token this mineral signed in for itself (.kernel/mcp-oauth.json, renewed
+    // by mcp-refresh) sits in the header too, but it has an end. Past it the
+    // header is a dead key: on idris, move-in mode paused the renewer and Apify
+    // and Vercel kept reading "working" an hour after their tokens ran out.
+    const own = rdJSON(OAUTH_F, {})[k];
+    if (own?.provider !== 'google-byo' && Number.isFinite(own?.expires_at) && own.expires_at < now) {
+      return { key: k, label, blurb, url, auth: 'token', state: 'broken', problem: 'expired', configured: true, authorised: false,
+        renews: !!own.refresh_token, mine,
+        status: `not working: its sign-in ran out at ${new Date(own.expires_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} and has not been renewed yet` };
+    }
+    return honest({ key: k, label, blurb, url, auth: 'token', state: 'on', status: 'working, including in scheduled jobs',
+      configured: true, authorised: true, renews: true, mine }, k, def);
   }
   // the on-box Mailchimp server carries its key in env, not a header: it is a
   // token connection all the same. Its expiry is a "by about": a key made
@@ -250,10 +417,35 @@ function describe(k, def, { label, blurb, mine, catalogUrl }) {
   if (isMailchimp(def)) {
     const added = Date.parse(def.env.CRADS_KEY_ADDED || '');
     const by = Number.isFinite(added) ? new Date(added + 365 * 864e5).toISOString().slice(0, 10) : null;
-    return { key: k, label, blurb: 'audiences, contacts, draft campaigns and reports, with your own key', url: '', auth: 'token', state: 'on',
-      status: 'working, including in scheduled jobs', configured: true, authorised: true, renews: false, mine, key_expires_by: by };
+    return honest({ key: k, label, blurb: 'audiences, contacts, draft campaigns and reports, with your own key', url: '', auth: 'token', state: 'on',
+      status: 'working, including in scheduled jobs', configured: true, authorised: true, renews: false, mine, key_expires_by: by }, k, def);
+  }
+  // Any other server defined by `command` runs as a program on this mineral
+  // (stdio). There is nothing to sign in to: what can be wrong is the program,
+  // a file it points at, or a setting it reads. Until a check has run it is
+  // "ready", not "working": everything it needs is here, nobody has asked it.
+  if (def?.command) {
+    return honest({ key: k, label, blurb, url: '', auth: 'stdio', state: 'on',
+      status: 'ready on this mineral, including in scheduled jobs', configured: true, authorised: true, renews: null, mine }, k, def);
+  }
+  // a ${VAR} in the address itself is as fatal as one in a header
+  const urlPre = expandDef({ url: def?.url || '' }).missing;
+  if (urlPre.length) {
+    return { key: k, label, blurb, url, auth: 'oauth', state: 'broken', problem: 'setting', missing: urlPre,
+      status: `not working: ${names(urlPre)} ${plural(urlPre, "isn't", "aren't")} set on this mineral, so its address is incomplete`,
+      configured: true, authorised: false, renews: null, mine };
   }
   const tok = tokenFor(k);
+  // A server on this same machine (a loopback address) with no sign-in on file
+  // is a local service, not an OAuth sign-in nobody has done: on Sam's adopted
+  // mineral the host's Google Workspace server (http://localhost:8000/mcp) read
+  // "added, waiting for you to sign in once" while Claude Code showed it
+  // connected. Like a program connection it is "ready" until a check answers.
+  // A loopback server that does hold a sign-in falls through to the OAuth row.
+  if (!tok && isLoopback(url)) {
+    return honest({ key: k, label, blurb, url, auth: 'local', state: 'on',
+      status: 'ready on this mineral, including in scheduled jobs', configured: true, authorised: true, renews: null, mine }, k, def);
+  }
   const expired = !!(tok?.expiresAt && tok.expiresAt < now);
   const authed = !!tok && !expired;
   return {
@@ -310,8 +502,10 @@ function googleRows(srv) {
 // the set-up. Its truth is the sign-in record ms365-login.mjs keeps; the token
 // itself stays in the package's own cache, which this file never opens.
 function microsoftRow(def) {
-  const base = { key: MS365_KEY, label: connectionLabel(MS365_KEY), blurb: 'Outlook mail, calendar and contacts',
-    auth: 'device', byo: 'microsoft', mine: true, configured: true };
+  const sends = ms365Sends(def);
+  const base = { key: MS365_KEY, label: connectionLabel(MS365_KEY),
+    blurb: sends ? 'Outlook mail, calendar and contacts' : 'Outlook mail (drafts only), calendar and contacts',
+    auth: 'device', byo: 'microsoft', mine: true, configured: true, sends };
   const login = rdJSON(ms365LoginFile(stateDir), null) || {};
   if (login.stage === 'done') {
     return { ...base, state: 'on', status: 'working, including in scheduled jobs', authorised: true, renews: true,
@@ -654,7 +848,7 @@ if (cmd === 'add-google') {
 }
 
 if (cmd === 'add-microsoft') {
-  // stdin, base64(JSON): { account: 'work'|'personal', client_id?, tenant_id? }.
+  // stdin, base64(JSON): { account: 'work'|'personal', client_id?, tenant_id?, send? }.
   // Nothing secret: an app ID and a tenant are public identifiers, and the
   // sign-in itself runs on the box afterwards (ms365-login.mjs). Saving again
   // with different settings is how a member switches account kind or app.
@@ -673,10 +867,14 @@ if (cmd === 'add-microsoft') {
   // A different door or app means the cached sign-in belongs to something
   // else: drop it, so the row cannot say "working" over a token the new
   // settings will never use. Same settings: keep it (a repeat press is harmless).
+  // Turning sending ON needs Mail.Send, which the cached sign-in was never
+  // granted: drop it too, so the member signs in again and Microsoft asks.
+  // Turning it OFF keeps the sign-in: the tools are gone, which is the limit.
   const same = prev && isMs365(prev)
     && prev.env?.MS365_MCP_TENANT_ID === next.env.MS365_MCP_TENANT_ID
     && (prev.env?.MS365_MCP_CLIENT_ID || '') === (next.env.MS365_MCP_CLIENT_ID || '');
-  if (prev && !same) forgetMicrosoft();
+  const widens = prev && isMs365(prev) && !ms365Sends(prev) && ms365Sends(next);
+  if (prev && (!same || widens)) forgetMicrosoft();
   doc.mcpServers[MS365_KEY] = next;
   writeMcp(doc); syncAllow(MS365_KEY, true); rememberAdded(MS365_KEY, true); ensureApproved([MS365_KEY]);
   out({ ok: true, contract: CONTRACT, key: MS365_KEY, action: 'add-microsoft', services: rows() });
@@ -842,7 +1040,15 @@ if (cmd === 'check') {
   if (!NAME_RE.test(key)) out({ ok: false, error: 'bad service name' });
   const def = servers()[key];
   if (!def || !(def.url || def.command)) out({ ok: false, error: `"${key}" is not a connection on this box` });
-  out({ ok: true, contract: CONTRACT, key, ...(await checkServer(def)) });
+  // Ask with the definition Claude Code would actually load, ${VAR}s filled
+  // from this environment. Before contract 9 the raw "Bearer ${GITHUB_TOKEN}"
+  // went out as typed, and a missing program surfaced only as 'unreachable'.
+  // The member-facing words for these live on the row (status), not here.
+  const pre = preflight(def);
+  const r = pre ? { working: false, problem: pre.problem, ...(pre.missing ? { missing: pre.missing } : {}) }
+    : await checkServer(expandDef(def).def);
+  recordCheck(key, def, r);
+  out({ ok: true, contract: CONTRACT, key, ...r });
 }
 
 if (cmd === 'remove') {
@@ -868,6 +1074,7 @@ if (cmd === 'remove') {
   // the OK line says so.
   try { execFileSync('node', [TOKEN_TOOL, stateDir, 'forget', key], { stdio: 'ignore' }); } catch { /* nothing keyed yet */ }
   forgetCliToken(key);
+  forgetCheck(key);
   if (key === MS365_KEY) forgetMicrosoft();
   out({ ok: true, contract: CONTRACT, key, action: 'remove',
     notice: `${connectionLabel(key)} is disconnected and its credential is gone from this box. The permission you granted at ${connectionLabel(key)} is yours to revoke there.`,

@@ -222,7 +222,15 @@ function buildJobs(c) {
     // within a day and only they can revive it. Guarded on the store existing,
     // so a box with no connections never spawns node. Every 30 min, half the
     // default 30-minute refresh window, so a due token is caught before it laps.
-    { name: 'mcp-refresh (connections)', lid: 'mcp-refresh', cmd: ['bash', ['-c', `[ -f ${stateDir}/.kernel/mcp-oauth.json ] || exit 0; node ${path.join(ENGINE_DIR, 'comms', 'mcp-refresh.mjs')} ${stateDir} >/dev/null`]], match: (h, m) => m % 30 === 14 },
+    //
+    // Runs DURING MOVE-IN too (2026-10-20, Sam: "it's machinery, not a member
+    // job"). Move-in holds every job so the container is not a second actor on
+    // the person's folder, but this one only renews tokens the mineral itself
+    // issued. Held, they lapse within the hour, and because an adopted brain
+    // shares .mcp.json with the host, the HOST's own assistant loses those
+    // connections too (seen on idris: Apify and Vercel expired an hour after
+    // being connected from the app, for both).
+    { name: 'mcp-refresh (connections)', lid: 'mcp-refresh', duringMoveIn: true, cmd: ['bash', ['-c', `[ -f ${stateDir}/.kernel/mcp-oauth.json ] || exit 0; node ${path.join(ENGINE_DIR, 'comms', 'mcp-refresh.mjs')} ${stateDir} >/dev/null`]], match: (h, m) => m % 30 === 14 },
     // The BYO-Google key watch (2026-08-17; reshaped 2026-08-24 with the
     // Production wizard, docs/design-google-byo-connect.md). A published key
     // has no scheduled death, so this is a live probe now: every ~6h it asks
@@ -486,11 +494,15 @@ function logOutput(stamp, job, out) {
 // sits here, for machinery, skills and scripts alike. Logged once on the way in
 // and once on the way out, never per job. Read fresh each time, so clearing
 // the flag lets the next minute's jobs run.
+// The one exception is a job marked duringMoveIn (only mcp-refresh): machinery
+// that keeps the mineral's own sign-ins alive and acts on nothing of the
+// person's. heldByMoveIn() is the single decision, used by fire() and --at.
 let movingIn = null;
+const heldByMoveIn = (job, moving) => moving && job.duringMoveIn !== true;
 function blockedByMoveIn() {
   const now = isMovingIn(stateDir);
   if (now !== movingIn) {
-    if (now) console.log(`[${new Date().toISOString()}] move-in mode (ownership.json moving_in): no scheduled job runs until /move-in finishes; your own jobs on the server are still the ones running this brain.`);
+    if (now) console.log(`[${new Date().toISOString()}] move-in mode (ownership.json moving_in): no scheduled job runs until /move-in finishes, except renewing the connections this mineral signed in; your own jobs on the server are still the ones running this brain.`);
     else if (movingIn) console.log(`[${new Date().toISOString()}] move-in finished: scheduled jobs run again.`);
     movingIn = now;
   }
@@ -498,7 +510,7 @@ function blockedByMoveIn() {
 }
 
 function fire(job) {
-  if (blockedByMoveIn()) return;
+  if (heldByMoveIn(job, blockedByMoveIn())) return;
   const stamp = new Date().toISOString();
   if (job.isScript) {
     // One path with Run now (scripts.mjs runScript): the overlap lock, the
@@ -689,8 +701,12 @@ if (process.argv.includes('--plan') || argAt !== -1) {
     const [h, m] = hm.split(':').map(Number);
     const d = DOW[dowName] ?? new Date().getDay();
     const { ymd } = partsInTz(c.tz, new Date());
-    const firing = jobs.concat(buildSkillJobs(c), buildScriptJobsNow(c)).filter(j => j.match(h, m, d, ymd)).map(j => j.name);
+    const due = jobs.concat(buildSkillJobs(c), buildScriptJobsNow(c)).filter(j => j.match(h, m, d, ymd));
+    const moving = isMovingIn(stateDir);
+    const firing = due.filter(j => !heldByMoveIn(j, moving)).map(j => j.name);
+    const held = due.filter(j => heldByMoveIn(j, moving)).map(j => j.name);
     console.log(`\nAt ${hm} (dow ${d}): ${firing.length ? firing.join(', ') : '(nothing)'}`);
+    if (held.length) console.log(`Held by move-in: ${held.join(', ')}`);
   }
   process.exit(0);
 }

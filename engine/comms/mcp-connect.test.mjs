@@ -912,3 +912,216 @@ test('status gives our renewing sign-ins the headersHelper, and nothing else', (
   assert.equal(live.own.headersHelper, '/usr/local/bin/mine', 'a helper the member set is kept');
   assert.equal(live.asana.headers.Authorization, 'Bearer AT', 'the fixed header stays for headless jobs and untrusted folders');
 });
+
+// ---- 2026-10-20: honest rows (contract 9) -----------------------------------
+// A live audit of Sam's adopted mineral (`idris`, the brain mounted at /state)
+// found 4 of 19 connections working while this page said otherwise for most of
+// the rest: github / todoist / stripe read "working, including in scheduled
+// jobs" because their header was `Bearer ${VAR}` and VAR was never set in the
+// container, and every stdio server read "added, waiting for you to sign in
+// once" though nothing about it had a sign-in.
+const runEnv = (d, args, env) => JSON.parse(execFileSync('node', [SCRIPT, d, ...(Array.isArray(args) ? args : [args])],
+  { encoding: 'utf8', env: { PATH: process.env.PATH, ...env } }));
+const seedAll = (d, servers) => writeFileSync(path.join(d, '.mcp.json'), json({ mcpServers: servers }));
+
+test('contract 9: the box announces honest rows', () => {
+  assert.ok(run(box(), 'status').contract >= 9, 'honest rows since 9 (10 added drafts-only Microsoft)');
+});
+
+test('a token header whose ${VAR} is unset on the box is broken, never "working", and names what is missing', () => {
+  const d = box();
+  seedAll(d, {
+    github: { type: 'http', url: 'https://api.githubcopilot.com/mcp/', headers: { Authorization: 'Bearer ${GITHUB_TOKEN}' } },
+    stripe: { type: 'http', url: 'https://mcp.stripe.com', headers: { Authorization: 'Bearer ${STRIPE_TOKEN}', 'X-Acct': '${STRIPE_ACCT}' } },
+  });
+  const r = runEnv(d, 'status', {});
+  const g = svc(r, 'github');
+  assert.equal(g.auth, 'token');
+  assert.equal(g.state, 'broken');
+  assert.equal(g.authorised, false);
+  assert.equal(g.problem, 'setting');
+  assert.deepEqual(g.missing, ['GITHUB_TOKEN']);
+  assert.doesNotMatch(g.status, /working, including/);
+  assert.match(g.status, /GITHUB_TOKEN isn't set on this mineral/);
+  const s = svc(r, 'stripe');
+  assert.deepEqual(s.missing, ['STRIPE_TOKEN', 'STRIPE_ACCT']);
+  assert.match(s.status, /STRIPE_TOKEN and STRIPE_ACCT aren't set/);
+});
+
+test('the same header with the variable set is working; an empty value is still missing; a default counts', () => {
+  const d = box();
+  seedAll(d, {
+    github: { type: 'http', url: 'https://api.githubcopilot.com/mcp/', headers: { Authorization: 'Bearer ${GITHUB_TOKEN}' } },
+    todoist: { type: 'http', url: 'https://ai.todoist.net/mcp', headers: { Authorization: 'Bearer ${TODOIST_TOKEN:-fallback}' } },
+  });
+  const on = runEnv(d, 'status', { GITHUB_TOKEN: 'ghp_x' });
+  assert.equal(svc(on, 'github').state, 'on');
+  assert.equal(svc(on, 'github').status, 'working, including in scheduled jobs');
+  assert.ok(!JSON.stringify(on).includes('ghp_x'), 'the resolved value never leaves the box');
+  assert.equal(svc(on, 'todoist').state, 'on', 'a ${VAR:-default} always resolves');
+  const empty = runEnv(d, 'status', { GITHUB_TOKEN: '' });
+  assert.equal(svc(empty, 'github').state, 'broken', '"Bearer " is not a key');
+});
+
+test('a stdio server is its own kind: a missing program is the problem, never a sign-in', () => {
+  const d = box();
+  seedAll(d, { perplexity: { command: 'uvx-not-on-this-box', args: ['mcp-perplexity'] } });
+  const p = svc(runEnv(d, 'status', {}), 'perplexity');
+  assert.equal(p.auth, 'stdio');
+  assert.equal(p.state, 'broken');
+  assert.equal(p.problem, 'program');
+  assert.match(p.status, /the program uvx-not-on-this-box isn't installed on this mineral/);
+  assert.doesNotMatch(p.status, /sign in/);
+});
+
+test('a server on this machine (loopback, no sign-in on file) is local and ready; a remote one with none still needs a sign-in', () => {
+  const d = box();
+  seedAll(d, {
+    google_workspace: { type: 'http', url: 'http://localhost:8000/mcp' },
+    loop4: { type: 'http', url: 'http://127.0.0.1:9000/mcp' },
+    loop6: { type: 'http', url: 'http://[::1]:9001/mcp' },
+    metricool: { type: 'http', url: 'https://ai.metricool.com/mcp' },
+    sneaky: { type: 'http', url: 'https://localhost.example.com/mcp' },
+  });
+  const r = runEnv(d, 'status', {});
+  for (const k of ['google_workspace', 'loop4', 'loop6']) {
+    const g = svc(r, k);
+    assert.equal(g.auth, 'local', `${k}: a loopback server is local`);
+    assert.equal(g.state, 'on', `${k}: on`);
+    assert.equal(g.status, 'ready on this mineral, including in scheduled jobs');
+    assert.doesNotMatch(g.status, /sign in/);
+  }
+  for (const k of ['metricool', 'sneaky']) {
+    const m = svc(r, k);
+    assert.equal(m.auth, 'oauth', `${k}: remote stays oauth`);
+    assert.equal(m.state, 'needs-auth');
+    assert.equal(m.status, 'added, waiting for you to sign in once');
+  }
+});
+
+test('a header token this mineral issued says so once it has run out; a live one is still working', () => {
+  const d = box();
+  seedAll(d, {
+    vercel: { type: 'http', url: 'https://mcp.vercel.com/', headers: { Authorization: 'Bearer old' } },
+    apify: { type: 'http', url: 'https://mcp.apify.com/', headers: { Authorization: 'Bearer fresh' } },
+  });
+  mkdirSync(path.join(d, '.kernel'), { recursive: true });
+  writeFileSync(path.join(d, '.kernel', 'mcp-oauth.json'), JSON.stringify({
+    vercel: { expires_at: Date.now() - 60_000, refresh_token: 'r' },
+    apify: { expires_at: Date.now() + 3_600_000, refresh_token: 'r' },
+  }));
+  const r = runEnv(d, 'status', {});
+  const v = svc(r, 'vercel');
+  assert.equal(v.state, 'broken');
+  assert.equal(v.problem, 'expired');
+  assert.match(v.status, /^not working: its sign-in ran out at \d\d:\d\d and has not been renewed yet$/);
+  assert.equal(svc(r, 'apify').status, 'working, including in scheduled jobs');
+});
+
+test('a stdio server pointing at a path from another machine says so, and where the file is here', () => {
+  const d = box();
+  mkdirSync(path.join(d, 'otter-mcp', 'src'), { recursive: true });
+  writeFileSync(path.join(d, 'otter-mcp', 'src', 'index.js'), '');
+  seedAll(d, {
+    otter: { command: 'node', args: ['/home/someone/brain/otter-mcp/src/index.js'] },
+    overleaf: { command: 'node', args: ['/home/someone/OverleafMCP/nowhere-at-all.js'] },
+  });
+  const r = runEnv(d, 'status', {});
+  const o = svc(r, 'otter');
+  assert.equal(o.state, 'broken'); assert.equal(o.problem, 'path');
+  assert.deepEqual(o.missing_paths, ['/home/someone/brain/otter-mcp/src/index.js']);
+  assert.match(o.status, /points at \/home\/someone\/brain\/otter-mcp\/src\/index\.js, which isn't on this mineral/);
+  assert.ok(o.status.includes(path.join(d, 'otter-mcp', 'src', 'index.js')), 'the twin under the state dir is named');
+  const ov = svc(r, 'overleaf');
+  assert.equal(ov.problem, 'path');
+  assert.doesNotMatch(ov.status, /same file is at/, 'no twin, no guess');
+});
+
+test('a stdio server missing a setting names it; with everything present it is ready, not "working"', () => {
+  const d = box();
+  writeFileSync(path.join(d, 'srv.mjs'), '');
+  seedAll(d, { otter: { command: 'node', args: [path.join(d, 'srv.mjs')], env: { OTTER_SESSIONID: '${OTTER_SESSIONID}', FLAG: '${OPTIONAL_FLAG:-}' } } });
+  const miss = svc(runEnv(d, 'status', {}), 'otter');
+  assert.equal(miss.state, 'broken'); assert.equal(miss.problem, 'setting');
+  assert.deepEqual(miss.missing, ['OTTER_SESSIONID']);
+  assert.match(miss.status, /^can't start: OTTER_SESSIONID isn't set on this mineral/);
+  const ok = svc(runEnv(d, 'status', { OTTER_SESSIONID: 's' }), 'otter');
+  assert.equal(ok.auth, 'stdio'); assert.equal(ok.state, 'on');
+  assert.match(ok.status, /^ready on this mineral/, 'nothing has asked it yet, so it is not "working"');
+});
+
+test('the baked stdio connections keep their own rows: Mailchimp stays a token row', () => {
+  const d = box();
+  run(d, 'add-mailchimp', b64({ key_b64: Buffer.from(MC_KEY).toString('base64') }));
+  const m = svc(runEnv(d, 'status', {}), 'mailchimp');
+  assert.equal(m.auth, 'token'); assert.equal(m.state, 'on');
+});
+
+test('check fills ${VAR} the way Claude Code does, and a missing one is answered without a call', async () => {
+  const f = await fakeMcp((m, req, res) => {
+    if (m.method === 'initialize') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(json({ jsonrpc: '2.0', id: 1, result: { serverInfo: { name: 'GitHub' } } })); return; }
+    if (m.method === 'tools/list') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(json({ jsonrpc: '2.0', id: 2, result: { tools: [{ name: 'a' }] } })); return; }
+    res.writeHead(202); res.end();
+  });
+  try {
+    const d = box();
+    seed(d, 'github', { type: 'http', url: f.url, headers: { Authorization: 'Bearer ${GITHUB_TOKEN}' } });
+    const miss = await runAsyncEnv(d, ['check', 'github'], { GITHUB_TOKEN: '' });
+    assert.equal(miss.working, false); assert.equal(miss.problem, 'setting');
+    assert.deepEqual(miss.missing, ['GITHUB_TOKEN']);
+    assert.equal(f.seen.length, 0, 'no call goes out with an empty key');
+    const ok = await runAsyncEnv(d, ['check', 'github'], { GITHUB_TOKEN: 'ghp_real' });
+    assert.equal(ok.working, true);
+    assert.ok(f.seen.every((s) => s.auth === 'Bearer ghp_real'), 'the variable is filled in, never sent as typed');
+  } finally { f.close(); }
+});
+
+test('status reports the last check: a failed one turns the row broken until the definition changes', async () => {
+  const f = await fakeMcp((m, req, res) => { res.writeHead(401, { 'content-type': 'application/json' }); res.end(json({ message: 'Bad credentials: secret-echo' })); });
+  try {
+    const d = box();
+    seed(d, 'todoist', { type: 'http', url: f.url, headers: { Authorization: 'Bearer tok-1' } });
+    assert.equal(svc(run(d, 'status'), 'todoist').state, 'on', 'before any check: what the config says');
+    const c = await runAsync(d, ['check', 'todoist']);
+    assert.equal(c.problem, 'auth');
+    const t = svc(run(d, 'status'), 'todoist');
+    assert.equal(t.state, 'broken'); assert.equal(t.problem, 'check');
+    assert.match(t.status, /^not working: the last check \(\d{4}-\d\d-\d\d\) failed, the service turned the key down \(401\)/);
+    assert.equal(t.last_check.working, false);
+    const rec = readFileSync(path.join(d, '.kernel', 'mcp-checks.json'), 'utf8');
+    assert.ok(!rec.includes('tok-1') && !rec.includes('secret-echo'), 'the record keeps the outcome only');
+    // a new key is a new definition: the old answer stops counting
+    seed(d, 'todoist', { type: 'http', url: f.url, headers: { Authorization: 'Bearer tok-2' } });
+    assert.equal(svc(run(d, 'status'), 'todoist').state, 'on');
+  } finally { f.close(); }
+});
+
+test('a passed check is reported, and remove forgets the record', async () => {
+  const f = await fakeMcp((m, req, res) => {
+    if (m.method === 'initialize') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(json({ jsonrpc: '2.0', id: 1, result: { serverInfo: { name: 'X' } } })); return; }
+    if (m.method === 'tools/list') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(json({ jsonrpc: '2.0', id: 2, result: { tools: [] } })); return; }
+    res.writeHead(202); res.end();
+  });
+  try {
+    const d = box();
+    run(d, 'add-custom', b64({ name: 'thing', url: 'https://thing.example/mcp', token_b64: Buffer.from('t').toString('base64') }));
+    // point the saved entry at the fake, keeping it app-added
+    const doc = JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8'));
+    doc.mcpServers.thing.url = f.url;
+    writeFileSync(path.join(d, '.mcp.json'), json(doc));
+    assert.equal((await runAsync(d, ['check', 'thing'])).working, true);
+    const t = svc(run(d, 'status'), 'thing');
+    assert.equal(t.state, 'on'); assert.equal(t.last_check.working, true);
+    run(d, ['remove', 'thing']);
+    assert.ok(!JSON.parse(readFileSync(path.join(d, '.kernel', 'mcp-checks.json'), 'utf8')).thing);
+  } finally { f.close(); }
+});
+
+test('check on a stdio server with no program says which kind of no, and status words it', () => {
+  const d = box();
+  seedAll(d, { whatsapp: { command: 'uv-not-here', args: ['run', 'main.py'] } });
+  const c = runEnv(d, ['check', 'whatsapp'], {});
+  assert.equal(c.working, false); assert.equal(c.problem, 'program');
+  const w = svc(runEnv(d, 'status', {}), 'whatsapp');
+  assert.equal(w.problem, 'program', 'the live preflight outranks the recorded check');
+});

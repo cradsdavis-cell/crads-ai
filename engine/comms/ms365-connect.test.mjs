@@ -1,6 +1,6 @@
 // ms365-connect.test.mjs: run node --test engine/comms/ms365-connect.test.mjs
 //
-// Microsoft 365 on the box (contract 8, 2026-10-19). A FAKE server stands in
+// Microsoft 365 on the box (contract 8, 2026-10-19; drafts only by default, contract 10). A FAKE server stands in
 // for the baked @softeria/ms-365-mcp-server (CRADS_MS365_BIN): it prints
 // Microsoft's device-code sentence on --login, then waits for the test to
 // "approve" or "deny" by dropping a file, the way a member types the code at
@@ -13,7 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync } from 'node:fs';
 import path from 'node:path';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
-import { parseDeviceMessage, parseLoginResult, ms365Settings } from '../lib/ms365.mjs';
+import { parseDeviceMessage, parseLoginResult, ms365Settings, MS365_SEND_TOOLS, MS365_TOOLS, ms365Sends } from '../lib/ms365.mjs';
 
 const CONNECT = path.join(import.meta.dirname, 'mcp-connect.mjs');
 const LOGIN = path.join(import.meta.dirname, 'ms365-login.mjs');
@@ -97,7 +97,8 @@ test('add-microsoft: the baked server, an explicit tool list, cache inside .kern
   assert.equal(def.args[0], '--enabled-tools');
   assert.ok(!def.args.includes('--preset'));
   const allowed = new RegExp(def.args[1]);
-  for (const t of ['send-mail', 'list-mail-messages', 'create-calendar-event', 'get-outlook-contact']) assert.match(t, allowed, `${t} is allowed`);
+  for (const t of ['list-mail-messages', 'create-draft-email', 'create-reply-draft', 'create-calendar-event', 'get-outlook-contact']) assert.match(t, allowed, `${t} is allowed`);
+  for (const t of MS365_SEND_TOOLS) assert.doesNotMatch(t, allowed, `${t} is held back: drafts only unless the member turns sending on`);
   for (const t of ['delete-mail-message', 'create-mail-rule', 'update-mail-rule', 'create-my-calendar-permission',
     'update-mailbox-settings', 'delete-outlook-contact', 'download-bytes-to-file']) assert.doesNotMatch(t, allowed, `${t} is never offered`);
   assert.equal(def.env.MS365_MCP_TENANT_ID, 'organizations', 'work accounts sign in at organizations');
@@ -122,6 +123,45 @@ test('add-microsoft: personal accounts use consumers; your own app carries its I
   const env = mcp(d).microsoft.env;
   assert.equal(env.MS365_MCP_CLIENT_ID, '1a2b3c4d-1111-2222-3333-444455556666');
   assert.equal(env.MS365_MCP_TENANT_ID, 'contoso.com');
+});
+
+// Drafts only unless the member says otherwise (2026-10-20). The package asks
+// Microsoft for the scopes its enabled tools need, so the tool list IS the
+// permission: no sending tool, no Mail.Send on the consent screen.
+test('sending: off by default, on only when asked; the row says which', () => {
+  const { d, connect } = rig();
+  assert.deepEqual(MS365_SEND_TOOLS.filter((t) => !MS365_TOOLS.includes(t)), [], 'every held-back tool is a real tool name');
+  let r = connect(['add-microsoft'], b64({ account: 'work' }));
+  assert.equal(ms365Sends(mcp(d).microsoft), false);
+  assert.equal(svc(r, 'microsoft').sends, false);
+  assert.match(svc(r, 'microsoft').blurb, /drafts only/);
+  r = connect(['add-microsoft'], b64({ account: 'work', send: true }));
+  const allowed = new RegExp(mcp(d).microsoft.args[1]);
+  for (const t of MS365_SEND_TOOLS) assert.match(t, allowed, `${t} is offered once sending is on`);
+  assert.equal(svc(r, 'microsoft').sends, true);
+  assert.doesNotMatch(svc(r, 'microsoft').blurb, /drafts only/);
+  assert.match(connect(['add-microsoft'], b64({ account: 'work', send: 'yes' })).error, /true or false/);
+  // a definition from before the switch (the whole list) reads as sending
+  assert.equal(ms365Sends({ args: ['--enabled-tools', `^(${MS365_TOOLS.join('|')})$`] }), true);
+  assert.equal(ms365Sends({ args: [] }), false);
+});
+
+test('sending: turning it on asks Microsoft again; turning it off keeps the sign-in', async () => {
+  const { connect, login, kernel } = rig();
+  connect(['add-microsoft'], b64({ account: 'work' }));
+  login('start');
+  writeFileSync(path.join(kernel, 'approve'), '');
+  await until(() => login('status').stage === 'done');
+  const seen = JSON.parse(readFileSync(path.join(kernel, 'env-seen.json'), 'utf8'));
+  assert.doesNotMatch('send-mail', new RegExp(seen.args[1]), 'the sign-in itself ran drafts only, so Microsoft was never asked for Mail.Send');
+  connect(['add-microsoft'], b64({ account: 'work', send: true }));
+  assert.equal(existsSync(path.join(kernel, 'token-cache.json')), false, 'a drafts-only sign-in was never granted Mail.Send');
+  assert.equal(login('status').stage, 'idle');
+  login('start');
+  writeFileSync(path.join(kernel, 'approve'), '');
+  await until(() => login('status').stage === 'done');
+  connect(['add-microsoft'], b64({ account: 'work', send: false }));
+  assert.equal(login('status').stage, 'done', 'narrowing needs no new consent: the tools are gone');
 });
 
 test('refusals: bad input, a hand-added server, the plain add and add-custom paths', () => {

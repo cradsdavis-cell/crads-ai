@@ -323,6 +323,25 @@ add('connections-directory', '/member', { waitMs: 2500, after: async (page) => {
 } });
 // Remote Control (2026-10-14): the Phone card, on by default, driven through its
 // off switch and back. Asserts what the member reads, from the real DOM.
+// Honest rows (contract 9, 2026-10-20): a server on the same machine reads as
+// running on the mineral, never "sign in once"; a mineral-issued token past its
+// end reads as not working, never "working".
+add('connections-honest', '/member', { waitMs: 2500, after: async (page) => {
+  await nav('connections', 1500)(page);
+  const row = (n, sub) => page.$$eval('#mcpRows li', (els, [name, blurb]) => {
+    const el = els.find((e) => e.querySelector('.nm')?.textContent === name && (!blurb || e.textContent.includes(blurb)));
+    return el ? el.textContent.replace(/\s+/g, ' ') : null;
+  }, [n, sub]);
+  // the byo Google row shares the label; this one is the server added in Claude Code
+  const gw = await row('Google Workspace', 'added by you in Claude Code');
+  if (!gw) throw new Error('the local Google Workspace row is missing');
+  if (/sign in once/.test(gw)) throw new Error(`the local server still asks for a sign-in: ${gw}`);
+  if (!/runs on your mineral/.test(gw) || !/ready on this mineral/.test(gw)) throw new Error(`the local row does not say it runs on the mineral: ${gw}`);
+  const fg = await row('Figma');
+  if (!fg) throw new Error('the expired Figma row is missing');
+  if (/working, including/.test(fg)) throw new Error(`an expired token still reads as working: ${fg}`);
+  if (!/ran out at 15:10/.test(fg)) throw new Error(`the expired row does not say when it ran out: ${fg}`);
+} });
 add('connections-phone', '/member', { waitMs: 2500, after: async (page) => {
   await nav('connections', 1500)(page);
   await page.waitForFunction(() => document.getElementById('rcChip').textContent === 'on', null, { timeout: 5000 });
@@ -333,6 +352,23 @@ add('connections-phone', '/member', { waitMs: 2500, after: async (page) => {
   if (await page.$eval('#rcSwitch', (e) => e.textContent) !== 'Switch on') throw new Error('switched off, but the button does not offer to switch back on');
   await page.click('#rcSwitch');
   await page.waitForFunction(() => document.getElementById('rcChip').textContent === 'on', null, { timeout: 5000 });
+} });
+// GitHub, Stripe and Metricool (2026-10-20): each found by search, or already
+// listed under Your connections (the fixture has Stripe connected in chats, and
+// a connected service leaves the browse tier, as Canva does above), and each
+// wearing its real mark (svg or img), never the initial-letter fallback.
+add('connections-added-2026-10', '/member', { waitMs: 2500, after: async (page) => {
+  await nav('connections', 1500)(page);
+  for (const [q, name] of [['github', 'GitHub'], ['stripe', 'Stripe'], ['metricool', 'Metricool']]) {
+    await page.fill('#mcpDirSearch', q);
+    await page.waitForTimeout(650);   // past the page's own 350ms debounce
+    const mark = await page.$$eval('#mcpDirRows .mcp-dir-card, #mcpRows li', (els, n) => {
+      const el = els.find((e) => e.querySelector('.nm')?.textContent === n);
+      return el ? el.querySelector('.mark')?.className || '' : null;
+    }, name);
+    if (mark === null) throw new Error(`${name} is in neither the search for "${q}" nor Your connections`);
+    if (!/\b(svg|img)\b/.test(mark)) throw new Error(`${name} renders an initial disc, not its mark (${mark})`);
+  }
 } });
 add('connections-search', '/member', { waitMs: 2500, after: async (page) => {
   await nav('connections', 1500)(page);

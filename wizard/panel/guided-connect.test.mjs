@@ -184,14 +184,14 @@ test('driven: all four guided cards, a wrong credential refused and nothing kept
 
 test('Mailchimp saves through its own verb and waits for a contract-5 box', () => {
   assert.match(guided, /guidedConnect\('mailchimp', \{ name: 'mailchimp', key_b64: b64utf8\(k\) \}, \$\('mcSave'\), 'mcp-add-mailchimp'\)/);
-  assert.match(guided, /var GUIDED_CONTRACT = \{ slack: 4, wordpress: 4, mailchimp: 5, asana: 7, microsoft: 8 \};/);
+  assert.match(guided, /var GUIDED_CONTRACT = \{ slack: 4, wordpress: 4, mailchimp: 5, asana: 7, microsoft: 10 \};/);
   assert.match(html, /id="mcWizard"[\s\S]*?<b>cannot send or schedule a campaign<\/b>/, 'the card says what it will not do, before the member pastes anything');
 });
 
 // Microsoft 365 (contract 8, 2026-10-19): saved through its own verb, signed
 // in with Microsoft's code on the mineral, gated on contract 8. The card says
 // what it reaches and what it does not, before anything is saved.
-test('Microsoft 365 saves, signs in on the mineral, checks from it, gated on contract 8', () => {
+test('Microsoft 365 saves, signs in on the mineral, checks from it, gated on contract 10', () => {
   assert.match(guided, /run\('mcp-add-microsoft', \{ def_b64: b64utf8\(JSON\.stringify\(def\)\) \}\)/);
   assert.match(guided, /run\('mcp-microsoft-login'\)/, 'the code comes from the mineral');
   assert.match(guided, /run\('mcp-microsoft-login-status'\)/, 'and the page polls the mineral, not Microsoft');
@@ -200,7 +200,21 @@ test('Microsoft 365 saves, signs in on the mineral, checks from it, gated on con
   assert.match(html, /id="msWizard"[\s\S]*?It does not reach your files, SharePoint or Teams\./, 'says what it will not reach');
   assert.match(html, /id="msWizard"[\s\S]*?<b>cannot delete<\/b> mail, contacts or calendars, make inbox rules that forward your mail, or share your calendar/, 'and what it will not do, before anything is saved');
   assert.match(html, /id="msWizard"[\s\S]*?There is no app to make\./, 'and that no app registration is needed');
-  assert.match(html, /data-mcp-microsoft>Sign in<\/button>/, 'a waiting row reopens the card');
+  assert.match(html, /data-mcp-microsoft>' \+ \(s\.state === 'on' \? 'Change' : 'Sign in'\)/, 'a waiting row reopens the card');
+});
+
+// Drafts only unless the member says otherwise (contract 10, 2026-10-20). The
+// switch starts off, rides the saved settings to the box, and a reopened card
+// shows what the connection does now, so a repeat press never flips it.
+test('Microsoft 365 sends email only when the member turns it on', () => {
+  assert.match(html, /id="msWizard"[\s\S]*?<input type="checkbox" id="msSend">/, 'a switch on the card');
+  assert.doesNotMatch(html, /id="msSend"[^>]*checked/, 'off by default');
+  assert.match(html, /id="msWizard"[\s\S]*?Microsoft is never asked for permission to send/, 'the card says what off means');
+  assert.match(html, /id="msWizard"[\s\S]*?Outlook tells the people involved/, 'and that calendar changes still reach people');
+  assert.match(guided, /var def = \{ account: msAccount\(\), send: \$\('msSend'\)\.checked \};/, 'the switch is sent with the settings');
+  assert.match(guided, /\$\('msSend'\)\.checked = !!\(msRow && msRow\.sends\);/, 'a reopened card shows the current setting');
+  assert.match(html, /msRow = services\.filter\(function\(s\)\{ return s\.byo === 'microsoft'; \}\)\[0\] \|\| null;/);
+  assert.match(html, /data-mcp-microsoft>' \+ \(s\.state === 'on' \? 'Change' : 'Sign in'\) \+ '<\/button>'/, 'a connected row can reopen the card to change it');
 });
 
 // Slack refuses a whole manifest over one bad field ("We can't translate a

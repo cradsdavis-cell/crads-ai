@@ -111,13 +111,36 @@ test('scheduler: moving in fires no job at all and says so once; cleared, the ne
   const out = await runScheduler(d);
   assert.match(out, /scheduler up/);
   assert.equal((out.match(/move-in mode/g) || []).length, 1, 'logged once, not per job');
-  assert.doesNotMatch(out, /cadence: /, 'nothing fired, not even the first-start heartbeat');
+  // mcp-refresh is the one job that runs while moving in (test below); a run
+  // that lands on its :14/:44 minute may fire it, so it is the one exclusion
+  assert.doesNotMatch(out, /cadence: (?!mcp-refresh)/, 'nothing fired, not even the first-start heartbeat');
   assert.ok(!existsSync(join(d, 'cockpit', 'heartbeat.json')), 'the heartbeat never ran');
 
   own(d, { adopted: true });
   const out2 = await runScheduler(d);
   assert.doesNotMatch(out2, /move-in mode/);
   assert.match(out2, /cadence: heartbeat/, 'the first-start heartbeat fires once moved in');
+});
+
+// The renewer is machinery that keeps the mineral's own sign-ins alive, and an
+// adopted brain shares .mcp.json with the host, so holding it lapsed the HOST's
+// connections too (idris, 2026-10-20). --at runs the same heldByMoveIn() as
+// fire(), so the minute it is due shows what really runs.
+test('scheduler: moving in still renews connections (mcp-refresh) and holds every other job due that minute', () => {
+  const d = brain();
+  const at = (dir, when) => execFileSync('node', [SCHED, dir, '--at', when], { encoding: 'utf8' });
+  const moving = at(d, '10:14 Mon');
+  assert.match(moving, /At 10:14 \(dow 1\): mcp-refresh \(connections\)$/m, 'only the renewer runs');
+  assert.match(moving, /Held by move-in: .+/, 'the rest due at :14 are held, and named');
+  assert.doesNotMatch(moving.match(/Held by move-in: (.*)/)[1], /mcp-refresh/);
+  const other = at(d, '10:07 Mon');
+  assert.match(other, /At 10:07 \(dow 1\): \(nothing\)/, 'a minute without the renewer runs nothing');
+  assert.match(other, /Held by move-in: .*heartbeat/);
+
+  own(d, { adopted: true });
+  const done = at(d, '10:14 Mon');
+  assert.doesNotMatch(done, /Held by move-in/, 'moved in, nothing is held');
+  assert.match(done, /At 10:14 \(dow 1\): .*mcp-refresh \(connections\)/);
 });
 
 // start-comms: Remote Control is on by default and needs no Telegram, so with a
@@ -366,6 +389,6 @@ test('Move out: the scheduler fires nothing and commits nothing on its way down'
   const { d, head } = movingOutBrain();
   const out = await runScheduler(d, 1500);
   assert.match(out, /move-in mode/);
-  assert.doesNotMatch(out, /cadence: /);
+  assert.doesNotMatch(out, /cadence: (?!mcp-refresh)/);
   assert.equal(git(d, 'rev-parse', 'HEAD'), head);
 });

@@ -53,7 +53,29 @@ export const MS365_TOOLS = [
   // reference lookups, and the one reader for an attachment's bytes
   'list-supported-time-zones', 'list-supported-languages', 'download-bytes',
 ];
-export const MS365_ARGS = ['--enabled-tools', `^(${MS365_TOOLS.join('|')})$`];
+// SENDING IS THE MEMBER'S CALL (2026-10-20, a member on his own Microsoft 365
+// asked that his assistant only ever draft: "I'll send them myself"). These
+// five are the only tools that need Microsoft's Mail.Send permission (checked
+// against the pinned package's endpoints.json); everything else in the mail
+// list drafts, files or reads under Mail.Read / Mail.ReadWrite. The package
+// asks Microsoft for exactly the scopes its enabled tools need, so leaving
+// these out is what keeps Mail.Send off the consent screen and out of the
+// token. Off unless the member turns "Let it send email" on. NB a calendar
+// change still makes OUTLOOK email the people involved (an invite, a
+// cancellation, an accept): that is Calendars.ReadWrite, and the card says so.
+export const MS365_SEND_TOOLS = ['send-draft-message', 'send-mail', 'reply-mail-message', 'reply-all-mail-message', 'forward-mail-message'];
+export const ms365Args = (send = false) => ['--enabled-tools',
+  `^(${MS365_TOOLS.filter((t) => send || !MS365_SEND_TOOLS.includes(t)).join('|')})$`];
+// the default, drafts only: what a definition written without the setting gets
+export const MS365_ARGS = ms365Args(false);
+/** Does this saved definition let the assistant send? Read from the tool list
+ *  itself, so a definition written before the switch existed (sending on)
+ *  reports what it really does. */
+export function ms365Sends(def) {
+  const re = def?.args?.[0] === '--enabled-tools' && def.args[1];
+  if (!re) return false;
+  try { return new RegExp(re).test('send-mail'); } catch { return false; }
+}
 
 // Everything this connection keeps lives here, under .kernel/ (never committed:
 // brain-ignore.txt's required block). Disconnect deletes the directory.
@@ -80,7 +102,8 @@ export function ms365Settings(req = {}) {
   if (clientId && !GUID_RE.test(clientId)) return { error: 'that app ID does not look right: it is a GUID like 1a2b3c4d-…, from the app\'s Overview page' };
   if (tenantId && !TENANT_RE.test(tenantId)) return { error: 'that tenant does not look right: a directory ID (a GUID) or your domain' };
   if (tenantId && !clientId) return { error: 'a tenant only applies to your own app: add its app ID too, or leave both empty' };
-  return { account, client_id: clientId.toLowerCase(), tenant_id: tenantId.toLowerCase() };
+  if (req.send !== undefined && typeof req.send !== 'boolean') return { error: 'send must be true or false' };
+  return { account, client_id: clientId.toLowerCase(), tenant_id: tenantId.toLowerCase(), send: req.send === true };
 }
 
 /** The env the server AND the sign-in run with. Files, never the OS keyring:
@@ -101,7 +124,7 @@ export function ms365Env(stateDir, s = {}) {
 }
 
 export function ms365Def(stateDir, s = {}) {
-  return { type: 'stdio', command: MS365_BIN, args: [...MS365_ARGS], env: ms365Env(stateDir, s) };
+  return { type: 'stdio', command: MS365_BIN, args: ms365Args(s.send === true), env: ms365Env(stateDir, s) };
 }
 
 // Ours if it runs the baked binary: a hand-added server under the same name

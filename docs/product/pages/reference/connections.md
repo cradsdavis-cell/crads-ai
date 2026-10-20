@@ -1,6 +1,6 @@
 ---
 title: What you can connect
-summary: The 67 services your mineral can connect to, the 2 that only connect through your Claude account, and how each one signs in.
+summary: The 70 services your mineral can connect to, the 2 that only connect through your Claude account, and how each one signs in.
 audience: public
 access: public
 mode: reference
@@ -10,7 +10,7 @@ order: 20
 
 > Generated from the code by docs/product/pipeline/generate.mjs. Do not edit by hand: run the generator.
 
-67 services your mineral can connect to without you finding an endpoint
+70 services your mineral can connect to without you finding an endpoint
 yourself. 6 of them ship inside the box as featured connectors; the rest
 are in the list on the same page, and you connect them from there. 2 more (Shopify and Xero) are listed so you can find them, but they only connect through your Claude account, so they work in your chats and never in scheduled jobs.
 
@@ -65,6 +65,7 @@ gets probed.
 | **Cloudflare Bindings** | D1, KV, R2 and Workers | One click | From the list |
 | **WorkOS** | SSO and directory sync | One click | From the list |
 | **PagerDuty** | incidents and on-call | Token | From the list |
+| **GitHub** | repos, issues and pull requests | Token | From the list |
 
 ## Docs
 
@@ -90,6 +91,7 @@ gets probed.
 | **Pipedrive** | CRM deals, people and pipelines | One click | From the list |
 | **HubSpot** | contacts, deals and companies | Token | From the list |
 | **Zoom** | meetings and recordings | Token | From the list |
+| **Metricool** | schedule social posts and read analytics | One click | From the list |
 | **Slack** | search, read and post in your workspace | [Guided](/docs/connect-slack) | Guided setup |
 | **Mailchimp** | audiences, contacts, draft campaigns and reports | [Guided](/docs/connect-mailchimp) | Guided setup |
 | **Microsoft 365** | Outlook mail, calendar and contacts | [Guided](/docs/connect-microsoft) | Guided setup |
@@ -124,6 +126,7 @@ gets probed.
 | **Square** | payments and point of sale | One click | From the list |
 | **Plaid** | bank connections and items | One click | From the list |
 | **Polar** | products and subscriptions | One click | From the list |
+| **Stripe** | payments, customers and invoices | Token | From the list |
 | **Shopify** | your store, in your chats with Claude | [Claude account](/docs/connect-shopify-and-xero) | Chats only |
 | **Xero** | read-only accounts, in your chats with Claude | [Claude account](/docs/connect-shopify-and-xero) | Chats only |
 

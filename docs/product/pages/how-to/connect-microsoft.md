@@ -1,21 +1,22 @@
 ---
 title: Connect Microsoft 365
-summary: Type a short code at Microsoft and your assistant can read, search and send your Outlook email and manage your calendar and contacts. Nothing to set up first.
+summary: Type a short code at Microsoft and your assistant can read your Outlook email, write drafts for you to send, and manage your calendar and contacts. Nothing to set up first.
 outcome: let your assistant work with your Outlook mail, calendar and contacts, signed in on your mineral and nowhere else.
 audience: public
 access: public
 mode: how-to
 order: 77
 pins: engine/lib/ms365.mjs, engine/comms/ms365-login.mjs, engine/comms/mcp-connect.mjs, wizard/panel/member.html
-reviewed: 2026-10-19
+reviewed: 2026-10-20
 ---
 
 Microsoft 365 connects with **a short code you type at Microsoft**. There is no
 app to make and nothing to paste. About two minutes.
 
-Once it is connected, your assistant can read, search and send your Outlook
-email and see and manage your calendar and contacts, in your chats and in your
-scheduled jobs. It works for a work or school account (Microsoft 365 for
+Once it is connected, your assistant can read and search your Outlook email,
+write drafts for you to send, and see and manage your calendar and contacts,
+in your chats and in your scheduled jobs. It sends email itself only if you
+turn that on. It works for a work or school account (Microsoft 365 for
 business, or email at your own domain on Outlook) and for a personal one
 (outlook.com, hotmail.com, live.com).
 
@@ -31,7 +32,8 @@ to your mineral and nowhere in between.
 
 | It can | It cannot |
 |---|---|
-| Read, search and send email, reply and forward | **Delete** an email, a contact or a calendar |
+| Read and search email, and write drafts, replies and forwards for you to send | **Delete** an email, a contact or a calendar |
+| Send email, but only if you turn on **Let it send email** | |
 | Draft replies, file messages into folders, flag and categorise | Make **inbox rules**, so it can never set mail to forward itself |
 | See your calendar, find meeting times, create, change or cancel events | **Share** your calendar with anyone |
 | Accept or decline invitations | Change mailbox settings such as your automatic replies |
@@ -42,13 +44,31 @@ the things in the right-hand column are the ones that are hard to undo or
 quietly hand your mail to someone else. Cancelling a meeting is allowed,
 because the people invited are told.
 
+## Sending is off unless you turn it on
+
+By default your assistant writes drafts and leaves them in your Outlook
+**Drafts** folder, and you send them yourself. It does not even ask Microsoft
+for permission to send, so *Send mail as you* is not on the list Microsoft
+shows you when you sign in.
+
+If you want it to send, tick **Let it send email** in step 1 of the card.
+Turning it on later means signing in once more, because Microsoft has to ask
+you for that permission. Turning it off takes effect straight away and keeps
+your sign-in.
+
+One thing reaches people even with sending off: your calendar. When your
+assistant creates, changes or cancels a meeting, or accepts or declines an
+invitation, Outlook tells the people involved, exactly as it does when you do
+it yourself.
+
 ## Connect it
 
 1. Open **Connections**. Find **Microsoft 365** in the list and press
    **Connect**.
 2. Pick the kind of account: **Work or school**, or **Personal**. If you are
    not sure, it is the one whose address you sign in to Outlook with: your own
-   domain is work, outlook.com or hotmail.com is personal.
+   domain is work, outlook.com or hotmail.com is personal. Leave **Let it send
+   email** off if you want drafts only.
 3. Press **Get a sign-in code**. Your mineral asks Microsoft for a code and the
    card shows it, with a button that opens Microsoft's sign-in page.
 4. On that page, type the code, sign in with the account you picked, and

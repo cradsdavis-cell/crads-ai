@@ -1071,7 +1071,43 @@ const MCP_ON = {
   canva: { authorised: true, auth: 'oauth', renews: true },
 };
 const MCP_CHAT = { stripe: true };   // a connection made inside Claude Code (chats-only)
-const MCP_CONTRACT = 8;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
+// contract 9 (2026-10-20): the honest rows a live audit of an adopted mineral
+// called for, in the shapes engine/comms/mcp-connect.mjs now emits. A token
+// header whose ${VAR} the mineral does not have; a program server pointing at
+// a file from another machine; one missing its program; one that is fine but
+// never asked; and a token row whose last check failed. `check` is stateful:
+// the never-asked row passes and the failed one fails again, so both buttons
+// can be driven.
+let HONEST_FX, MCP_GONE;
+const honestReset = () => { MCP_GONE = {}; HONEST_FX = { 'youtube-transcript': null, todoist: { working: false, problem: 'auth', http: 401, at: '2026-10-20T03:00:00.000Z' } }; };
+honestReset();
+function honestRows() {
+  const yt = HONEST_FX['youtube-transcript'];
+  const td = HONEST_FX.todoist;
+  return [
+    { key: 'github', label: 'GitHub', blurb: 'added by you in Claude Code', url: 'https://api.githubcopilot.com/mcp/', auth: 'token', state: 'broken',
+      problem: 'setting', missing: ['GITHUB_TOKEN'], configured: true, authorised: false, renews: true, mine: false,
+      status: "not working: GITHUB_TOKEN isn't set on this mineral, so it has no key to send" },
+    { key: 'otter', label: 'Otter', blurb: 'added by you in Claude Code', url: '', auth: 'stdio', state: 'broken', problem: 'path',
+      missing_paths: ['/home/mel/brain/otter-mcp/src/index.js'], configured: true, authorised: false, renews: null, mine: false,
+      status: "can't start: it points at /home/mel/brain/otter-mcp/src/index.js, which isn't on this mineral (the same file is at /state/otter-mcp/src/index.js here)" },
+    { key: 'whatsapp', label: 'WhatsApp', blurb: 'added by you in Claude Code', url: '', auth: 'stdio', state: 'broken', problem: 'program',
+      configured: true, authorised: false, renews: null, mine: false, status: "can't start: the program uv isn't installed on this mineral" },
+    { key: 'youtube-transcript', label: connectionLabel('youtube-transcript'), blurb: 'connected by you', url: '', auth: 'stdio', state: 'on',
+      configured: true, authorised: true, renews: null, mine: true, ...(yt ? { last_check: yt } : {}),
+      status: yt ? 'working, including in scheduled jobs' : 'ready on this mineral, including in scheduled jobs' },
+    { key: 'todoist', label: 'Todoist', blurb: 'connected by you', url: 'https://ai.todoist.net/mcp', auth: 'token', state: 'broken', problem: 'check',
+      last_check: td, configured: true, authorised: false, renews: true, mine: true,
+      status: 'not working: the last check (' + td.at.slice(0, 10) + ') failed, the service turned the key down (401)' },
+    // a server on this same machine (loopback, no sign-in on file): local, ready
+    { key: 'google_workspace', label: connectionLabel('google_workspace'), blurb: 'added by you in Claude Code', url: 'http://localhost:8000/mcp', auth: 'local', state: 'on',
+      configured: true, authorised: true, renews: null, mine: false, status: 'ready on this mineral, including in scheduled jobs' },
+    // a token the mineral signed in for itself, past its end and not yet renewed
+    { key: 'figma', label: 'Figma', blurb: 'read your design files', url: 'https://mcp.figma.com/mcp', auth: 'token', state: 'broken', problem: 'expired',
+      configured: true, authorised: false, renews: true, mine: true, status: 'not working: its sign-in ran out at 15:10 and has not been renewed yet' },
+  ];
+}
+const MCP_CONTRACT = 10;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
                           // (2 = the byo google row, 2026-08-17; 3 = several
                           // google rows, one per account, 2026-09-14. Bumped
                           // in lockstep with the engine. rekey_due_at left the
@@ -1200,12 +1236,12 @@ function mcpRows() {
   // the box's report; the connectable byo rows below are the offer now
   // (contract 3, 2026-09-14: one per account).
   rows.push(...gwFixtureRows());
-  // contract 8 (2026-10-19): Microsoft 365, the byo:'microsoft' row the box
+  // contract 8 (2026-10-19; `sends` since 10): Microsoft 365, the byo:'microsoft' row the box
   // emits from its sign-in record (engine/comms/mcp-connect.mjs microsoftRow)
   if (MS_FX.saved) {
     const on = MS_FX.stage === 'done';
-    rows.push({ key: 'microsoft', label: 'Microsoft 365', blurb: 'Outlook mail, calendar and contacts', auth: 'device', byo: 'microsoft',
-      mine: true, configured: true, state: on ? 'on' : 'needs-auth', authorised: on, renews: on ? true : null, email: on ? MS_FX.user : null,
+    rows.push({ key: 'microsoft', label: 'Microsoft 365', blurb: MS_FX.sends ? 'Outlook mail, calendar and contacts' : 'Outlook mail (drafts only), calendar and contacts', auth: 'device', byo: 'microsoft',
+      mine: true, configured: true, sends: MS_FX.sends, state: on ? 'on' : 'needs-auth', authorised: on, renews: on ? true : null, email: on ? MS_FX.user : null,
       status: on ? 'working, including in scheduled jobs' : MS_FX.stage === 'code' ? 'waiting for you to enter the code at Microsoft' : 'added, waiting for you to sign in once' });
   }
   // R21 (panel iteration 2): a connector on the member's CLAUDE ACCOUNT, the
@@ -1215,6 +1251,7 @@ function mcpRows() {
   rows.push({ key: 'account-slack', label: 'Slack', blurb: 'connected to your Claude account in the app', auth: 'oauth',
     state: 'account', adoptable: false, mine: false, configured: false, authorised: true, renews: null,
     status: 'in your chats only' });
+  rows.push(...honestRows().filter((r) => !MCP_GONE[r.key]));
   return rows;
 }
 let TG_POLLS = 0;
@@ -1223,7 +1260,7 @@ let TG_POLLS = 0;
 // Save -> a code -> two status polls later "done", so the card is drivable end
 // to end. Choosing "personal" with the app ID 00000000-0000-0000-0000-000000000000
 // drives Microsoft's admin-approval refusal instead (the failure path).
-const MS_FX = { saved: false, stage: 'idle', polls: 0, user: null, fail: false };
+const MS_FX = { saved: false, stage: 'idle', polls: 0, user: null, fail: false, sends: false };
 
 // ---- the door's self-host wizard (/provision/*, /setup-steps) ---------------
 // The real routes live in wizard/panel/provision-routes.mjs and setup-steps.mjs
@@ -1320,8 +1357,9 @@ export function resetFlows() {
   TG_POLLS = 0;
   RC_STATE = { ...RC_ON };
   gwReset();
+  honestReset();
   provReset();
-  Object.assign(MS_FX, { saved: false, stage: 'idle', polls: 0, user: null, fail: false });
+  Object.assign(MS_FX, { saved: false, stage: 'idle', polls: 0, user: null, fail: false, sends: false });
 }
 
 const SSH_FAIL = [
@@ -1785,6 +1823,14 @@ export function runVerb(surface, verb, args, state, opts) {
       if (args.key === 'microsoft') return ok([JSON.stringify(MS_FX.stage === 'done'
         ? { ok: true, contract: MCP_CONTRACT, key: 'microsoft', working: true, server: 'ms-365-mcp-server', account: MS_FX.user }
         : { ok: true, contract: MCP_CONTRACT, key: 'microsoft', working: false, problem: 'auth', detail: 'No valid token found' })]);
+      if (args.key === 'youtube-transcript') {
+        HONEST_FX['youtube-transcript'] = { working: true, problem: null, http: null, at: new Date().toISOString() };
+        return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: args.key, working: true, server: 'youtube-transcript', tools: 1 })]);
+      }
+      if (args.key === 'todoist') {
+        HONEST_FX.todoist = { working: false, problem: 'auth', http: 401, at: new Date().toISOString() };
+        return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: args.key, working: false, problem: 'auth', status: 401 })]);
+      }
       const on = MCP_ON[args.key];
       if (!on) return ok([JSON.stringify({ ok: false, error: `"${args.key}" is not a connection on this box` })]);
       if (on.wrong) return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: args.key, working: false, problem: 'auth', status: 401, detail: 'Sorry, you are not allowed to do that.' })]);
@@ -1801,6 +1847,9 @@ export function runVerb(surface, verb, args, state, opts) {
     case 'mcp-add-microsoft': {
       const p = JSON.parse(Buffer.from(String(args.def_b64 || ''), 'base64').toString('utf8'));
       if (p.client_id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(p.client_id)) return ok([JSON.stringify({ ok: false, error: 'that app ID does not look right: it is a GUID like 1a2b3c4d-…, from the app\'s Overview page' })]);
+      // contract 10: sending on is a new consent, so a done sign-in drops back
+      if (p.send === true && !MS_FX.sends && MS_FX.stage === 'done') MS_FX.stage = 'idle';
+      MS_FX.sends = p.send === true;
       MS_FX.saved = true; MS_FX.fail = p.client_id === '00000000-0000-0000-0000-000000000000';
       MS_FX.user = p.account === 'personal' ? 'mel.driftwood@outlook.com' : 'mel@driftwoodsurf.example';
       if (MS_FX.stage !== 'done') MS_FX.stage = 'idle';
@@ -1833,6 +1882,7 @@ export function runVerb(surface, verb, args, state, opts) {
     }
     case 'mcp-remove': {
       delete MCP_ON[args.key];
+      if (args.key in HONEST_FX) MCP_GONE[args.key] = true;
       if (args.key === 'microsoft') Object.assign(MS_FX, { saved: false, stage: 'idle', polls: 0, user: null, fail: false });
       // a Google row: the primary goes back to the off offer, a further account vanishes
       if (GW[args.key]) { if (args.key === 'google') GW.google = gwFresh(); else delete GW[args.key]; }

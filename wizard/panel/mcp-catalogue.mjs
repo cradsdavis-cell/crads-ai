@@ -121,6 +121,16 @@ export const CATALOGUE = [
   { key: 'elevenlabs', label: 'ElevenLabs', category: 'AI',    url: 'https://api.elevenlabs.io/mcp',     blurb: 'text to speech and voices', auth: 'token' },
   { key: 'box',        label: 'Box',        category: 'Docs',  url: 'https://mcp.box.com/',              blurb: 'files and folders', auth: 'token' },
   { key: 'mongodb',    label: 'MongoDB',    category: 'Data',  url: 'https://mcp.mongodb.com/mcp',       blurb: 'collections and queries', auth: 'token' },
+  // added 2026-10-20 from the idris connections audit: services Sam's own
+  // assistant runs on that the directory lacked. Probed live that day with
+  // discover(): GitHub's sign-in has no self-registration (a personal access
+  // token, as Bearer), Stripe advertises no OAuth (a restricted key, as Bearer),
+  // Metricool completes DCR. GitHub and Stripe were then proven with real tokens
+  // from inside the idris mineral (Claude Code: Connected). URLs are the ones
+  // that mineral already uses, so a hand-added copy is recognised, not doubled.
+  { key: 'github',     label: 'GitHub',     category: 'Dev',      url: 'https://api.githubcopilot.com/mcp/', blurb: 'repos, issues and pull requests', auth: 'token' },
+  { key: 'stripe',     label: 'Stripe',     category: 'Payments', url: 'https://mcp.stripe.com',             blurb: 'payments, customers and invoices', auth: 'token' },
+  { key: 'metricool',  label: 'Metricool',  category: 'Comms',    url: 'https://ai.metricool.com/mcp',       blurb: 'schedule social posts and read analytics', auth: 'oauth' },
   // guided connections (2026-10-02): a wizard on the page, not a probe
   { key: 'slack',     label: 'Slack',     category: 'Comms', url: 'https://mcp.slack.com/mcp', blurb: 'search, read and post in your workspace', auth: 'token', guided: 'slack' },
   { key: 'mailchimp', label: 'Mailchimp', category: 'Comms', url: 'https://us1.api.mailchimp.com/3.0/', blurb: 'audiences, contacts, draft campaigns and reports', auth: 'token', guided: 'mailchimp' },
