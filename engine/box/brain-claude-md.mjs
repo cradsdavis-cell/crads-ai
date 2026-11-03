@@ -111,6 +111,17 @@ export function buildBrainSection({ prefix = '', stateMd } = {}) {
     '',
     `If \`${p}wiki/_layers/\` has no pages yet, the interview has not happened. Say so,`,
     'offer to start it with `/onboard`, and do not guess at who they are.',
+    '',
+    // Trap 82 (2026-11-03): a member's Claude installed tools where the nightly
+    // restart wiped them, because nothing told it what survives.
+    '## What survives a restart on this mineral',
+    '',
+    'Your home folder (`~`) and temp files are kept across restarts and updates; the rest',
+    'of the system is reset to the published software. You are not root, so install tools',
+    'into `~/.local/bin` or a virtualenv under `~`, never with apt or sudo. Keep big tools',
+    'and downloaded models out of this brain folder: it is pushed to the owner\'s GitHub',
+    'every night, and GitHub refuses any file over 100 MB. For a long job, save progress',
+    'to disk as you go so it can pick up where it stopped.',
     MARK_END,
   ].join('\n');
 }

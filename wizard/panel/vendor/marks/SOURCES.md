@@ -1,7 +1,8 @@
 # Sources for the hand-sourced marks
 
-simple-icons 16.28.0 (CC0-1.0, see LICENSE) covers 48 of the 75 marks (Stripe,
-`icons/stripe.svg`, hex #635BFF, added 2026-10-20). The 26
+simple-icons 16.28.0 (CC0-1.0, see LICENSE) covers 49 of the 76 marks (Stripe,
+`icons/stripe.svg`, hex #635BFF, added 2026-10-20; Odoo, `icons/odoo.svg`, hex
+#714B67, added 2026-10-22). The 26
 below were not in that package and were fetched by hand (17 on 2026-08-23, the
 six note-takers on 2026-08-24, Pipedrive and Slack on 2026-10-02, Metricool on 2026-10-20), in this order of preference: the vendor's own
 brand kit, the vendor's own favicon, the vendor's GitHub organisation avatar. Every file was reduced to a 24x24 viewBox

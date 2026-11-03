@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -40,5 +41,33 @@ test('descriptions shown on the Skills page speak to the person, not about a mem
   for (const { f, md } of skills) {
     const d = (md.match(/^description:\s*(.+)$/m) || [])[1] || '';
     assert.doesNotMatch(d, /\bthe (member|client)'s\b|\bmembers?\b|yin|yang|\bSETS\b/, `${f}: ${d}`);
+  }
+});
+
+// Claude Code reads SKILL.md frontmatter as YAML. A plain (unquoted) value with
+// ": " inside is a YAML error, and inbox.md shipped one ("buckets: open-loop")
+// until 2026-10-22. The engine has no YAML dependency, so the rule is checked
+// by hand; where python3 + PyYAML exist the real parser checks it too.
+const frontmatter = (md) => (md.match(/^---\r?\n([\s\S]*?)\r?\n---/) || [])[1];
+
+test('every skill\'s frontmatter is valid YAML: no plain scalar carries ": "', () => {
+  for (const { f, md } of skills) {
+    const fm = frontmatter(md);
+    assert.ok(fm, `${f}: no frontmatter`);
+    for (const line of fm.split('\n')) {
+      const m = line.match(/^([A-Za-z_][\w-]*):\s+(.*)$/);
+      if (!m || /^["'[{|>]/.test(m[2])) continue;
+      const plain = m[2].replace(/\s+#.*$/, '');
+      assert.doesNotMatch(plain, /: |:$/, `${f}: unquoted ${m[1]} holds ": ", quote it`);
+    }
+  }
+});
+
+test('every skill\'s frontmatter parses with a real YAML parser (when python3 + PyYAML are present)', (t) => {
+  const probe = spawnSync('python3', ['-c', 'import yaml'], { encoding: 'utf8' });
+  if (probe.status !== 0) return t.skip('python3 + PyYAML not available');
+  for (const { f, md } of skills) {
+    const r = spawnSync('python3', ['-c', 'import sys, yaml; yaml.safe_load(sys.stdin.read())'], { input: frontmatter(md), encoding: 'utf8' });
+    assert.equal(r.status, 0, `${f}: ${r.stderr.trim().split('\n').pop()}`);
   }
 });

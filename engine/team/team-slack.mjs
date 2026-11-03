@@ -33,8 +33,12 @@ import { withBrainLock } from './team-lock.mjs';
 import { now as clockNow, dayIn, boxTz } from '../lib/clock.mjs';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
+// The Web API call, the escape, the reply splitter and one Socket Mode session
+// are shared with the owner's DM bridge (engine/comms/slack-dm.mjs).
+import { slackCall, slackEscape, chunks, socketSession } from '../lib/slack-api.mjs';
 
-const API = process.env.SLACK_API_BASE || 'https://slack.com/api';
+export { slackCall, slackEscape, chunks };
+
 export const APP_TOKEN = 'team-slack-app-token';
 export const BOT_TOKEN = 'team-slack-bot-token';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -50,18 +54,6 @@ function note(stateDir, patch) {
   writeFileSync(p, JSON.stringify({ ...(readJson(p) || {}), ...patch }, null, 2) + '\n');
 }
 const teamCfg = (stateDir) => readJson(path.join(stateDir, 'org', 'config.json'));
-
-export async function slackCall(method, token, body, { fetcher = fetch } = {}) {
-  const r = await fetcher(`${API}/${method}`, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json; charset=utf-8' },
-    body: JSON.stringify(body || {}),
-  });
-  let j = null;
-  try { j = await r.json(); } catch { j = null; }
-  if (!j) throw new Error(`Slack did not answer ${method} (HTTP ${r.status})`);
-  return j;
-}
 
 // ---- connect / disconnect / status --------------------------------------------
 
@@ -250,18 +242,8 @@ export function questionFrom(envelope, botUser) {
   return { text, user: e.user, channel: e.channel, thread: e.thread_ts || e.ts };
 }
 
-// Slack treats <, > and & as markup (<!channel>, <!here>, <https://x|label>).
-// Nothing the model or the brain says may become a ping or a disguised link.
-export const slackEscape = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const QUEUE_MAX = 20;
 const PER_USER = { max: 5, windowMs: 10 * 60 * 1000 };
-
-export function chunks(text, n = MAX_REPLY) {
-  const out = []; let rest = String(text);
-  while (rest.length > n) { let cut = rest.lastIndexOf('\n', n); if (cut < n / 2) cut = n; out.push(rest.slice(0, cut)); rest = rest.slice(cut).replace(/^\n/, ''); }
-  if (rest) out.push(rest);
-  return out;
-}
 
 // ---- the bridge ---------------------------------------------------------------
 
@@ -304,7 +286,7 @@ export async function run(stateDir, { fetcher = fetch, WS = globalThis.WebSocket
         if (who.unknown) { await post(q, 'I could not check who you are with Slack just now. Ask me again in a minute.'); return; }
         if (who.guest || who.bot) { await post(q, 'Sorry, I only answer people on the team.'); return; }
         const r = await answerImpl(stateDir, { question: q.text, asker: who });
-        for (const c of chunks(slackEscape(r.reply))) await post(q, c);
+        for (const c of chunks(slackEscape(r.reply), MAX_REPLY)) await post(q, c);
         note(stateDir, { last_answer: new Date().toISOString(), last_error: null });
       } catch (e) {
         note(stateDir, { last_error: String((e && e.message) || e).slice(0, 300) });
@@ -321,18 +303,13 @@ export async function run(stateDir, { fetcher = fetch, WS = globalThis.WebSocket
       if (once) return;
       await new Promise((r) => setTimeout(r, backoff)); backoff = Math.min(backoff * 2, 60000); continue;
     }
-    await new Promise((resolve) => {
-      const ws = new WS(open.url);
-      ws.onmessage = (m) => {
-        let env; try { env = JSON.parse(String(m.data)); } catch { return; }
-        if (env.envelope_id) ws.send(JSON.stringify({ envelope_id: env.envelope_id }));   // ack first, always
-        if (env.type === 'hello') { backoff = 1000; log('connected'); return; }
-        if (env.type === 'disconnect') { try { ws.close(); } catch {} return; }
+    await socketSession({
+      url: open.url, WS,
+      onHello: () => { backoff = 1000; log('connected'); },
+      onEnvelope: (env) => {
         const q = questionFrom(env, s.bot_user);
         if (q) { note(stateDir, { last_event: new Date().toISOString() }); handle(q); }
-      };
-      ws.onclose = () => resolve();
-      ws.onerror = () => { try { ws.close(); } catch {} resolve(); };
+      },
     });
     if (once) { await chain; return; }
     await new Promise((r) => setTimeout(r, backoff)); backoff = Math.min(backoff * 2, 60000);

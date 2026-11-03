@@ -18,7 +18,9 @@ import { join } from 'node:path';
 // when it removed a lock, so the caller can say so exactly once.
 export function releaseBootLockForCadence(stateDir, jobs) {
   try {
-    if (!Array.isArray(jobs) || !jobs.some((j) => j && j.isSkill)) return false;
+    // An enabled script is live cadence too (trap 79): a fleet moved in as scripts, with no
+    // skill schedule on, kept the boot lock forever and every Telegram reply sat in the queue.
+    if (!Array.isArray(jobs) || !jobs.some((j) => j && (j.isSkill || j.isScript))) return false;
     const lock = join(stateDir, '.kernel', 'human-lock');
     if (!existsSync(lock)) return false;
     rmSync(lock, { force: true });

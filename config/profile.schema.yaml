@@ -143,6 +143,7 @@ skills:
     - capture
     - weekly
   bespoke: []            # client-specific skills generated at /onboard
+  skip: []               # engine skills not to install, e.g. ones this brain has its own of (crads-* copies the engine left are removed on sync)
 
 # --- Compliance -------------------------------------------------------------
 compliance:

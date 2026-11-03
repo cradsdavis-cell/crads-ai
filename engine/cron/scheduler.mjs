@@ -30,6 +30,8 @@ import { normalizeScripts, buildScriptJobs } from './scripts-lib.mjs';   // Scri
 import { readScriptsRaw, problemFor, recordedEnvFiles, runScript, listScripts } from './scripts.mjs';
 import { BRAIN_ROOT_SH, resolveBrainRoot, ensureBrainRootStamped, isOrgBox } from '../lib/brain-root.mjs';
 import { isMovingIn } from '../lib/mineral-identity.mjs';
+import { deliveryTarget } from '../lib/delivery-target.mjs';
+import { autoUpdateEnabled } from '../box/update.mjs';   // the member decides when the mineral updates (trap 82)
 
 const stateDir = path.resolve(process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2]
                               : process.env.STATE_DIR || '/state');
@@ -41,9 +43,12 @@ const KDIR = path.join(ENGINE_DIR, 'kernel');
 const ENQUEUE = path.join(KDIR, 'enqueue.mjs');
 const KERNEL = path.join(KDIR, 'kernel.mjs');
 const BACKUP = path.join(ENGINE_DIR, 'backup.mjs');
+const UPDATE = path.join(ENGINE_DIR, 'box', 'update.mjs');
 const BRAIN_PUSH = path.join(ENGINE_DIR, 'brain-push.sh');
 const HEARTBEAT = path.join(ENGINE_DIR, 'heartbeat.mjs');
 const STATE_MD = path.join(ENGINE_DIR, 'box', 'state-md.mjs');
+const CHAT_RETENTION = path.join(ENGINE_DIR, 'box', 'chat-retention.mjs');
+const HEALTH_CHECK = path.join(ENGINE_DIR, 'box', 'health-check.mjs');
 // Resolve the org brain root through the ONE shared resolver
 // (engine/lib/brain-root.mjs) — shell form for the jobs that run through
 // bash (the brain can be relocated after this process started), JS form for
@@ -64,7 +69,7 @@ const TEAM_SLACK = path.join(ENGINE_DIR, 'team', 'team-slack.mjs');
 const TEAM_INBOX = path.join(ENGINE_DIR, 'team', 'team-inbox.mjs');   // comms supervisor target (keeps the Telegram bridge alive)
 const CADENCE_FILE = path.join(stateDir, 'cockpit', 'cadence.json');
 const DOW = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-// Stable per-box jitter (0-29 min) so a fleet's nightly auto-update restarts
+// Stable per-box jitter (0-29 min) so a fleet's update checks and optional overnight updates
 // don't hammer the image registry in the same minute. Derived from the state
 // path + hostname, so it never changes across restarts.
 const jitterMin = (() => {
@@ -396,31 +401,41 @@ function buildJobs(c) {
     // POSTed the marked public subset to the central directory, which is
     // deleted. The public: flags stay on the pages; serving them to tied
     // pebbles is the commons model's to rebuild.)
+    // Saved chats older than the member's cleanupPeriodDays (default 30) go before the
+    // snapshot, so the box keeps no chat longer than the member chose (engine/box/chat-retention.mjs).
+    { name: 'chat-retention (old saved chats)', lid: 'chat-retention', cmd: ['node', [CHAT_RETENTION, stateDir]], match: (h, m) => h === 3 && m === 30 },
     { name: 'backup', lid: 'backup', cmd: ['node', [BACKUP, stateDir]], match: (h, m) => h === 3 && m === 40 },
+    // The box tells its member when backups, the off-box copy, the disk or a job go wrong
+    // (engine/box/health-check.mjs). Morning, after every nightly job has had its turn.
+    { name: 'health-check (tell you when something is wrong)', lid: 'health-check', cmd: ['node', [HEALTH_CHECK, stateDir]], match: (h, m) => h === 8 && m === 5 },
     // Nightly brain push (Sam's ruling 2026-07-30): send the member's brain to THEIR
     // OWN private repo without waiting for anyone to open an app. Ten minutes after
     // the 03:40 snapshot, so the encrypted blob backup.mjs just wrote into
-    // <state>/backups/ actually leaves the box, and comfortably before the 04:10+
-    // auto-update restart. No-op when own-brain has not run (nowhere to push), and it
+    // <state>/backups/ actually leaves the box, and before the optional 04:10+
+    // overnight update. No-op when own-brain has not run (nowhere to push), and it
     // REFUSES if the protective .gitignore is not intact. See engine/brain-push.sh.
     { name: 'brain-push (nightly, to the owner’s own repo)', lid: 'brain-push', cmd: ['bash', [BRAIN_PUSH, stateDir]], match: (h, m) => h === 3 && m === 50 },
-    // L1 auto-update (three-layer model): a nightly container restart IS the
-    // update path — the host systemd unit `docker pull`s the org-pinned image
-    // tag on every start, so once Crads/the org promote a new tag the whole
-    // fleet converges within a day, no member clicks. Fires in the dead window
-    // AFTER the 03:40 backup, at a per-box jittered minute (registry load).
-    // The member's Update button stays as the fast path; the box owner can opt
-    // out via /state/cockpit/auto-update.json {"enabled": false} (L2 lifecycle
-    // power). The restart is the same consented mechanic as box-refresh: what
-    // arrives is bounded by the tag the org pinned, never more.
+    // The member decides when the mineral updates (Sam's rulings 2026-11-03, trap 82).
+    // This job USED to restart every box at 04:10+jitter every night, new software
+    // or not, and the host pulled on every start: a member lost five half-done
+    // video sessions to a night with nothing to install. Now the overnight update
+    // is OFF unless the member switched it on (cockpit/auto-update.json
+    // {"enabled": true}), and even then engine/box/update.mjs restarts only when a
+    // newer version is published AND nothing is running; otherwise it tries again
+    // ten minutes later, until 05:50. The Update button is the normal path.
     {
-      name: 'auto-update (nightly restart onto the pinned image)', lid: 'auto-update',
-      cmd: ['bash', ['-c', '(sleep 2; kill 1) </dev/null >/dev/null 2>&1 &']],
-      match: (h, m) => {
-        try { const cfg = JSON.parse(readFileSync(path.join(stateDir, 'cockpit', 'auto-update.json'), 'utf8')); if (cfg && cfg.enabled === false) return false; } catch { /* default on */ }
-        return h === 4 && m === 10 + jitterMin;
-      },
+      name: 'auto-update (optional: overnight, only when there is a new version and nothing is running)', lid: 'auto-update',
+      cmd: ['node', [UPDATE, 'auto', stateDir]],
+      match: (h, m) => autoUpdateEnabled(stateDir) && (h === 4 || h === 5) && m % 10 === jitterMin % 10 && (h > 4 || m >= 10),
     },
+    // Asks the registry whether a newer version is published, so the app can say
+    // "an update is ready" (and whether it carries a security fix). Read-only:
+    // never restarts anything. Daily, at a per-box minute (registry load).
+    { name: 'update-check (is a newer version published?)', lid: 'update-check', cmd: ['node', [UPDATE, 'check', stateDir]], match: (h, m) => h === 6 && m === jitterMin },
+    // Temp files now live on /state (trap 82), so something has to tidy them: files
+    // nobody has touched for a week, and then any folder left empty. Never the
+    // home folder, never the brain.
+    { name: 'tmp-tidy (temp files untouched for a week)', lid: 'tmp-tidy', cmd: ['bash', ['-c', 'D="$1"; [ -d "$D" ] || exit 0; find "$D" -mindepth 1 -type f -mtime +7 -delete 2>/dev/null; find "$D" -mindepth 1 -type d -empty -mmin +60 -delete 2>/dev/null; exit 0', 'tmp-tidy', path.join(stateDir, '.kernel', 'tmp')]], match: (h, m) => h === 3 && m === 20 },
   ];
   void c;
 }
@@ -541,8 +556,8 @@ function fire(job) {
   console.log(`[${stamp}] cadence: ${job.name}`);
   if (job.isSkill) recordSkillRun(job.skill);
   const enqArgs = [ENQUEUE, stateDir, job.skill, '--source=cron'];
-  const chatId = readChatId();
-  if (job.deliver && chatId) enqArgs.push(`--reply-to=${chatId}`);   // route the brief to the client's Telegram
+  const chatId = deliveryTarget(stateDir);
+  if (job.deliver && chatId) enqArgs.push(`--reply-to=${chatId}`);   // route the brief to the owner's channel
   // Skill outcomes are written by the KERNEL (with the real one-line summary);
   // the scheduler only records the cases the kernel never saw.
   execFile('node', enqArgs, { cwd: KDIR }, (e) => {
@@ -561,12 +576,13 @@ function fire(job) {
 
 // ---- entry ----
 const c = loadCadence();
-// The client's own Telegram chat, if they've connected it. Cadence jobs with deliver:true are
-// enqueued with reply_to = this id so the kernel hands their output to the Telegram outbox.
-// Empty => no delivery. Read at each fire, not once at start: Telegram is usually connected
-// AFTER the scheduler is up (connect-telegram, or a move-in carrying an existing bot over),
-// and a value read at start left every delivered job undelivered until the next restart.
-function readChatId() { try { return readFileSync(path.join(stateDir, 'secrets', 'telegram_chat_id'), 'utf8').trim(); } catch { return ''; } }
+// Where a deliver:true job's result goes: deliveryTarget (engine/lib/delivery-target.mjs) is the
+// owner's own Telegram chat, or their Slack DM (`slack:<user id>`) when .kernel/primary-channel
+// says slack and the Slack bridge is configured. The job is enqueued with reply_to = that id, so
+// the kernel hands its output to the outbox and the matching bridge sends it. Empty => no
+// delivery. Read at each fire (in fire() above), not once at start: a channel is usually
+// connected AFTER the scheduler is up (connect-telegram, or a move-in carrying an existing bot
+// over), and a value read at start left every delivered job undelivered until the next restart.
 // Fold the profile-cadence jobs into cadence.json exactly once (v2 fold-in).
 // Runs in every mode so --plan / --plan-json describe the same reality that fires.
 ensureMigrated(c, partsInTz(c.tz, new Date()).ymd);
@@ -575,7 +591,7 @@ ensureMigrated(c, partsInTz(c.tz, new Date()).ymd);
 // backup encrypts a member's state (a rock's brain is already a git repo
 // pushed to GitHub), brain-push sends it to the member's own account,
 // heartbeat emits a MEMBER heartbeat, org-sync and org-pull are the member end
-// of the org channel, and auto-update restarts the box overnight. What a rock
+// of the org channel, and the optional overnight update restarts the box. What a rock
 // genuinely needs from a cadence is the reconcile pass, because control/ lives
 // there and nothing else runs it unattended.
 //
@@ -626,9 +642,13 @@ const DISPLAY = {
   'team-hub': { note: 'merges what each person published into the company brain (company agent only)' },
   'team-slack': { note: 'keeps the company agent answering in Slack, once Slack is connected (company agent only)' },
   'team-inbox': { note: 'triages the shared inbox into the company brain, read only, once the owner switches it on (company agent only)' },
+  'health-check': { note: 'checks backups, the off-box copy, disk space and failed jobs each morning, and tells you when something new goes wrong (weekly summary on Mondays)' },
+  'chat-retention': { note: 'deletes saved chats older than your chat retention (30 days unless you change it)' },
   backup: { note: 'encrypted snapshot of your settings and credentials; your brain rides its own repository' },
   'brain-push': { note: 'pushes your brain to your own private repo' },
-  'auto-update': { note: 'restart onto the software Crads-AI published' },
+  'auto-update': { note: 'optional overnight update: off unless you switch it on, and even then only when there is a new version and nothing is running' },
+  'update-check': { note: 'checks once a day whether a newer version is out, so the app can tell you; never restarts anything' },
+  'tmp-tidy': { note: 'clears temp files nobody has touched for a week; never your home folder or your brain' },
   'seen-drain': { note: 'keeps the "last seen" column of the device roster on Your mineral true' },
   reconcile: { note: 'only on old community servers, where it applied registry changes; never on a mineral of your own', pebble: false },
   'heartbeat-pull': { note: 'only on old community servers, where it gathered the check-ins of the minerals it ran; never on a mineral of your own', pebble: false },
@@ -662,8 +682,7 @@ function describeWhen(job) {
 }
 
 function machineryRows() {
-  let autoUpdate = true;
-  try { const cfg = JSON.parse(readFileSync(path.join(stateDir, 'cockpit', 'auto-update.json'), 'utf8')); if (cfg && cfg.enabled === false) autoUpdate = false; } catch {}
+  const autoUpdate = autoUpdateEnabled(stateDir);
   return jobs.map((j) => {
     // Not every job declares a lid (org-publish does not), and a row with no id
     // is a row the card cannot key, badge or explain. Fall back rather than emit
@@ -691,7 +710,7 @@ if (process.argv.includes('--plan-json')) {
 
 if (process.argv.includes('--plan') || argAt !== -1) {
   console.log(`tz=${c.tz} (quiet ${c.quiet || 'unset'})`);
-  for (const r of machineryRows()) console.log(`  ${r.id.padEnd(12)} ${r.when}${r.enabled === false ? ' (opted out)' : ''}`);
+  for (const r of machineryRows()) console.log(`  ${r.id.padEnd(12)} ${r.when}${r.enabled === false ? ' (off)' : ''}`);
   const sj = buildSkillJobs(c);
   console.log(`  skills       ${sj.length ? sj.map(j => j.name).join(', ') : 'none enabled'}`);
   const scj = buildScriptJobsNow(c);
@@ -743,7 +762,7 @@ function tick() {
   // This is box-up's own ruling ("with cadence on... let them run"), applied at
   // the moment cadence actually goes live rather than only at boot.
   if (releaseBootLockForCadence(stateDir, all)) {
-    console.log(`[${new Date().toISOString()}] cadence is live: released the boot-time human-lock so scheduled skills can drain.`);
+    console.log(`[${new Date().toISOString()}] cadence is live: released the boot-time human-lock so the kernel can drain (scheduled skills, Telegram replies).`);
   }
   for (const j of all) if (j.match(hour, minute, dow, ymd)) {
     if (j.lid === 'heartbeat') bootHeartbeatCovered = true;

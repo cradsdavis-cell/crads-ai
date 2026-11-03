@@ -207,7 +207,10 @@ function hostFiles({ boxName, image, brainRoot, uid, gid, tz, files }) {
     'RestartSec=5',
     'KillMode=none',
     'TimeoutStartSec=600',
-    `ExecStartPre=-/usr/bin/docker pull ${image}`,
+    // Pull new software only when the member pressed Update (trap 82): the box
+    // leaves .kernel/update-requested in the brain folder; any other restart
+    // comes back on the same software. `docker run` fetches a missing image.
+    `ExecStartPre=-/bin/sh -c 'F=${brainRoot}/.kernel/update-requested;[ -e $$F ]&&/usr/bin/docker pull ${image}&&rm $$F'`,
     'ExecStartPre=-/usr/bin/docker rm -f ai-os',
     `ExecStartPre=/usr/local/bin/aios-passwd ${image} ${uid} ${gid} ${brainRoot}`,
     `ExecStart=/usr/bin/docker run --rm --name ai-os --user ${uid}:${gid} --env-file /etc/ai-os/env -e AIOS_ADOPTED=1 -e HOME=/state/.kernel/home -v /etc/ai-os/passwd:/etc/passwd:ro -v /etc/ai-os/group:/etc/group:ro -v ${brainRoot}:/state -p 127.0.0.1:7781:7781 -p 127.0.0.1:7780:7780 ${image} up`,

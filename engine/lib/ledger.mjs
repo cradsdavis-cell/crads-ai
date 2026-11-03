@@ -53,6 +53,8 @@ export function classifyJob(job) {
     if (skill === 'execute-proposal' || source === 'telegram-approve') return { actor_class: 'approval_gated', actor_id: 'telegram:approve', trigger_kind: 'approval' };
     return { actor_class: 'auto', actor_id: 'telegram:inbound', trigger_kind: 'inbound' };
   }
+  // the owner's Slack DM (comms/slack-dm.mjs): the same inbound turn as Telegram
+  if (source === 'slack') return { actor_class: 'auto', actor_id: 'slack:inbound', trigger_kind: 'inbound' };
   if (source === 'telegram-approve') return { actor_class: 'approval_gated', actor_id: 'telegram:approve', trigger_kind: 'approval' };
   return { actor_class: 'manual', actor_id: `operator:${source}`, trigger_kind: null };
 }

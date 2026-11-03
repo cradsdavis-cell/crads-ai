@@ -22,11 +22,13 @@
 // The token is read from STDIN as base64 and never appears in a command line, a
 // log, or any response body: an argv token is visible in `ps` to anything else on
 // the box, and a token in a response is a token in the browser.
+import '../lib/net-reach.mjs';   // FIRST: IPv4-first + 2 s connect attempts, or Telegram is unreachable from a far server with broken IPv6 (trap 78)
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync, statSync, readdirSync } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { CONNECTED_GREETING } from './telegram-drafts.mjs';
+import { isSlackTarget } from '../lib/delivery-target.mjs';
 
 const stateDir = path.resolve(process.argv[2] || '/state');
 const cmd = process.argv[3] || 'status';
@@ -130,21 +132,32 @@ const listDir = (d) => { try { return readdirSync(d); } catch { return []; } };
 // enqueues them with reply_to 'voice' and source 'voice', and kernel.mjs:47
 // routes their replies to .kernel/voice-outbox for the voice bridge to collect.
 // Cutting Telegram off must not eat somebody's voice turn.
+// The owner's Slack DM is the other one (slack-dm.mjs): its jobs carry
+// reply_to `slack:<id>` and source 'slack', and their outbox records a `slack:`
+// chat_id. None of it is addressed to the Telegram chat being cut off.
 const carriesChat = (job) => {
-  if (!job || job.source === 'voice') return false;
+  if (!job || job.source === 'voice' || job.source === 'slack' || isSlackTarget(job.reply_to)) return false;
   if (String(job.source || '').startsWith('telegram')) return true;   // enqueued BY the compromised chat
   return job.reply_to !== undefined && job.reply_to !== null && String(job.reply_to) !== '';
 };
 function purgeChatWork() {
   const base = path.join(stateDir, '.kernel');
-  // .kernel/outbox is the Telegram outbox by construction: kernel.mjs:47 sends
+  // .kernel/outbox was the Telegram outbox by construction: kernel.mjs:47 sends
   // voice replies elsewhere precisely because everything left here gets flushed
   // to a Telegram chat, and every writer of it (kernel.mjs:128, custody-watch,
   // google-rekey-ping) stamps a chat_id. All of it is addressed to the chat we
   // are cutting off, so all of it goes.
   const outbox = path.join(base, 'outbox');
+  // Except a record addressed to Slack (`slack:` chat_id): that is the owner's
+  // own Slack DM, not this chat, so it stays for the Slack bridge. A record we
+  // cannot parse still goes, as before: it was written for Telegram's flush.
   for (const f of listDir(outbox)) {
-    if (f.endsWith('.json')) { try { rmSync(path.join(outbox, f), { force: true }); } catch { /* */ } }
+    if (!f.endsWith('.json')) continue;
+    const of = path.join(outbox, f);
+    let rec = null;
+    try { rec = JSON.parse(readFileSync(of, 'utf8')); } catch { /* unreadable: treated as Telegram's */ }
+    if (rec && isSlackTarget(rec.chat_id)) continue;
+    try { rmSync(of, { force: true }); } catch { /* */ }
   }
   // The queue is mixed (cron housekeeping, voice, dashboard), so it is filtered
   // rather than emptied. A file we cannot parse is left alone: we cannot show it

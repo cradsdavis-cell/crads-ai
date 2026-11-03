@@ -117,13 +117,14 @@ test('the heartbeat separates "it left the box" from "somebody can decrypt it"',
 // 2026-08-20 audit: a failed run must not take last night's backup with it.
 test('the snapshot is staged beside the real one and only replaces it once verified', () => {
   const src = readFileSync(new URL('./backup.mjs', import.meta.url), 'utf8');
-  const staged = src.indexOf("const staged = OUT + '.tmp'");
-  const rename = src.indexOf('renameSync(staged, OUT)');
+  // `dest` is OUT, or the local-only path a pebble's over-cap snapshot waits in (trap 80)
+  const staged = src.indexOf("const staged = dest + '.tmp'");
+  const rename = src.indexOf('renameSync(staged, dest)');
   const verify = src.indexOf('decryptArgs(staged, verifyTar)');   // the cipher flags live in lib/snapshot-cipher.mjs since 2026-10-13
   assert.ok(staged > -1 && rename > -1 && verify > -1, 'staging, verify and promote all present');
   assert.ok(staged < verify, 'the blob is written to the staging path first');
   assert.ok(verify < rename,
     'the decrypt-verify runs BEFORE the promote: encrypting straight over OUT destroyed the last good snapshot before anything proved the new one could restore');
-  assert.match(src, /rmSync\(OUT \+ '\.tmp', \{ force: true \}\)/,
+  assert.match(src, /for \(const p of \[OUT, LOCAL_OUT\]\) \{ try \{ rmSync\(p \+ '\.tmp', \{ force: true \}\)/,
     'and a blob that failed the verify is cleaned up, not left beside the real one');
 });

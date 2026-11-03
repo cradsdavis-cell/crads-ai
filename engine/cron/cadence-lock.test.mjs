@@ -22,6 +22,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { releaseBootLockForCadence } from './cadence-lock.mjs';
+import { buildScriptJobs } from './scripts-lib.mjs';
 import { tmpDir } from '../../tests/tmp-dir.mjs';
 
 function box({ locked = true } = {}) {
@@ -44,6 +45,23 @@ test('no skill jobs means the lock is left exactly alone', () => {
   const freed = releaseBootLockForCadence(d, [{ isSkill: false, lid: 'heartbeat' }]);
   assert.equal(freed, false);
   assert.equal(existsSync(lock(d)), true, 'an interactive session keeps its lock');
+});
+
+// Trap 79 (2026-10-21): the operator's fleet moved in as 18 enabled SCRIPTS with no skill
+// schedule on, so the boot lock never lifted and every Telegram reply waited in the queue.
+test('a live script schedule releases the boot lock too (trap 79)', () => {
+  const d = box();
+  const jobs = buildScriptJobs({ scripts: { lint: { enabled: true, schedule: { kind: 'every', minutes: 15 }, argv: ['node', 'x.mjs'] } } });
+  assert.equal(jobs.length, 1, 'the enabled script is a fireable job');
+  assert.equal(releaseBootLockForCadence(d, jobs), true);
+  assert.equal(existsSync(lock(d)), false);
+});
+
+test('a disabled script is not live cadence, so the lock stays (trap 79)', () => {
+  const d = box();
+  const jobs = buildScriptJobs({ scripts: { lint: { enabled: false, schedule: { kind: 'every', minutes: 15 }, argv: ['node', 'x.mjs'] } } });
+  assert.equal(releaseBootLockForCadence(d, jobs), false);
+  assert.equal(existsSync(lock(d)), true);
 });
 
 test('it is quiet and idempotent when there is no lock', () => {

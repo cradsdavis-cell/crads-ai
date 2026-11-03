@@ -39,10 +39,25 @@ export function isolationEnv(stateDir, base = process.env) {
   return { ...base, CLAUDE_CONFIG_DIR: path.join(stateDir, '.claude-auth') };
 }
 
+// Job limits (grants.deny / grants.protect): the paths a limited turn may not write,
+// because each one configures a later turn (gitignore-style, relative to the cwd,
+// which is the state dir). Claude Code's Edit rules cover every built-in file writer.
+export const PROTECTED_WRITES = ['cockpit/**', '.kernel/**', '.mcp.json', '**/.claude/**', '**/CLAUDE.md',
+  'secrets/**', '.claude-auth/**'];
+
+export function compileDenies(grants) {
+  const out = (grants.deny || []).map((m) => m.raw);
+  if (grants.protect) for (const p of PROTECTED_WRITES) out.push(`Edit(${p})`, `Write(${p})`);
+  return out.join(',');
+}
+
 export function buildArgs({ prompt, grants }) {
   // acceptEdits auto-approves file edits (headless can't answer prompts); allowedTools
   // pre-approves the tool set so non-approved tools abort instead of prompting.
   const args = ['-p', prompt, '--permission-mode', 'acceptEdits', '--allowedTools', compileGrants(grants)];
+  // Only a limited job carries this flag, so an unlimited job's argv is byte-identical to before.
+  const denies = compileDenies(grants);
+  if (denies) args.push('--disallowedTools', denies);
   for (const d of grants.addDirs || []) args.push('--add-dir', d);
   return args;
 }
@@ -59,7 +74,11 @@ export function inspect(args) {
   const at = args.indexOf('--allowedTools');
   const tools = at >= 0 ? String(args[at + 1]).split(',').filter(Boolean) : [];
   const mode = args[args.indexOf('--permission-mode') + 1];
+  const dt = args.indexOf('--disallowedTools');
+  const denied = dt >= 0 ? String(args[dt + 1]).split(',').filter(Boolean) : [];
   return {
+    denied: denied.filter((t) => t.startsWith('mcp__')),
+    protectsConfig: denied.includes('Edit(cockpit/**)') && denied.includes('Edit(.mcp.json)'),
     denyByDefault: at >= 0 && mode === 'acceptEdits' && !args.includes('--dangerously-skip-permissions'),
     promptsPossible: false,                       // stdin is closed; an unapproved tool aborts
     shell: tools.includes('Bash'),

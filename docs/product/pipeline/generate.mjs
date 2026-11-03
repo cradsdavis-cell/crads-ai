@@ -160,7 +160,8 @@ export function machinery() {
     // auto-update is jittered per box (scheduler.mjs ~489: 04:10 base + a
     // stable 0-29 min offset); the scratch run's minute is real but not YOURS,
     // and it changes with the scratch path, so pin the honest general form.
-    if (r.id === 'auto-update') r.when = '04:10 + a per-box offset';
+    if (r.id === 'auto-update') r.when = 'off unless you switch it on; then 04:10 to 06:00';
+    if (r.id === 'update-check') r.when = '06:00 + a per-box offset';
   }
   // The five-invisible-jobs failure (depth plan 2026-08-25): DISPLAY carried 17
   // rows while buildJobs defined 22, and the missing five never reached the
@@ -228,7 +229,7 @@ function connectionsPage() {
   const mineral = rows.filter((c) => c.auth !== 'account');
   const account = rows.filter((c) => c.auth === 'account');
   // guided wizards and the account guide each have their own how-to page
-  const GUIDE = { slack: '/docs/connect-slack', wordpress: '/docs/connect-wordpress', mailchimp: '/docs/connect-mailchimp', asana: '/docs/connect-asana', microsoft: '/docs/connect-microsoft', account: '/docs/connect-shopify-and-xero' };
+  const GUIDE = { slack: '/docs/connect-slack', wordpress: '/docs/connect-wordpress', mailchimp: '/docs/connect-mailchimp', asana: '/docs/connect-asana', microsoft: '/docs/connect-microsoft', odoo: '/docs/connect-odoo', account: '/docs/connect-shopify-and-xero' };
   const signIn = (c) => (c.guided ? `[${c.auth === 'account' ? 'Claude account' : 'Guided'}](${GUIDE[c.guided]})`
     : c.auth === 'oauth' ? 'One click' : 'Token');
   const where = (c) => (c.boxKey ? 'Featured' : c.auth === 'account' ? 'Chats only' : c.guided ? 'Guided setup' : 'From the list');

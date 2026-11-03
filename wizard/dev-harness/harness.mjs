@@ -404,7 +404,10 @@ const server = createServer(async (req, res) => {
     const brain = (String(req.headers.referer || '').match(/[?&]brain=(adopted)/) || [])[1] || '';
     // ?movein=1|done on the PAGE url (2026-10-18): an adopted server mid move-in, or after it
     const movein = (String(req.headers.referer || '').match(/[?&]movein=(1|done|half)/) || [])[1] || '';
-    const result = FX.runVerb(surface, String(form.verb || ''), form.args, state, { signedOut, face, thinks, nocli, team, paused, moved, brain, movein });
+    // ?update=1|security on the PAGE url (2026-11-03, trap 82): a newer version is
+    // published, so the Overview shows its update banner (the security wording too)
+    const update = (String(req.headers.referer || '').match(/[?&]update=(1|security)/) || [])[1] || '';
+    const result = FX.runVerb(surface, String(form.verb || ''), form.args, state, { signedOut, face, thinks, nocli, team, paused, moved, brain, movein, update });
     streamRun(res, result);
     return;
   }

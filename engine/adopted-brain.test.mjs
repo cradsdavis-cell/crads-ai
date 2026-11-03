@@ -484,7 +484,7 @@ test('rebase, pebble: unchanged, any rebase state is aborted on the next drain',
 
 const runBackup = (brain) => spawnSync('node', [join(ENGINE, 'backup.mjs'), brain], { encoding: 'utf8' });
 
-test('backup: lands in backups/crads/, theirs untouched, their staged work not swept into the commit', () => {
+test('backup: lands in backups/crads/, theirs untouched, nothing committed (trap 80), their staged work still staged', () => {
   const { brain } = fixture();
   mkdirSync(join(brain, 'secrets'), { recursive: true });
   writeFileSync(join(brain, 'secrets', 'telegram_bot_token'), 'tok\n');
@@ -496,8 +496,10 @@ test('backup: lands in backups/crads/, theirs untouched, their staged work not s
   assert.ok(existsSync(join(brain, 'backups', 'crads', 'heartbeat.json')));
   assert.ok(!existsSync(join(brain, 'backups', 'state-snapshot.tar.gz.enc')), 'nothing of ours at the top of their backups/');
   assert.equal(readFileSync(join(brain, 'backups', 'their-snapshot.enc'), 'utf8'), 'THEIR OWN CIPHERTEXT\n');
-  assert.equal(tracked(brain, 'backups/crads/state-snapshot.tar.gz.enc').length, 1, 'ours is committed');
-  assert.deepEqual(ok(brain, 'show', '--name-only', '--format=', 'HEAD').split('\n').sort(), ['backups/crads/state-snapshot.tar.gz.enc']);
+  // Until 2026-10-22 ours was committed here, and the first real adopted brain
+  // committed a 244 MB blob that GitHub refused (trap 80). Their repo is theirs.
+  assert.equal(tracked(brain, 'backups/crads/state-snapshot.tar.gz.enc').length, 0, 'ours is never committed into their repo');
+  assert.equal(ok(brain, 'log', '--format=%an').split('\n').filter((a) => a === 'AI OS kernel').length, 0, 'no backup commit at all');
   assert.equal(ok(brain, 'diff', '--cached', '--name-only'), 'wip.md', 'their staged file is still staged, not committed');
 });
 

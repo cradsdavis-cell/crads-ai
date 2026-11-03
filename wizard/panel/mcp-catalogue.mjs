@@ -42,6 +42,12 @@
 // types a short code at Microsoft's page, nothing is pasted, so it sits with
 // the one-click (oauth) kind. Its url is the Graph API it reaches, never
 // connected to as an MCP address.
+// 'odoo' (contract 11, 2026-10-22) runs ON the box like Mailchimp
+// (engine/comms/odoo-mcp.mjs, the member's own API key): every Odoo is its
+// own instance, so there is no one hosted server to list, and the community
+// ones need Python or a module installed inside the member's ERP. Its url is
+// a TEMPLATE the member's Odoo address completes, never connected to as an
+// MCP address.
 
 export const CATEGORIES = ['Design', 'Dev', 'Docs', 'Comms', 'Data', 'Meetings', 'Payments', 'Web', 'AI'];
 
@@ -136,6 +142,7 @@ export const CATALOGUE = [
   { key: 'mailchimp', label: 'Mailchimp', category: 'Comms', url: 'https://us1.api.mailchimp.com/3.0/', blurb: 'audiences, contacts, draft campaigns and reports', auth: 'token', guided: 'mailchimp' },
   { key: 'microsoft', label: 'Microsoft 365', category: 'Comms', url: 'https://graph.microsoft.com/v1.0/', blurb: 'Outlook mail, calendar and contacts', auth: 'oauth', guided: 'microsoft' },
   { key: 'wordpress', label: 'WordPress', category: 'Web',   url: 'https://your-site/wp-json/mcp/mcp-adapter-default-server', blurb: 'your site, and WooCommerce orders and products', auth: 'token', guided: 'wordpress' },
+  { key: 'odoo',      label: 'Odoo',      category: 'Payments', url: 'https://your-company.odoo.com', blurb: 'contacts, CRM, sales and draft invoices', auth: 'token', guided: 'odoo' },
   // connected through the member's Claude account only (see 'account' above)
   { key: 'shopify',   label: 'Shopify',   category: 'Payments', url: 'https://setup.shopify.com/mcp', blurb: 'your store, in your chats with Claude', auth: 'account', guided: 'account' },
   { key: 'xero',      label: 'Xero',      category: 'Payments', url: 'https://mcp.xero.com/mcp',      blurb: 'read-only accounts, in your chats with Claude', auth: 'account', guided: 'account' },

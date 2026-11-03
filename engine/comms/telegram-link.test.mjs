@@ -463,8 +463,12 @@ function kernelWithWork(b) {
   job('4__d.json', { id: 'd', skill: 'backup', source: 'cron' });
   // a voice turn: its reply goes to voice-outbox, never to Telegram
   job('5__e.json', { id: 'e', skill: 'message', source: 'voice', reply_to: 'voice' });
+  // the owner's Slack DM (slack-dm.mjs): a turn from it, and a cadence job routed to it
+  job('6__f.json', { id: 'f', skill: 'message', source: 'slack', reply_to: 'slack:D0OWNERDM' });
+  job('7__g.json', { id: 'g', skill: 'brief', source: 'cron', reply_to: 'slack:U0OWNER' });
   writeFileSync(k('outbox', 'r1.json'), JSON.stringify({ chat_id: 666, text: 'drafted from their mail', job: 'a' }));
   writeFileSync(k('outbox', 'custody-1.json'), JSON.stringify({ chat_id: '4242', text: 'custody note', job: 'custody-watch' }));
+  writeFileSync(k('outbox', 's1.json'), JSON.stringify({ chat_id: 'slack:D0OWNERDM', text: 'a Slack reply', job: 'f' }));
   writeFileSync(k('voice-outbox', 'v1.json'), JSON.stringify({ chat_id: 'voice', text: 'spoken reply' }));
   writeFileSync(k('gh', 'hosts.yml'), 'github.com:\n');
   writeFileSync(k('crontab'), '# cadence\n');
@@ -502,6 +506,9 @@ test('forget leaves the rest of .kernel alone, including the voice lane', async 
   assert.equal(existsSync(k('queue', '4__d.json')), true, 'housekeeping with no reply target is not Telegram work');
   assert.equal(existsSync(k('queue', '5__e.json')), true, 'a voice turn is a different channel and must survive');
   assert.equal(existsSync(k('voice-outbox', 'v1.json')), true, 'so must its reply');
+  assert.equal(existsSync(k('queue', '6__f.json')), true, 'a Slack DM turn is the owner\'s other channel, not this chat');
+  assert.equal(existsSync(k('queue', '7__g.json')), true, 'nor a delivery routed to Slack');
+  assert.equal(existsSync(k('outbox', 's1.json')), true, 'and a Slack reply waiting in the shared outbox survives');
   assert.equal(existsSync(k('gh', 'hosts.yml')), true, 'GitHub auth is unrelated state');
   assert.equal(existsSync(k('crontab')), true);
   assert.equal(existsSync(k('kernel.log')), true);

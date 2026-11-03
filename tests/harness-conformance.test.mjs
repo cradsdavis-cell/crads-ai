@@ -102,6 +102,16 @@ for (const id of registry.harnesses) {
     assert.deepEqual([i.mcpServers, i.shell, i.skills], [[], false, false]);
   });
 
+  test(`${id}: 5b. a member's job limits hold: no shell, the denied server gone, its own config unwritable`, async () => {
+    const h = await getHarness(id); const state = tmpDir('hc-limit-');
+    const limitsJson = JSON.stringify({ daily: { shell: false, deny: ['mcp__mailer__*'] } });
+    const c = await compile(h, state, grantsForJob({ skill: 'daily' }, { mcpJson: MCP, limitsJson }));
+    const i = h.inspect(c.args, c.env);
+    assert.deepEqual([i.shell, i.mcpServers, i.protectsConfig], [false, [], true]);
+    const open = await compile(h, state, grantsForJob({ skill: 'daily' }, { mcpJson: MCP }));
+    assert.equal(h.inspect(open.args, open.env).protectsConfig, false, 'an unlimited job is unchanged');
+  });
+
   test(`${id}: 6. skills are discovered where the product keeps them`, async () => {
     const { manifest: m, installSkills } = await getHarness(id);
     assert.ok(m.reads.skillsDir === '.claude/skills' || typeof installSkills === 'function',

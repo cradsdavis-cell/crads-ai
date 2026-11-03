@@ -20,6 +20,15 @@
 // A bare-named copy an earlier engine installed (it carries the marker) is
 // retired in favour of its crads- twin; a dir without the marker is never
 // touched. Pebbles take the old path unchanged: no markers, no prefix.
+//
+// OPT-OUT (2026-10-22): `skills.skip` in the brain's profile.yaml names engine
+// skills this brain does not want, because it has its own for the same job (the
+// first adopted brain had its own capture, daily, followup, inbox, weekly and a
+// week planner; six crads- twins doubled every session's skill list). A skipped
+// skill is never installed, and a copy an earlier sync installed is removed if,
+// and only if, it carries the marker. Names may be written bare or as crads-<name>.
+// On a pebble (no markers) a skipped skill is simply not written; an existing
+// copy is left, since nothing proves it is ours.
 import { readdir, readFile, writeFile, mkdir, stat, rm, rmdir } from 'node:fs/promises';
 import path from 'node:path';
 import { isAdopted } from '../../lib/mineral-identity.mjs';
@@ -42,20 +51,53 @@ async function claimable(dir) {
 }
 
 // An engine copy installed under the bare name by an earlier engine (before
-// every adopted skill moved to crads-<name>). Only a dir carrying our marker is
-// ours: we remove the two files we wrote, and the dir only if that empties it.
-async function retireBare(dir) {
+// every adopted skill moved to crads-<name>), or any copy of a skill the brain
+// now skips. Only a dir carrying our marker is ours: we remove the two files we
+// wrote, and the dir only if that empties it.
+async function retireMarked(dir) {
   if (!(await exists(path.join(dir, ENGINE_MARKER)))) return;
   await rm(path.join(dir, 'SKILL.md'), { force: true });
   await rm(path.join(dir, ENGINE_MARKER), { force: true });
   try { if (!(await readdir(dir)).length) await rmdir(dir); } catch { /* not ours to force */ }
 }
 
+// profile.yaml is read leniently (the engine has no YAML dependency, see
+// harness/index.mjs): the `skip:` key inside the top-level `skills:` block, as a
+// flow list `skip: [a, b]` or a block list of `- a` lines. Returns bare names.
+export function readSkillSkip(profileText = '') {
+  const lines = String(profileText).split('\n');
+  const start = lines.findIndex((l) => /^skills:\s*(#.*)?$/.test(l));
+  if (start < 0) return [];
+  const bare = (v) => v.replace(/\s+#.*$/, '').trim().replace(/^["']|["']$/g, '').replace(new RegExp(`^${CLASH_PREFIX}`), '');
+  const out = [];
+  let inSkip = false;
+  for (const l of lines.slice(start + 1)) {
+    if (/^\S/.test(l)) break;                       // next top-level key
+    if (/^\s*(#.*)?$/.test(l)) continue;
+    const key = l.match(/^ {2}([a-z_]+):\s*(.*)$/);
+    if (key) {
+      inSkip = key[1] === 'skip';
+      const rest = key[2].replace(/\s+#.*$/, '').trim();
+      if (inSkip && rest.startsWith('[')) out.push(...rest.replace(/^\[|\]$/g, '').split(',').map(bare));
+      continue;
+    }
+    const item = inSkip && l.match(/^\s+-\s+(.+)$/);
+    if (item) out.push(bare(item[1]));
+  }
+  return [...new Set(out.filter(Boolean))];
+}
+
+async function profileSkip(stateDir) {
+  try { return readSkillSkip(await readFile(path.join(stateDir, 'profile.yaml'), 'utf8')); } catch { return []; }
+}
+
 const renamed = (src, name) => src.replace(/^(---\r?\n[\s\S]*?^name:\s*)\S+/m, `$1${name}`);
 
 // `only` (2026-10-18): sync just these engine skills. Move-in mode uses it to
 // install ADOPTED_ONLY (the /move-in skill the move-in needs) and nothing else.
-export async function syncSkills(stateDir, engineSkillsDir, { adopted = isAdopted(stateDir), only = null } = {}) {
+// `skip` defaults to the brain's profile.yaml `skills.skip`.
+export async function syncSkills(stateDir, engineSkillsDir, { adopted = isAdopted(stateDir), only = null, skip } = {}) {
+  const skipped = new Set(skip ?? (await profileSkip(stateDir)));
   let files;
   try {
     files = (await readdir(engineSkillsDir)).filter((f) => f.endsWith('.md'));
@@ -67,6 +109,13 @@ export async function syncSkills(stateDir, engineSkillsDir, { adopted = isAdopte
     const name = f.replace(/\.md$/, '');
     if (!adopted && ADOPTED_ONLY.includes(name)) continue;
     if (only && !only.includes(name)) continue;
+    if (skipped.has(name)) {
+      if (adopted) {
+        await retireMarked(path.join(stateDir, '.claude', 'skills', CLASH_PREFIX + name));
+        await retireMarked(path.join(stateDir, '.claude', 'skills', name));
+      }
+      continue;
+    }
     const src = await readFile(path.join(engineSkillsDir, f), 'utf8');
     if (!adopted) {
       const dstDir = path.join(stateDir, '.claude', 'skills', name);
@@ -76,7 +125,7 @@ export async function syncSkills(stateDir, engineSkillsDir, { adopted = isAdopte
       continue;
     }
     let target = ADOPTED_ONLY.includes(name) ? name : CLASH_PREFIX + name;
-    if (target !== name) await retireBare(path.join(stateDir, '.claude', 'skills', name));
+    if (target !== name) await retireMarked(path.join(stateDir, '.claude', 'skills', name));
     if (!(await claimable(path.join(stateDir, '.claude', 'skills', target)))) {
       // An adopted-only name the person already uses: ours goes beside it.
       if (target === name) target = CLASH_PREFIX + name;

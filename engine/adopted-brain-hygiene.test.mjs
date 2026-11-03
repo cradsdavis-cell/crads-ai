@@ -33,8 +33,8 @@ const CONFIG = [
   /^move-in\.md$/, /^dashboard\//, /^profile\.yaml$/, /^ownership\.json$/,
   /^box-name$/, /^open-folder$/, /^devices\/[^/]+\.yaml$/, /^onboarding-state\.json$/,
   /^\.gitignore$/,
-  // the encrypted snapshot itself is the backup: it rides the brain repo offsite
-  /^backups\/crads\/state-snapshot\.tar\.gz\.enc$/,
+  // (the encrypted snapshot was listed here as config until trap 80: on the first real
+  // adopted brain it weighed 244 MB and blocked every push, so it never reaches git now)
 ];
 // What a job produced (the dry-run daily writes its brief): the person's content.
 const OUTPUT = [/^wiki\/daily-brief\.md$/];

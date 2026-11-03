@@ -43,6 +43,7 @@ export const CONNECTION_LABELS = {
   slack: 'Slack',
   wordpress: 'WordPress',
   mailchimp: 'Mailchimp',
+  odoo: 'Odoo',
   // box-native channels
   telegram: 'Telegram',
 };

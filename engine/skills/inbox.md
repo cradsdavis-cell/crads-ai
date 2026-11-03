@@ -1,7 +1,7 @@
 ---
 name: inbox
 title: "Inbox triage"   # human name shown on the Skills page (2026-08-09 audit R6); the slash id stays as a chip
-description: Triage unread inbox into buckets: open-loop (reply/FYI, leave unread) / mark-read (legit, no action) / archive (junk). Read-only on open-loops; bulk-confirm before any label writes.
+description: "Triage unread inbox into buckets: open-loop (reply/FYI, leave unread) / mark-read (legit, no action) / archive (junk). Read-only on open-loops; bulk-confirm before any label writes."
 category: comms           # Skills-page grouping (briefing|capture|comms|box|org|other), wire vocabulary, not copy
 generic: true        # config-driven; no client-specific values in this file
 reads_profile:

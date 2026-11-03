@@ -20,6 +20,9 @@ variable "TAG"       { default = "v2" }
 # report which engine it is actually running (D55 fleet-version visibility,
 # 2026-08-23). Defaults to "unknown" for a local bake with no CI context.
 variable "BUILD_SHA" { default = "unknown" }
+# engine/security-level, passed by CI: a box reads it off the published image to
+# say "this update includes a security fix" (engine/box/update.mjs, trap 82).
+variable "SECURITY_LEVEL" { default = "0" }
 
 # PRODUCT VOCABULARY (Sam's 2026-08-05 ruling "a rock is called a rock,
 # everywhere", reaching the registry 2026-08-09): the canonical image names are
@@ -36,7 +39,7 @@ target "base" {
 target "member" {
   dockerfile = "Dockerfile.member"
   contexts   = { base = "target:base" }
-  args       = { BUILD_SHA = BUILD_SHA, BUILD_TAG = TAG }
+  args       = { BUILD_SHA = BUILD_SHA, BUILD_TAG = TAG, SECURITY_LEVEL = SECURITY_LEVEL }
   platforms  = PLATFORMS
   provenance = false
   tags = ["${REG}/crads-pebble:${TAG}", "${REG}/ai-os-member:${TAG}"]

@@ -1127,7 +1127,7 @@ export const MEMBER_VERBS = {
       return {
         command: 'set -e; tmp="$(mktemp)"; base64 -d > "$tmp"; '
           + '[ -f /app/engine/lib/mineral-identity.mjs ] || { rm -f "$tmp"; '
-          + 'echo "ERROR: this mineral\'s software predates the ownership model. It updates itself overnight; try tomorrow, or press Update & restart."; exit 1; }; '
+          + 'echo "ERROR: this mineral\'s software predates the ownership model. Press Update and restart on the Help page, then try again."; exit 1; }; '
           + 'node --input-type=module -e \'const {claimOwner,identityFacts}=await import("/app/engine/lib/mineral-identity.mjs");'
           + 'const fs=await import("node:fs");const c=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));'
           + 'const r=claimOwner("/state",{kind:"account",account_id:c.account_id,email:c.email});'
@@ -1234,13 +1234,26 @@ export const MEMBER_VERBS = {
   // policy, not by this button: the box only ever pulls the image tag the org
   // pinned at stamp time (lifecycle_images consent lives in WHERE the tag
   // points, decided org-side), so a member can never leapfrog their org.
-  // Nothing auto-restarts a member box; this verb is the only trigger.
+  // This verb is how a member updates (Sam's ruling 2026-11-03, trap 82): it
+  // leaves the update-requested flag the host reads on the next start, and the
+  // host pulls new software ONLY when that flag is there. Any other restart
+  // comes back on the same software. Plain shell, not update.mjs, so the button
+  // works on a mineral whose software predates it.
   'box-refresh': {
     mutating: true,
     build: () => ({
-      command: 'echo "Restarting your assistant\'s mineral. It picks up the software version your rock has published for it; your brain and files stay put."; '
+      command: 'mkdir -p /state/.kernel && date -u +%Y-%m-%dT%H:%M:%SZ > /state/.kernel/update-requested; '
+        + 'echo "Restarting your assistant\'s mineral onto the latest published software. Your brain, your files and the tools your assistant installed stay put."; '
         + '(sleep 2; kill 1) </dev/null >/dev/null 2>&1 & '
         + 'echo "OK: restart scheduled. Your assistant is back in about a minute."',
+    }),
+  },
+  // Is a newer version published? Read-only: asks the registry and caches the
+  // answer on the box (engine/box/update.mjs). A mineral too old to answer says
+  // {} and the app shows nothing rather than guessing.
+  'update-status': {
+    build: () => ({
+      command: 'if [ -f /app/engine/box/update.mjs ]; then node /app/engine/box/update.mjs check /state; else echo "{}"; fi',
     }),
   },
   // What is actually running, so Update-and-restart can be VERIFIED instead of
@@ -1263,7 +1276,7 @@ export const MEMBER_VERBS = {
   'box-version': {
     build: () => ({
       command: 'printf \'{"host":"%s","commit":"%s","up":"%s"}\\n\' '
-        + '"$(hostname)" "$(git -C /app rev-parse --short HEAD 2>/dev/null || true)" "$(ps -o etime= -p 1 2>/dev/null | tr -d \' \' || true)"',
+        + '"$(hostname)" "$(git -C /app rev-parse --short HEAD 2>/dev/null || sed -n \'s/.*"sha":"\\([0-9a-f]\\{7\\}\\).*/\\1/p\' /etc/aios-build 2>/dev/null || true)" "$(ps -o etime= -p 1 2>/dev/null | tr -d \' \' || true)"',
     }),
   },
 
@@ -1541,6 +1554,22 @@ export const MEMBER_VERBS = {
       return {
         command: `[ -f /app/engine/comms/mailchimp-mcp.mjs ] `
           + `&& node /app/engine/comms/mcp-connect.mjs /state add-mailchimp `
+          + `|| echo '{"ok":false,"error":"box-too-old"}'`,
+        stdin: b64 + '\n',
+      };
+    },
+  },
+  // Contract 11 (2026-10-22): Odoo on the box, the same shape as Mailchimp.
+  // The member's Odoo address, own API key and (Odoo before 19) database and
+  // sign-in email ride stdin as base64(JSON), never argv.
+  'mcp-add-odoo': {
+    mutating: true,
+    build: (a = {}) => {
+      const b64 = String(a.def_b64 ?? '');
+      if (!b64 || b64.length > 1600 || !B64_RE.test(b64)) bad('def_b64 must be base64 (a small JSON with the address and key)');
+      return {
+        command: `[ -f /app/engine/comms/odoo-mcp.mjs ] `
+          + `&& node /app/engine/comms/mcp-connect.mjs /state add-odoo `
           + `|| echo '{"ok":false,"error":"box-too-old"}'`,
         stdin: b64 + '\n',
       };

@@ -95,4 +95,8 @@ state/tg-outbox.json
 state/outcomes.jsonl
 state/outcomes.state.json
 backups/crads/heartbeat.json
+# the engine's snapshot itself (trap 80): never committed into an adopted brain, by the
+# engine or by the person's own `git add -A`. Globs inside the engine's own backups/crads/.
+backups/crads/*.enc
+backups/crads/*.enc.tmp
 devices/seen.log

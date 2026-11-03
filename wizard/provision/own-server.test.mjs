@@ -168,7 +168,8 @@ test('the registry entry: ownServer, no secrets asked, listed, and a reason for 
 // e053baa (before the fork) and from this tree, with the one random slot (the
 // inert code-server password) made deterministic; both gave this value. If the
 // dedicated template changes ON PURPOSE, take the new hash in the same commit.
-const DEDICATED_SHA256 = '47b2649d5af8de066fa0ac230b6df75dc01e1ee4fd7df6af832e04f4aaa6ccd1';
+// 2026-11-03 (trap 82): the unit pulls new software only when the member pressed Update.
+const DEDICATED_SHA256 = 'c8589bf1ba4bedae504d65018b2df91212ef2de822752fbb2f95f6de80c74fe5';
 function deterministic(fn) {
   const real = globalThis.crypto.getRandomValues;
   let n = 0;

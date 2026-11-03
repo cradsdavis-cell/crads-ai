@@ -17,8 +17,10 @@
 //   org-inbox/evict/notice.json · org-inbox/re-anchor/notice.json
 // Any difference becomes (a) a line in <state>/custody-log.jsonl, the member's
 // own history the app renders, and (b) one Telegram message via the box's own
-// outbox (<state>/.kernel/outbox/, flushed by the telegram adapter). No token,
-// no API, no network here; a box with no Telegram link still gets the log.
+// outbox (<state>/.kernel/outbox/, flushed by the telegram adapter, or by the
+// Slack DM bridge when the owner made Slack their primary channel: see
+// lib/delivery-target.mjs). No token, no API, no network here; a box with no
+// Telegram link still gets the log.
 //
 // It lives on the box, not the rock, on purpose: the rock is the party whose
 // actions are being reported, so the report must not depend on the rock
@@ -30,13 +32,13 @@
 import { readFileSync, writeFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { deliveryTarget } from '../lib/delivery-target.mjs';   // Telegram, or the owner's Slack DM when they chose it
 
 const stateDir = path.resolve(process.argv[2] || '/state');
 const wantJson = process.argv.includes('--json');
 const SEEN_F = path.join(stateDir, '.kernel', 'custody-seen.json');
 const LOG_F = path.join(stateDir, 'custody-log.jsonl');
 const OUTBOX = path.join(stateDir, '.kernel', 'outbox');
-const CHAT_F = path.join(stateDir, 'secrets', 'telegram_chat_id');
 
 const rd = (p, d) => { try { return JSON.parse(readFileSync(path.join(stateDir, p), 'utf8')); } catch { return d; } };
 const fp = (s) => createHash('sha256').update(String(s || '')).digest('hex').slice(0, 12);
@@ -127,7 +129,6 @@ export function run(dir = stateDir, { now = new Date(), notify = true } = {}) {
   const seenF = path.join(dir, '.kernel', 'custody-seen.json');
   const logF = path.join(dir, 'custody-log.jsonl');
   const outbox = path.join(dir, '.kernel', 'outbox');
-  const chatF = path.join(dir, 'secrets', 'telegram_chat_id');
   const cur = snapshot(dir);
   let prev = null;
   try { prev = JSON.parse(readFileSync(seenF, 'utf8')); } catch { prev = null; }
@@ -144,8 +145,7 @@ export function run(dir = stateDir, { now = new Date(), notify = true } = {}) {
   writeFileSync(seenF, JSON.stringify(cur, null, 2) + '\n');
   let sent = false;
   if (notify) {
-    let chatId = '';
-    try { chatId = readFileSync(chatF, 'utf8').trim(); } catch { /* no telegram link */ }
+    const chatId = deliveryTarget(dir);   // '' = no channel connected
     if (chatId) {
       mkdirSync(outbox, { recursive: true });
       const text = `Custody or access change on your mineral:\n\n${events.map((e) => `• ${e}`).join('\n')}\n\nFull history: custody-log.jsonl on your mineral (ask your assistant to show it).`;

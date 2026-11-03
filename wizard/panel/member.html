@@ -1635,6 +1635,14 @@
         </div>
         <button class="act primary" id="ccBannerBtn">Meet your assistant →</button>
       </div>
+      <!-- Trap 82: the mineral updates only when its member says so, so the app
+           has to say when there is something to update to. -->
+      <div class="ccbanner" id="updBanner" style="display:none" data-needs-box>
+        <div class="txt"><b id="updHead">A new version of your assistant is ready.</b>
+          <div class="sub" id="updSub">Update when you are not in the middle of something: it restarts for about a minute, and anything it is running stops. Your brain, files and installed tools stay.</div>
+        </div>
+        <button class="act primary" id="updBtn">Update now</button>
+      </div>
       <div class="connerror" id="connError">
         <h3 id="connErrHead">Waiting for your mineral</h3>
         <p id="connErrBody">It may still be getting set up. This page keeps checking on its own; nothing you need to do.</p>
@@ -1825,7 +1833,7 @@
            restart twice under two different names. -->
       <div class="guidecard" style="margin-top:14px" data-needs-box>
         <p class="gtitle">Software update: restart your assistant's mineral</p>
-        <p class="hint" style="margin:6px 0 12px" id="boxRefreshHint">If you were told an update is out, or your assistant seems stuck, this restarts its mineral and picks up the software the Crads-AI release channel has published for it. It takes about a minute; everything of yours (your brain, your files, your settings) stays exactly as it is.</p>
+        <p class="hint" style="margin:6px 0 12px" id="boxRefreshHint">Your mineral only updates when you press this. It restarts onto the software the Crads-AI release channel has published for it, in about a minute; anything your assistant is running at that moment stops. Everything of yours (your brain, your files, the tools your assistant installed, your settings) stays exactly as it is. If your assistant seems stuck, this also gives it a clean start.</p>
         <button class="act" id="boxRefreshBtn">Update and restart</button>
         <div class="notice" id="boxRefreshNotice" style="display:none"></div>
       </div>
@@ -2241,6 +2249,51 @@
         </details>
         <div data-done style="display:none;margin-top:12px"></div>
         <div class="notice" id="mcNotice" style="display:none"></div>
+      </div>
+
+      <!-- Odoo (contract 11, 2026-10-22): its server runs ON the mineral
+           (engine/comms/odoo-mcp.mjs) with the member's own API key, since every
+           Odoo is its own instance and there is no one hosted server to use.
+           Saved by mcp-add-odoo, then checked with one real read (whoami). -->
+      <div class="guidecard" id="odWizard" style="margin-top:14px;display:none" data-guided="odoo">
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <p class="gtitle" style="margin:0">Odoo, with your own API key</p>
+          <button class="connfix" type="button" data-guided-close style="margin-left:auto">Close</button>
+        </div>
+        <p class="hint" style="margin:6px 0 10px">Your assistant reaches your Odoo with an API key you make in it. The key lives on your mineral only, and the part that uses it runs there too: your records never pass through anyone else. About five minutes.</p>
+        <p class="hint" style="margin:0 0 10px">It can look up anything you can see in Odoo, add and update contacts, leads, quotations and products, draft invoices and bills, list what is still owed, and leave internal notes. It <b>cannot delete anything, confirm or post an invoice or order, register a payment, or email anyone</b>: those you do in Odoo. It cannot change users, access rights, settings, journals or taxes.</p>
+        <p class="hint" style="margin:0 0 12px">You need Odoo 14 or newer. On Odoo Online, Odoo only opens its API on the <b>Custom</b> plan; One App Free and Standard turn every request away. Odoo.sh and your own server have no such limit.</p>
+        <div class="fsteps" data-ladder style="margin:0 0 12px">
+          <span class="fstep" data-step="1">Make a key</span>
+          <span class="fstep" data-step="2">Paste it</span>
+          <span class="fstep" data-step="3">Working</span>
+        </div>
+        <details class="secfold" data-fold="1">
+          <summary>Step 1: Make an API key<span class="sum2">In your Odoo preferences</span></summary>
+          <div class="fbody">
+            <p class="hint" style="margin:6px 0 10px">In Odoo, click your picture at the top right, then <b>My Preferences</b> (or <b>Preferences</b>), then the <b>Account Security</b> tab, then <b>New API Key</b>. Odoo asks for your password first. Name the key <b>Crads</b>. If Odoo asks how long it should last (Odoo 19 and later do), pick the longest it offers: three months. Click <b>Generate Key</b> and copy it; Odoo shows it only this once.</p>
+            <p class="hint" style="margin:0 0 10px">No API keys section? Switch on developer mode (Settings, then <b>Activate the developer mode</b> at the bottom) and look again.</p>
+            <p class="hint" style="margin:0 0 10px">The key acts as you, with everything you are allowed to do in Odoo. To give your assistant less, an Odoo administrator can make it a user of its own with fewer rights and make the key there (on Odoo Online that is usually another paid user).</p>
+            <label class="check" style="margin:0"><input type="checkbox" data-tick="1"><span>Done, I have the key</span></label>
+          </div>
+        </details>
+        <details class="secfold" data-fold="2" style="margin-top:10px">
+          <summary>Step 2: Paste it<span class="sum2">Saved on your mineral, then tested from it</span></summary>
+          <div class="fbody">
+            <div class="hostbox" style="flex-wrap:wrap;gap:8px">
+              <input id="odUrl" autocomplete="off" spellcheck="false" placeholder="https://yourcompany.odoo.com" style="flex:1;min-width:220px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <input id="odKey" type="password" autocomplete="off" spellcheck="false" placeholder="the 40-character key" style="flex:1;min-width:220px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+            </div>
+            <p class="hint" style="margin:10px 0 6px">Odoo 18 or older only: the email you sign in to Odoo with, and the database name if your Odoo server hosts more than one. Odoo 19 and Odoo Online need neither.</p>
+            <div class="hostbox" style="flex-wrap:wrap;gap:8px">
+              <input id="odLogin" autocomplete="off" spellcheck="false" placeholder="you@yourcompany.com (optional)" style="flex:1;min-width:200px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <input id="odDb" autocomplete="off" spellcheck="false" placeholder="database (optional)" style="width:180px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <button class="act" type="button" id="odSave">Connect Odoo</button>
+            </div>
+          </div>
+        </details>
+        <div data-done style="display:none;margin-top:12px"></div>
+        <div class="notice" id="odNotice" style="display:none"></div>
       </div>
 
       <!-- Asana (contract 7, 2026-10-17): Asana's v2 server has no self-
@@ -3909,6 +3962,7 @@
   // fresh=true forces the box-side rebuild past the 45s cache gate. Pass it
   // after any write and on rising-edge connects; the 60s poll rides the cache.
   function loadDashboard(fresh){
+    checkUpdate();
     run('dashboard-data', fresh ? { fresh: 1 } : {}).then(function(r){
       hydSettle('dashboard', !!r.ok);
       // "Could not load the dashboard data" was doubly misleading: every leg of the
@@ -4823,11 +4877,14 @@
       }
     }
     // contract 5: a Mailchimp key made since 22 June 2026 dies a year after it
-    // was made; the box counts from the day it was pasted, so "by about"
+    // was made; the box counts from the day it was pasted, so "by about".
+    // Contract 11: an Odoo key lasts three months at most, counted the same way.
     if (s.state === 'on' && s.key_expires_by) {
-      // a year out, so the year matters ("Saturday 2 October" reads as this one)
+      // up to a year out, so the year matters ("Saturday 2 October" reads as this one)
       var by = ''; try { by = new Date(Date.parse(s.key_expires_by)).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { by = s.key_expires_by; }
-      warn += '<div class="sub" style="margin:2px 0 0">Mailchimp keys made since June 2026 last a year: expect to paste a new one around ' + esc(by) + '.</div>';
+      // the box sends Odoo's date only for Odoo 19 and later; older keys never expire
+      var life = s.key === 'odoo' ? 'Odoo 19 keys last three months at most' : 'Mailchimp keys made since June 2026 last a year';
+      warn += '<div class="sub" style="margin:2px 0 0">' + life + ': expect to paste a new one around ' + esc(by) + '.</div>';
     }
     return '<li class="marked">' + markSpan(markKey(s), s.label) + '<span class="nm">' + esc(s.label) + '</span>'
       + '<span class="why">' + esc(s.blurb) + esc(kind) + '</span><span style="display:flex;gap:4px">' + btns + '</span>'
@@ -5010,10 +5067,10 @@
   // wizards save through mcp-add-custom and then ask the box to call the
   // server (mcp-check, contract 4); a failed check removes the saved entry, so
   // a wrong paste leaves nothing behind and the member simply tries again.
-  var GUIDED_CARDS = { slack: 'skWizard', wordpress: 'wpWizard', mailchimp: 'mcWizard', account: 'acWizard', asana: 'asWizard', microsoft: 'msWizard' };
-  var GUIDED_NOTICE = { slack: 'skNotice', wordpress: 'wpNotice', mailchimp: 'mcNotice', asana: 'asNotice', microsoft: 'msNotice' };
-  // the box contract each wizard stands on: 4 = scheme basic + check, 5 = Mailchimp on the box
-  var GUIDED_CONTRACT = { slack: 4, wordpress: 4, mailchimp: 5, asana: 7, microsoft: 10 };
+  var GUIDED_CARDS = { slack: 'skWizard', wordpress: 'wpWizard', mailchimp: 'mcWizard', account: 'acWizard', asana: 'asWizard', microsoft: 'msWizard', odoo: 'odWizard' };
+  var GUIDED_NOTICE = { slack: 'skNotice', wordpress: 'wpNotice', mailchimp: 'mcNotice', asana: 'asNotice', microsoft: 'msNotice', odoo: 'odNotice' };
+  // the box contract each wizard stands on: 4 = scheme basic + check, 5 = Mailchimp on the box, 11 = Odoo on the box
+  var GUIDED_CONTRACT = { slack: 4, wordpress: 4, mailchimp: 5, asana: 7, microsoft: 10, odoo: 11 };
   // What the account guide says per service. Facts, verified 2026-10-02:
   // Shopify's sign-in accepts only claude.ai / chatgpt.com redirects; Xero's
   // hosted server refuses third-party tokens and its Claude connector is
@@ -5091,7 +5148,7 @@
     b.onclick = function(){ b.closest('[data-guided]').style.display = 'none'; };
   });
   // ticking a step's Done moves the ladder on to the next one
-  ['skWizard', 'wpWizard', 'mcWizard', 'asWizard'].forEach(function(id){
+  ['skWizard', 'wpWizard', 'mcWizard', 'asWizard', 'odWizard'].forEach(function(id){
     var card = $(id);
     card.addEventListener('change', function(e){
       var t = e.target && e.target.getAttribute && e.target.getAttribute('data-tick');
@@ -5136,6 +5193,13 @@
     if (kind === 'mailchimp') return c.problem === 'auth'
       ? 'Mailchimp turned that key down. Check you copied the whole key, including the ending like -us21, and that it has not been revoked. If it was made a year or more ago it may have expired: make a new one.'
       : (c.detail ? 'Mailchimp said: ' + c.detail : 'Your mineral could not reach Mailchimp just now. Try again in a minute.');
+    if (kind === 'odoo') {
+      if (c.problem === 'auth') return 'Odoo turned that key down. Check you copied the whole key (40 letters and numbers) and that it has not been deleted or expired (on Odoo 19 and later a key lasts three months at most).';
+      if (c.problem === 'unreachable') return 'Your mineral could not reach ' + (odOrigin() || 'that address') + '. Check the address, and that your Odoo is online.';
+      // Odoo's own sentence, already in plain words (a missing database or
+      // email for an older Odoo, a refused permission, a plan without the API)
+      return c.detail ? 'Odoo said: ' + c.detail : 'That did not work. Check the address and the key, and try again.';
+    }
     if (kind === 'slack' && /not enabled for slack mcp/i.test(c.detail || '')) return 'Slack says your app is not switched on for assistants. Open the app on api.slack.com, go to Agents & AI Apps, and turn on Model Context Protocol, then press Connect again. (The template does this for you; an app made by hand needs it.)';
     if (c.problem === 'auth') return kind === 'slack'
       ? 'Slack turned that token down.' + said + ' Check you copied the User OAuth Token (it starts xoxp-), not the app ID or a signing secret, and that the app is installed to your workspace.'
@@ -5148,17 +5212,18 @@
       : 'Your mineral could not reach ' + wpOrigin() + '. Check the address, and that the site is public on https.';
     return 'That did not work (' + (c.status || 'no answer') + ').' + said;
   }
-  // verb: mcp-add-custom (Slack, WordPress) or mcp-add-mailchimp; def.name is
+  // verb: mcp-add-custom (Slack, WordPress), mcp-add-mailchimp or mcp-add-odoo; def.name is
   // the key the box saves it under, which the check and the undo both need
   function guidedConnect(kind, def, btn, verb){
     var nid = GUIDED_NOTICE[kind], card = guidedCard(kind);
-    var label = { slack: 'Slack', wordpress: 'your site', mailchimp: 'Mailchimp' }[kind];
+    var label = { slack: 'Slack', wordpress: 'your site', mailchimp: 'Mailchimp', odoo: 'your Odoo' }[kind];
     if (!mcpBoxOk) { notice(nid, 'Your mineral did not answer, so nothing can be connected right now.'); return; }
     if (mcpContract < GUIDED_CONTRACT[kind]) { notice(nid, MCP_TOO_OLD); return; }
     btn.disabled = true;
     notice(nid, 'Saving it on your mineral…');
     var payload = Object.assign({}, def); delete payload.name;
-    run(verb || 'mcp-add-custom', { def_b64: b64utf8(JSON.stringify(verb === 'mcp-add-mailchimp' ? payload : def)) }).then(function(r){
+    // the on-box verbs take the payload alone: the key they save under is fixed
+    run(verb || 'mcp-add-custom', { def_b64: b64utf8(JSON.stringify(verb && verb !== 'mcp-add-custom' ? payload : def)) }).then(function(r){
       var d = jsonOut(r);
       if (!d || d.ok === false) { btn.disabled = false; notice(nid, mcpErr(d, r)); return; }
       notice(nid, 'Saved. Now asking ' + label + ' to answer from your mineral…');
@@ -5173,6 +5238,16 @@
           if (kind === 'mailchimp') {
             done.innerHTML = '<p class="hint" style="margin:0"><b>Connected' + (c.account ? ' to ' + esc(c.account) : '') + '.</b> Your assistant can use Mailchimp in chats and in scheduled jobs. Mailchimp keys made since 22 June 2026 stop working a year after they are made; the Mailchimp row in Your connections shows the date to expect. Disconnect there removes the key from your mineral.</p>';
             done.style.display = 'block'; $('mcKey').value = '';
+            loadMcp(); loadDashboard(true);
+            return;
+          }
+          if (kind === 'odoo') {
+            // Odoo 19 and later cap keys at three months; 14 to 18 never expire them
+            var major = parseInt(String(c.version || '').replace(/^saas[~-]/, ''), 10) || 0;
+            var life = major >= 19 ? ' Odoo 19 keys last three months at most; the Odoo row in Your connections shows the date to expect.'
+              : major ? ' Keys made in this version of Odoo do not expire.' : '';
+            done.innerHTML = '<p class="hint" style="margin:0"><b>Connected' + (c.account ? ' as ' + esc(c.account) : '') + (c.version ? ' (Odoo ' + esc(c.version) + ')' : '') + '.</b> Your assistant can use Odoo in chats and in scheduled jobs.' + life + ' Disconnect in Your connections removes the key from your mineral.</p>';
+            done.style.display = 'block'; $('odKey').value = '';
             loadMcp(); loadDashboard(true);
             return;
           }
@@ -5231,6 +5306,24 @@
     var k = ($('mcKey').value || '').trim();
     if (!/^[0-9a-f]{32}-[a-z]{2}\d{1,3}$/.test(k)) { notice('mcNotice', 'That does not look like a Mailchimp API key. It is 32 letters and numbers, then a dash and a short code like us21. Copy it again from Mailchimp; it is shown in full only when it is made.'); return; }
     guidedConnect('mailchimp', { name: 'mailchimp', key_b64: b64utf8(k) }, $('mcSave'), 'mcp-add-mailchimp');
+  };
+  // Odoo: the address the member typed, https only (the key never crosses
+  // the internet in the clear); a pasted page address keeps only its origin
+  function odOrigin(){
+    var v = ($('odUrl').value || '').trim();
+    if (!v) return '';
+    if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+    try { var u = new URL(v); return u.protocol === 'https:' ? u.origin : ''; } catch (e) { return ''; }
+  }
+  $('odSave').onclick = function(){
+    var o = odOrigin(), k = ($('odKey').value || '').trim(), login = ($('odLogin').value || '').trim(), db = ($('odDb').value || '').trim();
+    if (!o) { notice('odNotice', 'Type your Odoo address first. It starts https://, like https://yourcompany.odoo.com.'); return; }
+    if (!/^[0-9a-f]{40}$/i.test(k)) { notice('odNotice', 'That does not look like an Odoo API key. It is 40 letters and numbers. Copy it again from Odoo; it is shown in full only when it is made.'); return; }
+    if (db && !/^[A-Za-z0-9_.-]{1,63}$/.test(db)) { notice('odNotice', 'A database name is letters, numbers, dots, dashes and underscores.'); return; }
+    var payload = { name: 'odoo', url: o, key_b64: b64utf8(k) };
+    if (login) payload.login = login;
+    if (db) payload.db = db;
+    guidedConnect('odoo', payload, $('odSave'), 'mcp-add-odoo');
   };
   $('wpSave').onclick = function(){
     var o = wpOrigin(), u = ($('wpUser').value || '').trim(), pw = ($('wpPass').value || '').trim();
@@ -8621,7 +8714,7 @@
     // publish on a mineral that is in no team, the old community-only jobs), so
     // listing it badged "on" claimed work that will not happen. Hidden here; the
     // scheduler still lists it for --plan, where "never" is the honest answer.
-    var plan = ((state.planJson && state.planJson.machinery) || []).filter(function(j){ return j.when !== 'never'; });
+    var plan = ((state.planJson && state.planJson.machinery) || []).filter(function(j){ return j.when !== 'never' || j.id === 'auto-update'; });
     if (plan.length){
       // Cadence v2: the scheduler describes its own machinery (--plan-json),
       // resolved jitter included, so these rows show what will actually fire
@@ -8641,8 +8734,10 @@
                                      : ' · last run failed ' + esc(ago(mr.ts) || mr.ts);
           if (mr.status !== 'ok'){ chip = 'failed'; ok = false; }
         }
-        if (j.id === 'auto-update' && (auOff || j.enabled === false)){ chip = 'opted out'; ok = false;
-          sub = 'Switched off, so this mineral only updates when you press Update &amp; restart. Ask your assistant to turn it back on.'; }
+        // Trap 82 (2026-11-03): updates are the member's call. Off is the normal
+        // state, not a warning; the overnight option is there for those who want it.
+        if (j.id === 'auto-update' && (auOff || j.enabled === false)){ chip = 'off'; ok = true;
+          sub = 'Your mineral only updates when you press Update and restart on the Help page. If you would rather it updated itself overnight, ask your assistant to switch overnight updates on: it then updates only when there is a new version and nothing is running.'; }
         // The heartbeat is a LOCAL liveness stamp now (2026-09-01): the mineral
         // records that it is alive and signed in, and this page reads that
         // stamp to tell fresh from stale. It goes nowhere else.
@@ -8852,6 +8947,32 @@
   function boxVersion(){
     return run('box-version', {}, null).then(function(r){ return jsonOut(r); }).catch(function(){ return null; });
   }
+  // Is a newer version published? The mineral asks the registry (read-only);
+  // an older mineral answers {} and the banner stays hidden rather than guessing.
+  function checkUpdate(force){
+    if (state.kind === 'local') return;
+    // Once per mineral per six hours: the page reloads its data every minute,
+    // and the registry does not need asking that often.
+    var key = state.host || '';
+    if (!force && state.updateFor === key && Date.now() - (state.updateAt || 0) < 6 * 3600e3) return;
+    state.updateFor = key; state.updateAt = Date.now();
+    run('update-status', {}, null).then(function(r){
+      var u = jsonOut(r) || {};
+      state.update = u;
+      var show = u.available === true;
+      $('updBanner').style.display = show ? 'flex' : 'none';
+      if (!show) return;
+      $('updHead').textContent = u.security ? 'An update with a security fix is ready.' : 'A new version of your assistant is ready.';
+      $('updSub').textContent = (u.security ? 'Please update soon: ' : 'Update when you are not in the middle of something: ')
+        + 'it restarts for about a minute, and anything it is running stops. Your brain, files and installed tools stay.';
+    }).catch(function(){ /* no answer: say nothing */ });
+  }
+  $('updBtn').onclick = function(){
+    if (!confirm('Update now? Your assistant restarts for about a minute, and anything it is running stops. Your brain, files and installed tools stay.')) return;
+    $('updBanner').style.display = 'none';
+    activateSec('help');
+    $('boxRefreshBtn').click();
+  };
   $('boxRefreshBtn').onclick = function(){
     var b = this; b.disabled = true;
     notice('boxRefreshNotice', 'Checking what is running now…');

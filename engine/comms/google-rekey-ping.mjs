@@ -26,20 +26,20 @@
 // network or server error is never death; only invalid_grant is.
 //
 // Delivery is the box's own outbox (<state>/.kernel/outbox/), flushed by the
-// telegram adapter. A box with no Google key exits silently — the scheduler
-// runs this hourly and almost every run must cost nothing (the 6h throttle
-// keeps the probe itself rare).
+// telegram adapter (or the Slack DM bridge, see lib/delivery-target.mjs). A box
+// with no Google key exits silently — the scheduler runs this hourly and almost
+// every run must cost nothing (the 6h throttle keeps the probe itself rare).
 //
 //   node google-rekey-ping.mjs <state-dir>
 import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { googleEntries, googleStateFiles, PRIMARY_GOOGLE_KEY } from '../lib/google-byo.mjs';
 import { connectionLabel } from '../lib/connection-labels.mjs';
+import { deliveryTarget } from '../lib/delivery-target.mjs';   // Telegram, or the owner's Slack DM when they chose it
 
 const stateDir = path.resolve(process.argv[2] || '/state');
 const OAUTH_F = path.join(stateDir, '.kernel', 'mcp-oauth.json');
 const OUTBOX = path.join(stateDir, '.kernel', 'outbox');
-const CHAT_F = path.join(stateDir, 'secrets', 'telegram_chat_id');
 
 const PROBE_EVERY = 6 * 3600e3;   // the scheduler fires hourly; probe Google every 6h
 
@@ -49,8 +49,7 @@ const rd = (p, d) => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch
 const entries = googleEntries(rd(OAUTH_F, {}));
 if (!entries.length) out({ ok: true, sent: null, why: 'no google key' });
 
-let chatId = '';
-try { chatId = readFileSync(CHAT_F, 'utf8').trim(); } catch { /* no telegram link */ }
+const chatId = deliveryTarget(stateDir);   // '' = no channel connected
 
 // One account, start to finish. Returns {sent, why}; never exits, so every
 // account on the box gets its turn in one run.

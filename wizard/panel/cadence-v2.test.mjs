@@ -104,7 +104,10 @@ test('machinery rows carry human labels, never raw job ids', () => {
   assert.match(html, /'heartbeat': 'Last check-in'/, 'heartbeat is not a word a member needs');
   assert.match(html, /this page reads that note; it stays on the mineral\./, 'the row says the check-in never leaves');
   assert.doesNotMatch(html, /Liveness stamp|Publishing to members/, 'no stamp vocabulary, no members');
-  assert.match(html, /\.filter\(function\(j\)\{ return j\.when !== 'never'; \}\)/, 'a job that cannot fire on this mineral is not listed as on');
+  // Except the overnight update (trap 82): off is its normal state now, and the
+  // member is told so ("off"), with how to switch it on.
+  assert.match(html, /\.filter\(function\(j\)\{ return j\.when !== 'never' \|\| j\.id === 'auto-update'; \}\)/, 'a job that cannot fire on this mineral is not listed as on');
+  assert.match(html, /chip = 'off'; ok = true;/, 'off is a normal state, not a warning');
   assert.match(html, /'auto-update': 'Software updates'/, 'kebab ids are mapped');
   // m.label is set only by the Health card's failing-script rows ("Script: <name>");
   // every machinery row still renders through the map.

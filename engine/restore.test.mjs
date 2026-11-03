@@ -167,9 +167,13 @@ test('a restored mineral backs itself up again with the passphrase the member al
 // marketplaces (git clones), and git keeps pack files read-only. cpSync cannot
 // overwrite a 0444 file, so the first real restore died with EACCES half applied:
 // brain merged, secrets/ and the passphrase never written.
+//
+// Since trap 80 the backup leaves the plugin marketplaces out (a new mineral is
+// born with them, and they were most of a 244 MB snapshot), so the read-only
+// pack is planted in a git clone the snapshot still carries.
 test('read-only files the new mineral already has (git pack files) are replaced, not a crash', () => {
   const root = tmpDir('restore-');
-  const PACK = ['.claude-auth', 'plugins', 'marketplaces', 'm', '.git', 'objects', 'pack'];
+  const PACK = ['.claude-auth', 'skills', 'm', '.git', 'objects', 'pack'];
   const plant = (body) => (d) => {
     mkdirSync(join(d, ...PACK), { recursive: true });
     writeFileSync(join(d, ...PACK, 'pack-1.pack'), body, { mode: 0o444 });

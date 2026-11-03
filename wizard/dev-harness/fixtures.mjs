@@ -1107,7 +1107,7 @@ function honestRows() {
       configured: true, authorised: false, renews: true, mine: true, status: 'not working: its sign-in ran out at 15:10 and has not been renewed yet' },
   ];
 }
-const MCP_CONTRACT = 10;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
+const MCP_CONTRACT = 11;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
                           // (2 = the byo google row, 2026-08-17; 3 = several
                           // google rows, one per account, 2026-09-14. Bumped
                           // in lockstep with the engine. rekey_due_at left the
@@ -1778,6 +1778,12 @@ export function runVerb(surface, verb, args, state, opts) {
     // JSON line, so the fixture does too
     case 'box-version':
       return ok(['build 806 (sha-c18917c)']);
+    // Trap 82: the Overview banner. Only ?update=1 (or =security) on the page url
+    // has a newer version, so every other shot keeps its layout.
+    case 'update-status': {
+      const u = (opts && opts.update) || '';
+      return ok([JSON.stringify({ checked_at: '2026-11-03T06:00:00Z', current: 'sha-c18917c', ...(u ? { latest: 'sha-d00d' } : {}), available: !!u, security: u === 'security' })]);
+    }
     // The prefix is SKILLS_STATE, not SKILLS (fixed 2026-08-10). engine/appshell/
     // skills-list.mjs has always emitted "SKILLS_STATE {json}" and every reader
     // parses /SKILLS_STATE (.*)/, so this fixture matched nothing: the Community
@@ -1834,6 +1840,9 @@ export function runVerb(surface, verb, args, state, opts) {
       const on = MCP_ON[args.key];
       if (!on) return ok([JSON.stringify({ ok: false, error: `"${args.key}" is not a connection on this box` })]);
       if (on.wrong) return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: args.key, working: false, problem: 'auth', status: 401, detail: 'Sorry, you are not allowed to do that.' })]);
+      if (args.key === 'odoo') return ok([JSON.stringify(on.dead
+        ? { ok: true, contract: MCP_CONTRACT, key: 'odoo', working: false, problem: 'auth', detail: 'Odoo turned the API key down: it has expired (on Odoo 19 and later a key lasts three months at most) or been deleted.' }
+        : { ok: true, contract: MCP_CONTRACT, key: 'odoo', working: true, server: 'crads-odoo', tools: 11, account: 'Mel Driftwood, Driftwood Surf School', version: '19.0' })]);
       if (args.key === 'mailchimp') return ok([JSON.stringify(on.dead
         ? { ok: true, contract: MCP_CONTRACT, key: 'mailchimp', working: false, problem: 'auth', detail: 'Mailchimp turned the API key down: it has expired or been revoked.' }
         : { ok: true, contract: MCP_CONTRACT, key: 'mailchimp', working: true, server: 'crads-mailchimp', tools: 12, account: 'Mel\'s Shop' })]);
@@ -1879,6 +1888,18 @@ export function runVerb(surface, verb, args, state, opts) {
       MCP_ON.mailchimp = { authorised: true, auth: 'token', renews: false, key_expires_by: new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10), blurb: 'audiences, contacts, draft campaigns and reports, with your own key' };
       if (/-us0$/.test(k)) MCP_ON.mailchimp.dead = true;
       return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: 'mailchimp', action: 'add', auth: 'token', services: mcpRows() })]);
+    }
+    // contract 11: Odoo on the box. A key starting 0000 stands in for one
+    // Odoo turns down, so the wizard's failure path can be driven here.
+    case 'mcp-add-odoo': {
+      const p = JSON.parse(Buffer.from(String(args.def_b64 || ''), 'base64').toString('utf8'));
+      const k = Buffer.from(String(p.key_b64 || ''), 'base64').toString('utf8').trim();
+      if (!/^[0-9a-f]{40}$/i.test(k)) return ok([JSON.stringify({ ok: false, error: 'that does not look like an Odoo API key: 40 letters and numbers' })]);
+      if (!/^https:\/\//.test(String(p.url || ''))) return ok([JSON.stringify({ ok: false, error: 'the Odoo address must be an https address, like https://yourcompany.odoo.com' })]);
+      // the fixture's Odoo answers as 19.0 (see mcp-check), so its key carries a date
+      MCP_ON.odoo = { authorised: true, auth: 'token', renews: false, key_expires_by: new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10), blurb: 'contacts, CRM, sales and draft invoices, with your own key' };
+      if (/^0000/.test(k)) MCP_ON.odoo.dead = true;
+      return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: 'odoo', action: 'add', auth: 'token', services: mcpRows() })]);
     }
     case 'mcp-remove': {
       delete MCP_ON[args.key];

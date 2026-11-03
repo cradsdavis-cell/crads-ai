@@ -165,6 +165,29 @@ test('driven: all four guided cards, a wrong credential refused and nothing kept
     assert.ok((await yours()).includes('Mailchimp'));
     assert.match(await page.innerText('#mcpRows'), /expect to paste a new one around/, 'the row says when the key should run out');
 
+    // Odoo (contract 11): an http address and a malformed key are refused on
+    // the page, a dead key by the box check (and not kept), a good one names
+    // the user and company, and the row says when to expect a new key
+    await open('Odoo');
+    assert.ok(await page.isVisible('#odWizard'));
+    const odText = await page.innerText('#odWizard');
+    assert.match(odText, /cannot delete anything, confirm or post an invoice or order, register a payment, or email anyone/);
+    assert.match(odText, /Custom plan/, 'the Odoo Online plan limit is said before anything is pasted');
+    await page.check('#odWizard [data-tick="1"]');
+    const odKey = (head) => head + 'ab12'.repeat(9);   // fake, built at runtime
+    await page.fill('#odUrl', 'http://erp.example.com'); await page.fill('#odKey', odKey('ab12')); await page.click('#odSave');
+    assert.match(await page.textContent('#odNotice'), /starts https:\/\//);
+    await page.fill('#odUrl', 'driftwood.odoo.com'); await page.fill('#odKey', 'not-a-key'); await page.click('#odSave');
+    assert.match(await page.textContent('#odNotice'), /does not look like an Odoo API key/);
+    await page.fill('#odKey', odKey('0000')); await page.click('#odSave'); await page.waitForTimeout(2000);
+    assert.match(await page.textContent('#odNotice'), /Odoo turned that key down[\s\S]*Nothing was kept/);
+    assert.ok(!(await yours()).includes('Odoo'), 'a dead key leaves no row');
+    await page.fill('#odKey', odKey('ab12')); await page.click('#odSave'); await page.waitForTimeout(2000);
+    assert.match(await page.textContent('#odWizard [data-done]'), /Connected as Mel Driftwood, Driftwood Surf School \(Odoo 19\.0\)\./);
+    assert.match(await page.textContent('#odWizard [data-done]'), /Odoo 19 keys last three months at most/, 'a 19 says when to expect a new key');
+    assert.ok((await yours()).includes('Odoo'));
+    assert.match(await page.innerText('#mcpRows'), /Odoo 19 keys last three months at most: expect to paste a new one around/);
+
     // Shopify and Xero: a guide, no box write, and the limit said plainly
     for (const n of ['Shopify', 'Xero']) {
       assert.equal(await card(n).locator('.mcp-dir-connect').innerText(), 'How to');
@@ -184,8 +207,18 @@ test('driven: all four guided cards, a wrong credential refused and nothing kept
 
 test('Mailchimp saves through its own verb and waits for a contract-5 box', () => {
   assert.match(guided, /guidedConnect\('mailchimp', \{ name: 'mailchimp', key_b64: b64utf8\(k\) \}, \$\('mcSave'\), 'mcp-add-mailchimp'\)/);
-  assert.match(guided, /var GUIDED_CONTRACT = \{ slack: 4, wordpress: 4, mailchimp: 5, asana: 7, microsoft: 10 \};/);
+  assert.match(guided, /var GUIDED_CONTRACT = \{ slack: 4, wordpress: 4, mailchimp: 5, asana: 7, microsoft: 10, odoo: 11 \};/);
   assert.match(html, /id="mcWizard"[\s\S]*?<b>cannot send or schedule a campaign<\/b>/, 'the card says what it will not do, before the member pastes anything');
+});
+
+// Odoo (contract 11, 2026-10-22): saved through its own verb with the address
+// the member typed, gated on 11, and the card says what it will not do first.
+test('Odoo saves through its own verb, https only, and waits for a contract-11 box', () => {
+  assert.match(guided, /guidedConnect\('odoo', payload, \$\('odSave'\), 'mcp-add-odoo'\)/);
+  assert.match(guided, /var payload = \{ name: 'odoo', url: o, key_b64: b64utf8\(k\) \};/, 'the key rides base64, never in the clear');
+  assert.match(guided, /return u\.protocol === 'https:' \? u\.origin : '';/, 'an http address is refused on the page');
+  assert.match(guided, /verb && verb !== 'mcp-add-custom' \? payload : def/, 'the on-box verbs get the payload without the name');
+  assert.match(html, /id="odWizard"[\s\S]*?<b>cannot delete anything, confirm or post an invoice or order, register a payment, or email anyone<\/b>/, 'says what it will not do, before the member pastes anything');
 });
 
 // Microsoft 365 (contract 8, 2026-10-19): saved through its own verb, signed

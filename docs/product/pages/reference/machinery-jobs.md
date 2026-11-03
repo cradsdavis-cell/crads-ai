@@ -1,7 +1,7 @@
 ---
 title: The jobs your mineral runs by itself
 search-title: The scheduled jobs your assistant runs by itself
-summary: The 18 machinery jobs Crads AI maintains on every mineral, and what each one is for.
+summary: The 22 machinery jobs Crads AI maintains on every mineral, and what each one is for.
 audience: public
 access: public
 mode: reference
@@ -20,7 +20,7 @@ You can see the ones your mineral runs, and their last outcome, on the **Health*
 card on your **Overview** page. It summarises them in a line ("3 jobs, all fine") and
 expands to the individual rows.
 
-**Your mineral runs 14 of these 18.** The jobs marked no in the
+**Your mineral runs 18 of these 22.** The jobs marked no in the
 Runs column belonged to the old community servers, removed in September 2026. The
 scheduler still knows them, but they never fire on a mineral of your own; they are
 listed so the table is the whole scheduler, not a flattering subset of it.
@@ -41,9 +41,13 @@ the job has a rhythm only once there is something for it to do.
 | `team-hub` | merges what each person published into the company brain (company agent only) | when it applies | yes |
 | `team-slack` | keeps the company agent answering in Slack, once Slack is connected (company agent only) | when it applies | yes |
 | `team-inbox` | triages the shared inbox into the company brain, read only, once the owner switches it on (company agent only) | when it applies | yes |
+| `health-check` | checks backups, the off-box copy, disk space and failed jobs each morning, and tells you when something new goes wrong (weekly summary on Mondays) | 08:05 | yes |
+| `chat-retention` | deletes saved chats older than your chat retention (30 days unless you change it) | 03:30 | yes |
 | `backup` | encrypted snapshot of your settings and credentials; your brain rides its own repository | 03:40 | yes |
 | `brain-push` | pushes your brain to your own private repo | 03:50 | yes |
-| `auto-update` | restart onto the software Crads-AI published | 04:10 + a per-box offset | yes |
+| `auto-update` | optional overnight update: off unless you switch it on, and even then only when there is a new version and nothing is running | off unless you switch it on; then 04:10 to 06:00 | yes |
+| `update-check` | checks once a day whether a newer version is out, so the app can tell you; never restarts anything | 06:00 + a per-box offset | yes |
+| `tmp-tidy` | clears temp files nobody has touched for a week; never your home folder or your brain | 03:20 | yes |
 | `seen-drain` | keeps the "last seen" column of the device roster on Your mineral true | every 2 min | yes |
 | `reconcile` | only on old community servers, where it applied registry changes; never on a mineral of your own | every 15 min | no |
 | `heartbeat-pull` | only on old community servers, where it gathered the check-ins of the minerals it ran; never on a mineral of your own | when it applies | no |

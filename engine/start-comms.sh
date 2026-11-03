@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# start-comms.sh — idempotently start Remote Control (always, unless switched off; see below) and
-# the kernel daemon + Telegram bridge, the last two ONLY if the client has connected Telegram (token +
-# chat id present). Called by box-up at session start, by the scheduler every two minutes, and by
-# connect-telegram right after linking, so Telegram goes live without a restart.
+# start-comms.sh — idempotently start Remote Control (always, unless switched off; see below), the
+# owner's Slack DM bridge + the kernel daemon if Slack is configured (three secrets, see below), and
+# the kernel daemon + Telegram bridge if the client has connected Telegram (token + chat id
+# present). Called by box-up at session start, by the scheduler every two minutes, and by
+# connect-telegram right after linking, so Telegram (or Slack) goes live without a restart.
 #
 # The kernel daemon drains the queue (runs the `message` skill on the client's own Claude auth →
 # writes a draft reply to the outbox); the bridge long-polls Telegram and flushes those replies
@@ -61,6 +62,35 @@ elif rc_alive; then
   node "$RC" "$BOX" stop >/dev/null 2>&1 || true   # switched off, or signed out: no stale server
 fi
 
+alive(){ local pf="$1"; [ -f "$pf" ] && kill -0 "$(cat "$pf" 2>/dev/null)" 2>/dev/null; }
+launch(){ # name  script  [args...]
+  local name="$1" script="$2"; shift 2
+  local pf="$BOX/.kernel/$name.pid"
+  alive "$pf" && return 0
+  nohup node "$script" "$BOX" "$@" >"$BOX/.kernel/$name.log" 2>&1 &
+  echo $! > "$pf"
+}
+stop(){ local pf="$BOX/.kernel/$1.pid"; if alive "$pf"; then kill "$(cat "$pf")" 2>/dev/null || true; fi; rm -f "$pf"; }
+
+# ---- the owner's Slack DM (engine/comms/slack-dm.mjs) --------------------------
+# A second chat channel, independent of Telegram: a box can have either, both or
+# neither. So it sits ABOVE the Telegram gates below, any of which can exit early
+# (no Telegram, an indeterminate revocation check, the host still reading the
+# bot), and none of which is Slack's business. It starts, with the kernel daemon
+# that turns its messages into replies, only when all three Slack secrets are
+# there and well-formed: the check is delivery-target.mjs's, the same one the
+# bridge and the scheduler use, so the three can never disagree. Off by default:
+# no secrets, nothing starts. The pidfile makes it single-instance across the
+# scheduler's two-minute passes. Secrets removed: the bridge stops itself on its
+# next pass, and this stops one that has not noticed yet.
+if node "$ENGINE/lib/delivery-target.mjs" "$BOX" slack-configured >/dev/null 2>&1; then
+  mkdir -p "$BOX/.kernel"
+  launch kernel   "$ENGINE/kernel/kernel.mjs"
+  launch slack-dm "$ENGINE/comms/slack-dm.mjs"
+else
+  stop slack-dm
+fi
+
 # BOOT RECONCILIATION. A token revoked on this box must not come back, whatever put
 # it there: a hand restore from a snapshot (docs/box-restore-runbook.md is a manual
 # openssl-and-untar, there is no restore code to hook), or any other stale copy.
@@ -94,16 +124,6 @@ fi
 # Telegram not connected → nothing to start.
 [ -s "$BOX/secrets/telegram_bot_token" ] && [ -s "$BOX/secrets/telegram_chat_id" ] || exit 0
 mkdir -p "$BOX/.kernel"
-
-alive(){ local pf="$1"; [ -f "$pf" ] && kill -0 "$(cat "$pf" 2>/dev/null)" 2>/dev/null; }
-launch(){ # name  script  [args...]
-  local name="$1" script="$2"; shift 2
-  local pf="$BOX/.kernel/$name.pid"
-  alive "$pf" && return 0
-  nohup node "$script" "$BOX" "$@" >"$BOX/.kernel/$name.log" 2>&1 &
-  echo $! > "$pf"
-}
-stop(){ local pf="$BOX/.kernel/$1.pid"; if alive "$pf"; then kill "$(cat "$pf")" 2>/dev/null || true; fi; rm -f "$pf"; }
 launch kernel   "$ENGINE/kernel/kernel.mjs"      # daemon: drains message + cadence jobs
 # WHO READS THE BOT (adopt spec 2026-10-17 § Telegram). A move-in that carries an
 # existing bot over writes `host` into .kernel/telegram-reader (engine/move-in):

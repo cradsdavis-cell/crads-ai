@@ -1125,3 +1125,85 @@ test('check on a stdio server with no program says which kind of no, and status 
   const w = svc(runEnv(d, 'status', {}), 'whatsapp');
   assert.equal(w.problem, 'program', 'the live preflight outranks the recorded check');
 });
+
+// ---- contract 11: Odoo on the box (2026-10-22) ------------------------------
+const ODOO_KEY = 'ab12'.repeat(10);   // fake, built at runtime (Odoo keys are 40 hex)
+
+test('add-odoo: a stdio server carrying address and key in env, a token row, key never echoed', () => {
+  const d = box();
+  const raw = execFileSync('node', [SCRIPT, d, 'add-odoo'], { encoding: 'utf8',
+    input: b64({ url: 'driftwood.odoo.com/odoo/discuss', key_b64: Buffer.from(` ${ODOO_KEY}\n`).toString('base64'), login: 'mel@driftwood.test' }) });
+  const r = JSON.parse(raw);
+  assert.equal(r.ok, true);
+  assert.ok(r.contract >= 11, 'contract 11 announces add-odoo');
+  assert.ok(!raw.includes(ODOO_KEY), 'the key must not come back out through the verb');
+  const row = svc(r, 'odoo');
+  assert.equal(row.auth, 'token'); assert.equal(row.state, 'on'); assert.equal(row.label, 'Odoo');
+  assert.equal(row.url, 'https://driftwood.odoo.com', 'the address is not a secret: the row shows which Odoo');
+  assert.equal(row.key_expires_by, null, 'no date until a check says which Odoo this is: keys before 19 never expire');
+  const def = JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers.odoo;
+  assert.equal(def.type, 'stdio'); assert.equal(def.command, 'node');
+  assert.match(def.args[0], /engine\/comms\/odoo-mcp\.mjs$/, 'our own server, shipped beside this file');
+  assert.equal(def.env.ODOO_API_KEY, ODOO_KEY, 'trimmed on the way in');
+  assert.equal(def.env.ODOO_URL, 'https://driftwood.odoo.com', 'https assumed, the page path dropped');
+  assert.equal(def.env.ODOO_LOGIN, 'mel@driftwood.test');
+  assert.equal(def.env.ODOO_DB, undefined, 'no database unless one was typed');
+  assert.ok(readFileSync(path.join(d, '.kernel', 'mcp-allow'), 'utf8').includes('mcp__odoo__*'));
+  const gone = run(d, ['remove', 'odoo']);
+  assert.equal(gone.ok, true);
+  assert.equal(JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers.odoo, undefined, 'Disconnect removes it, key and all');
+});
+
+test('add-odoo refuses a bad key, a plain-http address, and a malformed database', () => {
+  const d = box();
+  const key = Buffer.from(ODOO_KEY).toString('base64');
+  for (const k of ['', 'short', ODOO_KEY + 'ff', 'zz'.repeat(20), ODOO_KEY + ' extra']) {
+    assert.equal(run(d, 'add-odoo', b64({ url: 'acme.odoo.com', key_b64: Buffer.from(k).toString('base64') })).ok, false, JSON.stringify(k));
+  }
+  assert.match(run(d, 'add-odoo', b64({ url: 'http://erp.acme.com', key_b64: key })).error, /https/);
+  assert.equal(run(d, 'add-odoo', b64({ url: '', key_b64: key })).ok, false);
+  assert.match(run(d, 'add-odoo', b64({ url: 'acme.odoo.com', key_b64: key, db: 'acme; drop' })).error, /database name/);
+  assert.ok(!existsSync(path.join(d, '.mcp.json')), 'nothing written on a refusal');
+});
+
+test('check speaks stdio to Odoo: a good key names the user, company and version; the expiry follows the version; a dead key is an auth problem', async () => {
+  let good = true, version = '19.0-20261015';
+  const odoo = createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      const send = (st, j) => { res.writeHead(st, { 'content-type': 'application/json' }); res.end(json(j)); };
+      if (req.url === '/web/version') return send(200, { version });
+      if (!good || req.headers.authorization !== `bearer ${ODOO_KEY}`) return send(401, { name: 'werkzeug.exceptions.Unauthorized', message: 'Invalid apikey' });
+      if (req.url === '/json/2/res.users/context_get') return send(200, { uid: 2 });
+      if (req.url === '/json/2/res.users/read') return send(200, [{ id: 2, name: 'Mel Driftwood', login: 'mel@driftwood.test', company_id: [1, 'Driftwood Surf School'] }]);
+      send(404, { name: 'odoo.exceptions.MissingError', message: 'nope' });
+    });
+  });
+  await new Promise((r) => odoo.listen(0, '127.0.0.1', r));
+  try {
+    const d = box();
+    assert.equal(run(d, 'add-odoo', b64({ url: `http://127.0.0.1:${odoo.address().port}`, key_b64: Buffer.from(ODOO_KEY).toString('base64') })).ok, true);
+    const ok = await runAsyncEnv(d, ['check', 'odoo'], {});
+    assert.equal(ok.working, true, JSON.stringify(ok));
+    assert.equal(ok.server, 'crads-odoo');
+    assert.equal(ok.account, 'Mel Driftwood, Driftwood Surf School', 'one real read proves the key, not just the server');
+    assert.equal(ok.version, '19.0-20261015');
+    assert.ok(ok.tools >= 10);
+    const odooRow = () => svc(run(d, 'status'), 'odoo');
+    const days = (Date.parse(odooRow().key_expires_by) - Date.now()) / 864e5;
+    assert.ok(days > 88 && days < 91, `Odoo 19: about three months out, got ${days}`);
+    assert.equal(odooRow().last_check.version, '19.0-20261015');
+    version = '17.0-20260908';
+    assert.equal((await runAsyncEnv(d, ['check', 'odoo'], {})).working, true);
+    assert.equal(odooRow().key_expires_by, null, 'Odoo 17 keys never expire: no date to expect');
+    version = 'saas~19.2+e';
+    await runAsyncEnv(d, ['check', 'odoo'], {});
+    assert.match(odooRow().key_expires_by, /^\d{4}-\d{2}-\d{2}$/, 'Odoo Online saas~19.x counts as 19');
+    good = false;
+    const bad = await runAsyncEnv(d, ['check', 'odoo'], {});
+    assert.equal(bad.working, false); assert.equal(bad.problem, 'auth');
+    assert.match(bad.detail, /turned the API key down/);
+    assert.ok(!JSON.stringify(bad).includes(ODOO_KEY));
+  } finally { odoo.close(); }
+});

@@ -144,6 +144,8 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Read the security level
+        run: echo "SECURITY_LEVEL=$(tr -dc 0-9 < engine/security-level)" >> "$GITHUB_ENV"
       - name: Build + push base, member, rock (amd64 + arm64)
         uses: docker/bake-action@v5
         env:

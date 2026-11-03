@@ -33,6 +33,7 @@ export const SUBJECTS = [
   { slug: 'connect-slack', re: /\bconnect(?:ing)? Slack\b/i },
   { slug: 'connect-wordpress', re: /\bconnect(?:ing)? WordPress\b/i },
   { slug: 'connect-mailchimp', re: /\bconnect(?:ing)? Mailchimp\b/i },
+  { slug: 'connect-odoo', re: /\bconnect(?:ing)? Odoo\b/i },
   { slug: 'connect-microsoft', re: /\bconnect(?:ing)? Microsoft 365\b/i },
   { slug: 'connect-asana', re: /\bconnect(?:ing)? Asana\b/i },
   { slug: 'back-up-and-restore', re: /\bback ?up (?:your mineral|and restore)\b/i },

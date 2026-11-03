@@ -15,12 +15,20 @@
 //                  (deterministic CI gate; no window, no GUI session needed)
 //   --smoke <url>  open the window, close it after the first NavigationCompleted,
 //                  exit 0 (30s watchdog exits 3). CI-only, non-fatal there.
+//   (no url)       start Crads-AI.exe from this folder and exit: see the 2026-10-30
+//                  note above LaunchApp.
 #include <windows.h>
 #include <shellapi.h>
+#include <shlwapi.h>
 #include <objbase.h>
+#include <propsys.h>
 #include <string>
 #include <wrl.h>
 #include "WebView2.h"
+// initguid AFTER the other headers: it only has to define the PKEY_AppUserModel_*
+// keys propkey.h declares (selectany, so no extra lib to link).
+#include <initguid.h>
+#include <propkey.h>
 
 using Microsoft::WRL::Callback;
 using Microsoft::WRL::ComPtr;
@@ -28,6 +36,63 @@ using Microsoft::WRL::ComPtr;
 static ComPtr<ICoreWebView2Controller> g_controller;
 static ComPtr<ICoreWebView2> g_webview;
 static bool g_smoke = false;
+
+// The app this host belongs to: Crads-AI.exe in the same folder (selfInstall
+// writes both to %LOCALAPPDATA%\Programs\Crads-AI). Empty if it isn't there.
+static std::wstring ExeDir() {
+  wchar_t p[MAX_PATH];
+  DWORD n = GetModuleFileNameW(nullptr, p, MAX_PATH);
+  if (!n || n >= MAX_PATH) return L"";
+  std::wstring s(p, n);
+  size_t slash = s.find_last_of(L"\\/");
+  return slash == std::wstring::npos ? L"" : s.substr(0, slash + 1);
+}
+static std::wstring AppExe() {
+  std::wstring dir = ExeDir();
+  if (dir.empty()) return L"";
+  std::wstring app = dir + L"Crads-AI.exe";
+  return GetFileAttributesW(app.c_str()) == INVALID_FILE_ATTRIBUTES ? L"" : app;
+}
+
+// 2026-10-30 (a member's "black screen after restart"): the taskbar icon belongs
+// to this exe, so pinning the running window pinned crads-ai-window-<tag>.exe
+// with no url. Clicking the pin opened about:blank on the dark background: a
+// black window with no app behind it, and nothing in startup.log because
+// Crads-AI.exe never ran. So a launch with no url hands over to the app, which
+// finds or starts the servers and reopens this host WITH a url, exactly like the
+// Start menu shortcut does.
+static bool LaunchApp(const std::wstring& app) {
+  std::wstring cmd = L"\"" + app + L"\"";
+  std::wstring dir = ExeDir();
+  STARTUPINFOW si = { sizeof(si) };
+  PROCESS_INFORMATION pi = {};
+  if (!CreateProcessW(app.c_str(), &cmd[0], nullptr, nullptr, FALSE, 0, nullptr, dir.c_str(), &si, &pi)) return false;
+  CloseHandle(pi.hThread);
+  CloseHandle(pi.hProcess);
+  return true;
+}
+
+// And new pins point at the app, not at this exe: the build-tagged host is swept
+// after an update, so a pin to it would stop working altogether. These are the
+// documented relaunch properties; Windows uses them only when ID, command and
+// display name are all set.
+static void PinToApp(HWND hwnd, const std::wstring& app) {
+  ComPtr<IPropertyStore> store;
+  if (FAILED(SHGetPropertyStoreForWindow(hwnd, IID_PPV_ARGS(store.GetAddressOf())))) return;
+  auto set = [&](REFPROPERTYKEY key, const std::wstring& v) {
+    PROPVARIANT pv;
+    PropVariantInit(&pv);
+    if (SUCCEEDED(SHStrDupW(v.c_str(), &pv.pwszVal))) { pv.vt = VT_LPWSTR; store->SetValue(key, pv); }
+    PropVariantClear(&pv);
+  };
+  set(PKEY_AppUserModel_ID, L"CradsAI.Desktop");
+  set(PKEY_AppUserModel_RelaunchCommand, L"\"" + app + L"\"");
+  set(PKEY_AppUserModel_RelaunchDisplayNameResource, L"Crads-AI");
+  // the same .ico the shortcuts use; the exe's own icon goes stale in the cache
+  std::wstring ico = ExeDir() + L"crads-ai.ico";
+  if (GetFileAttributesW(ico.c_str()) != INVALID_FILE_ATTRIBUTES) set(PKEY_AppUserModel_RelaunchIconResource, ico + L",0");
+  store->Commit();
+}
 
 static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
   switch (m) {
@@ -48,12 +113,12 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
   int argc = 0;
   LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
   std::wstring url = L"about:blank";
-  bool probe = false;
+  bool probe = false, haveUrl = false;
   for (int i = 1; i < argc; i++) {
     std::wstring a = argv[i];
     if (a == L"--smoke") g_smoke = true;
     else if (a == L"--probe") probe = true;
-    else url = a;
+    else { url = a; haveUrl = true; }
   }
   if (probe) {
     LPWSTR ver = nullptr;
@@ -61,6 +126,10 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     if (SUCCEEDED(hr) && ver) { CoTaskMemFree(ver); return 0; }
     return 1;
   }
+  // No url: an old pin or a double-click on this exe. Hand over to the app. With
+  // no app beside us (a dev build, CI) keep the old about:blank window.
+  const std::wstring app = AppExe();
+  if (!haveUrl && !app.empty()) return LaunchApp(app) ? 0 : 4;
 
   CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -76,6 +145,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
   HWND hwnd = CreateWindowExW(0, wc.lpszClassName, L"Crads-AI", WS_OVERLAPPEDWINDOW,
     CW_USEDEFAULT, CW_USEDEFAULT, 1200, 840, nullptr, nullptr, inst, nullptr);
   if (!hwnd) return 2;
+  // before ShowWindow, so the taskbar button carries them from the start
+  if (!app.empty()) PinToApp(hwnd, app);
   // Never start hidden or background-minimised: a window host has no headless
   // mode, and inheriting SW_HIDE from a spawner (node's windowsHide, a stray
   // shortcut) yields a live-but-invisible app, which reads as "won't open".

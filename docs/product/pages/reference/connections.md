@@ -1,6 +1,6 @@
 ---
 title: What you can connect
-summary: The 70 services your mineral can connect to, the 2 that only connect through your Claude account, and how each one signs in.
+summary: The 71 services your mineral can connect to, the 2 that only connect through your Claude account, and how each one signs in.
 audience: public
 access: public
 mode: reference
@@ -10,7 +10,7 @@ order: 20
 
 > Generated from the code by docs/product/pipeline/generate.mjs. Do not edit by hand: run the generator.
 
-70 services your mineral can connect to without you finding an endpoint
+71 services your mineral can connect to without you finding an endpoint
 yourself. 6 of them ship inside the box as featured connectors; the rest
 are in the list on the same page, and you connect them from there. 2 more (Shopify and Xero) are listed so you can find them, but they only connect through your Claude account, so they work in your chats and never in scheduled jobs.
 
@@ -127,6 +127,7 @@ gets probed.
 | **Plaid** | bank connections and items | One click | From the list |
 | **Polar** | products and subscriptions | One click | From the list |
 | **Stripe** | payments, customers and invoices | Token | From the list |
+| **Odoo** | contacts, CRM, sales and draft invoices | [Guided](/docs/connect-odoo) | Guided setup |
 | **Shopify** | your store, in your chats with Claude | [Claude account](/docs/connect-shopify-and-xero) | Chats only |
 | **Xero** | read-only accounts, in your chats with Claude | [Claude account](/docs/connect-shopify-and-xero) | Chats only |
 

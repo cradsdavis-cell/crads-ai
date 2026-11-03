@@ -9,8 +9,12 @@
     "comm_types": ["brief", "reminder"]
   },
   "backup": {
-    "_doc": "Nightly encrypted state snapshot (engine/backup.mjs). Targets are stateDir-relative paths; missing ones are skipped. sentinel_files must exist non-empty inside the archive for the verify step to pass.",
+    "_doc": "Nightly encrypted state snapshot (engine/backup.mjs). Targets are stateDir-relative paths; missing ones are skipped. sentinel_files must exist non-empty inside the archive for the verify step to pass. exclude (a stateDir-relative path and all beneath it) and exclude_names (a bare name at any depth) are never archived, nor is a file git already tracks inside a directory target: each is in the repo or rebuilt by a tool (trap 80). exclude_transcripts_under drops saved chats (*.jsonl) beneath a path but keeps the rest of it (Claude's memory/ lives there): chats are not recovery state, and a chat the member's retention deleted must not live on in every snapshot (2026-10-26). max_commit_bytes caps a committed snapshot under GitHub's 100 MB file limit and can only lower the 90 MB in the code.",
     "targets": ["secrets", ".claude-auth", ".opencode-auth", ".claude", ".mcp.json", ".kernel/gh", ".kernel/crontab", ".kernel/telegram-offset", ".kernel/mcp-oauth.json", ".kernel/mcp-added.json", ".kernel/google-creds", "profile.yaml"],
-    "sentinel_files": ["profile.yaml", "secrets/telegram_bot_token"]
+    "sentinel_files": ["profile.yaml", "secrets/telegram_bot_token"],
+    "exclude": [".claude/worktrees", ".claude-auth/file-history", ".claude-auth/shell-snapshots", ".claude-auth/todos", ".claude-auth/plugins/cache", ".claude-auth/plugins/marketplaces", ".claude-auth/plugins/plugin-directory-cache-v2.json", ".claude-auth/cache", ".opencode-auth/cache"],
+    "exclude_names": ["node_modules", "__pycache__"],
+    "exclude_transcripts_under": [".claude-auth/projects"],
+    "max_commit_bytes": 90000000
   }
 }

@@ -172,6 +172,10 @@ write_files:
   #__SEED_WRITE_FILES__
 
   # systemd unit: runs the image's `up` mode, mounts /state, publishes loopback-only
+  # Pulls new software ONLY when the member pressed Update (trap 82): box-refresh
+  # leaves /state/.kernel/update-requested and this unit pulls, then clears it. Any
+  # other restart (a crash, a reboot) comes back on the same software. No pull on
+  # first boot either: `docker run` fetches an image that is not there yet.
   - path: /etc/systemd/system/ai-os.service
     permissions: '0644'
     content: |
@@ -190,7 +194,7 @@ write_files:
       RestartSec=5
       KillMode=none
       TimeoutStartSec=600
-      ExecStartPre=-/usr/bin/docker pull __IMAGE__
+      ExecStartPre=-/bin/sh -c 'F=/state/.kernel/update-requested;[ -e $$F ]&&docker pull __IMAGE__&&rm $$F'
       ExecStartPre=-/usr/bin/docker rm -f ai-os
       # Run the container as the non-root `aios` uid (the image is built for an arbitrary
       # uid — see provisioning/run.sh + engine/box-up.sh). This keeps Claude Code out of

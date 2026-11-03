@@ -95,6 +95,8 @@ export async function runSkill(stateDir, job, { dryRun = false } = {}) {
   const grants = grantsForJob(job, {
     mcpJson: await read(['.mcp.json']),
     allowFile: await read(['.kernel', 'mcp-allow']),
+    // the member's own per-job limits (grants.mjs applyJobLimits): narrows, never widens
+    limitsJson: await read(['cockpit', 'job-limits.json']),
   });
   // The harness compiles the grants into its own permission format and pins its own
   // isolated config dir (the cross-client identity-leak rule), so no caller can forget.

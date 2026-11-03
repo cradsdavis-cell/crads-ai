@@ -21,9 +21,9 @@ The container image, the engine, the desktop app, the skill runner, the schedule
 and its run history, the system pages, and a handful of protected jobs.
 
 You do not edit these, and you also do not have to maintain them. Everything
-on the server arrives by a nightly restart onto the latest published software
-([how updates reach you](/docs/how-updates-reach-you)); the desktop app offers
-its own updates on your computer.
+on the server arrives when you choose to update, onto the latest published
+software ([how updates reach you](/docs/how-updates-reach-you)); the desktop app
+offers its own updates on your computer.
 
 The trade is honest: you give up the ability to change the engine, and in
 return the engine is somebody else's problem. And because the software is free

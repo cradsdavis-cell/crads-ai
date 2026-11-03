@@ -43,5 +43,23 @@ RUN printf '{"sha":"%s","tag":"%s","built_at":"%s"}\n' \
     && chmod 0444 /etc/aios-build
 ENV AIOS_IMAGE_TAG=$BUILD_TAG
 
+# Security level (engine/security-level, bumped in the commit that fixes a hole):
+# a box compares the published image's value with its own to tell its member
+# "this update includes a security fix" (engine/box/update.mjs).
+ARG SECURITY_LEVEL=0
+ENV AIOS_SECURITY_LEVEL=$SECURITY_LEVEL
+
+# Only the infrastructure resets (trap 82). The member's home folder, temp files
+# and own installs live on /state. Set here, not only in entrypoint.sh, because a
+# member's Claude runs through `docker exec` (enter-aios), which never passes
+# through the entrypoint; profile.d covers the login shell, whose /etc/profile
+# resets PATH.
+ENV HOME=/state/.kernel/home \
+    TMPDIR=/state/.kernel/tmp \
+    NPM_CONFIG_PREFIX=/state/.kernel/home/.local \
+    PATH=/state/.kernel/home/.local/bin:$PATH
+RUN printf '%s\n' 'case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac' \
+      > /etc/profile.d/crads-home.sh && chmod 0644 /etc/profile.d/crads-home.sh
+
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
 CMD ["help"]

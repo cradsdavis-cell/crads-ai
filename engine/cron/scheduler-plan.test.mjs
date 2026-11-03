@@ -75,6 +75,39 @@ test('--plan-json respects the auto-update opt-out flag', () => {
   assert.equal(out.machinery.find((m) => m.id === 'auto-update').enabled, false);
 });
 
+// Trap 82 (2026-11-03): the scheduler restarted every member box every night,
+// new software or not, and killed a member's five half-done video sessions.
+// "The box should only restart when the user actually wants to update."
+test('the overnight update is OFF by default and never fires; switched on, it only tries in the 04:10 to 05:59 window', () => {
+  const state = mkBox();
+  const off = JSON.parse(runCli(state, '--plan-json'));
+  const au = off.machinery.find((m) => m.id === 'auto-update');
+  assert.equal(au.enabled, false, 'no auto-update.json means off, not on');
+  assert.equal(au.when, 'never', 'an off update has no minute it can fire');
+  const fires = (t) => runCli(state, '--at', t).split('\n').find((l) => l.startsWith('At ')) || '';
+  for (const t of ['04:10 Tue', '04:25 Tue', '04:39 Tue', '05:50 Tue']) {
+    assert.doesNotMatch(fires(t), /auto-update/, `nothing restarts the box at ${t} unless the member asked`);
+  }
+  writeFileSync(join(state, 'cockpit', 'auto-update.json'), '{"enabled": true}');
+  const on = JSON.parse(runCli(state, '--plan-json'));
+  assert.equal(on.machinery.find((m) => m.id === 'auto-update').enabled, true);
+  const j = on.jitter_min % 10;
+  const two = (n) => String(n).padStart(2, '0');
+  assert.match(fires(`05:${two(j)} Tue`), /auto-update/, 'switched on, it tries inside the window');
+  assert.doesNotMatch(fires(`06:${two(j)} Tue`), /auto-update/, 'and never outside it');
+  assert.doesNotMatch(fires(`04:0${j} Tue`), /auto-update/, 'nor before 04:10');
+});
+
+test('the update check and the temp tidy are listed, and neither can restart anything', () => {
+  const state = mkBox();
+  const out = JSON.parse(runCli(state, '--plan-json'));
+  for (const id of ['update-check', 'tmp-tidy']) assert.ok(out.machinery.find((m) => m.id === id), `${id} is visible`);
+  const src = readFileSync(SCHEDULER, 'utf8');
+  const line = (id) => src.split('\n').find((l) => l.includes(`lid: '${id}'`));
+  assert.doesNotMatch(line('update-check'), /kill/, 'a check never restarts');
+  assert.doesNotMatch(line('tmp-tidy'), /kill|\.kernel\/home|brain/, 'the tidy touches temp only');
+});
+
 test('--at fires a v2 times schedule on its day and not off it', () => {
   const state = mkBox();
   runCli(state, '--plan');   // fold in first

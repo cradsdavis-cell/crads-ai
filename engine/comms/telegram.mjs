@@ -21,6 +21,7 @@
 // bot. It exits by itself once the marker no longer says host (the full reader
 // takes over on the next supervisor pass) or the brain goes into move-in mode
 // (Move out, where nothing may send).
+import '../lib/net-reach.mjs';   // FIRST: IPv4-first + 2 s connect attempts, or Telegram is unreachable from a far server with broken IPv6 (trap 78)
 import { readFile, writeFile, readdir, rm, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { enqueue, kpaths, ensureDirs } from '../kernel/lib/queue.mjs';
@@ -28,6 +29,7 @@ import { decideRoute } from './inbound-router.mjs';   // shared inbound-isolatio
 import { outboundBody, STALE_BUTTON_REPLY } from './telegram-drafts.mjs';
 import { makeApi, pollTurn, tokenBackoff, isTokenRefused, humanDelay } from './telegram-poll.mjs';
 import { isMovingIn } from '../lib/mineral-identity.mjs';
+import { isSlackTarget } from '../lib/delivery-target.mjs';
 
 const args = process.argv.slice(2);
 const stateDir = path.resolve(args.find((a) => !a.startsWith('--')) || process.env.STATE_DIR || '.');
@@ -103,6 +105,12 @@ async function flushOutbox() {
   try { files = (await readdir(outbox)).filter((f) => f.endsWith('.json')); } catch { return false; }
   for (const f of files) {
     const rec = JSON.parse(await readFile(path.join(outbox, f), 'utf8'));
+    // THE OUTBOX IS SHARED with the owner's Slack DM bridge (slack-dm.mjs): a
+    // record whose chat_id starts `slack:` is a Slack reply or a delivery the
+    // owner routed to Slack (delivery-target.mjs). It is not a foreign Telegram
+    // chat, so it must not reach the drop below, which would delete it, nor
+    // sendMessage, which would fail on it forever when no chat is bound. Skip.
+    if (isSlackTarget(rec.chat_id)) continue;
     // DEFAULT-DENY OUTBOUND TOO, not just inbound. This used to send wherever the
     // record said, and a record is only ever as fresh as the chat it was written
     // for. A revoked chat leaves work behind (telegram-link's forget sweeps what

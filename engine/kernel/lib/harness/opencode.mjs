@@ -47,6 +47,9 @@ const SECRET_READ_DENY = ['*.env', '*.env.*', '*/secrets/*', '*.claude-auth/*', 
 // stops project config being read at all.
 const CONFIG_WRITE_DENY = ['*opencode.json', '*opencode.jsonc', '*.opencode/*', '*.opencode-auth/*', '*.claude-auth/*',
   '*.claude/settings*', '*.mcp.json', '*/secrets/*', '*.kernel/*', '*.env', '*.env.*'];
+// What a LIMITED job (job-limits.json) additionally may not write: its own limits and
+// cadence, and any skill or context file a later, unlimited job would follow.
+const LIMITED_WRITE_DENY = ['*/cockpit/*', '*.claude/*', '*CLAUDE.md'];
 
 export function compilePolicy(grants) {
   const p = { '*': 'deny' };
@@ -57,6 +60,8 @@ export function compilePolicy(grants) {
     else {
       p.edit = { '*': 'allow' };   // covers edit, write and patch
       for (const pat of CONFIG_WRITE_DENY) p.edit[pat] = 'deny';
+      // a limited job (grants.protect, job limits 2026-10-26) also may not loosen its next run
+      if (grants.protect) for (const pat of LIMITED_WRITE_DENY) p.edit[pat] = 'deny';
     }
     p.glob = 'allow';
     p.grep = 'allow';
@@ -80,6 +85,12 @@ export function compilePolicy(grants) {
   for (const m of grants.mcp || []) {
     if (!m.server) continue;
     p[`${m.server}_${m.tool}`] = 'allow';
+  }
+  // Job limits: a denied whole server is already absent from grants.mcp, so deriveMcp
+  // never configures it; a denied single tool is refused here, after the allows.
+  for (const m of grants.deny || []) {
+    if (!m.server || m.tool === '*') continue;
+    p[`${m.server}_${m.tool}`] = 'deny';
   }
   return p;
 }
@@ -232,6 +243,7 @@ export function inspect(args, env) {
     shell: p.bash !== 'deny',
     skills: p.skill === 'allow',
     writes: !!p.edit && p.edit !== 'deny',
+    protectsConfig: typeof p.edit === 'object' && p.edit['*/cockpit/*'] === 'deny' && p.edit['*.mcp.json'] === 'deny',
     mcpServers: Object.keys(cfg.mcp || {}),
   };
 }

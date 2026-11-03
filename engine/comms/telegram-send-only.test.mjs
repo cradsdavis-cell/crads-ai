@@ -95,6 +95,30 @@ test('send-only: queued replies are sent to the bound chat, and the bot is never
   } finally { s.p.kill('SIGKILL'); tg.stop(); }
 });
 
+test('the Telegram flush leaves Slack records alone: not sent, not dropped as a foreign chat', async () => {
+  // The outbox is shared with the owner's Slack DM bridge (slack-dm.mjs). A
+  // `slack:` record used to look like a foreign chat here and be deleted, which
+  // would eat every Slack reply before the Slack bridge saw it. Both with a bound
+  // chat (the foreign-chat drop) and without one (where it would be sent).
+  const tg = await fakeTelegram();
+  try {
+    for (const bound of [true, false]) {
+      const d = brain();
+      if (!bound) writeFileSync(path.join(d, 'secrets', 'telegram_chat_id'), '');
+      queueReply(d, 'a.json', { chat_id: 'slack:D0OWNERDM', text: 'a Slack reply', job: 'a' });
+      queueReply(d, 'b.json', { chat_id: 'slack:U0OWNER', text: 'a brief routed to Slack', job: 'b' });
+      queueReply(d, 'c.json', { chat_id: '4242', text: 'a Telegram reply', job: 'c' });
+      const s = sender(d, tg.base);
+      try {
+        for (let i = 0; i < 100 && listOutbox(d).includes('c.json'); i++) await sleep(50);
+        await sleep(400);   // a few more passes
+        assert.deepEqual(listOutbox(d).sort(), ['a.json', 'b.json'], `bound=${bound}: the Slack records are still there`);
+      } finally { s.p.kill('SIGKILL'); }
+    }
+    assert.deepEqual(tg.sent.map((m) => m.text), ['a Telegram reply', 'a Telegram reply'], 'only the Telegram record reached Telegram');
+  } finally { tg.stop(); }
+});
+
 test('send-only: stops by itself once Crads-AI answers the bot, and in move-in mode, sending nothing', async () => {
   const tg = await fakeTelegram();
   try {
@@ -183,11 +207,11 @@ test('scheduler: a deliver:true job reaches the outbox with the chat id, and the
   } finally { sched.kill('SIGKILL'); s?.p.kill('SIGKILL'); tg.stop(); }
 });
 
-test('scheduler: reads the chat id when a job fires, not once at start', () => {
-  // Telegram is usually connected after the scheduler is up; a value read at start
-  // left delivered jobs undelivered until the next restart.
+test('scheduler: reads the delivery target when a job fires, not once at start', () => {
+  // Telegram (or the Slack DM) is usually connected after the scheduler is up; a
+  // value read at start left delivered jobs undelivered until the next restart.
   const src = readFileSync(path.join(ENGINE, 'cron', 'scheduler.mjs'), 'utf8');
   const fire = src.slice(src.indexOf('function fire(job)'), src.indexOf('\n}\n', src.indexOf('function fire(job)')));
-  assert.match(fire, /readChatId\(\)/, 'fire() reads it');
+  assert.match(fire, /deliveryTarget\(stateDir\)/, 'fire() reads it');
   assert.doesNotMatch(src, /^const chatId\s*=/m, 'no module-level copy');
 });

@@ -27,6 +27,7 @@
 //   node mcp-connect.mjs <state-dir> add <key>          (featured key)
 //   node mcp-connect.mjs <state-dir> add-custom         (stdin: {name,url,token_b64?,scheme?})
 //   node mcp-connect.mjs <state-dir> add-mailchimp      (stdin: {key_b64})
+//   node mcp-connect.mjs <state-dir> add-odoo           (stdin: {url, key_b64, db?, login?})
 //   node mcp-connect.mjs <state-dir> add-microsoft      (stdin: {account, client_id?, tenant_id?, send?})
 //   node mcp-connect.mjs <state-dir> check <key>        (does the saved server answer?)
 //   node mcp-connect.mjs <state-dir> remove <key>       (featured or app-added)
@@ -113,7 +114,15 @@ const key = String(process.argv[4] || '');
 //       so Microsoft is never asked for Mail.Send; the row carries `sends`.
 //       The page gates its Microsoft wizard on 10, because a 9-box would
 //       ignore `send` and keep sending while the card said drafts only.
-const CONTRACT = 10;
+//  11 = Odoo on the box (2026-10-22): the add-odoo verb writes a stdio
+//       server (engine/comms/odoo-mcp.mjs) carrying the member's Odoo
+//       address and own API key (plus, for Odoo before 19, the database and
+//       sign-in email); `check` makes one real read (whoami) so a bad key or
+//       address is caught, and records the Odoo version it answered with;
+//       the row carries key_expires_by only when that version is 19 or later
+//       (Odoo 19 caps keys at three months; keys made in 14 to 18 never
+//       expire). The page gates ONLY its Odoo wizard on 11.
+const CONTRACT = 11;
 
 const MCP_F = path.join(stateDir, '.mcp.json');
 const OAUTH_F = path.join(stateDir, '.kernel', 'mcp-oauth.json');   // read-only here; mcp-token.mjs is the writer
@@ -164,6 +173,14 @@ const TOKEN_TOOL = path.join(import.meta.dirname, 'mcp-token.mjs');
 const MAILCHIMP_SERVER = path.join(import.meta.dirname, 'mailchimp-mcp.mjs');
 const MAILCHIMP_KEY_RE = /^[0-9a-f]{32}-[a-z]{2}\d{1,3}$/;
 const isMailchimp = (def) => !!(def?.command && Array.isArray(def.args) && def.args.some((a) => /mailchimp-mcp\.mjs$/.test(String(a))) && def.env?.MAILCHIMP_API_KEY);
+// Odoo (contract 11): the same shape. Every Odoo is its own instance, so the
+// address rides in env beside the key. Odoo keys are 160 random bits as hex.
+const ODOO_SERVER = path.join(import.meta.dirname, 'odoo-mcp.mjs');
+const ODOO_KEY_RE = /^[0-9a-f]{40}$/i;
+const ODOO_DB_RE = /^[A-Za-z0-9_.-]{1,63}$/;
+// "19.0-20261015", "17.0", "saas~18.4+e" -> 19, 17, 18; anything else -> 0
+const odooMajor = (v) => Number((String(v || '').match(/^(?:saas[~-])?(\d+)/) || [])[1] || 0);
+const isOdoo = (def) => !!(def?.command && Array.isArray(def.args) && def.args.some((a) => /odoo-mcp\.mjs$/.test(String(a))) && def.env?.ODOO_API_KEY);
 
 // The FIRST catalogue's dead ends: three Google endpoints whose sign-in could
 // never complete. A box that still carries one (keith does) is recognised and
@@ -350,12 +367,13 @@ const CHECK_WORDS = {
 function lastCheck(k, def) {
   const c = rdJSON(CHECKS_F, {})[k];
   if (!c || c.fp !== defPrint(def)) return null;
-  return { at: c.at, working: !!c.working, problem: c.problem || null, http: c.http || null };
+  return { at: c.at, working: !!c.working, problem: c.problem || null, http: c.http || null, ...(c.version ? { version: c.version } : {}) };
 }
 function recordCheck(k, def, r) {
   const all = rdJSON(CHECKS_F, {});
   all[k] = { at: new Date().toISOString(), fp: defPrint(def), working: !!r.working,
-    ...(r.working ? {} : { problem: r.problem || 'other', ...(r.status ? { http: r.status } : {}) }) };
+    ...(r.working ? {} : { problem: r.problem || 'other', ...(r.status ? { http: r.status } : {}) }),
+    ...(r.version ? { version: String(r.version).slice(0, 40) } : {}) };
   try { mkdirSync(path.dirname(CHECKS_F), { recursive: true }); writeFileSync(CHECKS_F, JSON.stringify(all, null, 2) + '\n'); }
   catch { /* a read-only state dir still answers the check */ }
 }
@@ -418,6 +436,17 @@ function describe(k, def, { label, blurb, mine, catalogUrl }) {
     const added = Date.parse(def.env.CRADS_KEY_ADDED || '');
     const by = Number.isFinite(added) ? new Date(added + 365 * 864e5).toISOString().slice(0, 10) : null;
     return honest({ key: k, label, blurb: 'audiences, contacts, draft campaigns and reports, with your own key', url: '', auth: 'token', state: 'on',
+      status: 'working, including in scheduled jobs', configured: true, authorised: true, renews: false, mine, key_expires_by: by }, k, def);
+  }
+  // Odoo: a token connection too. Only Odoo 19 and later make keys that run
+  // out (three months at most, so "by about" counts 90 days from the paste);
+  // keys made in 14 to 18 never expire. Which one this is, the box learns from
+  // the version its last check answered with: unchecked, it claims no date.
+  if (isOdoo(def)) {
+    const added = Date.parse(def.env.CRADS_KEY_ADDED || '');
+    const expires = odooMajor(lastCheck(k, def)?.version) >= 19;
+    const by = expires && Number.isFinite(added) ? new Date(added + 90 * 864e5).toISOString().slice(0, 10) : null;
+    return honest({ key: k, label, blurb: 'contacts, CRM, sales and draft invoices, with your own key', url: String(def.env.ODOO_URL || ''), auth: 'token', state: 'on',
       status: 'working, including in scheduled jobs', configured: true, authorised: true, renews: false, mine, key_expires_by: by }, k, def);
   }
   // Any other server defined by `command` runs as a program on this mineral
@@ -909,11 +938,42 @@ if (cmd === 'add-mailchimp') {
   out({ ok: true, contract: CONTRACT, key: 'mailchimp', action: 'add', auth: 'token', services: rows() });
 }
 
+if (cmd === 'add-odoo') {
+  // stdin, base64(JSON): { url, key_b64, db?, login? }. The key is a secret,
+  // so never argv; the rest is what the member typed on the card.
+  let req = {};
+  try { req = JSON.parse(Buffer.from(readFileSync(0, 'utf8').trim(), 'base64').toString('utf8')); }
+  catch { out({ ok: false, error: 'expected base64 JSON on stdin' }); }
+  let apiKey = '';
+  try { apiKey = Buffer.from(String(req.key_b64 || ''), 'base64').toString('utf8').trim(); } catch { /* refused below */ }
+  if (!ODOO_KEY_RE.test(apiKey)) out({ ok: false, error: 'that does not look like an Odoo API key: 40 letters and numbers' });
+  let origin = null;
+  try {
+    const u = new URL(/^https?:\/\//i.test(String(req.url || '').trim()) ? String(req.url).trim() : 'https://' + String(req.url || '').trim());
+    const loop = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/.test(u.hostname);
+    if (u.protocol === 'https:' || (u.protocol === 'http:' && loop)) origin = u.origin;
+  } catch { /* refused below */ }
+  if (!origin) out({ ok: false, error: 'the Odoo address must be an https address, like https://yourcompany.odoo.com' });
+  const db = String(req.db || '').trim();
+  if (db && !ODOO_DB_RE.test(db)) out({ ok: false, error: 'a database name is letters, numbers, dots, dashes and underscores' });
+  const login = String(req.login || '').trim();
+  if (login && (login.length > 200 || /[\s]/.test(login))) out({ ok: false, error: 'the sign-in email has a space in it' });
+  const doc = rdJSON(MCP_F, {});
+  doc.mcpServers = doc.mcpServers || {};
+  if (doc.mcpServers.odoo && !appAdded().has('odoo')) out({ ok: false, error: 'a hand-added "odoo" server already exists on this box; remove it in Claude Code first' });
+  const env = { ODOO_URL: origin, ODOO_API_KEY: apiKey, CRADS_KEY_ADDED: new Date().toISOString().slice(0, 10) };
+  if (db) env.ODOO_DB = db;
+  if (login) env.ODOO_LOGIN = login;
+  doc.mcpServers.odoo = { type: 'stdio', command: 'node', args: [ODOO_SERVER], env };
+  writeMcp(doc); syncAllow('odoo', true); rememberAdded('odoo', true); ensureApproved(['odoo']);
+  out({ ok: true, contract: CONTRACT, key: 'odoo', action: 'add', auth: 'token', services: rows() });
+}
+
 // stdio servers (contract 5): spawn the saved command with its saved env and
 // speak newline-delimited JSON-RPC, the transport Claude Code uses for them.
-// For Mailchimp, initialize + tools/list prove only that the server starts;
-// one real read (account_info) proves the KEY, which is the thing a member
-// can get wrong.
+// For Mailchimp and Odoo, initialize + tools/list prove only that the server
+// starts; one real read (account_info, whoami) proves the KEY and, for Odoo,
+// the address, which are the things a member can get wrong.
 async function checkStdio(def) {
   const { spawn } = await import('node:child_process');
   return await new Promise((resolve) => {
@@ -938,13 +998,19 @@ async function checkStdio(def) {
           send({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
         } else if (m.id === 2) {
           tools = Array.isArray(m.result?.tools) ? m.result.tools : [];
-          if (!isMailchimp(def)) return done({ working: true, server, tools: tools.length });
-          send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'account_info', arguments: {} } });
+          if (!isMailchimp(def) && !isOdoo(def)) return done({ working: true, server, tools: tools.length });
+          send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: isOdoo(def) ? 'whoami' : 'account_info', arguments: {} } });
         } else if (m.id === 3) {
           const text = String(m.result?.content?.[0]?.text || '');
-          if (m.result?.isError) return done({ working: false, problem: /expired or been revoked/.test(text) ? 'auth' : 'other', detail: text.slice(0, 200) });
+          if (m.result?.isError) {
+            const problem = /expired or been revoked|turned the API key down/.test(text) ? 'auth' : /Could not reach your Odoo/.test(text) ? 'unreachable' : 'other';
+            return done({ working: false, problem, detail: text.slice(0, 300) });
+          }
           let acct = {}; try { acct = JSON.parse(text); } catch { /* fine */ }
-          return done({ working: true, server, tools: tools.length, account: String(acct.account_name || '').slice(0, 80) || undefined });
+          // Odoo names the user and their company; Mailchimp names the account
+          const who = isOdoo(def) ? [acct.user, acct.company].filter(Boolean).join(', ') : acct.account_name;
+          return done({ working: true, server, tools: tools.length, account: String(who || '').slice(0, 120) || undefined,
+            version: isOdoo(def) && acct.odoo_version ? String(acct.odoo_version).slice(0, 40) : undefined });
         }
       }
     });
