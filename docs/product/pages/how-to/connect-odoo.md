@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 78
 pins: engine/comms/odoo-mcp.mjs, engine/comms/mcp-connect.mjs, wizard/panel/member.html
-reviewed: 2026-10-22
+reviewed: 2026-11-05
 ---
 
 Odoo connects with **an API key you make in your own Odoo**. You paste it on
@@ -29,7 +29,8 @@ somebody else's machines.
 
 So this one runs **on your mineral**. Your key is stored there, the small
 program that talks to your Odoo runs there, and your records never pass
-through Crads AI or anyone else on the way to your assistant.
+through Crads AI on the way to your assistant. What your assistant reads
+goes to Claude, as everything else it works on does.
 
 ## What you need
 

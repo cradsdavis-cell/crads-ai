@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 77
 pins: engine/lib/ms365.mjs, engine/comms/ms365-login.mjs, engine/comms/mcp-connect.mjs, wizard/panel/member.html
-reviewed: 2026-10-20
+reviewed: 2026-11-05
 ---
 
 Microsoft 365 connects with **a short code you type at Microsoft**. There is no
@@ -25,8 +25,9 @@ business, or email at your own domain on Outlook) and for a personal one
 The part that talks to Microsoft runs **on your mineral**, and so does the
 sign-in. When you type the code, Microsoft hands the sign-in straight to your
 mineral, which keeps it in an encrypted file of its own. It never passes
-through this app, Crads AI or anyone else, and your mail goes from Microsoft
-to your mineral and nowhere in between.
+through this app, Crads AI or anyone else. Your mail goes from Microsoft
+straight to your mineral, and what your assistant reads from it goes to
+Claude, as everything else it works on does.
 
 ## What it can and cannot do
 

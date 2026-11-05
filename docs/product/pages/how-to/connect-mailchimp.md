@@ -7,7 +7,7 @@ access: public
 mode: how-to
 order: 75
 pins: engine/comms/mailchimp-mcp.mjs, engine/comms/mcp-connect.mjs, wizard/panel/member.html
-reviewed: 2026-10-13
+reviewed: 2026-11-05
 ---
 
 Mailchimp connects with **an API key you make in your own account**. You paste
@@ -27,7 +27,8 @@ they cannot run in your mineral's scheduled jobs.
 
 So this one runs **on your mineral**. Your key is stored there, the small
 program that talks to Mailchimp runs there, and your contact list never passes
-through Crads AI or anyone else on its way to your assistant.
+through Crads AI on its way to your assistant. What your assistant reads goes
+to Claude, as everything else it works on does.
 
 ## What it can and cannot do
 

@@ -33,7 +33,8 @@ somebody else's machines.
 
 So this one runs **on your mineral**. Your password is stored there, the small
 program that talks to your mail server runs there, and your email never passes
-through Crads AI or anyone else on the way to your assistant. The connection to
+through Crads AI on the way to your assistant. What your assistant reads goes
+to Claude, as everything else it works on does. The connection to
 your mail server is always encrypted, and your mail server's certificate is
 checked first.
 
