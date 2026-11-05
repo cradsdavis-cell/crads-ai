@@ -40,7 +40,14 @@ export function startFakeImap({ user = 'mel@driftwood.test', pass = 'app-pässwo
   const boxes = { INBOX: messages.map((m) => ({ ...m })), Drafts: [], Sent: [], [MAILBOXES[3]]: [] };
   const server = net.createServer((sock) => {
     open++; maxOpen = Math.max(maxOpen, open);
-    sock.on('close', () => { open--; });
+    // gone once the client has said goodbye (its FIN, 'end'), not when this
+    // side finishes tearing down ('close'): the client waits for its own close
+    // before it opens the next connection, and on a fast CI runner the next
+    // connect can land before this side's 'close' fires (found 2026-11-05,
+    // public CI: maxOpen 2 though the client never overlapped)
+    let gone = false;
+    const leave = () => { if (!gone) { gone = true; open--; } };
+    sock.on('end', leave); sock.on('close', leave);   // and on LOGOUT, below
     let buf = Buffer.alloc(0); let authed = false; let selected = null;
     let pending = null;   // { tag, line, need, parts } while a literal is coming
     const w = (s) => sock.write(s + '\r\n');
@@ -51,7 +58,7 @@ export function startFakeImap({ user = 'mel@driftwood.test', pass = 'app-pässwo
       const rest = line.slice(cmd.length + 1);
       const arg = (s) => (s.startsWith('"') ? s.slice(1, -1).replace(/\\(.)/g, '$1') : s);
       if (cmd === 'CAPABILITY') { w('* CAPABILITY IMAP4rev1 UIDPLUS SPECIAL-USE'); return w(`${tag} OK done`); }
-      if (cmd === 'LOGOUT') { w('* BYE'); w(`${tag} OK bye`); return sock.end(); }
+      if (cmd === 'LOGOUT') { leave(); w('* BYE'); w(`${tag} OK bye`); return sock.end(); }   // said goodbye: no longer counted
       if (cmd === 'LOGIN') {
         // a literal arrives as {LIT0}, {LIT1} in the logged line
         const toks = rest.match(/"(?:[^"\\]|\\.)*"|\{LIT\d+\}|\S+/g) || [];
