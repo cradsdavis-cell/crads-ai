@@ -188,6 +188,26 @@ test('driven: all four guided cards, a wrong credential refused and nothing kept
     assert.ok((await yours()).includes('Odoo'));
     assert.match(await page.innerText('#mcpRows'), /Odoo 19 keys last three months at most: expect to paste a new one around/);
 
+    // Email (IMAP, contract 12): a bad server name is refused on the page, a
+    // wrong password by the box check (and not kept), a good one names the
+    // mailbox, and nothing about it suggests sending
+    await open('Email (IMAP)');
+    assert.ok(await page.isVisible('#imWizard'));
+    assert.match(await page.innerText('#imWizard'), /cannot send anything/);
+    await page.check('#imWizard [data-tick="1"]');
+    await page.fill('#imFrom', 'mel@driftwoodsurf.com.au'); await page.fill('#imPass', 'wrong'); await page.fill('#imHost', 'not a server'); await page.click('#imSave');
+    assert.match(await page.textContent('#imNotice'), /Type the mail server/);
+    await page.fill('#imHost', 'mail.driftwoodsurf.com.au'); await page.click('#imSave'); await page.waitForTimeout(2000);
+    assert.match(await page.textContent('#imNotice'), /turned the sign-in down[\s\S]*Nothing was kept/);
+    assert.ok(!(await yours()).includes('Email (IMAP)'), 'a wrong password leaves no row');
+    await page.selectOption('#imSecurity', 'starttls');
+    assert.equal(await page.inputValue('#imPort'), '143', 'the port follows the security choice');
+    await page.selectOption('#imSecurity', 'tls');
+    await page.fill('#imPass', 'app-password-1'); await page.click('#imSave'); await page.waitForTimeout(2000);
+    assert.match(await page.textContent('#imWizard [data-done]'), /Connected as mel@driftwoodsurf\.com\.au\.[\s\S]*sends nothing/);
+    assert.equal(await page.inputValue('#imPass'), '', 'the password box is cleared once saved');
+    assert.ok((await yours()).includes('Email (IMAP)'));
+
     // Shopify and Xero: a guide, no box write, and the limit said plainly
     for (const n of ['Shopify', 'Xero']) {
       assert.equal(await card(n).locator('.mcp-dir-connect').innerText(), 'How to');
@@ -207,7 +227,7 @@ test('driven: all four guided cards, a wrong credential refused and nothing kept
 
 test('Mailchimp saves through its own verb and waits for a contract-5 box', () => {
   assert.match(guided, /guidedConnect\('mailchimp', \{ name: 'mailchimp', key_b64: b64utf8\(k\) \}, \$\('mcSave'\), 'mcp-add-mailchimp'\)/);
-  assert.match(guided, /var GUIDED_CONTRACT = \{ slack: 4, wordpress: 4, mailchimp: 5, asana: 7, microsoft: 10, odoo: 11 \};/);
+  assert.match(guided, /var GUIDED_CONTRACT = \{ slack: 4, wordpress: 4, mailchimp: 5, asana: 7, microsoft: 10, odoo: 11, imap: 12 \};/);
   assert.match(html, /id="mcWizard"[\s\S]*?<b>cannot send or schedule a campaign<\/b>/, 'the card says what it will not do, before the member pastes anything');
 });
 
@@ -219,6 +239,16 @@ test('Odoo saves through its own verb, https only, and waits for a contract-11 b
   assert.match(guided, /return u\.protocol === 'https:' \? u\.origin : '';/, 'an http address is refused on the page');
   assert.match(guided, /verb && verb !== 'mcp-add-custom' \? payload : def/, 'the on-box verbs get the payload without the name');
   assert.match(html, /id="odWizard"[\s\S]*?<b>cannot delete anything, confirm or post an invoice or order, register a payment, or email anyone<\/b>/, 'says what it will not do, before the member pastes anything');
+});
+
+// Email over IMAP (contract 12, 2026-11-05): saved through its own verb, the
+// password base64 and never in the clear, gated on 12, and the card says it
+// sends nothing before the member types a password.
+test('Email (IMAP) saves through its own verb, says it sends nothing, and waits for a contract-12 box', () => {
+  assert.match(guided, /guidedConnect\('imap', payload, \$\('imSave'\), 'mcp-add-imap'\)/);
+  assert.match(guided, /password_b64: b64utf8\(pw\)/, 'the password rides base64, never in the clear');
+  assert.match(html, /id="imWizard"[\s\S]*?<b>cannot send anything<\/b>/, 'says it sends nothing, before the member types a password');
+  assert.match(html, /id="imWizard"[\s\S]*?<b>app passwords<\/b>/, 'points at app passwords before the password box');
 });
 
 // Microsoft 365 (contract 8, 2026-10-19): saved through its own verb, signed

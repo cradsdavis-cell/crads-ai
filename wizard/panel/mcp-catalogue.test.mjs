@@ -18,7 +18,8 @@ test('every entry is complete and well-formed', () => {
     assert.match(e.key, NAME_RE, `${e.key}: key must satisfy the box name rule`);
     assert.ok(e.label && typeof e.label === 'string', `${e.key}: label`);
     assert.ok(e.blurb && e.blurb.length <= 80, `${e.key}: blurb, short`);
-    assert.match(e.url, /^https:\/\//, `${e.key}: https only`);
+    // secure only: https, or imaps for the one mail entry (a template, never dialled as MCP)
+    assert.match(e.url, e.guided === 'imap' ? /^imaps:\/\// : /^https:\/\//, `${e.key}: https only`);
     assert.ok(CATEGORIES.includes(e.category), `${e.key}: category '${e.category}' not in CATEGORIES`);
   }
 });
@@ -72,7 +73,7 @@ test('every box FEATURED entry appears in the catalogue', () => {
 // guided token entry must be a token connection, since the wizard saves it
 // through add-custom with a credential.
 test('guided entries name a wizard the page has, and their kinds agree', () => {
-  const WIZARDS = ['slack', 'wordpress', 'mailchimp', 'account', 'asana', 'microsoft', 'odoo'];
+  const WIZARDS = ['slack', 'wordpress', 'mailchimp', 'account', 'asana', 'microsoft', 'odoo', 'imap'];
   const guided = CATALOGUE.filter((e) => e.guided);
   assert.ok(guided.length >= 4, 'slack, wordpress, shopify and xero at least');
   for (const e of guided) {

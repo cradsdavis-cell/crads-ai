@@ -44,6 +44,7 @@ export const CONNECTION_LABELS = {
   wordpress: 'WordPress',
   mailchimp: 'Mailchimp',
   odoo: 'Odoo',
+  imap: 'Email (IMAP)',
   // box-native channels
   telegram: 'Telegram',
 };

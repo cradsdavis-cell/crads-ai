@@ -28,6 +28,7 @@
 //   node mcp-connect.mjs <state-dir> add-custom         (stdin: {name,url,token_b64?,scheme?})
 //   node mcp-connect.mjs <state-dir> add-mailchimp      (stdin: {key_b64})
 //   node mcp-connect.mjs <state-dir> add-odoo           (stdin: {url, key_b64, db?, login?})
+//   node mcp-connect.mjs <state-dir> add-imap           (stdin: {host, port?, security?, user, password_b64, from?, drafts?})
 //   node mcp-connect.mjs <state-dir> add-microsoft      (stdin: {account, client_id?, tenant_id?, send?})
 //   node mcp-connect.mjs <state-dir> check <key>        (does the saved server answer?)
 //   node mcp-connect.mjs <state-dir> remove <key>       (featured or app-added)
@@ -122,7 +123,13 @@ const key = String(process.argv[4] || '');
 //       the row carries key_expires_by only when that version is 19 or later
 //       (Odoo 19 caps keys at three months; keys made in 14 to 18 never
 //       expire). The page gates ONLY its Odoo wizard on 11.
-const CONTRACT = 11;
+//  12 = email over IMAP on the box (2026-11-05): the add-imap verb writes a
+//       stdio server (engine/comms/imap-mcp.mjs) carrying the member's mail
+//       server, sign-in name and own (app) password; it reads, searches and
+//       saves drafts, and sends nothing. `check` makes one real sign-in
+//       (account_info), so a wrong password, server or port is caught on the
+//       page. The page gates ONLY its email (IMAP) wizard on 12.
+const CONTRACT = 12;
 
 const MCP_F = path.join(stateDir, '.mcp.json');
 const OAUTH_F = path.join(stateDir, '.kernel', 'mcp-oauth.json');   // read-only here; mcp-token.mjs is the writer
@@ -180,6 +187,15 @@ const ODOO_KEY_RE = /^[0-9a-f]{40}$/i;
 const ODOO_DB_RE = /^[A-Za-z0-9_.-]{1,63}$/;
 // "19.0-20261015", "17.0", "saas~18.4+e" -> 19, 17, 18; anything else -> 0
 const odooMajor = (v) => Number((String(v || '').match(/^(?:saas[~-])?(\d+)/) || [])[1] || 0);
+// Email over IMAP (contract 12): the same shape again. The settings ride in
+// env; the password is the member's own (an app password where their
+// provider has them) and, like every other credential, lives in .mcp.json.
+const IMAP_SERVER = path.join(import.meta.dirname, 'imap-mcp.mjs');
+const HOST_RE = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
+const IPV4_RE = /^(?:\d{1,3}\.){3}\d{1,3}$/;
+const LOOP_HOST_RE = /^(localhost|127\.\d+\.\d+\.\d+|::1)$/i;
+const MAIL_RE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+const isImap = (def) => !!(def?.command && Array.isArray(def.args) && def.args.some((a) => /imap-mcp\.mjs$/.test(String(a))) && def.env?.IMAP_PASSWORD);
 const isOdoo = (def) => !!(def?.command && Array.isArray(def.args) && def.args.some((a) => /odoo-mcp\.mjs$/.test(String(a))) && def.env?.ODOO_API_KEY);
 
 // The FIRST catalogue's dead ends: three Google endpoints whose sign-in could
@@ -448,6 +464,14 @@ function describe(k, def, { label, blurb, mine, catalogUrl }) {
     const by = expires && Number.isFinite(added) ? new Date(added + 90 * 864e5).toISOString().slice(0, 10) : null;
     return honest({ key: k, label, blurb: 'contacts, CRM, sales and draft invoices, with your own key', url: String(def.env.ODOO_URL || ''), auth: 'token', state: 'on',
       status: 'working, including in scheduled jobs', configured: true, authorised: true, renews: false, mine, key_expires_by: by }, k, def);
+  }
+  // Email over IMAP: a password, not a key, so nothing runs out on a date; it
+  // stops working only when the member changes the password or revokes the
+  // app password, which a check reports.
+  if (isImap(def)) {
+    const e = def.env || {};
+    return honest({ key: k, label, blurb: `read, search and draft email in ${String(e.IMAP_FROM || e.IMAP_USER || 'your mailbox').replace(/^.*<([^>]+)>.*$/, '$1')}; nothing is sent`, url: String(e.IMAP_HOST || ''), auth: 'token', state: 'on',
+      status: 'working, including in scheduled jobs', configured: true, authorised: true, renews: false, mine, key_expires_by: null }, k, def);
   }
   // Any other server defined by `command` runs as a program on this mineral
   // (stdio). There is nothing to sign in to: what can be wrong is the program,
@@ -969,11 +993,48 @@ if (cmd === 'add-odoo') {
   out({ ok: true, contract: CONTRACT, key: 'odoo', action: 'add', auth: 'token', services: rows() });
 }
 
+if (cmd === 'add-imap') {
+  // stdin, base64(JSON): { host, port?, security?, user, password_b64, from?,
+  // drafts? }. The password is a secret, so never argv; the rest is what the
+  // member typed on the card. Nothing here talks to the mail server: the page
+  // runs `check` straight after, which signs in once for real.
+  let req = {};
+  try { req = JSON.parse(Buffer.from(readFileSync(0, 'utf8').trim(), 'base64').toString('utf8')); }
+  catch { out({ ok: false, error: 'expected base64 JSON on stdin' }); }
+  const oneLine = (v) => !/[\r\n\0]/.test(v);
+  const host = String(req.host || '').trim().replace(/^(imaps?|https?):\/\//i, '').replace(/[/:].*$/, '').toLowerCase();
+  const loop = LOOP_HOST_RE.test(host);
+  if (!(HOST_RE.test(host) || IPV4_RE.test(host) || loop)) out({ ok: false, error: 'the mail server should be a name like mail.yourhost.com (your provider lists it as the incoming or IMAP server)' });
+  const security = String(req.security || 'tls').toLowerCase();
+  if (!['tls', 'starttls', 'none'].includes(security) || (security === 'none' && !loop)) out({ ok: false, error: 'the connection must be secure: TLS (usually port 993) or STARTTLS (usually port 143)' });
+  const port = req.port === undefined || req.port === '' || req.port === null ? (security === 'tls' ? 993 : 143) : Number(req.port);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) out({ ok: false, error: 'the port is a number, usually 993' });
+  const user = String(req.user || '').trim();
+  if (!user || user.length > 320 || !oneLine(user)) out({ ok: false, error: 'the username is needed: usually your full email address' });
+  let password = '';
+  try { password = Buffer.from(String(req.password_b64 || ''), 'base64').toString('utf8'); } catch { /* refused below */ }
+  if (!password || password.length > 500 || !oneLine(password)) out({ ok: false, error: 'the password is needed (an app password, where your provider has them)' });
+  const from = String(req.from || '').trim() || (MAIL_RE.test(user) ? user : '');
+  const fromAddr = from.replace(/^.*<([^>]+)>\s*$/, '$1').trim();
+  if (!MAIL_RE.test(fromAddr) || from.length > 320 || !oneLine(from)) out({ ok: false, error: 'add your email address, so drafts are from the right address' });
+  const drafts = String(req.drafts || '').trim();
+  if (drafts && (drafts.length > 200 || !oneLine(drafts))) out({ ok: false, error: 'the drafts folder name is one line, like Drafts' });
+  const doc = rdJSON(MCP_F, {});
+  doc.mcpServers = doc.mcpServers || {};
+  if (doc.mcpServers.imap && !appAdded().has('imap')) out({ ok: false, error: 'a hand-added "imap" server already exists on this box; remove it in Claude Code first' });
+  const env = { IMAP_HOST: host, IMAP_PORT: String(port), IMAP_SECURITY: security, IMAP_USER: user, IMAP_PASSWORD: password, IMAP_FROM: from, CRADS_KEY_ADDED: new Date().toISOString().slice(0, 10) };
+  if (drafts) env.IMAP_DRAFTS = drafts;
+  doc.mcpServers.imap = { type: 'stdio', command: 'node', args: [IMAP_SERVER], env };
+  writeMcp(doc); syncAllow('imap', true); rememberAdded('imap', true); ensureApproved(['imap']);
+  out({ ok: true, contract: CONTRACT, key: 'imap', action: 'add', auth: 'token', services: rows() });
+}
+
 // stdio servers (contract 5): spawn the saved command with its saved env and
 // speak newline-delimited JSON-RPC, the transport Claude Code uses for them.
-// For Mailchimp and Odoo, initialize + tools/list prove only that the server
-// starts; one real read (account_info, whoami) proves the KEY and, for Odoo,
-// the address, which are the things a member can get wrong.
+// For Mailchimp, Odoo and email (IMAP), initialize + tools/list prove only
+// that the server starts; one real read (account_info, whoami) proves the KEY
+// (or password) and, for Odoo and IMAP, the address, which are the things a
+// member can get wrong.
 async function checkStdio(def) {
   const { spawn } = await import('node:child_process');
   return await new Promise((resolve) => {
@@ -998,17 +1059,18 @@ async function checkStdio(def) {
           send({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
         } else if (m.id === 2) {
           tools = Array.isArray(m.result?.tools) ? m.result.tools : [];
-          if (!isMailchimp(def) && !isOdoo(def)) return done({ working: true, server, tools: tools.length });
+          if (!isMailchimp(def) && !isOdoo(def) && !isImap(def)) return done({ working: true, server, tools: tools.length });
           send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: isOdoo(def) ? 'whoami' : 'account_info', arguments: {} } });
         } else if (m.id === 3) {
           const text = String(m.result?.content?.[0]?.text || '');
           if (m.result?.isError) {
-            const problem = /expired or been revoked|turned the API key down/.test(text) ? 'auth' : /Could not reach your Odoo/.test(text) ? 'unreachable' : 'other';
+            const problem = /expired or been revoked|turned the API key down|turned the sign-in down|missing its server, username or password|does not allow signing in/.test(text) ? 'auth'
+              : /Could not reach your Odoo|Could not reach your mail server|took too long to answer|closed the connection|would not start a secure connection/.test(text) ? 'unreachable' : 'other';
             return done({ working: false, problem, detail: text.slice(0, 300) });
           }
           let acct = {}; try { acct = JSON.parse(text); } catch { /* fine */ }
           // Odoo names the user and their company; Mailchimp names the account
-          const who = isOdoo(def) ? [acct.user, acct.company].filter(Boolean).join(', ') : acct.account_name;
+          const who = isOdoo(def) ? [acct.user, acct.company].filter(Boolean).join(', ') : isImap(def) ? acct.account : acct.account_name;
           return done({ working: true, server, tools: tools.length, account: String(who || '').slice(0, 120) || undefined,
             version: isOdoo(def) && acct.odoo_version ? String(acct.odoo_version).slice(0, 40) : undefined });
         }

@@ -1107,7 +1107,7 @@ function honestRows() {
       configured: true, authorised: false, renews: true, mine: true, status: 'not working: its sign-in ran out at 15:10 and has not been renewed yet' },
   ];
 }
-const MCP_CONTRACT = 11;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
+const MCP_CONTRACT = 12;   // must stay <= engine/comms/mcp-connect.mjs's real CONTRACT
                           // (2 = the byo google row, 2026-08-17; 3 = several
                           // google rows, one per account, 2026-09-14. Bumped
                           // in lockstep with the engine. rekey_due_at left the
@@ -1843,6 +1843,9 @@ export function runVerb(surface, verb, args, state, opts) {
       if (args.key === 'odoo') return ok([JSON.stringify(on.dead
         ? { ok: true, contract: MCP_CONTRACT, key: 'odoo', working: false, problem: 'auth', detail: 'Odoo turned the API key down: it has expired (on Odoo 19 and later a key lasts three months at most) or been deleted.' }
         : { ok: true, contract: MCP_CONTRACT, key: 'odoo', working: true, server: 'crads-odoo', tools: 11, account: 'Mel Driftwood, Driftwood Surf School', version: '19.0' })]);
+      if (args.key === 'imap') return ok([JSON.stringify(on.dead
+        ? { ok: true, contract: MCP_CONTRACT, key: 'imap', working: false, problem: 'auth', detail: 'Your mail server turned the sign-in down. Check the username and password on the Connections page. If your provider uses app passwords (iCloud, Yahoo, Fastmail and Zoho do), make one there and paste that instead of your normal password.' }
+        : { ok: true, contract: MCP_CONTRACT, key: 'imap', working: true, server: 'crads-imap', tools: 5, account: 'mel@driftwoodsurf.com.au' })]);
       if (args.key === 'mailchimp') return ok([JSON.stringify(on.dead
         ? { ok: true, contract: MCP_CONTRACT, key: 'mailchimp', working: false, problem: 'auth', detail: 'Mailchimp turned the API key down: it has expired or been revoked.' }
         : { ok: true, contract: MCP_CONTRACT, key: 'mailchimp', working: true, server: 'crads-mailchimp', tools: 12, account: 'Mel\'s Shop' })]);
@@ -1900,6 +1903,17 @@ export function runVerb(surface, verb, args, state, opts) {
       MCP_ON.odoo = { authorised: true, auth: 'token', renews: false, key_expires_by: new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10), blurb: 'contacts, CRM, sales and draft invoices, with your own key' };
       if (/^0000/.test(k)) MCP_ON.odoo.dead = true;
       return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: 'odoo', action: 'add', auth: 'token', services: mcpRows() })]);
+    }
+    // contract 12: email over IMAP on the box. The password "wrong" stands in
+    // for one the mail server turns down, so the failure path can be driven.
+    case 'mcp-add-imap': {
+      const p = JSON.parse(Buffer.from(String(args.def_b64 || ''), 'base64').toString('utf8'));
+      const pw = Buffer.from(String(p.password_b64 || ''), 'base64').toString('utf8');
+      if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(String(p.host || ''))) return ok([JSON.stringify({ ok: false, error: 'the mail server should be a name like mail.yourhost.com (your provider lists it as the incoming or IMAP server)' })]);
+      if (!pw) return ok([JSON.stringify({ ok: false, error: 'the password is needed (an app password, where your provider has them)' })]);
+      MCP_ON.imap = { authorised: true, auth: 'token', renews: false, key_expires_by: null, blurb: `read, search and draft email in ${p.from || p.user}; nothing is sent` };
+      if (pw === 'wrong') MCP_ON.imap.dead = true;
+      return ok([JSON.stringify({ ok: true, contract: MCP_CONTRACT, key: 'imap', action: 'add', auth: 'token', services: mcpRows() })]);
     }
     case 'mcp-remove': {
       delete MCP_ON[args.key];

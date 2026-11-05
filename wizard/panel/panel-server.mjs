@@ -1575,6 +1575,22 @@ export const MEMBER_VERBS = {
       };
     },
   },
+  // Contract 12 (2026-11-05): email over IMAP on the box, the same shape as
+  // Odoo. The mail server settings and the member's own (app) password ride
+  // stdin as base64(JSON), never argv.
+  'mcp-add-imap': {
+    mutating: true,
+    build: (a = {}) => {
+      const b64 = String(a.def_b64 ?? '');
+      if (!b64 || b64.length > 2400 || !B64_RE.test(b64)) bad('def_b64 must be base64 (a small JSON with the mail server settings)');
+      return {
+        command: `[ -f /app/engine/comms/imap-mcp.mjs ] `
+          + `&& node /app/engine/comms/mcp-connect.mjs /state add-imap `
+          + `|| echo '{"ok":false,"error":"box-too-old"}'`,
+        stdin: b64 + '\n',
+      };
+    },
+  },
   // Contract 4 (2026-10-02): ask a SAVED connection for its tool list, from the
   // box, with the definition jobs will load. Read-only: the guided wizards run
   // it straight after saving so a bad credential is caught on the page. A box

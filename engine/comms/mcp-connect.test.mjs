@@ -1207,3 +1207,65 @@ test('check speaks stdio to Odoo: a good key names the user, company and version
     assert.ok(!JSON.stringify(bad).includes(ODOO_KEY));
   } finally { odoo.close(); }
 });
+
+// ---- contract 12: email over IMAP on the box (2026-11-05) ---------------------
+import { startFakeImap } from '../../tests/fake-imap.mjs';
+const IMAP_PW = 'app-pässword';
+
+test('add-imap: a stdio server carrying the mail settings in env, a token row, the password never echoed', () => {
+  const d = box();
+  const raw = execFileSync('node', [SCRIPT, d, 'add-imap'], { encoding: 'utf8',
+    input: b64({ host: 'imaps://Mail.DriftwoodSurf.com.au/', user: 'mel@driftwoodsurf.com.au', password_b64: Buffer.from(IMAP_PW).toString('base64') }) });
+  const r = JSON.parse(raw);
+  assert.equal(r.ok, true, raw);
+  assert.ok(r.contract >= 12, 'contract 12 announces add-imap');
+  assert.ok(!raw.includes(IMAP_PW) && !raw.includes(Buffer.from(IMAP_PW).toString('base64')), 'the password must not come back out through the verb');
+  const row = svc(r, 'imap');
+  assert.equal(row.auth, 'token'); assert.equal(row.state, 'on'); assert.equal(row.label, 'Email (IMAP)');
+  assert.equal(row.url, 'mail.driftwoodsurf.com.au', 'the server is not a secret: the row shows which one');
+  assert.match(row.blurb, /mel@driftwoodsurf\.com\.au; nothing is sent/);
+  assert.equal(row.key_expires_by, null, 'a password has no date to run out');
+  const def = JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers.imap;
+  assert.equal(def.command, 'node');
+  assert.match(def.args[0], /imap-mcp\.mjs$/);
+  assert.deepEqual({ ...def.env, CRADS_KEY_ADDED: 'x' }, { IMAP_HOST: 'mail.driftwoodsurf.com.au', IMAP_PORT: '993', IMAP_SECURITY: 'tls', IMAP_USER: 'mel@driftwoodsurf.com.au',
+    IMAP_PASSWORD: IMAP_PW, IMAP_FROM: 'mel@driftwoodsurf.com.au', CRADS_KEY_ADDED: 'x' }, 'scheme and path dropped, 993 over TLS by default, the address doubles as the sender');
+  assert.ok(claudeJson(d).projects[d].enabledMcpjsonServers.includes('imap'), 'approved for chats and jobs');
+});
+
+test('add-imap refuses an insecure connection, a bad server, a missing password, a sender it cannot address', () => {
+  const d = box();
+  const pw = Buffer.from('x').toString('base64');
+  const no = (req, re) => { const r = run(d, 'add-imap', b64(req)); assert.equal(r.ok, false, JSON.stringify(req)); assert.match(r.error, re); };
+  no({ host: 'mail.example.com', security: 'none', user: 'a@b.test', password_b64: pw }, /must be secure/);
+  no({ host: 'not a server', user: 'a@b.test', password_b64: pw }, /mail server should be a name/);
+  no({ host: 'mail.example.com', user: 'a@b.test' }, /password is needed/);
+  no({ host: 'mail.example.com', user: 'a@b.test', password_b64: Buffer.from('a\nb').toString('base64') }, /password is needed/);
+  no({ host: 'mail.example.com', user: 'mel', password_b64: pw }, /add your email address/);
+  no({ host: 'mail.example.com', user: 'a@b.test', password_b64: pw, port: 70000 }, /port is a number/);
+  assert.ok(!existsSync(path.join(d, '.mcp.json')) || !JSON.parse(readFileSync(path.join(d, '.mcp.json'), 'utf8')).mcpServers?.imap, 'nothing refused was saved');
+});
+
+test('check signs in for real: a right password names the mailbox; a wrong one is an auth problem; a dead server is unreachable', async () => {
+  const fake = await startFakeImap({ pass: IMAP_PW });
+  const d = box();
+  try {
+    const add = (password, port = fake.port) => run(d, 'add-imap', b64({ host: '127.0.0.1', port, security: 'none', user: 'mel@driftwood.test',
+      from: 'Mel Driftwood <mel@driftwood.test>', password_b64: Buffer.from(password).toString('base64') }));
+    assert.equal(add(IMAP_PW).ok, true);
+    const ok = await runAsync(d, ['check', 'imap']);
+    assert.equal(ok.working, true, JSON.stringify(ok));
+    assert.equal(ok.server, 'crads-imap');
+    assert.equal(ok.tools, 5);
+    assert.equal(ok.account, 'Mel Driftwood <mel@driftwood.test>');
+    add('wrong');
+    const bad = await runAsync(d, ['check', 'imap']);
+    assert.equal(bad.working, false);
+    assert.equal(bad.problem, 'auth');
+    assert.match(bad.detail, /turned the sign-in down/);
+    add(IMAP_PW, 1);
+    const gone = await runAsync(d, ['check', 'imap']);
+    assert.equal(gone.problem, 'unreachable');
+    assert.ok(fake.log.every((l) => !/^(SELECT|STORE|APPEND|EXPUNGE|DELETE)\b/.test(l)), 'a check only reads');
+  } finally { await fake.close(); }
+});

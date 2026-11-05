@@ -48,6 +48,11 @@
 // ones need Python or a module installed inside the member's ERP. Its url is
 // a TEMPLATE the member's Odoo address completes, never connected to as an
 // MCP address.
+// 'imap' (contract 12, 2026-11-05) runs ON the box the same way
+// (engine/comms/imap-mcp.mjs, the member's own mail server and password): it
+// is any mailbox that is not Google or Microsoft, so there is no one server to
+// list. Its url is a TEMPLATE the member's mail server completes, never
+// connected to as an MCP address.
 
 export const CATEGORIES = ['Design', 'Dev', 'Docs', 'Comms', 'Data', 'Meetings', 'Payments', 'Web', 'AI'];
 
@@ -142,6 +147,7 @@ export const CATALOGUE = [
   { key: 'mailchimp', label: 'Mailchimp', category: 'Comms', url: 'https://us1.api.mailchimp.com/3.0/', blurb: 'audiences, contacts, draft campaigns and reports', auth: 'token', guided: 'mailchimp' },
   { key: 'microsoft', label: 'Microsoft 365', category: 'Comms', url: 'https://graph.microsoft.com/v1.0/', blurb: 'Outlook mail, calendar and contacts', auth: 'oauth', guided: 'microsoft' },
   { key: 'wordpress', label: 'WordPress', category: 'Web',   url: 'https://your-site/wp-json/mcp/mcp-adapter-default-server', blurb: 'your site, and WooCommerce orders and products', auth: 'token', guided: 'wordpress' },
+  { key: 'imap',      label: 'Email (IMAP)', category: 'Comms', url: 'imaps://mail.your-host.com:993', blurb: 'any other mailbox: read, search and save drafts', auth: 'token', guided: 'imap' },
   { key: 'odoo',      label: 'Odoo',      category: 'Payments', url: 'https://your-company.odoo.com', blurb: 'contacts, CRM, sales and draft invoices', auth: 'token', guided: 'odoo' },
   // connected through the member's Claude account only (see 'account' above)
   { key: 'shopify',   label: 'Shopify',   category: 'Payments', url: 'https://setup.shopify.com/mcp', blurb: 'your store, in your chats with Claude', auth: 'account', guided: 'account' },

@@ -2296,6 +2296,56 @@
         <div class="notice" id="odNotice" style="display:none"></div>
       </div>
 
+      <!-- Email over IMAP (contract 12, 2026-11-05): any mailbox that is not
+           Google or Microsoft. Its server runs ON the mineral
+           (engine/comms/imap-mcp.mjs) with the member's own mail server
+           settings and (app) password. It reads, searches and saves drafts;
+           it sends nothing. Saved by mcp-add-imap, then checked with one real
+           sign-in (account_info). -->
+      <div class="guidecard" id="imWizard" style="margin-top:14px;display:none" data-guided="imap">
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <p class="gtitle" style="margin:0">Email, from any mail provider (IMAP)</p>
+          <button class="connfix" type="button" data-guided-close style="margin-left:auto">Close</button>
+        </div>
+        <p class="hint" style="margin:6px 0 10px">For a mailbox that is not Gmail or Microsoft 365 (those two have their own, better connections above): your web host's email, Fastmail, iCloud, Zoho, Yahoo and the like. Your mail server's settings and your password live on your mineral only, and the part that uses them runs there too: your email never passes through anyone else. About five minutes.</p>
+        <p class="hint" style="margin:0 0 12px">Your assistant can list your folders, search your email, read a message and its attachment names, and write replies and new emails into your <b>Drafts</b> folder. It <b>cannot send anything</b>: you open the draft in your mail app, check it and press Send. It cannot delete, move or mark anything either, and reading an email does not mark it as read.</p>
+        <div class="fsteps" data-ladder style="margin:0 0 12px">
+          <span class="fstep" data-step="1">Find your settings</span>
+          <span class="fstep" data-step="2">Type them in</span>
+          <span class="fstep" data-step="3">Working</span>
+        </div>
+        <details class="secfold" data-fold="1">
+          <summary>Step 1: Find your mail settings<span class="sum2">Your provider's help pages list them</span></summary>
+          <div class="fbody">
+            <p class="hint" style="margin:6px 0 10px">Search your provider's help pages for <b>IMAP settings</b>, or look in your mail app's account settings under <b>incoming mail</b>. You need the <b>server</b> (like mail.yourhost.com or imap.fastmail.com) and the <b>port</b> (almost always 993, with SSL or TLS). The username is usually your full email address.</p>
+            <p class="hint" style="margin:0 0 10px">If your provider has <b>app passwords</b> (iCloud, Yahoo, Fastmail, Zoho and most others with two-step sign-in do), make one named <b>Crads</b> and use that instead of your normal password. You can revoke it any time without changing your real password. A web host's mailbox (cPanel and similar) usually just uses the mailbox password.</p>
+            <label class="check" style="margin:0"><input type="checkbox" data-tick="1"><span>Done, I have the settings</span></label>
+          </div>
+        </details>
+        <details class="secfold" data-fold="2" style="margin-top:10px">
+          <summary>Step 2: Type them in<span class="sum2">Saved on your mineral, then tested from it</span></summary>
+          <div class="fbody">
+            <div class="hostbox" style="flex-wrap:wrap;gap:8px">
+              <input id="imFrom" autocomplete="off" spellcheck="false" placeholder="your email address" style="flex:1;min-width:220px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <input id="imPass" type="password" autocomplete="off" spellcheck="false" placeholder="password or app password" style="flex:1;min-width:220px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+            </div>
+            <div class="hostbox" style="flex-wrap:wrap;gap:8px;margin-top:8px">
+              <input id="imHost" autocomplete="off" spellcheck="false" placeholder="mail server, like mail.yourhost.com" style="flex:1;min-width:220px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <input id="imPort" autocomplete="off" spellcheck="false" inputmode="numeric" value="993" aria-label="port" style="width:80px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <select id="imSecurity" aria-label="security" style="font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit"><option value="tls">SSL/TLS</option><option value="starttls">STARTTLS</option></select>
+            </div>
+            <p class="hint" style="margin:10px 0 6px">Only if they differ: the username, when it is not your email address, and the drafts folder, when your mail server does not mark one.</p>
+            <div class="hostbox" style="flex-wrap:wrap;gap:8px">
+              <input id="imUser" autocomplete="off" spellcheck="false" placeholder="username (optional)" style="flex:1;min-width:200px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <input id="imDrafts" autocomplete="off" spellcheck="false" placeholder="drafts folder" style="width:180px;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit">
+              <button class="act" type="button" id="imSave">Connect email</button>
+            </div>
+          </div>
+        </details>
+        <div data-done style="display:none;margin-top:12px"></div>
+        <div class="notice" id="imNotice" style="display:none"></div>
+      </div>
+
       <!-- Asana (contract 7, 2026-10-17): Asana's v2 server has no self-
            registration, so the member makes their own Asana app (type MCP
            app), lists our fixed callback on it, and pastes its client ID and
@@ -4861,7 +4911,8 @@
     // HOW it authenticates is part of the truth worth visualising: an API-token
     // connection never needs a sign-in, an OAuth one might sign you out, and a
     // program connection, or a server on the same machine, runs on the mineral itself.
-    var kind = s.auth === 'token' ? ' · API token' : (s.auth === 'stdio' || s.auth === 'local') ? ' · runs on your mineral' : '';
+    // email over IMAP signs in with a password, not a token (contract 12)
+    var kind = s.key === 'imap' ? ' · password on your mineral' : s.auth === 'token' ? ' · API token' : (s.auth === 'stdio' || s.auth === 'local') ? ' · runs on your mineral' : '';
     var warn = (s.state === 'on' && s.auth === 'oauth' && s.renews === false)
       ? '<div class="sub" style="margin:2px 0 0">Signs you out periodically; you will need to authorise it again when it does.</div>' : '';
     if (asanaOld) warn += '<div class="sub" style="margin:2px 0 0">Asana is switching this connection off, and it drops out of a chat left open past an hour. Moving it takes about five minutes, once.</div>';
@@ -5067,10 +5118,10 @@
   // wizards save through mcp-add-custom and then ask the box to call the
   // server (mcp-check, contract 4); a failed check removes the saved entry, so
   // a wrong paste leaves nothing behind and the member simply tries again.
-  var GUIDED_CARDS = { slack: 'skWizard', wordpress: 'wpWizard', mailchimp: 'mcWizard', account: 'acWizard', asana: 'asWizard', microsoft: 'msWizard', odoo: 'odWizard' };
-  var GUIDED_NOTICE = { slack: 'skNotice', wordpress: 'wpNotice', mailchimp: 'mcNotice', asana: 'asNotice', microsoft: 'msNotice', odoo: 'odNotice' };
+  var GUIDED_CARDS = { slack: 'skWizard', wordpress: 'wpWizard', mailchimp: 'mcWizard', account: 'acWizard', asana: 'asWizard', microsoft: 'msWizard', odoo: 'odWizard', imap: 'imWizard' };
+  var GUIDED_NOTICE = { slack: 'skNotice', wordpress: 'wpNotice', mailchimp: 'mcNotice', asana: 'asNotice', microsoft: 'msNotice', odoo: 'odNotice', imap: 'imNotice' };
   // the box contract each wizard stands on: 4 = scheme basic + check, 5 = Mailchimp on the box, 11 = Odoo on the box
-  var GUIDED_CONTRACT = { slack: 4, wordpress: 4, mailchimp: 5, asana: 7, microsoft: 10, odoo: 11 };
+  var GUIDED_CONTRACT = { slack: 4, wordpress: 4, mailchimp: 5, asana: 7, microsoft: 10, odoo: 11, imap: 12 };
   // What the account guide says per service. Facts, verified 2026-10-02:
   // Shopify's sign-in accepts only claude.ai / chatgpt.com redirects; Xero's
   // hosted server refuses third-party tokens and its Claude connector is
@@ -5148,7 +5199,7 @@
     b.onclick = function(){ b.closest('[data-guided]').style.display = 'none'; };
   });
   // ticking a step's Done moves the ladder on to the next one
-  ['skWizard', 'wpWizard', 'mcWizard', 'asWizard', 'odWizard'].forEach(function(id){
+  ['skWizard', 'wpWizard', 'mcWizard', 'asWizard', 'odWizard', 'imWizard'].forEach(function(id){
     var card = $(id);
     card.addEventListener('change', function(e){
       var t = e.target && e.target.getAttribute && e.target.getAttribute('data-tick');
@@ -5200,6 +5251,13 @@
       // email for an older Odoo, a refused permission, a plan without the API)
       return c.detail ? 'Odoo said: ' + c.detail : 'That did not work. Check the address and the key, and try again.';
     }
+    if (kind === 'imap') {
+      // the box's own sentences are already plain words (a wrong password, a
+      // server that can't be reached, a certificate for a different name)
+      if (c.problem === 'auth') return c.detail || 'Your mail server turned the sign-in down. Check the username and password; if your provider has app passwords, make one and use that.';
+      if (c.problem === 'unreachable') return c.detail || 'Your mineral could not reach that mail server. Check the server name and port.';
+      return c.detail || 'That did not work. Check the settings and try again.';
+    }
     if (kind === 'slack' && /not enabled for slack mcp/i.test(c.detail || '')) return 'Slack says your app is not switched on for assistants. Open the app on api.slack.com, go to Agents & AI Apps, and turn on Model Context Protocol, then press Connect again. (The template does this for you; an app made by hand needs it.)';
     if (c.problem === 'auth') return kind === 'slack'
       ? 'Slack turned that token down.' + said + ' Check you copied the User OAuth Token (it starts xoxp-), not the app ID or a signing secret, and that the app is installed to your workspace.'
@@ -5216,7 +5274,7 @@
   // the key the box saves it under, which the check and the undo both need
   function guidedConnect(kind, def, btn, verb){
     var nid = GUIDED_NOTICE[kind], card = guidedCard(kind);
-    var label = { slack: 'Slack', wordpress: 'your site', mailchimp: 'Mailchimp', odoo: 'your Odoo' }[kind];
+    var label = { slack: 'Slack', wordpress: 'your site', mailchimp: 'Mailchimp', odoo: 'your Odoo', imap: 'your mail server' }[kind];
     if (!mcpBoxOk) { notice(nid, 'Your mineral did not answer, so nothing can be connected right now.'); return; }
     if (mcpContract < GUIDED_CONTRACT[kind]) { notice(nid, MCP_TOO_OLD); return; }
     btn.disabled = true;
@@ -5248,6 +5306,12 @@
               : major ? ' Keys made in this version of Odoo do not expire.' : '';
             done.innerHTML = '<p class="hint" style="margin:0"><b>Connected' + (c.account ? ' as ' + esc(c.account) : '') + (c.version ? ' (Odoo ' + esc(c.version) + ')' : '') + '.</b> Your assistant can use Odoo in chats and in scheduled jobs.' + life + ' Disconnect in Your connections removes the key from your mineral.</p>';
             done.style.display = 'block'; $('odKey').value = '';
+            loadMcp(); loadDashboard(true);
+            return;
+          }
+          if (kind === 'imap') {
+            done.innerHTML = '<p class="hint" style="margin:0"><b>Connected' + (c.account ? ' as ' + esc(c.account) : '') + '.</b> Your assistant can search and read your email and save drafts, in chats and in scheduled jobs. It sends nothing: drafts wait in your Drafts folder for you. Disconnect in Your connections removes the password from your mineral.</p>';
+            done.style.display = 'block'; $('imPass').value = '';
             loadMcp(); loadDashboard(true);
             return;
           }
@@ -5324,6 +5388,24 @@
     if (login) payload.login = login;
     if (db) payload.db = db;
     guidedConnect('odoo', payload, $('odSave'), 'mcp-add-odoo');
+  };
+  // Email over IMAP: a secure port follows the security choice unless the
+  // member has typed their own
+  $('imSecurity').onchange = function(){
+    var p = ($('imPort').value || '').trim();
+    if (p === '' || p === '993' || p === '143') $('imPort').value = this.value === 'starttls' ? '143' : '993';
+  };
+  $('imSave').onclick = function(){
+    var from = ($('imFrom').value || '').trim(), pw = $('imPass').value || '', host = ($('imHost').value || '').trim().replace(/^(imaps?|https?):\/\//i, '').replace(/[\/:].*$/, '');
+    var port = ($('imPort').value || '').trim(), user = ($('imUser').value || '').trim() || from, drafts = ($('imDrafts').value || '').trim();
+    if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(from)) { notice('imNotice', 'Type your email address first, like you@yourbusiness.com.'); return; }
+    if (!pw) { notice('imNotice', 'Type the password (or the app password you made in step 1).'); return; }
+    if (!/^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(host)) { notice('imNotice', 'Type the mail server, like mail.yourhost.com. Your provider lists it as the incoming or IMAP server.'); return; }
+    if (port && !/^\d{1,5}$/.test(port)) { notice('imNotice', 'The port is a number, usually 993.'); return; }
+    var payload = { name: 'imap', host: host, security: $('imSecurity').value, user: user, from: from, password_b64: b64utf8(pw) };
+    if (port) payload.port = Number(port);
+    if (drafts) payload.drafts = drafts;
+    guidedConnect('imap', payload, $('imSave'), 'mcp-add-imap');
   };
   $('wpSave').onclick = function(){
     var o = wpOrigin(), u = ($('wpUser').value || '').trim(), pw = ($('wpPass').value || '').trim();
