@@ -13,7 +13,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { listDevices, writeDevice, revokeDevice, renameDevice, stampLastSeen, stampSeenBySlug, setVaultKey, fingerprintOf, PUBKEY_RE } from './roster.mjs';
-import { syncKeys, supportLine } from './device-sync.mjs';
+import { syncKeys, supportGrant } from './device-sync.mjs';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$/;
 const die = (msg) => { console.error(msg); process.exit(1); };
@@ -70,13 +70,8 @@ const accountArg = (raw) => {
 };
 
 if (cmd === 'list') {
-  let support = null;
-  if (supportLine(stateDir)) {
-    try {
-      const g = JSON.parse(readFileSync(join(stateDir, 'support', 'access.json'), 'utf8')).grant;
-      support = { active: true, expires_at: g.expires_at };
-    } catch { support = { active: true, expires_at: '' }; }
-  }
+  const sg = supportGrant(stateDir);
+  const support = sg.active ? sg : null;
   console.log(JSON.stringify({ devices: listDevices(stateDir), support }, null, 2));
 } else if (cmd === 'add') {
   const account = accountArg(flag('account'));   // strips the flag from `a` first

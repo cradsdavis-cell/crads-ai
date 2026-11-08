@@ -169,7 +169,9 @@ test('the registry entry: ownServer, no secrets asked, listed, and a reason for 
 // inert code-server password) made deterministic; both gave this value. If the
 // dedicated template changes ON PURPOSE, take the new hash in the same commit.
 // 2026-11-03 (trap 82): the unit pulls new software only when the member pressed Update.
-const DEDICATED_SHA256 = 'c8589bf1ba4bedae504d65018b2df91212ef2de822752fbb2f95f6de80c74fe5';
+// 2026-11-06 (trap 83): the unit clears the old versions each pull leaves behind.
+// 2026-11-08 (helper access): sshd exposes the login key and enter-aios records helper sessions.
+const DEDICATED_SHA256 = 'd145d54a4a29fa4919cc617d56100acf19e8db09ddbfed10a7dd25d362a416e9';
 function deterministic(fn) {
   const real = globalThis.crypto.getRandomValues;
   let n = 0;

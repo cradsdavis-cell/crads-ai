@@ -1838,12 +1838,20 @@
         <div class="notice" id="boxRefreshNotice" style="display:none"></div>
       </div>
       <div class="guidecard" style="margin-top:14px" data-needs-box>
-        <p class="gtitle">Support access</p>
-        <p class="hint" style="margin:6px 0 12px">If something on your mineral needs fixing, you can let Crads AI (the software maker) in for a limited time. There is no standing access: nothing opens until you grant it, it expires on its own, you can revoke it at any moment, and every grant is logged right here.</p>
+        <p class="gtitle">Helper access</p>
+        <p class="hint" style="margin:6px 0 12px">Let a named person work on your mineral for a limited time: Crads AI for a fix, or someone you've hired for a build. There is no standing access: nothing opens until you say yes, every grant ends on its own, you can end it here at any moment, and every grant is logged right here.</p>
         <div id="supportState" class="hint" style="margin:0 0 12px;color:var(--ink)">Checking…</div>
-        <button class="act" id="supportGrant" style="display:none">Grant support access for 24 hours</button>
-        <button class="act" id="supportRevoke" style="display:none">Revoke access now</button>
+        <div id="helperList" data-helper-list></div>
+        <button class="act" id="supportGrant" style="display:none">Grant Crads AI support access for 24 hours</button>
+        <button class="act" id="supportRevoke" style="display:none">End all access now</button>
         <div class="notice" id="supportNotice" style="display:none"></div>
+        <div id="helperReq" data-helper-request style="display:none;margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:10px"></div>
+        <details id="helperPasteBox" style="margin-top:12px">
+          <summary class="hint" style="cursor:pointer">Paste a request from a helper</summary>
+          <p class="hint" style="margin:8px 0 6px">A helper sends you a link or a code. Clicking the link opens this page; if it didn't, paste the code here. You'll see exactly who is asking and why before anything opens.</p>
+          <textarea id="helperCode" rows="3" style="width:100%;font-family:var(--mono);font-size:11.5px" spellcheck="false" placeholder="crads-ai://helper/..."></textarea>
+          <button class="act" id="helperCheck" style="margin-top:6px">Check this request</button>
+        </details>
         <div id="supportEvents" class="hint" style="margin-top:12px;font-family:var(--mono);font-size:11.5px;color:var(--soft-2)"></div>
       </div>
       <div class="pageend">Everything here reads live from your mineral.</div>
@@ -3708,6 +3716,9 @@
     };
     var wanted = secFromHash();          // arrived via the console's nav: land there
     if (wanted) activateSec(wanted);
+    // crads-ai://helper/<code> lands as #...&helper=<code> (2026-11-08): open Help,
+    // where loadSupport picks the code up and asks the mineral to check it.
+    if (helperFromHash()) activateSec('help');
     // The door's finish checklist deep-links "Connect Claude" as
     // #box=<slug>&sec=terminal&run=signin (2026-09-02): land on the Terminal
     // tab with the sign-in already typed. run= is a WHITELIST, not a command
@@ -6842,10 +6853,16 @@
           + '<button class="act" data-revoke="' + esc(d.slug) + '">Revoke</button></div>';
       });
       if (data.support && data.support.active){
-        html.push('<div class="devrow" data-dev-slug="support"><div><b>Crads AI support</b>'
-          + '<div class="hint" style="margin:2px 0 0">a window you granted · expires '
-          + esc((data.support.expires_at || '').replace('T', ' ').slice(0, 16)) + ' UTC</div></div>'
-          + '<button class="act" data-revoke-support="1">Revoke</button></div>');
+        // One row per live grant (2026-11-08): each helper is a person with a key
+        // that opens this mineral, and this list claims to be all of them.
+        var helpers = (data.support.helpers && data.support.helpers.length) ? data.support.helpers
+          : [{ id: '', name: 'Crads AI support', org: '', expires_at: data.support.expires_at }];
+        helpers.forEach(function(h){
+          html.push('<div class="devrow" data-dev-slug="support"><div><b>' + esc(h.name || 'Helper') + (h.org ? ' (' + esc(h.org) + ')' : '') + '</b>'
+            + '<div class="hint" style="margin:2px 0 0">access you granted · ends '
+            + esc((h.expires_at || '').replace('T', ' ').slice(0, 16)) + ' UTC</div></div>'
+            + '<button class="act" data-revoke-support="' + esc(h.id || '') + '">Revoke</button></div>');
+        });
       }
       el.innerHTML = html.join('') || 'No devices enrolled yet.';
       Array.prototype.forEach.call(el.querySelectorAll('[data-rename]'), function(b){
@@ -6884,36 +6901,112 @@
           });
         };
       });
-      var sb = el.querySelector('[data-revoke-support]');
-      if (sb) sb.onclick = function(){
-        sb.disabled = true;
-        run('support-revoke', {}).then(function(rr){ notice('devicesNotice', outText(rr)); loadDevices(); loadSupport(); });
-      };
+      Array.prototype.forEach.call(el.querySelectorAll('[data-revoke-support]'), function(sb){
+        sb.onclick = function(){
+          sb.disabled = true;
+          var id = sb.getAttribute('data-revoke-support');
+          run('support-revoke', id ? { id: id } : {}).then(function(rr){ notice('devicesNotice', outText(rr)); loadDevices(); loadSupport(); });
+        };
+      });
     });
   }
 
-  // ---- consent-gated support access (three-layer model, L1 repair) ----------
+  // ---- helper access (spec 2026-11-08-helper-access-design.md) ------------
+  // Every live grant is a named person with an end date and its own End button.
+  // A request (crads-ai://helper/<code>, or a pasted code) is checked BY THE
+  // MINERAL, which shows who, why, for how long and the full consent before the
+  // member can approve. The one-button Crads AI support grant stays as it was.
+  var pendingHelper = '';
+  function helperFromHash(){
+    var m = (location.hash || '').match(/[#&]helper=([A-Za-z0-9_.-]+)/);
+    return m ? m[1] : '';
+  }
+  function whoOf(h){ return esc(h.name || '') + (h.org ? ' (' + esc(h.org) + ')' : ''); }
+  function utc(iso){ return esc(String(iso || '').replace('T', ' ').slice(0, 16)) + ' UTC'; }
   function loadSupport(){
-    if (state.kind === 'local') return;   // support access is a server grant
+    if (state.kind === 'local') {   // helper access is a server grant
+      $('supportState').textContent = 'Helper access needs your assistant on a server. Move it to a server first (Your mineral page), then a helper can be let in.';
+      $('helperPasteBox').style.display = 'none';
+      return;
+    }
     run('support-status', {}).then(function(r){
       if (!r.ok) return;
       var st = {}; try { st = JSON.parse(outText(r)); } catch(e){ return; }
       var el = $('supportState');
-      if (!st.configured){
-        el.textContent = 'The support channel is not configured in this software version.';
-        $('supportGrant').style.display = 'none'; $('supportRevoke').style.display = 'none';
-      } else if (st.active){
-        el.innerHTML = '<b>Active:</b> Crads AI can reach this mineral until ' + esc((st.active.expires_at || '').replace('T', ' ').slice(0, 16)) + ' UTC.';
-        $('supportGrant').style.display = 'none'; $('supportRevoke').style.display = '';
-      } else {
-        el.textContent = 'No support access granted. Your mineral is closed to Crads AI.';
-        $('supportGrant').style.display = ''; $('supportRevoke').style.display = 'none';
-      }
+      var grants = st.grants || (st.active ? [{ id: 'support', kind: 'support', helper: { name: 'Crads AI support', org: '' }, expires_at: st.active.expires_at }] : []);
+      var hasSupport = grants.some(function(g){ return g.id === 'support'; });
+      if (!grants.length) el.textContent = 'Nobody else can reach your mineral right now.';
+      else el.innerHTML = '<b>' + grants.length + ' ' + (grants.length === 1 ? 'person' : 'people') + '</b> can reach your mineral:';
+      $('helperList').innerHTML = grants.map(function(g){
+        return '<div class="devrow" data-grant="' + esc(g.id) + '"><div><b>' + whoOf(g.helper || {}) + '</b>'
+          + '<div class="hint">until ' + utc(g.expires_at)
+          + (g.purpose && g.kind !== 'support' ? ' · ' + esc(g.purpose) : '')
+          + (g.kind !== 'support' ? ' · ' + (g.recorded ? 'sessions recorded' : 'sessions not recorded') : '')
+          + '</div></div><div>' + (g.kind !== 'support' && g.recorded ? '<button class="act" data-grant-log="' + esc(g.id) + '">Session record</button> ' : '')
+          + '<button class="act" data-end-grant="' + esc(g.id) + '">End now</button></div></div>';
+      }).join('');
+      Array.prototype.forEach.call($('helperList').querySelectorAll('[data-end-grant]'), function(b){
+        b.onclick = function(){
+          b.disabled = true;
+          run('support-revoke', { id: b.getAttribute('data-end-grant') }).then(function(rr){ notice('supportNotice', outText(rr)); loadSupport(); });
+        };
+      });
+      Array.prototype.forEach.call($('helperList').querySelectorAll('[data-grant-log]'), function(b){
+        b.onclick = function(){ showSessions(b.getAttribute('data-grant-log')); };
+      });
+      $('supportGrant').style.display = st.configured && !hasSupport ? '' : 'none';
+      $('supportRevoke').style.display = grants.length > 1 ? '' : 'none';
       $('supportEvents').innerHTML = (st.events || []).slice(-6).reverse().map(function(ev){
-        return esc((ev.at || '').replace('T', ' ').slice(0, 16)) + ' · ' + esc(ev.event || '') + (ev.hours ? ' (' + ev.hours + 'h)' : '');
+        return esc((ev.at || '').replace('T', ' ').slice(0, 16)) + ' · ' + esc(ev.event || '')
+          + (ev.who ? ' · ' + esc(ev.who) : '') + (ev.hours ? ' (' + ev.hours + 'h)' : '');
       }).join('<br>');
+      var code = pendingHelper || helperFromHash();
+      if (code) { pendingHelper = ''; $('helperCode').value = code; checkHelper(code); }
     });
   }
+  // What a helper ran, read from the HOST copy the helper's own session cannot reach.
+  function showSessions(id){
+    var box = $('helperReq');
+    box.style.display = ''; box.textContent = 'Reading the session record from your server…';
+    run('helper-sessions', { id: id }).then(function(r){
+      var t = outText(r);
+      if (/command not found|not found/.test(t)) t = 'This server keeps no session records: it was set up before they existed.';
+      else if (!t.trim()) t = 'No sessions yet: nothing has been run with this access.';
+      box.innerHTML = '<p style="margin:0 0 8px"><b>Session record</b> <span class="hint">(newest last; the most recent 200 KB per session)</span></p>'
+        + '<pre style="white-space:pre-wrap;max-height:420px;overflow:auto;font-size:11.5px;margin:0">' + esc(t) + '</pre>';
+    });
+  }
+  function checkHelper(code){
+    var box = $('helperReq');
+    box.style.display = ''; box.textContent = 'Checking the request with your mineral…';
+    run('helper-request-show', { code: code }).then(function(r){
+      var t = outText(r), m = t.match(/REQUEST (\{.*\})/);
+      if (!m) { box.innerHTML = '<p><b>This request can\'t be approved.</b></p><p class="hint">' + esc(t.replace(/^ERROR:\s*/, '')) + '</p>'; return; }
+      var v = {}; try { v = JSON.parse(m[1]); } catch(e){ box.textContent = 'The request could not be read.'; return; }
+      box.innerHTML = '<p style="margin:0 0 6px"><b>' + whoOf(v.helper) + '</b> asks to work on your mineral for <b>' + esc(v.length) + '</b>.</p>'
+        + '<p class="hint" style="margin:0 0 6px">What for: ' + esc(v.purpose) + '</p>'
+        + (v.helper.email ? '<p class="hint" style="margin:0 0 6px">Contact: ' + esc(v.helper.email) + '</p>' : '')
+        + '<p class="hint" style="margin:0 0 10px;font-family:var(--mono);font-size:11px">Their key: ' + esc(v.helper.fingerprint) + '</p>'
+        + '<div class="hint" style="white-space:pre-wrap;margin:0 0 12px;color:var(--ink)">' + esc(v.consent) + '</div>'
+        + '<button class="act" id="helperApprove">Let ' + esc(v.helper.name) + ' in until ' + utc(v.until) + '</button> '
+        + '<button class="act" id="helperDecline">Decline</button>';
+      $('helperApprove').onclick = function(){ answerHelper('helper-request-approve', code); };
+      $('helperDecline').onclick = function(){ answerHelper('helper-request-decline', code); };
+    });
+  }
+  function answerHelper(verb, code){
+    $('helperApprove').disabled = true; $('helperDecline').disabled = true;
+    run(verb, { code: code }).then(function(r){
+      $('helperReq').style.display = 'none'; $('helperCode').value = '';
+      notice('supportNotice', outText(r).replace(/^ERROR:\s*/, ''));
+      try { if (/[#&]helper=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search + location.hash.replace(/[#&]helper=[A-Za-z0-9_.-]+/, '').replace(/^$/, '#help')); } catch(e){}
+      loadSupport(); if (typeof loadDevices === 'function') loadDevices();
+    });
+  }
+  $('helperCheck').onclick = function(){
+    var c = ($('helperCode').value || '').trim();
+    if (c) checkHelper(c);
+  };
   $('supportGrant').onclick = function(){
     var b = this; b.disabled = true;
     run('support-grant', { hours: 24 }).then(function(r){ b.disabled = false; notice('supportNotice', outText(r)); loadSupport(); });
@@ -6922,6 +7015,8 @@
     var b = this; b.disabled = true;
     run('support-revoke', {}).then(function(r){ b.disabled = false; notice('supportNotice', outText(r)); loadSupport(); });
   };
+  // A crads-ai://helper/ link lands here as #...&helper=<code>: go to Help.
+  window.addEventListener('hashchange', function(){ var c = helperFromHash(); if (c) { pendingHelper = c; activateSec('help'); loadSupport(); } });
 
   // ---- Crads for teams (stage 2, 2026-10-10) ------------------------------
   var teamState = null;

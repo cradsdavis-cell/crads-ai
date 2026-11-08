@@ -24,6 +24,26 @@ export function extractBox(argv) {
   return '';
 }
 
+// crads-ai://helper/<code> (2026-11-08, spec 2026-11-08-helper-access-design.md):
+// a helper's signed access request. Returns the code; app.mjs hands it to the
+// member page as #...&helper=<code>, which asks the mineral to check it before
+// anything is shown as approvable. The charset is the code's own (base64url and
+// one dot), so nothing else can ride into the page's hash.
+export function extractHelper(argv) {
+  for (const a of argv || []) {
+    const m = String(a || '').match(/^crads-ai:\/\/helper\/([A-Za-z0-9_-]{20,4000}\.[A-Za-z0-9_-]{20,4000})\/?$/);
+    if (m) return m[1];
+  }
+  return '';
+}
+
+/** Add the helper code to a panel URL's hash, keeping whatever hash it had. */
+export function withHelper(url, code) {
+  if (!code) return url;
+  const i = url.indexOf('#');
+  return i === -1 ? `${url}#help&helper=${code}` : `${url}&helper=${code}`;
+}
+
 const run = (cmd, args) => new Promise((res, rej) => execFile(cmd, args, (e, so) => (e ? rej(e) : res(so))));
 
 export async function registerProtocolHandler({ execPath = process.execPath, platform = process.platform, runner = run } = {}) {

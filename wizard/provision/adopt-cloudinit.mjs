@@ -142,6 +142,9 @@ function hostFiles({ boxName, image, brainRoot, uid, gid, tz, files }) {
     '  ForceCommand /usr/local/bin/enter-aios',
     '  AuthorizedKeysCommand /usr/local/bin/aios-state-keys %u %f',
     '  AuthorizedKeysCommandUser root',
+    // enter-aios records helper sessions and needs to see which key logged in
+    // (spec 2026-11-08-helper-access-design.md section 5).
+    '  ExposeAuthInfo yes',
     '',
   ].join('\n');
   const signers = [

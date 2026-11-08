@@ -163,6 +163,48 @@ test('the host patch for existing servers swaps only the pull line, dedicated an
   assert.match(run(adopted), /nothing to patch|DRY RUN/, 're-running is harmless');
 });
 
+// trap 83: every pull left the previous version on disk (~3 GB) and nothing removed it.
+test('dedicated server units clear old versions on every start, after the old container is gone', () => {
+  for (const rel of [['provisioning', 'managed', 'cloud-init.template.yaml'], ['provisioning', 'rock', 'cloud-init.rock.template.yaml']]) {
+    const tpl = readFileSync(join(ROOT, ...rel), 'utf8');
+    const starts = tpl.split('\n').filter((l) => /^\s*ExecStartPre=/.test(l)).map((l) => l.trim());
+    const prune = starts.indexOf('ExecStartPre=-/usr/bin/docker image prune -f');
+    assert.ok(prune >= 0, `${rel.join('/')} prunes`);
+    assert.ok(prune > starts.indexOf('ExecStartPre=-/usr/bin/docker rm -f ai-os'), 'after rm -f, so the old container no longer pins the old image');
+    assert.ok(prune > starts.findIndex((l) => /docker pull/.test(l)), 'after the pull, so the version it replaced is already untagged');
+    assert.doesNotMatch(tpl, /docker image prune -a|docker system prune/, 'dangling only: the tagged image about to run is never a candidate');
+  }
+  const adopt = readFileSync(join(ROOT, 'wizard', 'provision', 'adopt-cloudinit.mjs'), 'utf8');
+  assert.doesNotMatch(adopt, /docker image prune/, "an adopted box is the owner's own server: never prune their images");
+});
+
+test('the host patch for existing servers adds the prune once, after the update gate, and refuses an adopted box', () => {
+  const script = join(ROOT, 'provisioning', 'managed', 'patch-prune-images-host.sh');
+  const fixture = (unit, dropins = {}) => {
+    const t = tmpDir('host-');
+    mkdirSync(join(t, 'etc', 'systemd', 'system', 'ai-os.service.d'), { recursive: true });
+    writeFileSync(join(t, 'etc', 'systemd', 'system', 'ai-os.service'), unit);
+    for (const [n, c] of Object.entries(dropins)) writeFileSync(join(t, 'etc', 'systemd', 'system', 'ai-os.service.d', n), c);
+    return t;
+  };
+  const run = (t, ...a) => execFileSync('bash', [script, ...a], { encoding: 'utf8', env: { ...process.env, AIOS_PATCH_TEST: t } });
+  const unit = '[Service]\nExecStartPre=-/usr/bin/docker pull ghcr.io/x/crads-pebble:v2\nExecStartPre=-/usr/bin/docker rm -f ai-os\n'
+    + "ExecStart=/bin/bash -c 'exec /usr/bin/docker run --rm --name ai-os \\\n        -v /state:/state \\\n        img up'\n";
+  const gated = fixture(unit, { 'zz-update-gate.conf': '[Service]\nExecStartPre=\nExecStartPre=-/usr/bin/docker rm -f ai-os\n' });
+  const out = join(gated, 'etc/systemd/system/ai-os.service.d/zzz-prune-images.conf');
+  assert.match(run(gated), /DRY RUN/);
+  assert.equal(existsSync(out), false, 'a dry run writes nothing');
+  run(gated, '--apply');
+  assert.match(readFileSync(out, 'utf8'), /^\[Service\]\nExecStartPre=-\/usr\/bin\/docker image prune -f$/m);
+  assert.doesNotMatch(readFileSync(out, 'utf8'), /^ExecStartPre=$/m, 'appends, never resets the list');
+  assert.ok('zzz-prune-images.conf' > 'zz-update-gate.conf', "sorts after the gate's reset, so the reset cannot wipe it");
+  assert.match(run(gated, '--apply'), /already prune/, 're-running is harmless');
+
+  const adopted = fixture('[Service]\nExecStartPre=-/usr/bin/docker rm -f ai-os\nExecStart=/usr/bin/docker run --rm --name ai-os -v /home/u/brain:/state img:v2 up\n');
+  assert.throws(() => run(adopted, '--apply'), (e) => /adopted box/.test(e.stdout));
+  assert.equal(existsSync(join(adopted, 'etc/systemd/system/ai-os.service.d/zzz-prune-images.conf')), false);
+});
+
 test('only the infrastructure resets: the member home, temp files and installs live on /state', () => {
   const df = readFileSync(join(ROOT, 'Dockerfile.member'), 'utf8');
   assert.match(df, /ENV HOME=\/state\/\.kernel\/home/, 'docker exec (how a member\'s Claude runs) never passes through the entrypoint');

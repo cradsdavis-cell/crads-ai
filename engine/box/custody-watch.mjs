@@ -32,7 +32,8 @@
 import { readFileSync, writeFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { deliveryTarget } from '../lib/delivery-target.mjs';   // Telegram, or the owner's Slack DM when they chose it
+import { deliveryTarget } from '../lib/delivery-target.mjs';
+import { liveGrants } from '../support/grants.mjs';   // Telegram, or the owner's Slack DM when they chose it
 
 const stateDir = path.resolve(process.argv[2] || '/state');
 const wantJson = process.argv.includes('--json');
@@ -51,8 +52,13 @@ export function snapshot(dir = stateDir) {
   const grants = (Array.isArray(own.grants) ? own.grants : [])
     .map((g) => `${String(g.email || '').toLowerCase()}:${g.role || 'member'}:${g.status || ''}`)
     .sort();
-  const sup = r('support/access.json', {}) || {};
-  const g = sup.grant && sup.grant.expires_at && new Date(sup.grant.expires_at) > new Date() ? sup.grant : null;
+  // Every live grant (2026-11-08): the Crads support one keeps its old field so
+  // an upgrade reads as "no change"; each named helper is its own entry.
+  const live = liveGrants(dir);
+  const g = live.find((x) => x.id === 'support') || null;
+  const helpers = live.filter((x) => x.id !== 'support')
+    .map((x) => [x.id, x.helper?.name || '', x.helper?.org || '', x.expires_at, fp(x.key)]
+      .map((v) => String(v).replace(/\|/g, '/')).join('|')).sort();
   const inv = r('org-inbox/transfer/to-org.json', null);
   const grant = r('org-inbox/transfer/to-member.json', null);
   const evict = r('org-inbox/evict/notice.json', null);
@@ -64,6 +70,7 @@ export function snapshot(dir = stateDir) {
     holder: holder ? String(holder).toLowerCase() : '',
     grants,
     support: g ? `${g.expires_at}:${fp(g.key)}` : '',
+    helpers,
     transfer_in: inv ? `to-org:${inv.invited || ''}` : '',
     grant_in: grant ? `to-member:${grant.granted || grant.invited || ''}` : '',
     evict: evict ? `${evict.org || ''}:${evict.date || ''}` : '',
@@ -104,6 +111,17 @@ export function describe(prev, cur) {
       ? `SUPPORT ACCESS GRANTED: Crads support can open this mineral until ${cur.support.split(':')[0]}. Revoke any time in your app (Support).`
       : `Support access ended (revoked or expired). Nobody outside your grants can open this mineral.`);
   }
+  const ph = new Map((prev.helpers || []).map((h) => [h.split('|')[0], h.split('|')]));
+  const ch = new Map((cur.helpers || []).map((h) => [h.split('|')[0], h.split('|')]));
+  const who = ([, name, org]) => org ? `${name} (${org})` : name;
+  const day = (iso) => String(iso || '').replace('T', ' ').slice(0, 16) + ' UTC';
+  for (const [id, h] of ch) {
+    if (!ph.has(id)) ev.push(`HELPER ACCESS GRANTED: ${who(h)} can reach this mineral until ${day(h[3])}. End it any time on the Help page in your app.`);
+    else if (ph.get(id)[3] !== h[3]) ev.push(`Helper access changed: ${who(h)} can now reach this mineral until ${day(h[3])}.`);
+  }
+  for (const [id, h] of ph) {
+    if (!ch.has(id)) ev.push(`Helper access ended for ${who(h)} (revoked or expired). They can no longer reach this mineral.`);
+  }
   if (prev.transfer_in !== cur.transfer_in) {
     ev.push(cur.transfer_in
       ? `Your community has asked to take custody of this mineral (invited ${cur.transfer_in.split(':')[1] || 'today'}). Nothing happens unless you accept in your app.`
@@ -125,7 +143,42 @@ export function describe(prev, cur) {
   return ev;
 }
 
+// THE WEEKLY REMINDER (Sam's ruling, 2026-11-08). A project grant can run for
+// 30 days, and a door left open for weeks should not be something the member
+// has to remember. Once a grant is a week old, one line a week per grant, via
+// the same outbox, until it ends. Remembered in .kernel/helper-reminders.json
+// by grant id, so a restart never double-sends and a new grant starts fresh.
+const WEEK_MS = 7 * 86400_000;
+export function remindWeekly(dir = stateDir, { now = new Date(), notify = true } = {}) {
+  const f = path.join(dir, '.kernel', 'helper-reminders.json');
+  let last = {};
+  try { last = JSON.parse(readFileSync(f, 'utf8')) || {}; } catch { last = {}; }
+  const live = liveGrants(dir, now).filter((g) => g.id !== 'support');
+  const due = live.filter((g) => {
+    const since = Date.parse(last[g.id] || g.granted_at || '');
+    return Number.isFinite(since) && now.getTime() - since >= WEEK_MS;
+  });
+  const keep = {};
+  for (const g of live) keep[g.id] = last[g.id] || g.granted_at || now.toISOString();
+  const lines = due.map((g) => {
+    const who = g.helper?.org ? `${g.helper.name} (${g.helper.org})` : (g.helper?.name || 'A helper');
+    return `${who} can still reach your mineral until ${String(g.expires_at).replace('T', ' ').slice(0, 16)} UTC (${g.purpose || 'no purpose given'}). End it now on the Help page in your app, or leave it to run out.`;
+  });
+  for (const g of due) keep[g.id] = now.toISOString();
+  mkdirSync(path.dirname(f), { recursive: true });
+  writeFileSync(f, JSON.stringify(keep, null, 2) + '\n');
+  if (!lines.length || !notify) return { reminded: lines.length };
+  const chatId = deliveryTarget(dir);
+  if (!chatId) return { reminded: lines.length, sent: false };
+  const outbox = path.join(dir, '.kernel', 'outbox');
+  mkdirSync(outbox, { recursive: true });
+  writeFileSync(path.join(outbox, `helper-reminder-${now.getTime()}.json`),
+    JSON.stringify({ chat_id: chatId, text: `Weekly reminder, open access on your mineral:\n\n${lines.map((l) => `• ${l}`).join('\n')}`, job: 'custody-watch' }) + '\n');
+  return { reminded: lines.length, sent: true };
+}
+
 export function run(dir = stateDir, { now = new Date(), notify = true } = {}) {
+  try { remindWeekly(dir, { now, notify }); } catch { /* a reminder must never stop the custody diff */ }
   const seenF = path.join(dir, '.kernel', 'custody-seen.json');
   const logF = path.join(dir, 'custody-log.jsonl');
   const outbox = path.join(dir, '.kernel', 'outbox');

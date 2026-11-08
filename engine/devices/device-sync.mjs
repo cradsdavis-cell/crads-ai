@@ -7,7 +7,7 @@
 //
 // Two sources feed it, both of which the member owns and can see:
 //   devices/*.yaml          the enrolled devices (git-tracked, auditable)
-//   support/access.json     the current consent-gated Crads support grant, if live
+//   support/access.json     the live consent-gated grants (Crads support, named helpers)
 // Before this module, support-access.mjs wrote the file itself, so any roster
 // write would have silently dropped a live support grant (and vice versa).
 //
@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync, rea
 import { join } from 'node:path';
 import { listDevices, writeDevice, fingerprintOf, PUBKEY_RE } from './roster.mjs';
 import { resolveBrainRoot } from '../lib/brain-root.mjs';
+import { liveGrants } from '../support/grants.mjs';
 
 // THE OPERATOR DOOR HAS TWO REGISTRIES, AND THIS FILE ONLY KNEW ONE.
 //
@@ -58,14 +59,19 @@ export function doorSources(stateDir) {
   };
 }
 
-/** The live support grant as a fact, or an explicit off. */
+/**
+ * The live access grants as a fact, or an explicit off. `active`/`expires_at`
+ * keep the shape older callers read (any grant live; the latest end), and
+ * `helpers` names each one (2026-11-08: there can be several, each a person).
+ */
 export function supportGrant(stateDir) {
-  try {
-    const log = JSON.parse(readFileSync(join(stateDir, 'support', 'access.json'), 'utf8'));
-    const g = log?.grant;
-    if (!g || !g.key || new Date(g.expires_at) <= new Date()) return { active: false, expires_at: '' };
-    return { active: true, expires_at: String(g.expires_at) };
-  } catch { return { active: false, expires_at: '' }; }
+  const live = liveGrants(stateDir);
+  if (!live.length) return { active: false, expires_at: '', helpers: [] };
+  const last = live.map((g) => String(g.expires_at)).sort().pop();
+  return {
+    active: true, expires_at: last,
+    helpers: live.map((g) => ({ id: g.id, name: g.helper?.name || '', org: g.helper?.org || '', expires_at: String(g.expires_at) })),
+  };
 }
 
 /** people/*.yaml as { name, keys[] }, ACTIVE only. peopleKeys is the flat view. */
@@ -138,13 +144,22 @@ export function revokeWouldEmptyDoor(stateDir, slug) {
 // sshd expiry-time, UTC (trailing Z): YYYYMMDDHHMM. Same format support-access.mjs used.
 const stamp = (iso) => new Date(iso).toISOString().replace(/[-:T]/g, '').slice(0, 12) + 'Z';
 
+/** One authorized_keys line per live grant, each with sshd's own expiry. */
+export function supportLines(stateDir) {
+  return liveGrants(stateDir).map((g) => `expiry-time="${stamp(g.expires_at)}" ${g.key}`);
+}
+/** Back-compat: the lines joined, '' when none. */
 export function supportLine(stateDir) {
-  try {
-    const log = JSON.parse(readFileSync(join(stateDir, 'support', 'access.json'), 'utf8'));
-    const g = log?.grant;
-    if (!g || !g.key || new Date(g.expires_at) <= new Date()) return '';
-    return `expiry-time="${stamp(g.expires_at)}" ${g.key}`;
-  } catch { return ''; }
+  return supportLines(stateDir).join('\n');
+}
+
+// Which live grant each helper key belongs to, for the HOST: enter-aios reads
+// this beside authorized_keys to decide whether a session is a helper's and so
+// gets recorded (spec 2026-11-08 section 5). Fingerprint and grant id only, no
+// key material. Written even when empty, so a revoked helper drops out at once.
+function writeHelperIndex(dir, stateDir) {
+  const body = liveGrants(stateDir).map((g) => `${fingerprintOf(g.key)} ${g.id}`).join('\n');
+  try { writeFileSync(join(dir, 'helpers'), body ? body + '\n' : ''); } catch { /* the door matters more than the index */ }
 }
 
 // The derived ssh dir must never be committed to the member's brain repo (which
@@ -302,12 +317,12 @@ export function syncKeys(stateDir) {
   // must not gain a roster row out of a stale file.
   const adopted = shut ? 0 : adoptOrgApprovedKeys(stateDir, new Date().toISOString().slice(0, 10));
   const active = shut ? [] : listDevices(stateDir).filter((d) => d.status === 'active' && d.pubkey);
-  const sup = shut ? '' : supportLine(stateDir);
+  const sup = shut ? [] : supportLines(stateDir);
   // The people registry is the OTHER half of the door (see peopleKeys above).
   // Union, de-duplicated: a founder who later enrols the same key as a device
   // must not appear twice.
   const people = shut ? [] : peopleKeys(stateDir);
-  const lines = [...new Set(active.map((d) => d.pubkey).concat(people).concat(sup ? [sup] : []))];
+  const lines = [...new Set(active.map((d) => d.pubkey).concat(people).concat(sup))];
   // WHICH DOOR THIS ROSTER OPENS DEPENDS ON THE TIER. sshd serves
   // /state/ssh/<login>/authorized_keys, and a rock's login is aios-op while a
   // pebble's is member. This derived the member file unconditionally, so a
@@ -343,17 +358,18 @@ export function syncKeys(stateDir) {
   try { prev = readFileSync(path, 'utf8'); } catch { /* first write */ }
   if (!next.trim() && prev.trim()) {
     ensureIgnored(stateDir);
-    return { devices: active.length, support: !!sup, path, adopted,
+    return { devices: active.length, support: sup.length > 0, helpers: sup.length, path, adopted,
       refused: 'refused to empty the door: kept the existing keys' };
   }
   writeFileSync(path, next);
+  writeHelperIndex(dir, stateDir);
   ensureIgnored(stateDir);
-  return { devices: active.length, support: !!sup, path, adopted };
+  return { devices: active.length, support: sup.length > 0, helpers: sup.length, path, adopted };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const r = syncKeys(process.argv[2] || '/state');
-  console.log(`device-sync: ${r.devices} device key(s)${r.support ? ' + a live support grant' : ''}`
+  console.log(`device-sync: ${r.devices} device key(s)${r.helpers ? ` + ${r.helpers} live access grant(s)` : ''}`
     + `${r.adopted ? ` (adopted ${r.adopted} approved by the rock)` : ''}`
     + `${r.refused ? `; ${r.refused}` : ''}`);
 }

@@ -126,6 +126,8 @@ write_files:
         # on. Without it the hook cannot say WHICH machine knocked.
         AuthorizedKeysCommand /usr/local/bin/aios-state-keys %u %f
         AuthorizedKeysCommandUser root
+        # helper sessions are recorded by enter-aios, which needs the key (spec 2026-11-08)
+        ExposeAuthInfo yes
 
   # D55 host-update channel: signed host-script bundles ride the container image
   # (/app/host-updates); this ROOT timer copies them out, verifies them against
@@ -176,6 +178,16 @@ write_files:
   # leaves /state/.kernel/update-requested and this unit pulls, then clears it. Any
   # other restart (a crash, a reboot) comes back on the same software. No pull on
   # first boot either: `docker run` fetches an image that is not there yet.
+  # After the old container is removed, `docker image prune -f` clears the version
+  # the last pull untagged (trap 83: ~3 GB each, and nothing else ever removed
+  # them). Dangling only, so the tagged image about to run is never a candidate.
+  # ExecStart runs the container as the non-root `aios` uid (the image is built for
+  # an arbitrary uid; see provisioning/run.sh + engine/box-up.sh). This keeps Claude
+  # Code out of in-container root, so it never holds the "master key" and
+  # --dangerously-skip-permissions works without faking a sandbox. `$$` escapes the
+  # `$` so systemd passes `$(...)` through for bash to expand at start time; aios
+  # already owns /state, so the mount stays writable. (These notes sit out here, not
+  # in the unit, because block-scalar lines ship to the box verbatim.)
   - path: /etc/systemd/system/ai-os.service
     permissions: '0644'
     content: |
@@ -196,11 +208,8 @@ write_files:
       TimeoutStartSec=600
       ExecStartPre=-/bin/sh -c 'F=/state/.kernel/update-requested;[ -e $$F ]&&docker pull __IMAGE__&&rm $$F'
       ExecStartPre=-/usr/bin/docker rm -f ai-os
-      # Run the container as the non-root `aios` uid (the image is built for an arbitrary
-      # uid — see provisioning/run.sh + engine/box-up.sh). This keeps Claude Code out of
-      # in-container root, so it never holds the "master key" and --dangerously-skip-permissions
-      # works without faking a sandbox. `$$` escapes the `$` so systemd passes `$(...)` through
-      # for bash to expand at start time; aios already owns /state, so the mount stays writable.
+      ExecStartPre=-/usr/bin/docker image prune -f
+      # `$$` escapes the `$` so systemd passes `$(...)` through to bash; runs as non-root aios.
       ExecStart=/bin/bash -c 'exec /usr/bin/docker run --rm --name ai-os \
         --user "$$(id -u):$$(id -g)" \
         --env-file /etc/ai-os/env \

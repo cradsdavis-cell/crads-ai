@@ -33,15 +33,17 @@ test('the Sharing page and its face gating are RETIRED (2026-09-01)', () => {
   assert.doesNotMatch(live, /class="[^"]*\b(?:memberonly|memonly|orgonly)\b/, 'the face-gating classes are gone with the faces');
 });
 
-test('Support access survives on Help, whole: state, grant, revoke, notice, log', () => {
-  assert.ok(help.includes('<p class="gtitle">Support access</p>'), 'the card lives in the Help section');
-  for (const id of ['supportState', 'supportGrant', 'supportRevoke', 'supportNotice', 'supportEvents']) {
+// 2026-11-08: the card became Helper access (named helpers, signed requests,
+// spec 2026-11-08-helper-access-design.md). Same ids, same promise, new words.
+test('Helper access survives on Help, whole: state, grant, revoke, notice, log, request', () => {
+  assert.ok(help.includes('<p class="gtitle">Helper access</p>'), 'the card lives in the Help section');
+  for (const id of ['supportState', 'supportGrant', 'supportRevoke', 'supportNotice', 'supportEvents', 'helperList', 'helperReq', 'helperCode', 'helperCheck']) {
     assert.ok(help.includes(`id="${id}"`), `#${id} moved with it`);
   }
   // The promises are the point of the card; they must survive the move intact.
-  assert.ok(help.includes('There is no standing access: nothing opens until you grant it, it expires on its own, you can revoke it at any moment, and every grant is logged right here.'),
+  assert.ok(help.includes('There is no standing access: nothing opens until you say yes, every grant ends on its own, you can end it here at any moment, and every grant is logged right here.'),
     'the no-standing-access promise is intact');
-  assert.ok(help.includes('Grant support access for 24 hours'), 'the grant stays time-boxed');
+  assert.ok(help.includes('Grant Crads AI support access for 24 hours'), 'the grant stays time-boxed');
 });
 
 test('opening Help loads the support state, so the moved card is live, not decorative', () => {

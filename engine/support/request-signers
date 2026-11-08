@@ -1,0 +1,4 @@
+# allowed_signers for helper-access requests (ssh-keygen -Y verify, namespace crads-helper-request).
+# Spec: docs/superpowers/specs/2026-11-08-helper-access-design.md. The private half lives on the
+# operator box (~/.ssh/crads_helper_request) and never leaves it. Remove the key line to switch requests off.
+crads-ai namespaces="crads-helper-request" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMfLQpqxHuyt4X+hPV57sqmoPOVZEzgGdSwnkJ8x9rqx

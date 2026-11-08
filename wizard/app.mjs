@@ -35,7 +35,7 @@ import { probePromotedHosts } from './panel/face-probe.mjs';
 import { getBuildInfo, checkForUpdate, cleanupOld, applyUpdate } from './panel/updater.mjs';
 import { createDoorServer } from './panel/door-server.mjs';
 import { scheduleRepair } from './panel/build-box.mjs';
-import { extractBox, registerProtocolHandler } from './panel/protocol.mjs';
+import { extractBox, extractHelper, withHelper, registerProtocolHandler } from './panel/protocol.mjs';
 import { wantsUninstall, wantsInstall, uninstall, registerUninstall } from './panel/uninstall.mjs';
 import { pushOwnedBrains } from './panel/brain-push.mjs';
 import { runSsh } from './panel/ssh-bridge.mjs';
@@ -273,7 +273,8 @@ async function main() {
     const plan = launchPlan({ platform: process.platform, sea: !!sea, env: process.env, live: !!live });
     if (plan === 'reopen') {
       dbg(`already running at ${live.url}; reopening window and exiting`);
-      openAppWindow(live.url); process.exit(0);
+      // A helper link clicked while the app is open must still reach the page.
+      openAppWindow(withHelper(live.url, extractHelper(process.argv))); process.exit(0);
     }
     if (plan === 'relaunch') {
       dbg('no live instance; relaunching self detached and exiting rock');
@@ -551,6 +552,10 @@ async function main() {
           dbg(`launch: door (${pick.why})`);
         }
       }
+      // crads-ai://helper/<code>: whichever mineral opens, land on its Help page
+      // with the request; the mineral itself refuses a request meant for another.
+      const helperCode = extractHelper(process.argv);
+      if (helperCode && openUrl !== doorUrl) { openUrl = withHelper(openUrl, helperCode); label += '+helper'; }
       console.log(`Crads-AI ${label}: ${openUrl}  (door: ${doorUrl}; local only; Ctrl-C to quit)`);
       dbg(`servers up (targets=${allTargets.length}); opening ${label} -> ${openUrl}`);
       try { mkdirSync(RUN_DIR, { recursive: true }); writeFileSync(RUN_FILE, JSON.stringify({ pid: process.pid, url: openUrl, door: doorUrl })); } catch { /* cosmetic */ }

@@ -177,6 +177,18 @@ const textArg = (v) => relArg(v, TEXT_EXT, 'page');
 const imageArg = (v) => relArg(v, IMAGE_EXT, 'image');
 
 function bad(msg) { const e = new Error(msg); e.status = 400; throw e; }
+
+// The request code is base64url.base64url, optionally behind crads-ai://helper/.
+// Shape-checked here so nothing else ever reaches the box's stdin.
+function helperRequestVerb(verb, a) {
+  const code = String(a.code ?? '').trim().replace(/^crads-ai:\/\/helper\//i, '').replace(/\/$/, '');
+  if (!/^[A-Za-z0-9_-]{20,4000}\.[A-Za-z0-9_-]{20,4000}$/.test(code)) bad('that is not a helper request code');
+  return {
+    command: '[ -f /app/engine/support/grants.mjs ] || { echo "ERROR: this mineral\'s software is older than helper access. Press Update and restart on this page, then try again."; exit 1; }; '
+      + `node /app/engine/support/support-access.mjs /state ${verb}`,
+    stdin: code + '\n',
+  };
+}
 // Secret names are their own shape (up to 64 chars, matching engine/vault's
 // VALID_NAME) and must never be able to escape the vault directory.
 const SECRET_NAME_RE = /^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/;
@@ -1337,8 +1349,33 @@ export const MEMBER_VERBS = {
   },
   'support-revoke': {
     mutating: true,
-    build: () => ({ command: 'node /app/engine/support/support-access.mjs /state revoke' }),
+    // id (2026-11-08): end ONE helper's grant; no id ends every grant, which is
+    // what an older app's single "Revoke access now" button means.
+    build: (a = {}) => {
+      const id = String(a.id ?? '').trim();
+      if (id && !/^(support|req_[0-9a-f]{16})$/.test(id)) bad('id must be a grant id');
+      return { command: `node /app/engine/support/support-access.mjs /state revoke${id ? ' ' + id : ''}` };
+    },
   },
+
+  // ---- helper access (spec 2026-11-08-helper-access-design.md). A helper sends
+  // a signed request (link or code); the member's own mineral checks it and the
+  // member approves or declines here. The code rides STDIN, never the command
+  // line. A box whose image predates helper access says so instead of failing.
+  // The session record lives on the HOST, outside the container a helper lands
+  // in, so this is the one verb enter-aios answers itself without entering the
+  // container (provisioning/host/enter-aios). On a host born before session
+  // records it falls through to the container and finds no such command.
+  'helper-sessions': {
+    build: (a = {}) => {
+      const id = String(a.id ?? '').trim();
+      if (!/^req_[0-9a-f]{16}$/.test(id)) bad('id must be a helper grant id');
+      return { command: `crads-helper-sessions ${id}` };
+    },
+  },
+  'helper-request-show': { build: (a = {}) => helperRequestVerb('request-show', a) },
+  'helper-request-approve': { mutating: true, build: (a = {}) => helperRequestVerb('request-approve', a) },
+  'helper-request-decline': { mutating: true, build: (a = {}) => helperRequestVerb('request-decline', a) },
 
   // ---- Crads for teams (stage 2, 2026-10-10). The Team page: who this box is in
   // the team, and on the company agent's box the owner's approvals queue and the
