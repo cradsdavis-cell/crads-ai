@@ -51,8 +51,35 @@ test('a live support grant survives a device sync (the two-writer race)', () => 
   assert.equal(r.support, true);
   const body = keysAt(dir);
   assert.ok(body.includes(KEY), 'device key kept');
-  assert.match(body, /expiry-time="\d{12}Z" ssh-ed25519 /, 'support line carries sshd expiry-time');
+  assert.match(body, /expiry-time="\d{12}Z",\S* ssh-ed25519 /, 'support line carries sshd expiry-time');
   assert.ok(body.includes(SUPPORT), 'support key kept');
+});
+
+// Trap 84: ForceCommand does not govern `ssh -N -L x.sock:/var/run/docker.sock`,
+// and member is in the docker group, so any key that can log in as member could
+// take root-equivalent Docker with no recorded session. The member's own keys
+// may (their server); a granted key (helper or Crads support) must not.
+test('trap 84: grant lines refuse forwarding, the member\'s own lines are unchanged', () => {
+  const dir = state();
+  writeDevice(dir, { slug: 'laptop', label: 'L', pubkey: KEY, added: '2026-07-01' });
+  grant(dir, { expiresAt: new Date(Date.now() + 3600_000).toISOString() });
+  syncKeys(dir);
+  const lines = keysAt(dir).split('\n').filter(Boolean);
+  const own = lines.find((l) => l.includes(KEY));
+  const granted = lines.find((l) => l.includes(SUPPORT));
+  assert.equal(own, KEY, 'the member\'s device line is the bare key, no options');
+  const [opts, ...rest] = granted.split(' ');
+  assert.equal(rest.join(' '), SUPPORT, 'the options sit in front of the key, nothing else changes');
+  const set = opts.split(',');
+  for (const o of ['no-port-forwarding', 'no-agent-forwarding', 'no-X11-forwarding']) {
+    assert.ok(set.includes(o), `grant line carries ${o}`);
+  }
+  assert.ok(set.some((o) => /^expiry-time="\d{12}Z"$/.test(o)), 'sshd expiry still enforced');
+  // A helper must still get a terminal: `restrict` and no-pty would take it away.
+  assert.ok(!set.includes('restrict') && !set.includes('no-pty'), 'helper keeps a pty');
+  // The member's own lines come first, so a key the member enrolled as their own
+  // matches its unrestricted line (sshd takes the first matching line).
+  assert.ok(lines.indexOf(own) < lines.indexOf(granted), 'own keys before grant lines');
 });
 
 test('an expired support grant is not written back', () => {
@@ -110,12 +137,12 @@ test('granting support then syncing devices keeps BOTH (regression)', () => {
   execFileSync('node', [SUPPORT_CLI, dir, 'grant', '2'], { encoding: 'utf8' });
   let body = keysAt(dir);
   assert.ok(body.includes(KEY), 'device key survived the grant');
-  assert.match(body, /expiry-time="\d{12}Z" /, 'grant line present');
+  assert.match(body, /expiry-time="\d{12}Z",no-port-forwarding/, 'grant line present');
 
   syncKeys(dir);                       // a later device change must not drop the grant
   body = keysAt(dir);
   assert.ok(body.includes(KEY), 'device key still there');
-  assert.match(body, /expiry-time="\d{12}Z" /, 'grant still there after a roster sync');
+  assert.match(body, /expiry-time="\d{12}Z",no-port-forwarding/, 'grant still there after a roster sync');
 });
 
 test('revoking support leaves the device keys alone', () => {

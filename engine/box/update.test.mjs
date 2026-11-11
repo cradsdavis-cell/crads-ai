@@ -200,6 +200,16 @@ test('the host patch for existing servers adds the prune once, after the update 
   assert.ok('zzz-prune-images.conf' > 'zz-update-gate.conf', "sorts after the gate's reset, so the reset cannot wipe it");
   assert.match(run(gated, '--apply'), /already prune/, 're-running is harmless');
 
+  // A full disk (a member's server at 100%, 2026-11-11): no temp file, and the
+  // prune runs before anything is written, or the cleanup never gets to run.
+  const full = fixture(unit);
+  execFileSync('bash', [script, '--apply'], { encoding: 'utf8', env: { ...process.env, AIOS_PATCH_TEST: full, TMPDIR: join(full, 'no-such-dir') } });
+  assert.ok(existsSync(join(full, 'etc/systemd/system/ai-os.service.d/zzz-prune-images.conf')), 'applies with no writable temp space');
+  const body = readFileSync(script, 'utf8');
+  const apply = body.slice(body.indexOf('# Prune FIRST'));
+  assert.ok(apply.indexOf('docker image prune -f') >= 0 && apply.indexOf('docker image prune -f') < apply.indexOf('> "$DROPIN"'), 'prunes before it writes the drop-in');
+  assert.doesNotMatch(body, /TMPDIR|mktemp/, 'nothing goes through a temp file');
+
   const adopted = fixture('[Service]\nExecStartPre=-/usr/bin/docker rm -f ai-os\nExecStart=/usr/bin/docker run --rm --name ai-os -v /home/u/brain:/state img:v2 up\n');
   assert.throws(() => run(adopted, '--apply'), (e) => /adopted box/.test(e.stdout));
   assert.equal(existsSync(join(adopted, 'etc/systemd/system/ai-os.service.d/zzz-prune-images.conf')), false);

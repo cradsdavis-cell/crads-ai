@@ -27,6 +27,7 @@
 //                                   NAT idle timeouts
 import { spawn } from 'node:child_process';
 import { poolFor } from './ssh-channel.mjs';
+import { cleanupHost } from './host-docker.mjs';
 import { createHmac } from 'node:crypto';
 import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -243,6 +244,8 @@ export function listPanelTargets(configPath = sshConfigPath()) {
   return targets;
 }
 
+// Exported for host-docker.mjs, whose Docker channel must dial exactly like every verb.
+export { sshArgs as sshBaseArgs };
 function sshArgs(configPath) {
   const args = [
     '-F', configPath,
@@ -587,11 +590,14 @@ export function runSsh(host, command, opts = {}) {
 // The injectable transport the panel server consumes (opts.bridge in tests).
 // Contract: targets() -> [{host, org}]; stream(host, command, { onStdout,
 // onStderr, stdin }) -> pebble-like { on('error'|'close', cb), kill() };
-// tty(host, { cols, rows }) -> raw ChildProcess with stdin/stdout/stderr pipes.
+// tty(host, { cols, rows }) -> raw ChildProcess with stdin/stdout/stderr pipes;
+// hostCleanup(host) -> { ok, removed, freedBytes, kept } | { ok:false, error } (optional).
 export function systemBridge(opts = {}) {
   return {
     targets: () => listPanelTargets(opts.configPath),
     stream: (host, command, o = {}) => streamSsh(host, command, { ...opts, ...o }),
     tty: (host, o = {}) => openSshTty(host, { ...opts, ...o }),
+    // trap 83: clear old software versions through the host's Docker (host-docker.mjs).
+    hostCleanup: (host, o = {}) => cleanupHost(host, { ...opts, ...o }),
   };
 }

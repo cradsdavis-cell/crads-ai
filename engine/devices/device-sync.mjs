@@ -144,9 +144,27 @@ export function revokeWouldEmptyDoor(stateDir, slug) {
 // sshd expiry-time, UTC (trailing Z): YYYYMMDDHHMM. Same format support-access.mjs used.
 const stamp = (iso) => new Date(iso).toISOString().replace(/[-:T]/g, '').slice(0, 12) + 'Z';
 
-/** One authorized_keys line per live grant, each with sshd's own expiry. */
+// A GRANTED KEY GETS A SHELL, NOT THE HOST'S DOCKER SOCKET (trap 84, 2026-11-11).
+//
+// ForceCommand only governs sessions. `ssh -N -L x.sock:/var/run/docker.sock
+// member@box` opens no session at all, so enter-aios never runs, nothing is
+// recorded, and because `member` is in the docker group (cloud-init users
+// block) the caller holds root-equivalent Docker on the host. For the member's
+// own keys that is their server and their call. For a helper or a Crads support
+// grant it would break the promise that every helper session is recorded
+// (privacy 0.25, terms 0.14), so every grant line carries these options.
+// no-port-forwarding also refuses streamlocal (unix socket) forwards and -W;
+// proven on a throwaway sshd (OpenSSH 9.6) before relying on it. Not `restrict`:
+// a helper still needs a pty to work in enter-aios.
+//
+// Grant lines are written AFTER device and people lines (see syncKeys). sshd
+// takes the first line whose key matches, so a key the member also enrolled as
+// their own keeps its unrestricted line.
+export const GRANT_OPTIONS = 'no-port-forwarding,no-agent-forwarding,no-X11-forwarding';
+
+/** One authorized_keys line per live grant, each with sshd's own expiry and no forwarding. */
 export function supportLines(stateDir) {
-  return liveGrants(stateDir).map((g) => `expiry-time="${stamp(g.expires_at)}" ${g.key}`);
+  return liveGrants(stateDir).map((g) => `expiry-time="${stamp(g.expires_at)}",${GRANT_OPTIONS} ${g.key}`);
 }
 /** Back-compat: the lines joined, '' when none. */
 export function supportLine(stateDir) {

@@ -1912,6 +1912,7 @@ export function createPanelServer(opts = {}) {
   const roleAssumed = !opts.role; // no explicit role given: staging default (Admin), shown as assumed
   const html = () => (opts.htmlText ?? readFileSync(opts.htmlPath || join(HERE, 'member.html')));
   let busy = false; // one mutating verb at a time
+  const cleaning = new Set(); // hosts with a /host-cleanup in flight
 
   // ---- own-brain, ON THE SEAT (2026-08-05, Sam: "I just want to click a button and
   // connect to GitHub"). The flow used to live only on the member-connect wizard, so
@@ -2739,6 +2740,36 @@ export function createPanelServer(opts = {}) {
           return { ...out, words: moveOutWords(out) };
         })().then((r) => answer(200, r), (e) => answer(200, { ok: false, error: String((e && e.message) || e).slice(0, 300) }))
           .finally(() => { busy = false; });
+      });
+      return;
+    }
+
+    // trap 83 (2026-11-11): clear the old software versions an update leaves on
+    // the server, through the host's Docker over the member's own SSH key
+    // (host-docker.mjs says exactly what it may delete). The page calls it after
+    // a verified update and once a day on open. Not a /run verb: it does not run
+    // inside the container, which is exactly why it still works when a full disk
+    // has stopped the assistant. Same gates as /run: JSON only, a configured
+    // target, never a brain folder on this computer.
+    if (req.method === 'POST' && path === '/host-cleanup') {
+      const answer = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
+      if (!/application\/json/i.test(String(req.headers['content-type'] || ''))) { answer(415, { ok: false, error: 'json only' }); return; }
+      let body = '';
+      req.on('data', (c) => { body += c; if (body.length > 4000) req.destroy(); });
+      req.on('end', () => {
+        let form; try { form = JSON.parse(body); } catch { answer(400, { ok: false, error: 'bad json' }); return; }
+        const host = String(form.host ?? '');
+        let targets = [];
+        try { targets = (bridge.targets() || []).filter(kindOk); } catch { targets = []; }
+        if (!validTarget(host, targets)) { answer(400, { ok: false, error: 'unknown host' }); return; }
+        if (isLocalHost(host, targets)) { answer(200, { ok: false, error: 'local' }); return; }
+        if (typeof bridge.hostCleanup !== 'function') { answer(200, { ok: false, error: 'unsupported' }); return; }
+        if (cleaning.has(host)) { answer(409, { ok: false, error: 'already running' }); return; }
+        cleaning.add(host);
+        Promise.resolve().then(() => bridge.hostCleanup(host))
+          .then((r) => answer(200, r || { ok: false, error: 'unreachable' }),
+            (e) => answer(200, { ok: false, error: 'unreachable', detail: String((e && e.message) || e).slice(0, 300) }))
+          .finally(() => cleaning.delete(host));
       });
       return;
     }

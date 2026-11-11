@@ -71,7 +71,7 @@ test('approve opens the door for that key only, with sshd expiry, and the record
   const door = keysAt(t.state);
   assert.ok(door.includes(DEVICE), 'device key kept');
   assert.ok(door.includes(t.rhys.pub.split(' ')[1]), 'helper key added');
-  assert.match(door, /expiry-time="\d{12}Z" ssh-ed25519 \S+ rhys@laptop/);
+  assert.match(door, /expiry-time="\d{12}Z",no-port-forwarding,no-agent-forwarding,no-X11-forwarding ssh-ed25519 \S+ rhys@laptop/);
   const g = liveGrants(t.state)[0];
   assert.equal(g.helper.name, 'Rhys Morgan');
   assert.equal(g.consent.version, '1');

@@ -8,7 +8,8 @@
 # What it does:
 #   1. one systemd drop-in that adds `docker image prune -f` to the start steps, so
 #      every future start clears the versions the last pull left behind;
-#   2. with --apply, one prune right now, with the disk use before and after.
+#   2. with --apply, one prune right now (before anything is written), with the
+#      disk use before and after.
 # Dangling images only: anything tagged (the version about to run) or used by a
 # container is never touched. Nothing restarts; the box keeps running.
 #
@@ -20,6 +21,17 @@
 #
 # Dedicated servers only. An adopted box (/state is a folder on the owner's own
 # server) is refused: a prune there would also clear the owner's own images.
+#
+# A FULL DISK (2026-11-11, a member's server at 100%): the apply prunes FIRST and
+# only then writes the drop-in, and nothing goes through a temp file, because on a
+# full disk any write before the prune fails and the cleanup never runs.
+#
+# DOCKER 29 HIDES THEM: on the containerd image store (the default for a fresh
+# Docker 29 install, which is what cloud-init installs) a plain `docker images`
+# does NOT list the old versions. They show only with `docker images -a` or
+# `--filter dangling=true`, named <untagged>, not <none>. A member who checked
+# `docker images` saw one image and (rightly, per the instructions) stopped.
+# Judge by `docker system df` (RECLAIMABLE), never by the plain list.
 set -euo pipefail
 # AIOS_PATCH_TEST points the script at a fixture directory and skips docker (tests only).
 T=${AIOS_PATCH_TEST:-}
@@ -38,37 +50,37 @@ else
   ALREADY=
 fi
 
-TMP="${TMPDIR:-/tmp}/zzz-prune-images.conf.$$"
-{
+# Written straight to stdout or the drop-in, never via a temp file (see A FULL DISK).
+dropin_body(){
   echo '# trap 83 (2026-11-06): clear the untagged versions each pull leaves behind.'
   echo '# Written by patch-prune-images-host.sh; remove this file to undo.'
   echo '[Service]'
   echo 'ExecStartPre=-/usr/bin/docker image prune -f'
-} > "$TMP"
+}
 
 if [ "${1:-}" != "--apply" ]; then
   echo "DRY RUN."
-  if [ -n "$ALREADY" ]; then echo "The start steps already prune: nothing to write."; else echo "Would write $DROPIN:"; echo; cat "$TMP"; fi
-  rm -f "$TMP"
+  if [ -n "$ALREADY" ]; then echo "The start steps already prune: nothing to write."; else echo "Would write $DROPIN:"; echo; dropin_body; fi
   if [ -z "$T" ]; then
-    echo; echo "Old versions a prune would remove now:"; docker images --filter dangling=true
+    echo; echo "Old versions a prune would remove now (Docker 29 calls them <untagged>):"; docker images --filter dangling=true
     echo; docker system df
   fi
-  echo; echo "Re-run with --apply to write it and prune now."
+  echo; echo "Re-run with --apply to prune now and write it."
   exit 0
 fi
 
+# Prune FIRST: on a full disk nothing below can be written until this frees space.
+if [ -z "$T" ]; then
+  echo "Before:"; df -h /
+  docker image prune -f
+  echo; echo "After:"; df -h /; echo
+fi
 if [ -z "$ALREADY" ]; then
   mkdir -p "$DROPIN_DIR"
-  install -m 0644 "$TMP" "$DROPIN"
+  dropin_body > "$DROPIN"
+  chmod 0644 "$DROPIN"
   [ -n "$T" ] || systemctl daemon-reload
   echo "OK: $DROPIN written. Every start from now on clears old versions."
 else
   echo "The start steps already prune: nothing written."
-fi
-rm -f "$TMP"
-if [ -z "$T" ]; then
-  echo; echo "Before:"; df -h /
-  docker image prune -f
-  echo; echo "After:"; df -h /
 fi

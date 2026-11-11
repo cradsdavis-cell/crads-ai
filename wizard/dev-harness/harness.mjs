@@ -427,6 +427,15 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // trap 83: the app clearing old versions on the server (panel-server /host-cleanup)
+  if (req.method === 'POST' && path === '/host-cleanup') {
+    await readBody(req);
+    sendJson(res, state === 'error' ? { ok: false, error: 'unreachable' }
+      : state === 'empty' ? { ok: true, removed: 0, freedBytes: 0, kept: 0 }
+        : { ok: true, removed: 7, freedBytes: 24.3 * 1073741824, kept: 0 });
+    return;
+  }
+
   // ---- terminal ---------------------------------------------------------------
   if (req.method === 'POST' && path === '/term/open') {
     const form = await readBody(req);

@@ -1643,6 +1643,12 @@
         </div>
         <button class="act primary" id="updBtn">Update now</button>
       </div>
+      <div class="ccbanner" id="cleanBanner" style="display:none">
+        <div class="txt"><b id="cleanHead">Cleared old versions from your server.</b>
+          <div class="sub" id="cleanSub">Each update used to leave the previous version of the software behind. Nothing of yours was touched.</div>
+        </div>
+        <button class="act" id="cleanOk">OK</button>
+      </div>
       <div class="connerror" id="connError">
         <h3 id="connErrHead">Waiting for your mineral</h3>
         <p id="connErrBody">It may still be getting set up. This page keeps checking on its own; nothing you need to do.</p>
@@ -4005,7 +4011,7 @@
         // cockpit builder and walks the whole wiki on the box, so polling it every
         // 20s on a healthy connection would be a wiki walk per 20s for nothing.
         if (!quiet || !wasOk) { loadDashboard(true); loadPagesList(); }
-        if (!wasOk && state.kind !== 'local') { loadTeamNav(); loadMoveIn(); }
+        if (!wasOk && state.kind !== 'local') { loadTeamNav(); loadMoveIn(); clearOldVersions('open'); }
       } else {
         connectAttempts++;
         $('connDot').className = 'dot err';
@@ -4015,6 +4021,7 @@
         $('connStat').textContent = boxDown(r) ? 'Assistant not running'
           : notLetIn(r) ? 'Waiting to be let in' : 'Not connected';
         showConnError(connectAttempts, outText(r), boxDown(r), notLetIn(r));
+        if (boxDown(r)) clearOldVersions('down');
       }
     });
   }
@@ -9115,6 +9122,43 @@
     });
   };
 
+  // ---- old versions (trap 83, 2026-11-11) -----------------------------------
+  // Every update leaves the previous version of the software on the server
+  // (~3 GB each), and a server built before 6 Nov never removes them: members'
+  // disks filled to 100%. The app clears them itself through the server's
+  // Docker (panel-server /host-cleanup, host-docker.mjs: untagged Crads images
+  // no container uses, nothing else). Runs after a verified update, once a day
+  // on open, and once straight away when the assistant is down (a full disk is
+  // the usual reason; once space is back, the server restarts it by itself).
+  var cleanedThisSession = {};
+  function clearOldVersions(why){
+    if (state.kind === 'local' || !state.host) return Promise.resolve(null);
+    var host = state.host, key = 'crads-cleanup-at:' + host;
+    if (why === 'open') {
+      try { if (Date.now() - Number(localStorage.getItem(key) || 0) < 24 * 3600e3) return Promise.resolve(null); } catch (e) {}
+    }
+    if (why === 'down' && cleanedThisSession[host]) return Promise.resolve(null);
+    cleanedThisSession[host] = true;
+    try { localStorage.setItem(key, String(Date.now())); } catch (e) {}
+    return fetch('/host-cleanup', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ host: host }) })
+      .then(function(r){ return r.json(); })
+      .then(function(r){
+        if (r && r.ok && r.freedBytes >= 100 * 1048576 && state.host === host) {
+          var gb = r.freedBytes / 1073741824;
+          $('cleanHead').textContent = 'Cleared ' + (gb >= 1 ? gb.toFixed(1) + ' GB' : Math.round(gb * 1024) + ' MB')
+            + ' of old versions from your server.';
+          $('cleanSub').textContent = why === 'down'
+            ? 'Your server had run out of room. Each update used to leave the previous version of the software behind; nothing of yours was touched. Your assistant restarts on its own in about a minute.'
+            : 'Each update used to leave the previous version of the software behind. Nothing of yours was touched.';
+          $('cleanBanner').style.display = 'flex';
+        }
+        return r;
+      })
+      .catch(function(){ return null; });
+  }
+  $('cleanOk').onclick = function(){ $('cleanBanner').style.display = 'none'; };
+
   // ---- D55 update channel: self-serve restart-and-update ------------------
   // VERIFIED restart (2026-08-09). "Restart scheduled" was unfalsifiable: the
   // kill can be silently ignored and the image pull can fail while the unit
@@ -9176,6 +9220,7 @@
               } else {
                 notice('boxRefreshNotice', 'Done: the mineral restarted' + (after.commit ? ' and is now on ' + after.commit : '') + '. You are on the latest published software.');
                 loadDashboard(true);
+                clearOldVersions('update');
               }
               b.disabled = false;
             });
