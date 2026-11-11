@@ -209,11 +209,15 @@ test('the probe runs: mid-rebase repo, skills, hooks, .mcp.json names and env fi
   assert.ok(!r.stdout.includes('SECRET-VALUE'), 'no secret value ever leaves the server');
   assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: b, encoding: 'utf8' }).includes('shared.md'), true, 'the rebase is still exactly where it stopped');
 
-  // A folder that is not there, and the login's home itself.
+  // A folder that is not there, and the login's home itself. The probe reads the
+  // test machine's own /etc/os-release, and the OS check runs first, so pin a
+  // supported Ubuntu: GitHub's runners moved to 26.04 on 2026-11-11 and this
+  // turned into an OS refusal instead of the folder one it is here to check.
+  const onSupported = (f) => ({ ...f, os: 'ubuntu', version: '24.04' });
   const miss = parseAdoptProbe(spawnSync('bash', ['-s'], { input: probeScript({ login: 'pat', folder: '~/nope' }), env, encoding: 'utf8' }).stdout);
-  assert.match(adoptRefusal(miss, { login: 'pat' }), /no folder at .*nope/);
+  assert.match(adoptRefusal(onSupported(miss), { login: 'pat' }), /no folder at .*nope/);
   const homeIt = parseAdoptProbe(spawnSync('bash', ['-s'], { input: probeScript({ login: 'pat', folder: '~' }), env, encoding: 'utf8' }).stdout);
-  assert.match(adoptRefusal(homeIt, { login: 'pat' }), /home folder of "pat" itself/);
+  assert.match(adoptRefusal(onSupported(homeIt), { login: 'pat' }), /home folder of "pat" itself/);
 });
 
 // ---- refusals ---------------------------------------------------------------
