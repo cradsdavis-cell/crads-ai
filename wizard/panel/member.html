@@ -2478,7 +2478,7 @@
       </div>
 
       <!-- Services whose official server only lets CLAUDE'S OWN connector sign
-           in (catalogue auth 'account': Shopify, Xero). The mineral can hold
+           in (catalogue auth 'account': Shopify, Xero, Figma). The mineral can hold
            nothing for these, so this card is a guide, not a wizard: where to
            connect it, and plainly what it cannot do from there. -->
       <div class="guidecard" id="acWizard" style="margin-top:14px;display:none" data-guided="account">
@@ -5131,7 +5131,7 @@
 
   // ---- Guided connections (2026-10-02) ------------------------------------
   // Slack and WordPress are token connections a member has to make by hand on
-  // the other side; Shopify and Xero only connect through Claude's own
+  // the other side; Shopify, Xero and Figma only connect through Claude's own
   // connector. Each opens its own card (markup above #mcpBrowse). The two
   // wizards save through mcp-add-custom and then ask the box to call the
   // server (mcp-check, contract 4); a failed check removes the saved entry, so
@@ -5143,7 +5143,9 @@
   // What the account guide says per service. Facts, verified 2026-10-02:
   // Shopify's sign-in accepts only claude.ai / chatgpt.com redirects; Xero's
   // hosted server refuses third-party tokens and its Claude connector is
-  // read-only.
+  // read-only. Figma (2026-11-11): its registration 403s every client_name
+  // not on its MCP catalogue allow-list, and its remote server takes no
+  // personal access token.
   var ACCOUNT_GUIDE = {
     shopify: {
       why: "Shopify only lets Claude's own connector sign in to a store, so your mineral cannot hold this connection itself. You can still use Shopify with your assistant in your chats, connected through your Claude account.",
@@ -5154,6 +5156,11 @@
       why: "Xero's own connection for assistants only accepts Claude's built-in connector at the moment, so your mineral cannot hold this connection itself. Through your Claude account it works today, read-only: your assistant can look at invoices, contacts and reports, and change nothing.",
       step2: '<b>2.</b> Search for <b>Xero</b>, press <b>Connect</b>, sign in with your normal Xero login and choose the organisation.',
       limit: 'What it cannot do: change anything in Xero, or run in your scheduled jobs and Telegram, which live on your mineral and cannot see a Claude account connector.'
+    },
+    figma: {
+      why: "Figma only lets the AI apps on its own approved list sign in to its connection for assistants, and our app is not on that list, so your mineral cannot hold this connection itself. You can still use Figma with your assistant in your chats, connected through your Claude account.",
+      step2: '<b>2.</b> Search for <b>Figma</b>, press <b>Connect</b> and sign in with your normal Figma login. Then paste a link to a Figma file or frame into a chat and ask about it.',
+      limit: 'What it cannot do: your scheduled jobs and Telegram run on your mineral, and they cannot see a Claude account connector. Ask about your designs in a chat, not in a morning job.'
     }
   };
   // The Slack app template. user scopes only: the token is a USER token, so

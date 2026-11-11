@@ -150,12 +150,12 @@ you can fix it and try again. Six services work this way today:
   your mineral itself, and it writes drafts but never sends, deletes or moves
   anything: [connect any other email](/docs/connect-email).
 
-**Two are listed but cannot live on your mineral.** Shopify and Xero only let
+**Three are listed but cannot live on your mineral.** Shopify, Xero and Figma only let
 Claude's own connector sign in at the moment. Their cards say **Chats only**,
 the button says **How to**, and it opens the steps for connecting them to your
 Claude account, with the limit stated plainly: they work in your chats, never
 in scheduled jobs. The **Claude account** filter shows just these.
-[Shopify and Xero, through your Claude account](/docs/connect-shopify-and-xero)
+[Shopify, Xero and Figma, through your Claude account](/docs/connect-shopify-and-xero)
 has the detail.
 
 **More than one account.** Once a Google account is working, the list offers

@@ -1,6 +1,7 @@
 # Sources for the hand-sourced marks
 
-simple-icons 16.28.0 (CC0-1.0, see LICENSE) covers 49 of the 76 marks (Stripe,
+simple-icons 16.28.0 (CC0-1.0, see LICENSE) covers 50 of the 77 marks (Perplexity,
+`icons/perplexity.svg`, hex #1FB8CD, added 2026-11-11; Stripe,
 `icons/stripe.svg`, hex #635BFF, added 2026-10-20; Odoo, `icons/odoo.svg`, hex
 #714B67, added 2026-10-22). The 26
 below were not in that package and were fetched by hand (17 on 2026-08-23, the

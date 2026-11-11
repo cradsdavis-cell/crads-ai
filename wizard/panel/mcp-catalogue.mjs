@@ -29,7 +29,10 @@
 // auth 'account' is the third kind: a service whose official server only lets
 // Claude's own connector sign in (Shopify: its sign-in rejects every redirect
 // but claude.ai and chatgpt.com; Xero: its hosted server refuses third-party
-// tokens, XeroAPI/xero-mcp-server#212). Those cards open a guide to the
+// tokens, XeroAPI/xero-mcp-server#212; Figma: its registration admits only
+// the client_names on Figma's MCP catalogue allow-list, 403 for any other,
+// whatever the redirect, and its remote server takes no personal access
+// token; probed 2026-11-11). Those cards open a guide to the
 // member's Claude account settings and say plainly that scheduled jobs cannot
 // see them. Nothing is written to the box for an 'account' entry.
 // 'mailchimp' (contract 5) is a wizard too, but its server runs ON the box
@@ -68,7 +71,6 @@ export const CATALOGUE = [
   // probe are REMOVED there, not shipped hopeful)
   { key: 'paypal',    label: 'PayPal',       category: 'Payments', url: 'https://mcp.paypal.com/mcp',          blurb: 'orders, payments and disputes', auth: 'oauth' },
   { key: 'square',    label: 'Square',       category: 'Payments', url: 'https://mcp.squareup.com/sse',        blurb: 'payments and point of sale', auth: 'oauth' },
-  { key: 'figma',     label: 'Figma',        category: 'Design',   url: 'https://mcp.figma.com/mcp',           blurb: 'read your design files', auth: 'oauth' },
   // Asana v2 (2026-10-17): the v1 /sse server is retiring ("05/11/2026") and,
   // being SSE, never let an open chat pick up a renewed token. v2 is HTTP but
   // has no self-registration, so the member makes their own Asana app: a
@@ -142,6 +144,16 @@ export const CATALOGUE = [
   { key: 'github',     label: 'GitHub',     category: 'Dev',      url: 'https://api.githubcopilot.com/mcp/', blurb: 'repos, issues and pull requests', auth: 'token' },
   { key: 'stripe',     label: 'Stripe',     category: 'Payments', url: 'https://mcp.stripe.com',             blurb: 'payments, customers and invoices', auth: 'token' },
   { key: 'metricool',  label: 'Metricool',  category: 'Comms',    url: 'https://ai.metricool.com/mcp',       blurb: 'schedule social posts and read analytics', auth: 'oauth' },
+  // Perplexity (2026-11-11, asked for by a pebble). Its official hosted server
+  // (ai.perplexity/mcp-server 1.3.0) self-registers clients, and registration
+  // was RUN (client id, no secret). Its sign-in refuses a request with no
+  // scope, which is what the scope fallback in mcp-oauth-lib.mjs exists for:
+  // asked again with "perplexity_api offline_access" it reaches Perplexity's
+  // consent page. Not yet completed by a person end to end. It also takes a
+  // Perplexity API key as Bearer (proven: tools/list answers four tools), so
+  // the by-URL token path works too. Usage bills the member's Perplexity API
+  // credit, which is separate from a Pro chat subscription.
+  { key: 'perplexity', label: 'Perplexity', category: 'AI',      url: 'https://api.perplexity.ai/mcp',      blurb: 'web search and research with sources', auth: 'oauth' },
   // guided connections (2026-10-02): a wizard on the page, not a probe
   { key: 'slack',     label: 'Slack',     category: 'Comms', url: 'https://mcp.slack.com/mcp', blurb: 'search, read and post in your workspace', auth: 'token', guided: 'slack' },
   { key: 'mailchimp', label: 'Mailchimp', category: 'Comms', url: 'https://us1.api.mailchimp.com/3.0/', blurb: 'audiences, contacts, draft campaigns and reports', auth: 'token', guided: 'mailchimp' },
@@ -152,6 +164,7 @@ export const CATALOGUE = [
   // connected through the member's Claude account only (see 'account' above)
   { key: 'shopify',   label: 'Shopify',   category: 'Payments', url: 'https://setup.shopify.com/mcp', blurb: 'your store, in your chats with Claude', auth: 'account', guided: 'account' },
   { key: 'xero',      label: 'Xero',      category: 'Payments', url: 'https://mcp.xero.com/mcp',      blurb: 'read-only accounts, in your chats with Claude', auth: 'account', guided: 'account' },
+  { key: 'figma',     label: 'Figma',     category: 'Design',   url: 'https://mcp.figma.com/mcp',     blurb: 'your design files, in your chats with Claude', auth: 'account', guided: 'account' },
   // AI note-takers (2026-08-24, asked for by pebbles and rocks). Every one of
   // these was probed the way the rest of the catalogue was, and then one step
   // further: registration was actually RUN against each endpoint, not merely

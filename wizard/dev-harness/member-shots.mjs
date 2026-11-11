@@ -337,8 +337,8 @@ add('connections-honest', '/member', { waitMs: 2500, after: async (page) => {
   if (!gw) throw new Error('the local Google Workspace row is missing');
   if (/sign in once/.test(gw)) throw new Error(`the local server still asks for a sign-in: ${gw}`);
   if (!/runs on your mineral/.test(gw) || !/ready on this mineral/.test(gw)) throw new Error(`the local row does not say it runs on the mineral: ${gw}`);
-  const fg = await row('Figma');
-  if (!fg) throw new Error('the expired Figma row is missing');
+  const fg = await row('Box');
+  if (!fg) throw new Error('the expired Box row is missing');
   if (/working, including/.test(fg)) throw new Error(`an expired token still reads as working: ${fg}`);
   if (!/ran out at 15:10/.test(fg)) throw new Error(`the expired row does not say when it ran out: ${fg}`);
 } });

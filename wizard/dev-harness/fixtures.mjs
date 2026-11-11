@@ -1103,7 +1103,7 @@ function honestRows() {
     { key: 'google_workspace', label: connectionLabel('google_workspace'), blurb: 'added by you in Claude Code', url: 'http://localhost:8000/mcp', auth: 'local', state: 'on',
       configured: true, authorised: true, renews: null, mine: false, status: 'ready on this mineral, including in scheduled jobs' },
     // a token the mineral signed in for itself, past its end and not yet renewed
-    { key: 'figma', label: 'Figma', blurb: 'read your design files', url: 'https://mcp.figma.com/mcp', auth: 'token', state: 'broken', problem: 'expired',
+    { key: 'box', label: 'Box', blurb: 'files and folders', url: 'https://mcp.box.com/', auth: 'token', state: 'broken', problem: 'expired',
       configured: true, authorised: false, renews: true, mine: true, status: 'not working: its sign-in ran out at 15:10 and has not been renewed yet' },
   ];
 }

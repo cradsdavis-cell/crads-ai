@@ -4,7 +4,7 @@
 // Slack, WordPress, WooCommerce, Shopify and Xero). Slack and WordPress are
 // wizards like Telegram's and Google's: they save a credential, then ask the
 // box to call the server (mcp-check, contract 4), and a failed check removes
-// what was saved. Shopify and Xero only connect through Claude's own
+// what was saved. Shopify, Xero and Figma only connect through Claude's own
 // connector, so their card is a guide that says what that costs.
 //
 // Static pins first (they run everywhere), then one driven walk through all
@@ -46,7 +46,7 @@ test('the Slack template switches MCP on and keeps the token from rotating', () 
 });
 
 test('the account guide states its limit for each service', () => {
-  for (const k of ['shopify', 'xero']) {
+  for (const k of ['shopify', 'xero', 'figma']) {
     const block = guided.split(`${k}: {`)[1].split('\n    }')[0];
     assert.match(block, /scheduled jobs/, `${k}: says scheduled jobs cannot see it`);
   }
@@ -208,8 +208,8 @@ test('driven: all four guided cards, a wrong credential refused and nothing kept
     assert.equal(await page.inputValue('#imPass'), '', 'the password box is cleared once saved');
     assert.ok((await yours()).includes('Email (IMAP)'));
 
-    // Shopify and Xero: a guide, no box write, and the limit said plainly
-    for (const n of ['Shopify', 'Xero']) {
+    // Shopify, Xero and Figma: a guide, no box write, and the limit said plainly
+    for (const n of ['Shopify', 'Xero', 'Figma']) {
       assert.equal(await card(n).locator('.mcp-dir-connect').innerText(), 'How to');
       await open(n);
       const text = await page.innerText('#acWizard');
@@ -217,7 +217,7 @@ test('driven: all four guided cards, a wrong credential refused and nothing kept
       assert.match(text, /scheduled jobs/);
     }
     await page.click('#mcpDirChips [data-auth="account"]'); await page.waitForTimeout(200);
-    assert.deepEqual(await page.$$eval('#mcpDirRows .mcp-dir-card .nm', (e) => e.map((x) => x.textContent).sort()), ['Shopify', 'Xero'], 'the Claude account pill');
+    assert.deepEqual(await page.$$eval('#mcpDirRows .mcp-dir-card .nm', (e) => e.map((x) => x.textContent).sort()), ['Figma', 'Shopify', 'Xero'], 'the Claude account pill');
     assert.deepEqual(errors, [], 'no page errors');
   } finally {
     await browser.close();

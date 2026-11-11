@@ -149,3 +149,47 @@ test('discovery falls back to the origin doc when the path doc is absent', async
   const m = await discover(f, 'https://mcp.example.com/mcp');
   assert.equal(m._as, 'https://auth.example.com');
 });
+
+// ---- scope fallback (2026-11-11, Perplexity) ------------------------------
+import { fallbackScope, refusesWithoutScope } from './mcp-oauth-lib.mjs';
+
+test('discovery keeps the scopes the protected-resource doc publishes', async () => {
+  const f = async (u) => {
+    if (u === 'https://api.perplexity.ai/.well-known/oauth-protected-resource') return res(200, { authorization_servers: ['https://api.perplexity.ai'], scopes_supported: ['perplexity_api'] });
+    if (u === 'https://api.perplexity.ai/.well-known/oauth-authorization-server') return res(200, { ...AS, scopes_supported: ['perplexity_api', 'offline_access'] });
+    return res(404, {});
+  };
+  const m = await discover(f, 'https://api.perplexity.ai/mcp');
+  assert.deepEqual(m._prScopes, ['perplexity_api']);
+  assert.equal(fallbackScope(m), 'perplexity_api offline_access', 'offline_access joins when the AS offers it, or the connection cannot refresh');
+});
+
+test('no published scopes means no fallback, so nothing changes for that provider', async () => {
+  const f = async (u) => (u === 'https://mcp.canva.com/.well-known/oauth-authorization-server' ? res(200, AS) : res(404, {}));
+  const m = await discover(f, 'https://mcp.canva.com/mcp');
+  assert.deepEqual(m._prScopes, []);
+  assert.equal(fallbackScope(m), null);
+  assert.equal(fallbackScope({ _prScopes: ['a', 'a', 'b'] }), 'a b', 'duplicates collapse, and no offline_access unless offered');
+});
+
+const page = (status, body, location) => ({ status, ok: status < 300, headers: { get: (h) => (h === 'location' ? location || null : null) }, text: async () => body });
+const RU = 'http://127.0.0.1:5555/mcp-callback';
+
+test('a provider that refuses a scopeless request is detected (Perplexity\'s own words)', async () => {
+  const perplexity = async () => page(400, JSON.stringify({ error: 'invalid_request', error_description: 'The scope of your request is missing. Please ensure some scopes are requested.' }));
+  assert.equal(await refusesWithoutScope(perplexity, 'https://x/authorize', RU), true);
+  const bounced = async () => page(302, '', `${RU}?error=invalid_scope&state=s`);
+  assert.equal(await refusesWithoutScope(bounced, 'https://x/authorize', RU), true);
+});
+
+test('anything that is not a scope refusal leaves today\'s flow alone', async () => {
+  const cases = [
+    async () => page(302, '', 'https://prov.example/login?next=1'),             // the normal path: off to log in
+    async () => page(200, '<html>Sign in</html>'),
+    async () => page(400, JSON.stringify({ error: 'invalid_client', error_description: 'unknown client' })),
+    async () => page(400, JSON.stringify({ error: 'invalid_request', error_description: 'redirect_uri mismatch' })),
+    async () => page(302, '', `${RU}?error=access_denied`),
+    async () => { throw new Error('network down'); },
+  ];
+  for (const f of cases) assert.equal(await refusesWithoutScope(f, 'https://x/authorize', RU), false);
+});

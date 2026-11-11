@@ -50,13 +50,17 @@ export async function discover(fetchFn, serverUrl) {
   const tail = u.pathname.replace(/\/+$/, '');
   const prDocs = (tail && tail !== '/' ? [`${origin}/.well-known/oauth-protected-resource${tail}`] : [])
     .concat(`${origin}/.well-known/oauth-protected-resource`);
-  let asBase = origin;
+  let asBase = origin, prScopes = [];
   for (const doc of prDocs) {
     try {
       const pr = await fetchFn(doc);
       if (!pr.ok) continue;
       const j = await pr.json();
-      if (Array.isArray(j.authorization_servers) && j.authorization_servers[0]) { asBase = j.authorization_servers[0]; break; }
+      if (Array.isArray(j.authorization_servers) && j.authorization_servers[0]) {
+        asBase = j.authorization_servers[0];
+        prScopes = Array.isArray(j.scopes_supported) ? j.scopes_supported.filter((x) => typeof x === 'string' && x) : [];
+        break;
+      }
     } catch { /* absent is normal; try the next, then fall back to the origin */ }
   }
 
@@ -65,7 +69,7 @@ export async function discover(fetchFn, serverUrl) {
       const r = await fetchFn(`${asBase.replace(/\/+$/, '')}${path}`);
       if (!r.ok) continue;
       const m = await r.json();
-      if (m.authorization_endpoint && m.token_endpoint) return { ...m, _as: asBase };
+      if (m.authorization_endpoint && m.token_endpoint) return { ...m, _as: asBase, _prScopes: prScopes };
     } catch { /* try the next */ }
   }
   throw new Error('this server does not advertise an OAuth endpoint we can use');
@@ -109,6 +113,53 @@ export function authorizeUrl({ meta, clientId, redirectUri, challenge, state, re
   if (resource) u.searchParams.set('resource', resource);
   if (scope) u.searchParams.set('scope', scope);
   return u.href;
+}
+
+// SCOPE FALLBACK (2026-11-11, Sam's ruling, Perplexity). We send no scope by
+// default and each provider grants its own defaults: that is how every
+// one-click service in the catalogue signed in until now. Perplexity refuses a
+// request with no scope at all ("The scope of your request is missing", 400).
+// The MCP spec's answer is to ask for every scope the protected-resource doc
+// lists, but applied to everyone that would have widened ~40 working sign-ins,
+// several to admin (Pipedrive, Shortcut, Prisma, Stytch; PostHog lists 238).
+// So the spec's list is a FALLBACK: preflight the scopeless URL, and only a
+// provider that refuses it for want of a scope is asked again with the list.
+// offline_access rides along when the authorization server offers it, because
+// a connection that cannot refresh dies at its first expiry.
+export function fallbackScope(meta) {
+  const list = [...new Set((meta && meta._prScopes) || [])];
+  if (!list.length) return null;
+  const asScopes = Array.isArray(meta.scopes_supported) ? meta.scopes_supported : [];
+  if (asScopes.includes('offline_access') && !list.includes('offline_access')) list.push('offline_access');
+  return list.join(' ');
+}
+
+// Does this authorize URL get refused for want of a scope? Read without
+// following redirects. A provider can say so two ways: an error page/JSON
+// (Perplexity: 400 invalid_request "...scope...") or a redirect straight back
+// to our redirect_uri carrying error=invalid_scope. Anything else, including
+// any failure to ask, is "no": the member then sees exactly today's flow.
+export async function refusesWithoutScope(fetchFn, url, redirectUri) {
+  try {
+    const r = await Promise.race([
+      fetchFn(url, { redirect: 'manual' }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
+    ]);
+    const loc = (r.headers && typeof r.headers.get === 'function' && r.headers.get('location')) || '';
+    if (loc && redirectUri && loc.startsWith(redirectUri)) {
+      const q = new URL(loc).searchParams;
+      const err = q.get('error') || '';
+      return err === 'invalid_scope' || (err === 'invalid_request' && /scope/i.test(q.get('error_description') || ''));
+    }
+    if (r.status !== 400) return false;
+    let body = '';
+    if (typeof r.text === 'function') body = await r.text();
+    else if (typeof r.json === 'function') body = JSON.stringify(await r.json());
+    let err = '', desc = body;
+    try { const j = JSON.parse(body); err = String(j.error || ''); desc = String(j.error_description || j.message || ''); } catch { /* an HTML page */ }
+    if (err === 'invalid_scope') return true;
+    return /scope/i.test(desc) && /(missing|required|requested|no scope|empty)/i.test(desc);
+  } catch { return false; }
 }
 
 export async function exchange(fetchFn, meta, { code, clientId, clientSecret, redirectUri, verifier, resource }) {

@@ -231,7 +231,7 @@ test('driven: a mark per row, account rows inside the fold, the disconnect notic
     const kinds = await page.$$eval('#mcpDirRows .mcp-dir-card .kind', (els) => els.map((e) => e.textContent));
     assert.ok(kinds.length && kinds.every((k) => ['API token', 'Guided', 'Chats only'].includes(k)), 'chips: ' + JSON.stringify(kinds));
     assert.equal(kinds.filter((k) => k === 'Guided').length, 6, 'Slack, WordPress, Mailchimp, Microsoft 365, Odoo and Email (IMAP) are guided');
-    assert.equal(kinds.filter((k) => k === 'Chats only').length, 2, 'Shopify and Xero are chats only');
+    assert.equal(kinds.filter((k) => k === 'Chats only').length, 3, 'Shopify, Xero and Figma are chats only');
     // Connect is hidden at rest and revealed by keyboard focus
     const first = page.locator('#mcpDirRows .mcp-dir-card .mcp-dir-connect').first();
     assert.equal(await first.evaluate((b) => getComputedStyle(b).opacity), '0', 'quiet at rest');

@@ -27,7 +27,7 @@
 // one flow. Tokens go straight to the box and are never written to disk here,
 // never logged, and never put in a response body.
 import http from 'node:http';
-import { discover, register, authorizeUrl, exchange, tokenRecord, pkce, newState, stateMatches } from '../../engine/comms/mcp-oauth-lib.mjs';
+import { discover, register, authorizeUrl, fallbackScope, refusesWithoutScope, exchange, tokenRecord, pkce, newState, stateMatches } from '../../engine/comms/mcp-oauth-lib.mjs';
 
 export const MCP_NAME_RE = /^[a-z0-9][a-z0-9_-]{1,31}$/;
 // The fixed callback a member's own app lists. Change it and every member app
@@ -171,7 +171,14 @@ export function createMcpOAuthRoutes({ state = {}, sendToBox, fetchFn = fetch, l
           name, host: b.host, url: url.href, resource, meta, clientId, clientSecret,
           verifier, state: st, redirectUri, status: 'waiting', started: Date.now(),
         });
-        json(res, 200, { ok: true, url: authorizeUrl({ meta, clientId, redirectUri, challenge, state: st, resource }) });
+        let consent = authorizeUrl({ meta, clientId, redirectUri, challenge, state: st, resource });
+        // the scope fallback (mcp-oauth-lib.mjs): only a provider that refuses
+        // a scopeless request is asked again, with the scopes it publishes
+        const scope = fallbackScope(meta);
+        if (scope && await refusesWithoutScope(fetchFn, consent, redirectUri)) {
+          consent = authorizeUrl({ meta, clientId, redirectUri, challenge, state: st, resource, scope });
+        }
+        json(res, 200, { ok: true, url: consent });
       } catch (e) {
         json(res, 200, { ok: false, error: String(e.message || e).slice(0, 200) });
       }

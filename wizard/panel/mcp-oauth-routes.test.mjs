@@ -199,3 +199,47 @@ test('own client, end to end through the real fixed-port listener: secret + reso
   assert.equal(sent[0].payload.url, 'https://mcp.asana.com/v2/mcp');
   for (const s of state.memberServers) s.close();
 });
+
+// ---- scope fallback (2026-11-11, Perplexity) ------------------------------
+function scopedProvider({ refuse }) {
+  const preflights = [];
+  const fetchFn = async (u, o = {}) => {
+    const url = String(u);
+    const j = (status, body) => ({ ok: status < 300, status, json: async () => body, text: async () => JSON.stringify(body), headers: { get: () => null } });
+    if (url === 'https://api.perplexity.ai/.well-known/oauth-protected-resource') return j(200, { authorization_servers: ['https://api.perplexity.ai'], scopes_supported: ['perplexity_api'] });
+    if (url.endsWith('/.well-known/oauth-protected-resource/mcp')) return j(404, {});
+    if (url.endsWith('/.well-known/oauth-authorization-server')) return j(200, {
+      authorization_endpoint: 'https://api.perplexity.ai/oauth/authorize', token_endpoint: 'https://api.perplexity.ai/oauth/token',
+      registration_endpoint: 'https://api.perplexity.ai/oauth/register', scopes_supported: ['perplexity_api', 'offline_access'],
+    });
+    if (url.endsWith('/oauth/register')) return j(201, { client_id: 'CID' });
+    if (url.startsWith('https://api.perplexity.ai/oauth/authorize')) {
+      preflights.push(new URL(url).searchParams.get('scope'));
+      return refuse ? j(400, { error: 'invalid_request', error_description: 'The scope of your request is missing.' }) : { status: 302, ok: false, headers: { get: () => 'https://console.perplexity.ai/login' }, text: async () => '' };
+    }
+    return j(404, {});
+  };
+  return { fetchFn, preflights };
+}
+const startWith = (fetchFn) => new Promise((resolve) => {
+  const handle = createMcpOAuthRoutes({ state: {}, fetchFn, sendToBox: async () => {} });
+  const body = { host: 'keith-box', name: 'perplexity', url: 'https://api.perplexity.ai/mcp' };
+  const req = { method: 'POST', url: '/mcp-oauth/start', on(ev, cb) { if (ev === 'data') cb(Buffer.from(JSON.stringify(body))); if (ev === 'end') cb(); }, destroy() {} };
+  const res = { writeHead(c) { this.code = c; return this; }, end(p) { resolve(JSON.parse(p)); } };
+  handle(req, res, '/mcp-oauth/start');
+});
+
+test('a provider that refuses a scopeless sign-in is asked again with the scopes it publishes', async () => {
+  const p = scopedProvider({ refuse: true });
+  const r = await startWith(p.fetchFn);
+  assert.equal(r.ok, true);
+  assert.equal(new URL(r.url).searchParams.get('scope'), 'perplexity_api offline_access');
+  assert.deepEqual(p.preflights, [null], 'one preflight, of the scopeless URL');
+});
+
+test('a provider that accepts a scopeless sign-in gets exactly today\'s URL, with no scope', async () => {
+  const p = scopedProvider({ refuse: false });
+  const r = await startWith(p.fetchFn);
+  assert.equal(r.ok, true);
+  assert.equal(new URL(r.url).searchParams.get('scope'), null, 'publishing scopes is not a reason to ask for them');
+});

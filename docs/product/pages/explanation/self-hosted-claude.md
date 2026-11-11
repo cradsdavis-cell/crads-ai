@@ -63,11 +63,11 @@ Anthropic. Crads-AI is not in the path and never sees it. What Anthropic keeps,
 and whether it can be used to improve their models, is set by their terms and
 by the privacy settings in your Claude account. Check those yourself.
 
-## Two connections live with Anthropic, not on your mineral
+## Three connections live with Anthropic, not on your mineral
 
-Shopify and Xero only let Claude's own connector in, so you connect them to
+Shopify, Xero and Figma only let Claude's own connector in, so you connect them to
 your Claude account instead. They work in your chats and not in your
-scheduled jobs; [Shopify and Xero](/docs/connect-shopify-and-xero) has the
+scheduled jobs; [Shopify, Xero and Figma](/docs/connect-shopify-and-xero) has the
 detail. Every other connection signs in on your mineral and keeps its token
 there.
 

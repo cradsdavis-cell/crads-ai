@@ -237,7 +237,7 @@ function connectionsPage() {
     `${mineral.length} services your mineral can connect to without you finding an endpoint`,
     `yourself. ${featured} of them ship inside the box as featured connectors; the rest`,
     'are in the list on the same page, and you connect them from there.' + (account.length
-      ? ` ${account.length} more (${account.map((c) => c.label).join(' and ')}) are listed so you can find them, but they only`
+      ? ` ${account.length} more (${account.map((c) => c.label).join(', ').replace(/, ([^,]*)$/, ' and $1')}) are listed so you can find them, but they only`
         + ' connect through your Claude account, so they work in your chats and never in scheduled jobs.' : ''), '',
     'The sign-in column says how you authorise it. **One click** means the service supports',
     'dynamic registration, so you sign in and it is done. **Token** means you paste an API',
