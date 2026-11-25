@@ -1,6 +1,6 @@
 # Crads-AI
 
-**Website and docs:** <https://crads-ai.com> · **Download the app:** <https://crads-ai.com/download>
+**Website and docs:** <https://crads-ai.com> · **Download the app:** <https://crads-ai.com/download> · **Guides:** <https://crads-ai.com/guides>
 
 Free, open-source, fully self-hosted AI assistant infrastructure. Your server,
 your SSH key, your accounts. Nothing central: no directory service, no billing,
@@ -38,6 +38,15 @@ wizard.
 
 You need: a Hetzner Cloud account (~AUD $12–16/mo for a cx33-class server), a
 Claude subscription, and a free GitHub account for the brain backup.
+
+## Guides
+
+Guides for the problems that keep coming up, each starting with what plain
+Claude can do on its own:
+
+- [Claude forgets your business because it isn't written where Claude reads](https://crads-ai.com/guides/claude-remember-your-business)
+- [Your next proposal is mostly written already](https://crads-ai.com/guides/ai-proposals-and-quotes)
+- [Your posts can come from the week you've already had](https://crads-ai.com/guides/ai-social-media-posts)
 
 ## Repository layout
 
